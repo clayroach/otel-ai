@@ -1,0 +1,91 @@
+# OpenTelemetry Collector configuration
+# Simplified for development - basic functionality only
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins:
+            - "http://*"
+            - "https://*"
+
+processors:
+  # Memory limiter to prevent OOM
+  memory_limiter:
+    limit_mib: 512
+    spike_limit_mib: 128
+    check_interval: 5s
+
+  # Batch processing for better throughput - smaller batches for testing
+  batch:
+    send_batch_size: 1
+    send_batch_max_size: 10
+    timeout: 1s
+
+  # Resource detection
+  resourcedetection:
+    detectors: [env, system]
+    timeout: 2s
+    override: false
+
+exporters:
+  # ClickHouse exporter for our AI-native storage
+  clickhouse:
+    endpoint: tcp://clickhouse:9000
+    database: otel
+    username: otel
+    password: otel123
+    ttl: 72h
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+    sending_queue:
+      enabled: true
+      num_consumers: 10
+      queue_size: 5000
+    timeout: 30s
+
+  # Debug exporter for development
+  debug:
+    verbosity: normal
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+extensions:
+  # Health check extension
+  health_check:
+    endpoint: 0.0.0.0:13133
+    path: /health
+  
+  # Performance profiling
+  pprof:
+    endpoint: 0.0.0.0:1777
+
+service:
+  extensions: [health_check, pprof]
+  
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [clickhouse, debug]
+    
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [clickhouse, debug]
+    
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [clickhouse, debug]
+
+  telemetry:
+    logs:
+      level: debug
