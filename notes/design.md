@@ -23,30 +23,34 @@ flowchart TD
 ## Design Principles
 
 ### 1. **Zero-Cost Abstraction**
+
 Instrumentation should have minimal overhead when disabled
 
 ### 2. **Semantic Conventions**
+
 Follow OpenTelemetry semantic conventions strictly
 
 ### 3. **Graceful Degradation**
+
 System continues functioning even if telemetry fails
 
 ### 4. **Configuration Over Code**
+
 Prefer environment-based configuration
 
 ### 5. **Testability**
+
 All instrumentation must be testable in isolation
 
 ## Key Design Areas
 
 ### Context Propagation
+
 - W3C Trace Context as primary format
 - Baggage for cross-cutting concerns
 - Context injection/extraction patterns
 
-
 # System Architecture
-
 
 ## Overview
 

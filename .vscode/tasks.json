@@ -39,7 +39,16 @@
       "label": "Open Dendron Preview",
       "type": "shell",
       "command": "npx",
-      "args": ["dendron-cli", "launchEngineServer", "--wsRoot", ".", "--vaults", "notes", "--port", "3005"],
+      "args": [
+        "dendron-cli",
+        "launchEngineServer",
+        "--wsRoot",
+        ".",
+        "--vaults",
+        "notes",
+        "--port",
+        "3005"
+      ],
       "problemMatcher": [],
       "isBackground": true,
       "group": "none"

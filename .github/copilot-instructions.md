@@ -1,10 +1,12 @@
 # Copilot Instructions for OpenTelemetry Project
 
 ## Project Context
+
 This is an OpenTelemetry implementation project with integrated Dendron documentation.
 Each package has a corresponding note in `notes/packages/` that documents its design and implementation.
 
 ## Important: Documentation-Driven Development
+
 1. Package specifications are written FIRST in `notes/packages/[package]/package.md`
 2. Code is generated FROM these specifications
 3. Documentation is updated when code changes
@@ -12,7 +14,9 @@ Each package has a corresponding note in `notes/packages/` that documents its de
 ## Package Documentation Rules
 
 ### When asked to "document package"
+
 Analyze the code and update the corresponding note in notes/packages/ with:
+
 1. Current implementation summary with code examples
 2. Public API documentation with TypeScript signatures
 3. Dependencies and interactions
@@ -23,7 +27,9 @@ Analyze the code and update the corresponding note in notes/packages/ with:
 5. Recent changes with dates
 
 ### When asked to "generate from note"
+
 Read the package.md file and:
+
 1. Create code matching the specifications exactly
 2. Follow the architectural decisions described
 3. Include appropriate OpenTelemetry patterns:
@@ -37,10 +43,11 @@ Read the package.md file and:
 ## OpenTelemetry Patterns
 
 ### Tracer Implementation
-```typescript
-import { trace, context, SpanStatusCode } from '@opentelemetry/api';
 
-const tracer = trace.getTracer('package-name', '1.0.0');
+```typescript
+import { trace, context, SpanStatusCode } from '@opentelemetry/api'
+
+const tracer = trace.getTracer('package-name', '1.0.0')
 
 function instrumentedFunction() {
   return tracer.startActiveSpan('operation.name', (span) => {
@@ -48,45 +55,48 @@ function instrumentedFunction() {
       span.setAttributes({
         'service.name': 'my-service',
         'operation.type': 'process'
-      });
+      })
       // ... operation logic
-      return result;
+      return result
     } catch (error) {
-      span.recordException(error);
-      span.setStatus({ code: SpanStatusCode.ERROR });
-      throw error;
+      span.recordException(error)
+      span.setStatus({ code: SpanStatusCode.ERROR })
+      throw error
     } finally {
-      span.end();
+      span.end()
     }
-  });
+  })
 }
 ```
 
 ### Metrics
+
 ```typescript
-import { metrics } from '@opentelemetry/api';
+import { metrics } from '@opentelemetry/api'
 
-const meter = metrics.getMeter('package-name', '1.0.0');
-const counter = meter.createCounter('operations.count');
-const histogram = meter.createHistogram('operation.duration');
+const meter = metrics.getMeter('package-name', '1.0.0')
+const counter = meter.createCounter('operations.count')
+const histogram = meter.createHistogram('operation.duration')
 
-counter.add(1, { 'operation.type': 'process' });
-histogram.record(durationMs, { 'operation.status': 'success' });
+counter.add(1, { 'operation.type': 'process' })
+histogram.record(durationMs, { 'operation.status': 'success' })
 ```
 
 ### Context Propagation
+
 ```typescript
-import { propagation, context } from '@opentelemetry/api';
+import { propagation, context } from '@opentelemetry/api'
 
 // Inject context
-const headers = {};
-propagation.inject(context.active(), headers);
+const headers = {}
+propagation.inject(context.active(), headers)
 
 // Extract context
-const extractedContext = propagation.extract(context.active(), headers);
+const extractedContext = propagation.extract(context.active(), headers)
 ```
 
 ## Code Quality Standards
+
 - TypeScript with strict mode enabled
 - 80% minimum test coverage
 - JSDoc comments for all public APIs
@@ -94,13 +104,16 @@ const extractedContext = propagation.extract(context.active(), headers);
 - Use consistent error handling patterns
 
 ## Bidirectional Sync
-- Keep notes/packages/*/package.md in sync with src/*
+
+- Keep notes/packages/_/package.md in sync with src/_
 - Each significant code change should update documentation
 - Each specification change should regenerate affected code
 - Use git commits to track sync points
 
 ## Daily Workflow Support
+
 When working with daily notes:
+
 1. Check for incomplete tasks from previous days
 2. Link package work to daily goals
 3. Document OpenTelemetry decisions
@@ -109,6 +122,7 @@ When working with daily notes:
 ## Example Prompts
 
 ### For Code Generation:
+
 ```
 @workspace Read notes/packages/tracer/package.md and generate a complete tracer implementation with:
 - OpenTelemetry SDK integration
@@ -120,6 +134,7 @@ Place the code in src/tracer/
 ```
 
 ### For Documentation:
+
 ```
 @workspace Analyze src/metrics/ and update notes/packages/metrics/package.md with:
 - Current metric instruments (counters, histograms, gauges)
@@ -130,6 +145,7 @@ Place the code in src/tracer/
 ```
 
 ### For Daily Review:
+
 ```
 @workspace Review git changes from today and:
 1. List all modified packages
@@ -139,6 +155,7 @@ Place the code in src/tracer/
 ```
 
 ### For Architecture Decisions:
+
 ```
 @workspace Create an ADR in notes/design/adr/ for the decision to use:
 - OTLP over HTTP instead of gRPC
@@ -149,7 +166,9 @@ Follow the ADR template format
 ```
 
 ## Testing Guidelines
+
 When generating tests:
+
 1. Test OpenTelemetry instrumentation explicitly
 2. Verify span attributes and names
 3. Check context propagation
@@ -157,6 +176,7 @@ When generating tests:
 5. Test error scenarios with proper span status
 
 ## Remember
+
 - Always reference the package note when generating code
 - Keep documentation and code in perfect sync
 - Follow OpenTelemetry semantic conventions

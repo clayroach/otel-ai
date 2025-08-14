@@ -12,7 +12,7 @@ import {
 } from '@aws-sdk/client-s3'
 import { type S3Config, type RetentionConfig } from './config.js'
 import { type OTLPData } from './schemas.js'
-import { StorageError } from './errors.js'
+import { type StorageError, StorageErrorConstructors } from './errors.js'
 
 export interface S3Storage {
   readonly storeRawData: (data: Uint8Array, key: string) => Effect.Effect<void, StorageError>
@@ -48,7 +48,7 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
             })
           ),
         catch: (error) =>
-          StorageError.ConnectionError(`Failed to connect to S3/MinIO: ${error}`, error)
+          StorageErrorConstructors.ConnectionError(`Failed to connect to S3/MinIO: ${error}`, error)
       }).pipe(Effect.timeout('10 seconds'))
     )
 
@@ -67,7 +67,7 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
                 })
               ),
             catch: (error) =>
-              StorageError.QueryError(
+              StorageErrorConstructors.QueryError(
                 `Failed to store data at key ${key}: ${error}`,
                 `PUT ${key}`,
                 error
@@ -93,7 +93,7 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
                 })
               ),
             catch: (error) =>
-              StorageError.QueryError(
+              StorageErrorConstructors.QueryError(
                 `Failed to retrieve data at key ${key}: ${error}`,
                 `GET ${key}`,
                 error
@@ -103,7 +103,7 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
 
         if (!response.Body) {
           return yield* _(
-            Effect.fail(StorageError.QueryError(`No data found at key ${key}`, `GET ${key}`))
+            Effect.fail(StorageErrorConstructors.QueryError(`No data found at key ${key}`, `GET ${key}`))
           )
         }
 
@@ -142,7 +142,7 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
                 })
               ),
             catch: (error) =>
-              StorageError.QueryError(
+              StorageErrorConstructors.QueryError(
                 `Failed to delete data at key ${key}: ${error}`,
                 `DELETE ${key}`,
                 error
@@ -251,7 +251,7 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
               return objects
             },
             catch: (error) =>
-              StorageError.QueryError(
+              StorageErrorConstructors.QueryError(
                 `Failed to list objects for retention: ${error}`,
                 `LIST ${signalType}`,
                 error
@@ -297,7 +297,7 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
               return keys
             },
             catch: (error) =>
-              StorageError.QueryError(
+              StorageErrorConstructors.QueryError(
                 `Failed to list objects: ${error}`,
                 `LIST ${prefix || 'all'}`,
                 error
@@ -320,7 +320,7 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
                 })
               ),
             catch: (error) =>
-              StorageError.ConnectionError(`S3 health check failed: ${error}`, error)
+              StorageErrorConstructors.ConnectionError(`S3 health check failed: ${error}`, error)
           }).pipe(Effect.timeout('5 seconds'))
         )
         return true

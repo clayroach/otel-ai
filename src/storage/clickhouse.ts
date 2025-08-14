@@ -18,7 +18,7 @@ import {
   AIQueryParamsSchema
 } from './schemas.js'
 import { type ClickHouseConfig } from './config.js'
-import { StorageError } from './errors.js'
+import { type StorageError, StorageErrorConstructors } from './errors.js'
 
 export interface ClickHouseStorage {
   readonly writeOTLP: (data: OTLPData) => Effect.Effect<void, StorageError>
@@ -55,7 +55,7 @@ export const makeClickHouseStorage = (
       Effect.tryPromise({
         try: () => client.query({ query: 'SELECT 1' }),
         catch: (error) =>
-          StorageError.ConnectionError(`Failed to connect to ClickHouse: ${error}`, error)
+          StorageErrorConstructors.ConnectionError(`Failed to connect to ClickHouse: ${error}`, error)
       })
     )
 
@@ -65,7 +65,7 @@ export const makeClickHouseStorage = (
         const validatedData = yield* _(
           Schema.decodeUnknown(OTLPDataSchema)(data).pipe(
             Effect.mapError((parseError) =>
-              StorageError.ValidationError(
+              StorageErrorConstructors.ValidationError(
                 'Invalid OTLP data structure',
                 parseError.message ? [parseError.message] : ['Unknown validation error']
               )
@@ -138,7 +138,7 @@ export const makeClickHouseStorage = (
                 format: 'JSONEachRow'
               }),
             catch: (error) =>
-              StorageError.QueryError(`Failed to insert traces: ${error}`, insertQuery, error)
+              StorageErrorConstructors.QueryError(`Failed to insert traces: ${error}`, insertQuery, error)
           }).pipe(
             Effect.retry(
               Schedule.exponential('100 millis').pipe(Schedule.compose(Schedule.recurs(3)))
@@ -193,7 +193,7 @@ export const makeClickHouseStorage = (
                 format: 'JSONEachRow'
               }),
             catch: (error) =>
-              StorageError.QueryError(
+              StorageErrorConstructors.QueryError(
                 `Failed to insert metrics to ${tableName}: ${error}`,
                 `INSERT INTO ${tableName}`,
                 error
@@ -230,7 +230,7 @@ export const makeClickHouseStorage = (
                     format: 'JSONEachRow'
                   }),
                 catch: (error) =>
-                  StorageError.QueryError(
+                  StorageErrorConstructors.QueryError(
                     `Failed to insert histogram metrics: ${error}`,
                     'INSERT INTO otel_metrics_histogram',
                     error
@@ -268,7 +268,7 @@ export const makeClickHouseStorage = (
                 format: 'JSONEachRow'
               }),
             catch: (error) =>
-              StorageError.QueryError(
+              StorageErrorConstructors.QueryError(
                 `Failed to insert logs: ${error}`,
                 'INSERT INTO otel_logs',
                 error
@@ -287,7 +287,7 @@ export const makeClickHouseStorage = (
         const validatedParams = yield* _(
           Schema.decodeUnknown(QueryParamsSchema)(params).pipe(
             Effect.mapError((parseError) =>
-              StorageError.ValidationError(
+              StorageErrorConstructors.ValidationError(
                 'Invalid query parameters',
                 parseError.message ? [parseError.message] : ['Unknown validation error']
               )
@@ -304,7 +304,7 @@ export const makeClickHouseStorage = (
                 query,
                 format: 'JSONEachRow'
               }),
-            catch: (error) => StorageError.QueryError(`Trace query failed: ${error}`, query, error)
+            catch: (error) => StorageErrorConstructors.QueryError(`Trace query failed: ${error}`, query, error)
           }).pipe(Effect.timeout('60 seconds'))
         )
 
@@ -320,7 +320,7 @@ export const makeClickHouseStorage = (
         const result = yield* _(
           Effect.tryPromise({
             try: () => client.query({ query, format: 'JSONEachRow' }),
-            catch: (error) => StorageError.QueryError(`Metric query failed: ${error}`, query, error)
+            catch: (error) => StorageErrorConstructors.QueryError(`Metric query failed: ${error}`, query, error)
           }).pipe(Effect.timeout('60 seconds'))
         )
 
@@ -336,7 +336,7 @@ export const makeClickHouseStorage = (
         const result = yield* _(
           Effect.tryPromise({
             try: () => client.query({ query, format: 'JSONEachRow' }),
-            catch: (error) => StorageError.QueryError(`Log query failed: ${error}`, query, error)
+            catch: (error) => StorageErrorConstructors.QueryError(`Log query failed: ${error}`, query, error)
           }).pipe(Effect.timeout('60 seconds'))
         )
 
@@ -352,7 +352,7 @@ export const makeClickHouseStorage = (
         const result = yield* _(
           Effect.tryPromise({
             try: () => client.query({ query, format: 'JSONEachRow' }),
-            catch: (error) => StorageError.QueryError(`AI query failed: ${error}`, query, error)
+            catch: (error) => StorageErrorConstructors.QueryError(`AI query failed: ${error}`, query, error)
           }).pipe(Effect.timeout('120 seconds'))
         )
 
@@ -365,7 +365,7 @@ export const makeClickHouseStorage = (
         yield* _(
           Effect.tryPromise({
             try: () => client.query({ query: 'SELECT 1 as health' }),
-            catch: (error) => StorageError.ConnectionError(`Health check failed: ${error}`, error)
+            catch: (error) => StorageErrorConstructors.ConnectionError(`Health check failed: ${error}`, error)
           }).pipe(Effect.timeout('5 seconds'))
         )
         return true

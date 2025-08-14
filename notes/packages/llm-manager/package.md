@@ -9,12 +9,15 @@ created: 2025-08-13
 # LLM Manager Package
 
 ## Package Overview
+
 <!-- COPILOT_CONTEXT: This note describes the llm-manager package -->
 
 ### Purpose
+
 Orchestrates multiple LLM models (GPT, Claude, local Llama) for the AI-native observability platform. Provides intelligent routing, cost optimization, fallback strategies, and unified API for AI-powered features including anomaly analysis, UI generation, and configuration management.
 
 ### Architecture
+
 - **Multi-Model Support**: Unified interface for GPT, Claude, and local Llama models
 - **Intelligent Routing**: Route requests to optimal model based on task type and performance
 - **Cost Optimization**: Balance between accuracy, latency, and cost
@@ -22,61 +25,71 @@ Orchestrates multiple LLM models (GPT, Claude, local Llama) for the AI-native ob
 - **Context Management**: Maintain conversation context and memory across requests
 
 ## API Surface
+
 <!-- COPILOT_GENERATE: Based on this description, generate TypeScript interfaces -->
 
 ### Public Interfaces
+
 ```typescript
-import { Effect, Context, Layer, Stream, Schedule } from "effect"
-import { Schema } from "@effect/schema"
+import { Effect, Context, Layer, Stream, Schedule } from 'effect'
+import { Schema } from '@effect/schema'
 
 // Effect-TS Schema definitions for LLM management
 const LLMConfigSchema = Schema.Struct({
   models: Schema.Struct({
-    gpt: Schema.optional(Schema.Struct({
-      apiKey: Schema.String,
-      model: Schema.String, // "gpt-4", "gpt-3.5-turbo"
-      maxTokens: Schema.Number,
-      temperature: Schema.Number,
-      endpoint: Schema.optional(Schema.String),
-    })),
-    claude: Schema.optional(Schema.Struct({
-      apiKey: Schema.String,
-      model: Schema.String, // "claude-3-opus", "claude-3-sonnet"
-      maxTokens: Schema.Number,
-      temperature: Schema.Number,
-      endpoint: Schema.optional(Schema.String),
-    })),
-    llama: Schema.optional(Schema.Struct({
-      modelPath: Schema.String,
-      contextLength: Schema.Number,
-      threads: Schema.Number,
-      gpuLayers: Schema.optional(Schema.Number),
-    })),
+    gpt: Schema.optional(
+      Schema.Struct({
+        apiKey: Schema.String,
+        model: Schema.String, // "gpt-4", "gpt-3.5-turbo"
+        maxTokens: Schema.Number,
+        temperature: Schema.Number,
+        endpoint: Schema.optional(Schema.String)
+      })
+    ),
+    claude: Schema.optional(
+      Schema.Struct({
+        apiKey: Schema.String,
+        model: Schema.String, // "claude-3-opus", "claude-3-sonnet"
+        maxTokens: Schema.Number,
+        temperature: Schema.Number,
+        endpoint: Schema.optional(Schema.String)
+      })
+    ),
+    llama: Schema.optional(
+      Schema.Struct({
+        modelPath: Schema.String,
+        contextLength: Schema.Number,
+        threads: Schema.Number,
+        gpuLayers: Schema.optional(Schema.Number)
+      })
+    )
   }),
   routing: Schema.Struct({
-    strategy: Schema.Literal("cost", "performance", "balanced"),
-    fallbackOrder: Schema.Array(Schema.Literal("gpt", "claude", "llama")),
+    strategy: Schema.Literal('cost', 'performance', 'balanced'),
+    fallbackOrder: Schema.Array(Schema.Literal('gpt', 'claude', 'llama')),
     maxRetries: Schema.Number,
-    timeoutMs: Schema.Number,
+    timeoutMs: Schema.Number
   }),
   cache: Schema.Struct({
     enabled: Schema.Boolean,
     ttlSeconds: Schema.Number,
-    maxSize: Schema.Number,
-  }),
+    maxSize: Schema.Number
+  })
 })
 
 const LLMRequestSchema = Schema.Struct({
   prompt: Schema.String,
-  taskType: Schema.Literal("analysis", "ui-generation", "config-management", "general"),
+  taskType: Schema.Literal('analysis', 'ui-generation', 'config-management', 'general'),
   context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
-  preferences: Schema.optional(Schema.Struct({
-    model: Schema.optional(Schema.Literal("gpt", "claude", "llama")),
-    maxTokens: Schema.optional(Schema.Number),
-    temperature: Schema.optional(Schema.Number),
-    priority: Schema.optional(Schema.Literal("low", "medium", "high")),
-  })),
-  streaming: Schema.optional(Schema.Boolean),
+  preferences: Schema.optional(
+    Schema.Struct({
+      model: Schema.optional(Schema.Literal('gpt', 'claude', 'llama')),
+      maxTokens: Schema.optional(Schema.Number),
+      temperature: Schema.optional(Schema.Number),
+      priority: Schema.optional(Schema.Literal('low', 'medium', 'high'))
+    })
+  ),
+  streaming: Schema.optional(Schema.Boolean)
 })
 
 const LLMResponseSchema = Schema.Struct({
@@ -86,26 +99,28 @@ const LLMResponseSchema = Schema.Struct({
     promptTokens: Schema.Number,
     completionTokens: Schema.Number,
     totalTokens: Schema.Number,
-    cost: Schema.optional(Schema.Number),
+    cost: Schema.optional(Schema.Number)
   }),
   metadata: Schema.Struct({
     latencyMs: Schema.Number,
     retryCount: Schema.Number,
     cached: Schema.Boolean,
-    confidence: Schema.optional(Schema.Number),
-  }),
+    confidence: Schema.optional(Schema.Number)
+  })
 })
 
 const ConversationContextSchema = Schema.Struct({
   id: Schema.String,
-  messages: Schema.Array(Schema.Struct({
-    role: Schema.Literal("user", "assistant", "system"),
-    content: Schema.String,
-    timestamp: Schema.Number,
-  })),
+  messages: Schema.Array(
+    Schema.Struct({
+      role: Schema.Literal('user', 'assistant', 'system'),
+      content: Schema.String,
+      timestamp: Schema.Number
+    })
+  ),
   metadata: Schema.Record(Schema.String, Schema.Unknown),
   createdAt: Schema.Number,
-  updatedAt: Schema.Number,
+  updatedAt: Schema.Number
 })
 
 type LLMConfig = Schema.Schema.Type<typeof LLMConfigSchema>
@@ -114,30 +129,34 @@ type LLMResponse = Schema.Schema.Type<typeof LLMResponseSchema>
 type ConversationContext = Schema.Schema.Type<typeof ConversationContextSchema>
 
 // LLM Error ADT
-type LLMError = 
-  | { _tag: "ModelUnavailable"; model: string; message: string }
-  | { _tag: "RateLimitExceeded"; model: string; retryAfter: number }
-  | { _tag: "InvalidRequest"; message: string; request: LLMRequest }
-  | { _tag: "AuthenticationFailed"; model: string; message: string }
-  | { _tag: "TimeoutError"; model: string; timeoutMs: number }
-  | { _tag: "ContextTooLarge"; model: string; tokenCount: number; maxTokens: number }
+type LLMError =
+  | { _tag: 'ModelUnavailable'; model: string; message: string }
+  | { _tag: 'RateLimitExceeded'; model: string; retryAfter: number }
+  | { _tag: 'InvalidRequest'; message: string; request: LLMRequest }
+  | { _tag: 'AuthenticationFailed'; model: string; message: string }
+  | { _tag: 'TimeoutError'; model: string; timeoutMs: number }
+  | { _tag: 'ContextTooLarge'; model: string; tokenCount: number; maxTokens: number }
 ```
 
 ### Effect-TS Service Definitions
+
 ```typescript
 // Service tags for dependency injection
-class LLMManagerService extends Context.Tag("LLMManagerService")<
+class LLMManagerService extends Context.Tag('LLMManagerService')<
   LLMManagerService,
   {
     // Core LLM operations
     generate: (request: LLMRequest) => Effect.Effect<LLMResponse, LLMError, never>
     generateStream: (request: LLMRequest) => Stream.Stream<string, LLMError, never>
-    
+
     // Conversation management
     startConversation: (systemPrompt?: string) => Effect.Effect<string, LLMError, never>
-    continueConversation: (conversationId: string, message: string) => Effect.Effect<LLMResponse, LLMError, never>
+    continueConversation: (
+      conversationId: string,
+      message: string
+    ) => Effect.Effect<LLMResponse, LLMError, never>
     getConversation: (conversationId: string) => Effect.Effect<ConversationContext, LLMError, never>
-    
+
     // Model management
     getAvailableModels: () => Effect.Effect<string[], LLMError, never>
     getModelHealth: () => Effect.Effect<ModelHealthStatus[], LLMError, never>
@@ -145,7 +164,7 @@ class LLMManagerService extends Context.Tag("LLMManagerService")<
   }
 >() {}
 
-class ModelRouterService extends Context.Tag("ModelRouterService")<
+class ModelRouterService extends Context.Tag('ModelRouterService')<
   ModelRouterService,
   {
     selectModel: (request: LLMRequest) => Effect.Effect<string, LLMError, never>
@@ -159,39 +178,43 @@ const makeLLMManager = (config: LLMConfig) =>
   Effect.gen(function* (_) {
     const router = yield* _(ModelRouterService)
     const cache = yield* _(CacheService)
-    
+
     return {
       generate: (request: LLMRequest) =>
         Effect.gen(function* (_) {
           // Validate request
           const validatedRequest = yield* _(Schema.decodeUnknown(LLMRequestSchema)(request))
-          
+
           // Check cache first
           const cacheKey = generateCacheKey(validatedRequest)
           const cached = yield* _(cache.get(cacheKey), Effect.option)
-          
+
           if (Option.isSome(cached)) {
             return { ...cached.value, metadata: { ...cached.value.metadata, cached: true } }
           }
-          
+
           // Route to appropriate model with fallback
           const response = yield* _(
             router.routeRequest(validatedRequest).pipe(
-              Effect.retry(Schedule.exponential("1 second").pipe(Schedule.compose(Schedule.recurs(config.routing.maxRetries)))),
+              Effect.retry(
+                Schedule.exponential('1 second').pipe(
+                  Schedule.compose(Schedule.recurs(config.routing.maxRetries))
+                )
+              ),
               Effect.timeout(Duration.millis(config.routing.timeoutMs)),
-              Effect.catchAll(error => 
+              Effect.catchAll((error) =>
                 Effect.logError(`LLM request failed: ${error.message}`).pipe(
                   Effect.zipRight(Effect.fail(error))
                 )
               )
             )
           )
-          
+
           // Cache successful response
           if (config.cache.enabled) {
             yield* _(cache.set(cacheKey, response, Duration.seconds(config.cache.ttlSeconds)))
           }
-          
+
           return response
         }),
 
@@ -200,10 +223,12 @@ const makeLLMManager = (config: LLMConfig) =>
           Effect.gen(function* (_) {
             const validatedRequest = yield* _(Schema.decodeUnknown(LLMRequestSchema)(request))
             const selectedModel = yield* _(router.selectModel(validatedRequest))
-            
+
             return createModelStream(selectedModel, validatedRequest).pipe(
-              Stream.tap(chunk => Effect.logDebug(`Streaming chunk from ${selectedModel}: ${chunk.length} chars`)),
-              Stream.catchAll(error => 
+              Stream.tap((chunk) =>
+                Effect.logDebug(`Streaming chunk from ${selectedModel}: ${chunk.length} chars`)
+              ),
+              Stream.catchAll((error) =>
                 Stream.fromEffect(
                   Effect.logError(`Streaming failed: ${error.message}`).pipe(
                     Effect.zipRight(Effect.fail(error))
@@ -213,48 +238,56 @@ const makeLLMManager = (config: LLMConfig) =>
             )
           })
         ),
-        
+
       startConversation: (systemPrompt?: string) =>
         Effect.gen(function* (_) {
           const conversationId = yield* _(generateConversationId())
           const context: ConversationContext = {
             id: conversationId,
-            messages: systemPrompt ? [{ role: "system", content: systemPrompt, timestamp: Date.now() }] : [],
+            messages: systemPrompt
+              ? [{ role: 'system', content: systemPrompt, timestamp: Date.now() }]
+              : [],
             metadata: {},
             createdAt: Date.now(),
             updatedAt: Date.now()
           }
-          
+
           yield* _(saveConversation(context))
           return conversationId
         }),
-        
+
       continueConversation: (conversationId: string, message: string) =>
         Effect.gen(function* (_) {
           const context = yield* _(loadConversation(conversationId))
-          
+
           // Add user message
           const updatedContext = {
             ...context,
-            messages: [...context.messages, { role: "user" as const, content: message, timestamp: Date.now() }],
+            messages: [
+              ...context.messages,
+              { role: 'user' as const, content: message, timestamp: Date.now() }
+            ],
             updatedAt: Date.now()
           }
-          
+
           // Generate response with conversation context
           const request: LLMRequest = {
             prompt: buildContextualPrompt(updatedContext),
-            taskType: "general",
+            taskType: 'general',
             context: { conversationId }
           }
-          
+
           const response = yield* _(router.routeRequest(request))
-          
+
           // Add assistant message and save
           const finalContext = {
             ...updatedContext,
-            messages: [...updatedContext.messages, { role: "assistant" as const, content: response.content, timestamp: Date.now() }]
+            messages: [
+              ...updatedContext.messages,
+              { role: 'assistant' as const, content: response.content, timestamp: Date.now() }
+            ]
           }
-          
+
           yield* _(saveConversation(finalContext))
           return response
         })
@@ -262,7 +295,7 @@ const makeLLMManager = (config: LLMConfig) =>
   })
 
 // Model-specific implementations
-const makeGPTClient = (config: NonNullable<LLMConfig["models"]["gpt"]>) =>
+const makeGPTClient = (config: NonNullable<LLMConfig['models']['gpt']>) =>
   Effect.gen(function* (_) {
     return {
       generate: (request: LLMRequest) =>
@@ -270,33 +303,39 @@ const makeGPTClient = (config: NonNullable<LLMConfig["models"]["gpt"]>) =>
           const response = yield* _(
             callOpenAI({
               model: config.model,
-              messages: [{ role: "user", content: request.prompt }],
+              messages: [{ role: 'user', content: request.prompt }],
               max_tokens: request.preferences?.maxTokens ?? config.maxTokens,
               temperature: request.preferences?.temperature ?? config.temperature
             }).pipe(
-              Effect.mapError(error => ({ _tag: "ModelUnavailable" as const, model: "gpt", message: error.message })),
+              Effect.mapError((error) => ({
+                _tag: 'ModelUnavailable' as const,
+                model: 'gpt',
+                message: error.message
+              })),
               Effect.timeout(Duration.seconds(30))
             )
           )
-          
+
           return transformOpenAIResponse(response)
         }),
-        
+
       generateStream: (request: LLMRequest) =>
         Stream.unwrap(
           callOpenAIStream({
             model: config.model,
-            messages: [{ role: "user", content: request.prompt }],
+            messages: [{ role: 'user', content: request.prompt }],
             max_tokens: request.preferences?.maxTokens ?? config.maxTokens,
             temperature: request.preferences?.temperature ?? config.temperature,
             stream: true
           }).pipe(
-            Effect.map(response => 
-              Stream.fromAsyncIterable(response, error => 
-                ({ _tag: "ModelUnavailable" as const, model: "gpt", message: error.message })
-              ).pipe(
-                Stream.map(chunk => chunk.choices[0]?.delta?.content ?? ""),
-                Stream.filter(content => content.length > 0)
+            Effect.map((response) =>
+              Stream.fromAsyncIterable(response, (error) => ({
+                _tag: 'ModelUnavailable' as const,
+                model: 'gpt',
+                message: error.message
+              })).pipe(
+                Stream.map((chunk) => chunk.choices[0]?.delta?.content ?? ''),
+                Stream.filter((content) => content.length > 0)
               )
             )
           )
@@ -323,9 +362,11 @@ const ModelRouterLayer = Layer.effect(
 ```
 
 ## Implementation Notes
+
 <!-- COPILOT_SYNC: Analyze code in src/llm-manager and update this section -->
 
 ### Core Components
+
 - **LLMManagerService**: Main orchestration service with unified API for all models
 - **ModelRouterService**: Intelligent routing based on task type, cost, and performance
 - **GPTClient**: OpenAI GPT integration with streaming support
@@ -334,6 +375,7 @@ const ModelRouterLayer = Layer.effect(
 - **CacheService**: Response caching with TTL and size limits
 
 ### Dependencies
+
 - Internal dependencies: `storage` package for conversation persistence
 - External dependencies:
   - `@effect/platform` - Effect-TS platform abstractions
@@ -345,28 +387,30 @@ const ModelRouterLayer = Layer.effect(
 ## Model Routing Strategy
 
 ### Task-Based Routing
+
 ```typescript
 const routingStrategy = {
-  "analysis": {
-    preferred: "claude",    // Best for analytical tasks
-    fallback: ["gpt", "llama"]
+  analysis: {
+    preferred: 'claude', // Best for analytical tasks
+    fallback: ['gpt', 'llama']
   },
-  "ui-generation": {
-    preferred: "gpt",       // Best for code generation
-    fallback: ["claude", "llama"]
+  'ui-generation': {
+    preferred: 'gpt', // Best for code generation
+    fallback: ['claude', 'llama']
   },
-  "config-management": {
-    preferred: "llama",     // Cost-effective for structured tasks
-    fallback: ["gpt", "claude"]
+  'config-management': {
+    preferred: 'llama', // Cost-effective for structured tasks
+    fallback: ['gpt', 'claude']
   },
-  "general": {
-    preferred: "gpt",       // Balanced performance
-    fallback: ["claude", "llama"]
+  general: {
+    preferred: 'gpt', // Balanced performance
+    fallback: ['claude', 'llama']
   }
 }
 ```
 
 ### Cost Optimization
+
 - **Local Llama**: Zero cost per request, higher setup cost
 - **GPT**: Moderate cost, fast responses
 - **Claude**: Higher cost, best quality for complex analysis
@@ -375,7 +419,9 @@ const routingStrategy = {
 ## Code Generation Prompts
 
 ### Generate Base Implementation
+
 Use this in Copilot Chat:
+
 ```
 @workspace Based on the package overview in notes/packages/llm-manager/package.md, generate the initial implementation for:
 - LLMManagerService in src/llm-manager/manager.ts with multi-model orchestration
@@ -388,7 +434,9 @@ Use this in Copilot Chat:
 ```
 
 ### Update from Code
+
 Use this in Copilot Chat:
+
 ```
 @workspace Analyze the code in src/llm-manager and update notes/packages/llm-manager/package.md with:
 - Current routing algorithms and performance metrics
@@ -399,9 +447,11 @@ Use this in Copilot Chat:
 ```
 
 ## Testing Strategy
+
 <!-- Test coverage and testing approach -->
 
 ### Unit Tests
+
 - Coverage target: 80%
 - Key test scenarios:
   - Model routing with different task types
@@ -411,30 +461,35 @@ Use this in Copilot Chat:
   - Error handling for each model type
 
 ### Integration Tests
+
 - Test with real model APIs (rate-limited)
 - Performance benchmarks:
   - <2 second response time for standard requests
   - <500ms for cached responses
-  - >99% uptime with fallback strategies
+  - > 99% uptime with fallback strategies
   - Cost tracking and optimization validation
 
 ## Performance Characteristics
 
 ### Response Times
+
 - **GPT**: 1-3 seconds typical
-- **Claude**: 2-4 seconds typical  
+- **Claude**: 2-4 seconds typical
 - **Local Llama**: 500ms-2 seconds (depends on hardware)
 - **Cached responses**: <100ms
 
 ### Throughput
+
 - **Concurrent requests**: 100+ with proper rate limiting
 - **Batch processing**: Support for bulk operations
 - **Streaming**: Real-time response streaming for long outputs
 
 ## Change Log
+
 <!-- Auto-updated by Copilot when code changes -->
 
 ### 2025-08-13
+
 - Initial package creation
 - Defined multi-model orchestration with GPT, Claude, Llama
 - Specified intelligent routing and fallback strategies

@@ -10,8 +10,8 @@ receivers:
         endpoint: 0.0.0.0:4318
         cors:
           allowed_origins:
-            - "http://*"
-            - "https://*"
+            - 'http://*'
+            - 'https://*'
 
 processors:
   # Memory limiter to prevent OOM
@@ -62,25 +62,25 @@ extensions:
   health_check:
     endpoint: 0.0.0.0:13133
     path: /health
-  
+
   # Performance profiling
   pprof:
     endpoint: 0.0.0.0:1777
 
 service:
   extensions: [health_check, pprof]
-  
+
   pipelines:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, resourcedetection, batch]
       exporters: [clickhouse, debug]
-    
+
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, resourcedetection, batch]
       exporters: [clickhouse, debug]
-    
+
     logs:
       receivers: [otlp]
       processors: [memory_limiter, resourcedetection, batch]
