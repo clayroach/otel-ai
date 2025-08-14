@@ -9,24 +9,29 @@ created: 2025-08-13
 # Storage Package
 
 ## Package Overview
+
 <!-- COPILOT_CONTEXT: This note describes the storage package -->
 
 ### Purpose
+
 Provides the storage abstraction layer for the AI-native observability platform, integrating Clickhouse for real-time analytics and S3/MinIO for raw data storage. Handles OTLP data ingestion from the OpenTelemetry Collector and provides optimized query interfaces for AI analysis.
 
 ### Architecture
+
 - **Clickhouse Primary**: Real-time analytics and query engine for traces, metrics, logs
 - **S3/MinIO Backend**: Raw data storage with configurable retention policies
 - **OTLP Ingestion**: Direct OTLP protocol support for seamless OTel Collector integration
 - **AI Query Interface**: Optimized data access patterns for AI/ML workloads
 
 ## API Surface
+
 <!-- COPILOT_GENERATE: Based on this description, generate TypeScript interfaces -->
 
 ### Public Interfaces
+
 ```typescript
-import { Effect, Context, Layer } from "effect"
-import { Schema } from "@effect/schema"
+import { Effect, Context, Layer } from 'effect'
+import { Schema } from '@effect/schema'
 
 // Effect-TS Schema definitions
 const StorageConfigSchema = Schema.Struct({
@@ -35,37 +40,37 @@ const StorageConfigSchema = Schema.Struct({
     port: Schema.Number,
     database: Schema.String,
     username: Schema.String,
-    password: Schema.String,
+    password: Schema.String
   }),
   s3: Schema.Struct({
     endpoint: Schema.String,
     accessKey: Schema.String,
     secretKey: Schema.String,
     bucket: Schema.String,
-    region: Schema.optional(Schema.String),
+    region: Schema.optional(Schema.String)
   }),
   retention: Schema.Struct({
     traces: Schema.String, // e.g., "30d"
-    metrics: Schema.String, // e.g., "90d" 
-    logs: Schema.String, // e.g., "7d"
-  }),
+    metrics: Schema.String, // e.g., "90d"
+    logs: Schema.String // e.g., "7d"
+  })
 })
 
 const OTLPDataSchema = Schema.Struct({
   traces: Schema.optional(Schema.Array(TraceDataSchema)),
   metrics: Schema.optional(Schema.Array(MetricDataSchema)),
   logs: Schema.optional(Schema.Array(LogDataSchema)),
-  timestamp: Schema.Number,
+  timestamp: Schema.Number
 })
 
 const QueryParamsSchema = Schema.Struct({
   timeRange: Schema.Struct({
     start: Schema.Number,
-    end: Schema.Number,
+    end: Schema.Number
   }),
   filters: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
   limit: Schema.optional(Schema.Number),
-  aggregation: Schema.optional(Schema.String),
+  aggregation: Schema.optional(Schema.String)
 })
 
 type StorageConfig = Schema.Schema.Type<typeof StorageConfigSchema>
@@ -86,22 +91,23 @@ interface StorageReader {
 }
 
 // Storage Error ADT
-type StorageError = 
-  | { _tag: "ConnectionError"; message: string }
-  | { _tag: "ValidationError"; message: string; errors: Schema.ParseError }
-  | { _tag: "QueryError"; message: string; query: string }
-  | { _tag: "RetentionError"; message: string }
+type StorageError =
+  | { _tag: 'ConnectionError'; message: string }
+  | { _tag: 'ValidationError'; message: string; errors: Schema.ParseError }
+  | { _tag: 'QueryError'; message: string; query: string }
+  | { _tag: 'RetentionError'; message: string }
 ```
 
 ### Effect-TS Service Definitions
+
 ```typescript
 // Service tags for dependency injection
-class ClickhouseStorageService extends Context.Tag("ClickhouseStorageService")<
+class ClickhouseStorageService extends Context.Tag('ClickhouseStorageService')<
   ClickhouseStorageService,
   StorageWriter & StorageReader
 >() {}
 
-class S3StorageService extends Context.Tag("S3StorageService")<
+class S3StorageService extends Context.Tag('S3StorageService')<
   S3StorageService,
   {
     storeRawData: (data: Uint8Array, key: string) => Effect.Effect<void, StorageError, never>
@@ -118,13 +124,17 @@ const makeClickhouseStorage = (config: StorageConfig): ClickhouseStorageService 
       Effect.gen(function* (_) {
         // Validate input data
         const validatedData = yield* _(Schema.decodeUnknown(OTLPDataSchema)(data))
-        
+
         // Write to Clickhouse with automatic retries and circuit breaker
         yield* _(
           writeToClickhouse(validatedData).pipe(
-            Effect.retry(Schedule.exponential("100 millis").pipe(Schedule.compose(Schedule.recurs(3)))),
-            Effect.timeout("30 seconds"),
-            Effect.catchAll(error => Effect.fail({ _tag: "ConnectionError", message: error.message }))
+            Effect.retry(
+              Schedule.exponential('100 millis').pipe(Schedule.compose(Schedule.recurs(3)))
+            ),
+            Effect.timeout('30 seconds'),
+            Effect.catchAll((error) =>
+              Effect.fail({ _tag: 'ConnectionError', message: error.message })
+            )
           )
         )
       }),
@@ -133,8 +143,8 @@ const makeClickhouseStorage = (config: StorageConfig): ClickhouseStorageService 
       Effect.gen(function* (_) {
         // Process in parallel with concurrency control
         yield* _(
-          Effect.forEach(data, writeOTLP, { concurrency: "unbounded" }).pipe(
-            Effect.catchAll(error => Effect.fail({ _tag: "BatchError", message: error.message }))
+          Effect.forEach(data, writeOTLP, { concurrency: 'unbounded' }).pipe(
+            Effect.catchAll((error) => Effect.fail({ _tag: 'BatchError', message: error.message }))
           )
         )
       }),
@@ -143,16 +153,22 @@ const makeClickhouseStorage = (config: StorageConfig): ClickhouseStorageService 
     queryTraces: (params: QueryParams) =>
       Effect.gen(function* (_) {
         const validatedParams = yield* _(Schema.decodeUnknown(QueryParamsSchema)(params))
-        
+
         const results = yield* _(
           streamQueryResults(validatedParams).pipe(
             Stream.run(Sink.collectAll()),
             Effect.map(Chunk.toReadonlyArray),
-            Effect.timeout("60 seconds"),
-            Effect.catchAll(error => Effect.fail({ _tag: "QueryError", message: error.message, query: buildQuery(validatedParams) }))
+            Effect.timeout('60 seconds'),
+            Effect.catchAll((error) =>
+              Effect.fail({
+                _tag: 'QueryError',
+                message: error.message,
+                query: buildQuery(validatedParams)
+              })
+            )
           )
         )
-        
+
         return results
       }),
 
@@ -161,19 +177,19 @@ const makeClickhouseStorage = (config: StorageConfig): ClickhouseStorageService 
       Effect.gen(function* (_) {
         // Check cache first
         const cached = yield* _(getCachedAIData(params), Effect.option)
-        
+
         if (Option.isSome(cached)) {
           return cached.value
         }
-        
+
         // Execute optimized AI query
         const results = yield* _(
           executeAIQuery(params).pipe(
-            Effect.tap(data => cacheAIData(params, data)),
-            Effect.timeout("120 seconds")
+            Effect.tap((data) => cacheAIData(params, data)),
+            Effect.timeout('120 seconds')
           )
         )
-        
+
         return results
       })
   })
@@ -189,15 +205,18 @@ const ClickhouseStorageLayer = Layer.effect(
 ```
 
 ## Implementation Notes
+
 <!-- COPILOT_SYNC: Analyze code in src/storage and update this section -->
 
 ### Core Components
+
 - **ClickhouseStorage**: Main storage engine with OTLP ingestion and query capabilities
 - **S3Storage**: Raw data archival and retrieval with automated retention
 - **SchemaManager**: Manages Clickhouse table schemas optimized for OpenTelemetry data
 - **RetentionManager**: Automated data lifecycle management
 
 ### Dependencies
+
 - Internal dependencies: None (foundational package)
 - External dependencies:
   - `@effect/platform` - Effect-TS platform abstractions
@@ -209,7 +228,9 @@ const ClickhouseStorageLayer = Layer.effect(
 ## Code Generation Prompts
 
 ### Generate Base Implementation
+
 Use this in Copilot Chat:
+
 ```
 @workspace Based on the package overview in notes/packages/storage/package.md, generate the initial implementation for:
 - ClickhouseStorage class in src/storage/clickhouse.ts with OTLP ingestion
@@ -221,7 +242,9 @@ Use this in Copilot Chat:
 ```
 
 ### Update from Code
+
 Use this in Copilot Chat:
+
 ```
 @workspace Analyze the code in src/storage and update notes/packages/storage/package.md with:
 - Current API surface and method signatures
@@ -232,27 +255,33 @@ Use this in Copilot Chat:
 ```
 
 ## OpenTelemetry Integration
+
 <!-- Specific OpenTelemetry patterns used in this package -->
 
 ### OTLP Ingestion
+
 - **Direct OTLP Support**: Accepts OTLP/HTTP and OTLP/gRPC from OTel Collector
 - **Batch Processing**: Efficient batching for high-throughput scenarios
 - **Schema Mapping**: Optimized Clickhouse schemas following OTel semantic conventions
 
 ### Data Model
+
 - **Traces Table**: Spans with nested attributes, optimized for distributed tracing queries
 - **Metrics Table**: Time-series optimized for aggregation and AI analysis
 - **Logs Table**: Structured logs with trace correlation and full-text search
 
 ### AI-Optimized Queries
+
 - **Anomaly Detection**: Pre-aggregated views for autoencoder training
 - **Pattern Recognition**: Indexed attributes for fast pattern matching
 - **Time-Series**: Optimized for real-time AI analysis pipelines
 
 ## Testing Strategy
+
 <!-- Test coverage and testing approach -->
 
 ### Unit Tests
+
 - Coverage target: 80%
 - Key test scenarios:
   - OTLP data ingestion and transformation
@@ -262,6 +291,7 @@ Use this in Copilot Chat:
   - Error handling and retry logic
 
 ### Integration Tests
+
 - Test with real Clickhouse instance using Docker
 - Test with MinIO for S3 compatibility
 - Performance benchmarks:
@@ -272,6 +302,7 @@ Use this in Copilot Chat:
 ## Deployment Configuration
 
 ### Clickhouse Schema
+
 ```sql
 -- Optimized for OTel traces
 CREATE TABLE traces (
@@ -292,7 +323,7 @@ CREATE TABLE traces (
 PARTITION BY toYYYYMM(start_time)
 ORDER BY (service_name, start_time, trace_id);
 
--- Optimized for OTel metrics  
+-- Optimized for OTel metrics
 CREATE TABLE metrics (
   metric_name String,
   timestamp DateTime64(9),
@@ -306,9 +337,11 @@ ORDER BY (metric_name, timestamp);
 ```
 
 ## Change Log
+
 <!-- Auto-updated by Copilot when code changes -->
 
 ### 2025-08-13
+
 - Initial package creation
 - Defined OTLP ingestion interfaces
 - Specified Clickhouse schema optimizations

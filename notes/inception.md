@@ -17,18 +17,21 @@ The platform will continuously analyze telemetry data to identify patterns that 
 ## Primary Goals
 
 ### Core Platform
+
 - **AI-Native Observability**: LLMs integrated at the core, not as an afterthought
 - **Proactive Issue Resolution**: Find and fix problems before they impact functionality
 - **Adaptive User Experience**: LLM-driven UIs that learn from user behavior
 - **Universal Deployment**: Easy installation across standalone, Docker, or Kubernetes environments
 
 ### Technical Architecture
+
 - **Clickhouse Backend**: Standard storage for traces, metrics, and logs
 - **S3-Compatible Storage**: Raw data storage with S3/MinIO backend
 - **TypeScript Implementation**: Universal consumption and contribution
 - **React + Apache ECharts UI**: Rich, interactive data visualization
 
 ### AI-Powered Operations
+
 - **Continuous Analysis**: LLMs constantly analyzing telemetry for patterns
 - **Autonomous Agents**: Opinionated modules using AI agents for condition evaluation
 - **Pattern Recognition**: Learning from historical data to predict issues
@@ -45,11 +48,13 @@ The platform will continuously analyze telemetry data to identify patterns that 
 ## Key Decisions Made
 
 ### Documentation-Driven Development
+
 - Chose Dendron for living documentation
 - Specifications written before code
 - Bidirectional sync between notes and implementation
 
 ### Technology Choices
+
 - OpenTelemetry as the observability standard
 - Clickhouse as the backend storage
 - TypeScript for type safety
@@ -57,23 +62,27 @@ The platform will continuously analyze telemetry data to identify patterns that 
 ## Technical Deep Dive
 
 ### AI Model Strategy
+
 - **Multi-Model Support**: Support for GPT, Claude, and local models (Llama family)
 - **Training Approach**: Autoencoders for primary pattern recognition + daily batch processing for usage pattern evolution
 - **AIOpsLab Integration**: Research and potentially implement Microsoft's agent architectures for autonomous operations
 
-### User Experience Architecture  
+### User Experience Architecture
+
 - **Role-Based Foundation**: Out-of-the-box configurations for DevOps, SRE, Developer roles
 - **Individual Personalization**: Fine-tuning capabilities for specific user preferences and workflows
 - **Dynamic Component Generation**: LLMs generate actual React/Apache ECharts components, not just configurations
 - **Grafana Replacement**: Key differentiator - no need for external dashboarding tools
 
 ### Deployment & Infrastructure
+
 - **Single Command Install**: One-command deployment across all environments
 - **Container-Native**: Full Docker container architecture
 - **Kubernetes Universal**: Native support for standard K8s, OpenShift, Rancher k3d, and RKE2
 - **Real-Time Pipeline**: S3 ↔ Clickhouse with real-time data streaming
 
 ### Self-Healing Scope
+
 - **Configuration Focus**: Primarily automated configuration changes (most error-prone area)
 - **Proactive Remediation**: Detect and correct misconfigurations before they cause outages
 - **Pattern-Based Fixes**: Learn from historical incidents to prevent similar issues
@@ -81,12 +90,14 @@ The platform will continuously analyze telemetry data to identify patterns that 
 ## Open Questions
 
 ### Research Areas
+
 1. **AIOpsLab Architecture**: Deep dive into Microsoft's agent framework implementation details
 2. **Component Generation**: Technical approach for LLM → React component pipeline
 3. **Multi-Model Orchestration**: How to efficiently manage and route requests across different AI models
 4. **Real-Time Learning**: Balancing real-time analysis with model training performance
 
 ### Technical Decisions Needed
+
 1. **Local vs Cloud Models**: Strategy for supporting both cloud APIs and local model deployment
 2. **Component Caching**: How to cache and version LLM-generated UI components
 3. **Configuration Validation**: Safety mechanisms for automated configuration changes
@@ -95,33 +106,39 @@ The platform will continuously analyze telemetry data to identify patterns that 
 ## Timeline and Milestones
 
 ### Phase 1: MVP Foundation (30 Days - Target: Sept 12, 2025)
+
 **Goal**: Core OpenTelemetry platform with basic AI integration
 
 **Week 1**: Infrastructure & Core OTel
+
 - OpenTelemetry packages (tracer, metrics, exporter) using LLM code generation
 - Clickhouse schema and integration
 - S3/MinIO storage setup
 - Basic Docker containerization
 
-**Week 2**: AI Integration Foundation  
+**Week 2**: AI Integration Foundation
+
 - Multi-model LLM integration (GPT/Claude/Llama)
 - Basic autoencoder for anomaly detection
 - Real-time data pipeline: S3 ↔ Clickhouse
 - Initial React UI with Apache ECharts
 
 **Week 3**: Dynamic UI & Deployment
+
 - LLM → React component generation pipeline
 - Role-based dashboard templates
 - Single-command deployment for Docker/K8s
 - Basic user interaction tracking
 
 **Week 4**: Polish & Testing
+
 - Configuration management automation
 - Basic self-healing for common config issues
 - End-to-end testing and documentation
 - Production-ready containerization
 
 **MVP Deliverables**:
+
 - Working AI-native observability platform
 - LLM-generated dashboards
 - Single-command deployment
@@ -129,6 +146,7 @@ The platform will continuously analyze telemetry data to identify patterns that 
 - Kubernetes deployment support
 
 ### Phase 2: Advanced Features (Days 31-60)
+
 **Goal**: Enhanced AI capabilities and enterprise deployment
 
 - AIOpsLab-inspired agent architecture
@@ -138,6 +156,7 @@ The platform will continuously analyze telemetry data to identify patterns that 
 - Enterprise-grade security and scaling
 
 ### Phase 3: Production Hardening (Days 61-90)
+
 **Goal**: Production-ready enterprise platform
 
 - Advanced self-healing capabilities
@@ -147,6 +166,7 @@ The platform will continuously analyze telemetry data to identify patterns that 
 - Enterprise support features
 
 ## Related Notes
+
 - [[design]] - Architecture and design decisions
 - [[packages]] - Package specifications
 - [[root]] - Project overview

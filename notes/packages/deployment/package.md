@@ -9,12 +9,15 @@ created: 2025-08-13
 # Deployment Package
 
 ## Package Overview
+
 <!-- COPILOT_CONTEXT: This note describes the deployment package -->
 
 ### Purpose
+
 Provides single-command deployment capabilities using Bazel build system. Integrates the OpenTelemetry demo application as a standard component and orchestrates the entire AI-native observability platform across Docker, Kubernetes, OpenShift, and Rancher environments.
 
 ### Architecture
+
 - **Bazel Build System**: Reproducible builds with dependency management
 - **OTel Demo Integration**: Standard OpenTelemetry demo application included
 - **Multi-Environment Support**: Docker, K8s, OpenShift, Rancher k3d/RKE2
@@ -22,108 +25,113 @@ Provides single-command deployment capabilities using Bazel build system. Integr
 - **Health Monitoring**: Built-in health checks and readiness probes
 
 ## API Surface
+
 <!-- COPILOT_GENERATE: Based on this description, generate TypeScript interfaces -->
 
 ### Public Interfaces
+
 ```typescript
 interface DeploymentConfig {
-  environment: 'docker' | 'kubernetes' | 'openshift' | 'rancher';
+  environment: 'docker' | 'kubernetes' | 'openshift' | 'rancher'
   platform: {
-    clickhouse: ClickhouseConfig;
-    s3: S3Config;
-    otelCollector: OtelCollectorConfig;
-    aiPlatform: AIPlatformConfig;
-  };
+    clickhouse: ClickhouseConfig
+    s3: S3Config
+    otelCollector: OtelCollectorConfig
+    aiPlatform: AIPlatformConfig
+  }
   resources: {
-    cpu: string;
-    memory: string;
-    storage: string;
-  };
+    cpu: string
+    memory: string
+    storage: string
+  }
   scaling: {
-    replicas: number;
-    autoscaling: boolean;
-    maxReplicas?: number;
-  };
+    replicas: number
+    autoscaling: boolean
+    maxReplicas?: number
+  }
 }
 
 interface OtelCollectorConfig {
-  version: string;
-  exporters: string[];
-  processors: string[];
-  receivers: string[];
-  customConfig?: any;
+  version: string
+  exporters: string[]
+  processors: string[]
+  receivers: string[]
+  customConfig?: any
 }
 
 interface AIPlatformConfig {
   models: {
-    enabled: string[]; // ['gpt', 'claude', 'llama']
-    apiKeys?: Record<string, string>;
-    localModels?: LocalModelConfig[];
-  };
+    enabled: string[] // ['gpt', 'claude', 'llama']
+    apiKeys?: Record<string, string>
+    localModels?: LocalModelConfig[]
+  }
   features: {
-    realtimeAnalysis: boolean;
-    batchProcessing: boolean;
-    uiGeneration: boolean;
-    selfHealing: boolean;
-  };
+    realtimeAnalysis: boolean
+    batchProcessing: boolean
+    uiGeneration: boolean
+    selfHealing: boolean
+  }
 }
 
 interface DeploymentResult {
-  success: boolean;
-  services: ServiceStatus[];
+  success: boolean
+  services: ServiceStatus[]
   urls: {
-    ui: string;
-    api: string;
-    metrics: string;
-    traces: string;
-  };
-  healthChecks: HealthCheck[];
+    ui: string
+    api: string
+    metrics: string
+    traces: string
+  }
+  healthChecks: HealthCheck[]
 }
 ```
 
 ### Public Classes
+
 ```typescript
 class DeploymentOrchestrator {
-  constructor(config: DeploymentConfig);
-  
+  constructor(config: DeploymentConfig)
+
   // Main deployment commands
-  async deploy(): Promise<DeploymentResult>;
-  async undeploy(): Promise<void>;
-  async upgrade(version: string): Promise<DeploymentResult>;
-  async rollback(): Promise<DeploymentResult>;
-  
+  async deploy(): Promise<DeploymentResult>
+  async undeploy(): Promise<void>
+  async upgrade(version: string): Promise<DeploymentResult>
+  async rollback(): Promise<DeploymentResult>
+
   // Health and monitoring
-  async getStatus(): Promise<ServiceStatus[]>;
-  async getHealthChecks(): Promise<HealthCheck[]>;
-  async getLogs(service: string): Promise<string[]>;
+  async getStatus(): Promise<ServiceStatus[]>
+  async getHealthChecks(): Promise<HealthCheck[]>
+  async getLogs(service: string): Promise<string[]>
 }
 
 class BazelBuilder {
   // Build management
-  async buildAll(): Promise<void>;
-  async buildPackage(packageName: string): Promise<void>;
-  async runTests(): Promise<TestResults>;
-  async createContainers(): Promise<void>;
-  
+  async buildAll(): Promise<void>
+  async buildPackage(packageName: string): Promise<void>
+  async runTests(): Promise<TestResults>
+  async createContainers(): Promise<void>
+
   // Dependency management
-  async updateDependencies(): Promise<void>;
-  async checkDependencies(): Promise<DependencyStatus[]>;
+  async updateDependencies(): Promise<void>
+  async checkDependencies(): Promise<DependencyStatus[]>
 }
 
 class EnvironmentManager {
-  constructor(environment: string);
-  
-  async setupEnvironment(): Promise<void>;
-  async validateEnvironment(): Promise<ValidationResult>;
-  async generateManifests(): Promise<string[]>;
-  async applyManifests(): Promise<void>;
+  constructor(environment: string)
+
+  async setupEnvironment(): Promise<void>
+  async validateEnvironment(): Promise<ValidationResult>
+  async generateManifests(): Promise<string[]>
+  async applyManifests(): Promise<void>
 }
 ```
 
 ## Implementation Notes
+
 <!-- COPILOT_SYNC: Analyze code in src/deployment and update this section -->
 
 ### Core Components
+
 - **DeploymentOrchestrator**: Main deployment controller with environment detection
 - **BazelBuilder**: Bazel integration for reproducible builds and dependency management
 - **EnvironmentManager**: Environment-specific deployment logic (Docker/K8s/OpenShift/Rancher)
@@ -131,6 +139,7 @@ class EnvironmentManager {
 - **HealthMonitor**: Comprehensive health checking and readiness validation
 
 ### Dependencies
+
 - Internal dependencies: All packages (builds complete platform)
 - External dependencies:
   - `@bazel/buildtools` - Bazel integration
@@ -142,7 +151,9 @@ class EnvironmentManager {
 ## Code Generation Prompts
 
 ### Generate Base Implementation
+
 Use this in Copilot Chat:
+
 ```
 @workspace Based on the package overview in notes/packages/deployment/package.md, generate the initial implementation for:
 - DeploymentOrchestrator in src/deployment/orchestrator.ts with multi-environment support
@@ -155,7 +166,9 @@ Use this in Copilot Chat:
 ```
 
 ### Update from Code
+
 Use this in Copilot Chat:
+
 ```
 @workspace Analyze the code in src/deployment and update notes/packages/deployment/package.md with:
 - Current deployment capabilities and supported environments
@@ -168,6 +181,7 @@ Use this in Copilot Chat:
 ## Bazel Configuration
 
 ### WORKSPACE File
+
 ```python
 workspace(name = "otel_ai_platform")
 
@@ -196,6 +210,7 @@ http_archive(
 ```
 
 ### BUILD.bazel for Main Package
+
 ```python
 load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary", "npm_package_bin")
 load("@io_bazel_rules_docker//container:container.bzl", "container_image")
@@ -205,7 +220,7 @@ nodejs_binary(
     name = "otel_ai_platform",
     data = [
         "//src/storage:storage_lib",
-        "//src/ai-analyzer:analyzer_lib", 
+        "//src/ai-analyzer:analyzer_lib",
         "//src/llm-manager:llm_lib",
         "//src/ui-generator:ui_lib",
         "@npm//package.json",
@@ -235,6 +250,7 @@ genrule(
 ## Single-Command Deployment
 
 ### CLI Interface
+
 ```bash
 # Deploy everything with defaults
 ./deploy.sh
@@ -253,6 +269,7 @@ genrule(
 ```
 
 ### Deployment Script
+
 ```bash
 #!/bin/bash
 # Single-command deployment script
@@ -308,6 +325,7 @@ echo "🔍 Traces: http://localhost:16686"
 ## Environment-Specific Configurations
 
 ### Docker Compose
+
 ```yaml
 version: '3.8'
 services:
@@ -315,8 +333,8 @@ services:
   clickhouse:
     image: clickhouse/clickhouse-server:latest
     ports:
-      - "8123:8123"
-      - "9000:9000"
+      - '8123:8123'
+      - '9000:9000'
     volumes:
       - ./deployments/docker/clickhouse-config.xml:/etc/clickhouse-server/config.xml
       - clickhouse_data:/var/lib/clickhouse
@@ -326,8 +344,8 @@ services:
     image: minio/minio:latest
     command: server /data --console-address ":9001"
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - '9000:9000'
+      - '9001:9001'
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
@@ -337,12 +355,12 @@ services:
   # OpenTelemetry Collector
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
-    command: ["--config=/etc/otel-collector-config.yaml"]
+    command: ['--config=/etc/otel-collector-config.yaml']
     volumes:
       - ./deployments/docker/otel-collector-config.yaml:/etc/otel-collector-config.yaml
     ports:
-      - "4317:4317"   # OTLP gRPC
-      - "4318:4318"   # OTLP HTTP
+      - '4317:4317' # OTLP gRPC
+      - '4318:4318' # OTLP HTTP
     depends_on:
       - clickhouse
 
@@ -350,8 +368,8 @@ services:
   ai-platform:
     image: otel-ai-platform:latest
     ports:
-      - "3000:3000"
-      - "8080:8080"
+      - '3000:3000'
+      - '8080:8080'
     environment:
       CLICKHOUSE_HOST: clickhouse
       S3_ENDPOINT: http://minio:9000
@@ -375,9 +393,11 @@ volumes:
 ```
 
 ## Testing Strategy
+
 <!-- Test coverage and testing approach -->
 
 ### Unit Tests
+
 - Coverage target: 80%
 - Key test scenarios:
   - Deployment orchestration logic
@@ -387,6 +407,7 @@ volumes:
   - Configuration validation
 
 ### Integration Tests
+
 - Full deployment testing in isolated environments
 - OTel demo integration validation
 - Cross-environment compatibility testing
@@ -396,15 +417,18 @@ volumes:
   - <2 minutes for environment teardown
 
 ### End-to-End Tests
+
 - Complete deployment lifecycle testing
 - Multi-environment deployment validation
 - Upgrade and rollback procedures
 - Disaster recovery testing
 
 ## Change Log
+
 <!-- Auto-updated by Copilot when code changes -->
 
 ### 2025-08-13
+
 - Initial package creation
 - Defined Bazel build system integration
 - Specified single-command deployment across multiple environments

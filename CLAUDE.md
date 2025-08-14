@@ -7,15 +7,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This is an **AI-native observability platform** being built in 30 days using **documentation-driven development** with Dendron and Claude Code. The project demonstrates how modern AI development tools can compress traditional 12+ month enterprise development timelines to 30 days.
 
 ### Project Vision
+
 Building an AI-native observability platform where machine learning is integrated at the core, not as an afterthought. Key differentiators:
+
 - **Real-time anomaly detection** using autoencoders trained on telemetry data
-- **LLM-generated dashboards** that adapt to user roles and usage patterns  
+- **LLM-generated dashboards** that adapt to user roles and usage patterns
 - **Self-healing configuration management** that fixes issues before they impact applications
 - **Multi-model AI orchestration** (GPT, Claude, local Llama) with intelligent routing
 - **No Grafana required** - platform generates React components dynamically
 
 ### 30-Day Timeline Challenge
+
 This project aims to prove that AI-assisted development can achieve what traditionally requires:
+
 - **Team of 10+ developers** → **Solo developer with Claude Code**
 - **12+ months development** → **30 days**
 - **Traditional workflows** → **Documentation-driven development**
@@ -23,11 +27,13 @@ This project aims to prove that AI-assisted development can achieve what traditi
 ## Architecture
 
 The project consists of three main components:
+
 - **Dendron Documentation Vault** (`notes/`) - Living specifications and design decisions
 - **Instrumented Packages** (`src/`) - Generated OpenTelemetry implementations
 - **Backend Storage** - Clickhouse for telemetry data
 
 Core packages:
+
 - `storage` - Clickhouse integration with OTLP ingestion and S3 backend
 - `ai-analyzer` - Autoencoder-based anomaly detection and pattern recognition
 - `llm-manager` - Multi-model LLM orchestration (GPT, Claude, Llama)
@@ -50,7 +56,7 @@ This project uses **documentation-driven development**:
 ./scripts/start-day.sh          # Start of day setup and goal setting
 ./scripts/end-day.sh            # End of day archiving and blog generation
 
-# Documentation workflow  
+# Documentation workflow
 ./scripts/generate-from-note.sh notes/packages/storage/package.md
 ./scripts/update-note-from-code.sh src/storage
 ./scripts/sync-all-notes.sh
@@ -64,6 +70,7 @@ This project uses **documentation-driven development**:
 ### Dendron Integration
 
 This project uses Dendron for documentation management:
+
 - Daily journal in `notes/daily/`
 - Package docs in `notes/packages/`
 - Design decisions in `notes/design/adr/`
@@ -76,7 +83,7 @@ notes/
 ├── daily/           # Daily development journals
 ├── packages/        # Package specifications and docs
 │   ├── tracer/     # Tracing implementation
-│   ├── metrics/    # Metrics implementation  
+│   ├── metrics/    # Metrics implementation
 │   └── exporter/   # Export implementations
 ├── design/         # Architecture decisions
 │   └── adr/       # Architecture Decision Records
@@ -86,23 +93,30 @@ notes/
 ## Daily Workflow Integration
 
 ### Start of Day Process
+
 ```bash
 ./scripts/start-day.sh
 ```
+
 Then begin Claude Code session with:
+
 > "I'm ready to continue with Day X of the AI-native observability platform. Today's main goals: [specific objectives]"
 
-### End of Day Process  
+### End of Day Process
+
 ```bash
 ./scripts/end-day.sh
 ```
+
 This automatically:
+
 - Archives Claude Code conversations
 - Generates blog posts for Dev.to, Medium, LinkedIn
 - Tracks progress and completed goals
 - Sets up for next day
 
 ### Blog Publishing Strategy
+
 - **Primary**: Dev.to with "30-Day AI-Native Observability Platform" series
 - **Secondary**: Medium for broader reach after 2-3 days
 - **Supplementary**: LinkedIn for professional network exposure
@@ -110,6 +124,7 @@ This automatically:
 ## Effect-TS Integration
 
 All data processing layers use Effect-TS for:
+
 - **Schema validation** with runtime safety and compile-time types
 - **Structured error handling** with tagged union ADTs
 - **Streaming data processing** with backpressure management
@@ -122,10 +137,11 @@ All data processing layers use Effect-TS for:
 Follow these patterns when implementing:
 
 ### Tracer Implementation
-```typescript
-import { trace, context, SpanStatusCode } from '@opentelemetry/api';
 
-const tracer = trace.getTracer('package-name', '1.0.0');
+```typescript
+import { trace, context, SpanStatusCode } from '@opentelemetry/api'
+
+const tracer = trace.getTracer('package-name', '1.0.0')
 
 function instrumentedFunction() {
   return tracer.startActiveSpan('operation.name', (span) => {
@@ -133,30 +149,31 @@ function instrumentedFunction() {
       span.setAttributes({
         'service.name': 'my-service',
         'operation.type': 'process'
-      });
+      })
       // ... operation logic
-      return result;
+      return result
     } catch (error) {
-      span.recordException(error);
-      span.setStatus({ code: SpanStatusCode.ERROR });
-      throw error;
+      span.recordException(error)
+      span.setStatus({ code: SpanStatusCode.ERROR })
+      throw error
     } finally {
-      span.end();
+      span.end()
     }
-  });
+  })
 }
 ```
 
 ### Metrics
+
 ```typescript
-import { metrics } from '@opentelemetry/api';
+import { metrics } from '@opentelemetry/api'
 
-const meter = metrics.getMeter('package-name', '1.0.0');
-const counter = meter.createCounter('operations.count');
-const histogram = meter.createHistogram('operation.duration');
+const meter = metrics.getMeter('package-name', '1.0.0')
+const counter = meter.createCounter('operations.count')
+const histogram = meter.createHistogram('operation.duration')
 
-counter.add(1, { 'operation.type': 'process' });
-histogram.record(durationMs, { 'operation.status': 'success' });
+counter.add(1, { 'operation.type': 'process' })
+histogram.record(durationMs, { 'operation.status': 'success' })
 ```
 
 ## Design Principles
@@ -180,11 +197,13 @@ histogram.record(durationMs, { 'operation.status': 'success' });
 This project includes comprehensive Copilot instructions in `.github/copilot-instructions.md`. Key patterns:
 
 ### Generate from specification:
+
 ```
 @workspace Read notes/packages/tracer/package.md and generate a complete tracer implementation in src/tracer/
 ```
 
 ### Update documentation:
+
 ```
 @workspace Analyze src/metrics/ and update notes/packages/metrics/package.md with current implementation details
 ```
@@ -192,6 +211,7 @@ This project includes comprehensive Copilot instructions in `.github/copilot-ins
 ## Package Generation Workflow
 
 ### For New Packages
+
 1. **Read specification** in `notes/packages/[package]/package.md`
 2. **Use Effect-TS patterns** for service definitions and error handling
 3. **Generate comprehensive code** with interfaces, implementations, and tests
@@ -199,8 +219,9 @@ This project includes comprehensive Copilot instructions in `.github/copilot-ins
 5. **Implement Bazel build integration** for reproducible builds
 
 ### Current Package Status (Day 1 Complete)
+
 - ✅ **storage** - Clickhouse/S3 with OTLP ingestion (specification complete)
-- ✅ **ai-analyzer** - Autoencoder anomaly detection (specification complete)  
+- ✅ **ai-analyzer** - Autoencoder anomaly detection (specification complete)
 - ✅ **llm-manager** - Multi-model orchestration (specification complete)
 - ✅ **ui-generator** - React component generation (specification complete)
 - ✅ **config-manager** - Self-healing configuration (specification complete)
