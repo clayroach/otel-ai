@@ -1,0 +1,24 @@
+[
+  {
+    "key": "ctrl+alt+g",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Generate Code from Note",
+    "when": "resourceFilename == 'package.md'"
+  },
+  {
+    "key": "ctrl+alt+d",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Update Note from Code",
+    "when": "resourcePath =~ /src/"
+  },
+  {
+    "key": "ctrl+alt+n",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Create Daily Note"
+  },
+  {
+    "key": "ctrl+alt+s",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Sync All Package Notes"
+  }
+]

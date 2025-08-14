@@ -1,0 +1,15 @@
+{
+  "dendron.rootDir": ".",
+  "dendron.vaultDir": "notes",
+  "dendron.workspace": "otel-project",
+  "githubCopilot.chat.welcomeMessage": "Copilot ready for OpenTelemetry documentation",
+  "files.associations": {
+    "**/notes/packages/**/*.md": "markdown",
+    "**/notes/daily/**/*.md": "markdown",
+    "**/notes/design/**/*.md": "markdown"
+  },
+  "github.copilot.editor.enableAutoCompletions": true,
+  "[markdown]": {
+    "editor.wordWrap": "on"
+  }
+}

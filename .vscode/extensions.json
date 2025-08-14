@@ -1,0 +1,11 @@
+{
+  "recommendations": [
+    "dendron.dendron",
+    "github.copilot",
+    "github.copilot-chat",
+    "yzhang.markdown-all-in-one",
+    "davidanson.vscode-markdownlint",
+    "bierner.markdown-mermaid",
+    "mushan.vscode-paste-image"
+  ]
+}
