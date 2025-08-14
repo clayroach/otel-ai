@@ -1,0 +1,47 @@
+/**
+ * Storage Package - ClickHouse integration and S3 backend storage layer
+ *
+ * Provides the storage abstraction layer for the AI-native observability platform,
+ * integrating ClickHouse for real-time analytics and S3/MinIO for raw data storage.
+ */
+
+export * from './schemas.js'
+export * from './config.js'
+export * from './errors.js'
+export * from './simple-storage.js'
+
+// Simple storage for initial development and testing
+export { SimpleStorage } from './simple-storage.js'
+export type { SimpleStorageConfig, SimpleTraceData, SimpleOTLPData } from './simple-storage.js'
+
+// Schema types
+export type {
+  TraceData,
+  MetricData,
+  LogData,
+  OTLPData,
+  QueryParams,
+  AIQueryParams,
+  AIDataset
+} from './schemas.js'
+
+// Storage configuration
+export type {
+  StorageConfig,
+  ClickHouseConfig,
+  S3Config,
+  RetentionConfig,
+  PerformanceConfig
+} from './config.js'
+export { StorageConfigSchema, defaultStorageConfig } from './config.js'
+
+// Error types
+export type { StorageError } from './errors.js'
+export { StorageErrorSchema } from './errors.js'
+
+// TODO: Re-enable when Effect-TS issues are resolved
+// export * from './clickhouse.js'
+// export * from './s3.js'
+// export * from './services.js'
+// export type { StorageService } from './services.js'
+// export { StorageServiceLive, makeStorageService } from './services.js'
