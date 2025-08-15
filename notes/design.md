@@ -33,7 +33,10 @@ flowchart TD
     CrossPathAnalyzer[Cross-Path Analyzer]
     
     %% UI Layer
-    UI[React UI Components]
+    MonacoEditor[Monaco SQL Editor]
+    ResizablePanels[Resizable Panels]
+    QueryHistory[Smart Query History]
+    DualViz[Dual Ingestion Visualization]
     
     %% Data Flow
     Application --> OTelLibrary
@@ -57,10 +60,13 @@ flowchart TD
     %% Storage Backend
     Clickhouse --> S3
     
-    %% UI Access
-    UnifiedView --> UI
-    AIAnalyzer --> UI
-    CrossPathAnalyzer --> UI
+    %% UI Access and Interaction
+    UnifiedView --> DualViz
+    UnifiedView --> MonacoEditor
+    MonacoEditor --> QueryHistory
+    DualViz --> ResizablePanels
+    AIAnalyzer --> DualViz
+    CrossPathAnalyzer --> DualViz
     
     %% Styling
     classDef primary fill:#e1f5fe
@@ -83,6 +89,24 @@ flowchart TD
 3. **Cross-Path Analysis**: Unique insights from comparing ingestion behaviors
 4. **Gradual Migration**: Transition capabilities between collector and direct paths
 5. **Fault Tolerance**: Continue operations if one ingestion path fails
+
+### UI Architecture Implementation (2025-08-15)
+
+**Professional SQL Interface**: Complete Monaco-based query interface with dual ingestion visualization.
+
+**Key Components**:
+- **Monaco SQL Editor**: VS Code-quality editing with ClickHouse syntax highlighting
+- **Resizable Panels**: Professional 30%/70% split with drag-to-resize capability
+- **Smart Query History**: AI-generated descriptions with one-click execution
+- **Dual Path Visualization**: Clear distinction between collector and direct ingestion
+- **Real-time Validation**: SQL syntax checking with auto-correction
+
+**Architecture Decisions**:
+- **CORS Resolution**: Vite development proxy instead of ClickHouse CORS configuration
+- **State Management**: Zustand with localStorage persistence and migration
+- **Panel System**: react-resizable-panels for professional UX consistency
+- **Query Intelligence**: Automated description generation from SQL analysis
+- **Error Handling**: Graceful degradation with retry logic and user feedback
 
 ## Design Principles
 
