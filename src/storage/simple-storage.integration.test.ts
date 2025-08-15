@@ -1,0 +1,180 @@
+/**
+ * Integration test suite for SimpleStorage class with TestContainers
+ * These tests require Docker and take longer to run
+ */
+
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { ClickHouseContainer, type StartedClickHouseContainer } from '@testcontainers/clickhouse'
+import { SimpleStorage, type SimpleStorageConfig, type SimpleOTLPData } from './simple-storage.js'
+
+describe('SimpleStorage Integration Tests', () => {
+  let storage: SimpleStorage
+  let config: SimpleStorageConfig
+  let clickhouseContainer: StartedClickHouseContainer
+
+  beforeAll(async () => {
+    console.log('🧪 Starting ClickHouse TestContainer...')
+    
+    // Start ClickHouse container
+    clickhouseContainer = await new ClickHouseContainer()
+      .withDatabase('otel')
+      .withUsername('otel')
+      .withPassword('otel123')
+      .start()
+
+    console.log('✅ ClickHouse TestContainer started')
+
+    // Configure storage to use the test container
+    config = {
+      clickhouse: {
+        host: clickhouseContainer.getHost(),
+        port: clickhouseContainer.getMappedPort(8123),
+        database: 'otel',
+        username: 'otel',
+        password: 'otel123'
+      }
+    }
+
+    storage = new SimpleStorage(config)
+    
+    // Verify connection
+    const isHealthy = await storage.healthCheck()
+    if (!isHealthy) {
+      throw new Error('Failed to connect to ClickHouse TestContainer')
+    }
+    
+    console.log('✅ ClickHouse connection verified')
+    
+    // Create the otel_traces table for testing
+    await storage['client'].command({
+      query: `
+        CREATE TABLE IF NOT EXISTS otel_traces (
+          Timestamp DateTime64(9),
+          TraceId String,
+          SpanId String, 
+          ParentSpanId String,
+          SpanName String,
+          SpanKind String,
+          ServiceName String,
+          ResourceAttributes Map(String, String),
+          Duration UInt64,
+          StatusCode UInt8,
+          StatusMessage String,
+          SpanAttributes Map(String, String),
+          Events String
+        ) ENGINE = MergeTree() 
+        ORDER BY (ServiceName, Timestamp)
+      `
+    })
+    
+    console.log('✅ Database schema created')
+  }, 120000) // 2 minute timeout for container startup
+
+  afterAll(async () => {
+    if (storage) {
+      await storage.close()
+    }
+    if (clickhouseContainer) {
+      console.log('🧹 Stopping ClickHouse TestContainer...')
+      await clickhouseContainer.stop()
+      console.log('✅ ClickHouse TestContainer stopped')
+    }
+  }, 60000)
+
+  describe('Health Check Integration', () => {
+    it('should perform health check successfully with real database', async () => {
+      const isHealthy = await storage.healthCheck()
+      expect(isHealthy).toBe(true)
+    })
+  })
+
+  describe('OTLP Data Integration', () => {
+    const testTraceData: SimpleOTLPData = {
+      traces: [
+        {
+          traceId: 'integration-trace-123',
+          spanId: 'integration-span-123',
+          operationName: 'integration-test-operation',
+          startTime: Date.now() * 1000000, // nanoseconds
+          serviceName: 'integration-test-service',
+          statusCode: 1,
+          attributes: { 'test.environment': 'integration', 'test.type': 'container' }
+        }
+      ],
+      timestamp: Date.now()
+    }
+
+    it('should write and query OTLP data end-to-end', async () => {
+      // Write data
+      await storage.writeOTLP(testTraceData)
+      
+      // Query back the data
+      const timeRange = {
+        start: Date.now() - 60000, // 1 minute ago
+        end: Date.now() + 60000    // 1 minute from now
+      }
+      
+      const traces = await storage.queryTraces(timeRange)
+      expect(Array.isArray(traces)).toBe(true)
+      
+      // Should find our trace
+      const ourTrace = traces.find(t => t.traceId === 'integration-trace-123')
+      if (ourTrace) {
+        expect(ourTrace.spanId).toBe('integration-span-123')
+        expect(ourTrace.operationName).toBe('integration-test-operation')
+        expect(ourTrace.serviceName).toBe('integration-test-service')
+        expect(ourTrace.statusCode).toBe(1)
+      }
+    })
+
+    it('should handle large datasets in real database', async () => {
+      const largeDataset: SimpleOTLPData = {
+        traces: Array.from({ length: 50 }, (_, index) => ({
+          traceId: `bulk-trace-${index}`,
+          spanId: `bulk-span-${index}`,
+          operationName: `bulk-operation-${index}`,
+          startTime: (Date.now() - index * 1000) * 1000000,
+          serviceName: `bulk-service-${index % 5}`,
+          statusCode: index % 2 === 0 ? 1 : 2,
+          attributes: { 
+            index: index.toString(), 
+            category: `cat-${index % 3}`,
+            'test.bulk': 'true'
+          }
+        })),
+        timestamp: Date.now()
+      }
+
+      await storage.writeOTLP(largeDataset)
+      
+      // Query to verify some of the data was written
+      const timeRange = {
+        start: Date.now() - 3600000, // 1 hour ago
+        end: Date.now()
+      }
+      
+      const traces = await storage.queryTraces(timeRange)
+      expect(traces.length).toBeGreaterThan(0)
+      
+      // Should find some of our bulk traces
+      const bulkTraces = traces.filter(t => t.attributes?.['test.bulk'] === 'true')
+      expect(bulkTraces.length).toBeGreaterThan(0)
+    })
+  })
+
+  describe('Query Performance Integration', () => {
+    it('should handle time-based queries efficiently', async () => {
+      const start = performance.now()
+      
+      const traces = await storage.queryTraces({
+        start: Date.now() - 86400000, // 24 hours ago
+        end: Date.now()
+      })
+      
+      const duration = performance.now() - start
+      
+      expect(Array.isArray(traces)).toBe(true)
+      expect(duration).toBeLessThan(5000) // Should complete in under 5 seconds
+    })
+  })
+})

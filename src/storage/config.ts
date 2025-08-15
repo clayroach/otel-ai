@@ -29,6 +29,7 @@ export const S3ConfigSchema = Schema.Struct({
   bucket: Schema.String,
   region: Schema.optional(Schema.String),
   forcePathStyle: Schema.optional(Schema.Boolean), // Required for MinIO
+  enableEncryption: Schema.optional(Schema.Boolean), // Enable/disable server-side encryption
   // Retention and lifecycle
   enableVersioning: Schema.optional(Schema.Boolean),
   lifecycleRules: Schema.optional(

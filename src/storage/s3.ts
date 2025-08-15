@@ -49,7 +49,7 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
           ),
         catch: (error) =>
           StorageErrorConstructors.ConnectionError(`Failed to connect to S3/MinIO: ${error}`, error)
-      }).pipe(Effect.timeout('10 seconds'))
+      })
     )
 
     const storeRawData = (data: Uint8Array, key: string): Effect.Effect<void, StorageError> =>
@@ -63,7 +63,7 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
                   Key: key,
                   Body: data,
                   ContentType: 'application/octet-stream',
-                  ServerSideEncryption: 'AES256' // Enable server-side encryption
+                  ...(config.enableEncryption && { ServerSideEncryption: 'AES256' })
                 })
               ),
             catch: (error) =>
@@ -76,7 +76,6 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
             Effect.retry(
               Schedule.exponential('100 millis').pipe(Schedule.compose(Schedule.recurs(3)))
             ),
-            Effect.timeout('60 seconds')
           )
         )
       })
@@ -98,7 +97,7 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
                 `GET ${key}`,
                 error
               )
-          }).pipe(Effect.timeout('60 seconds'))
+          })
         )
 
         if (!response.Body) {
@@ -107,27 +106,16 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
           )
         }
 
-        // Convert stream to Uint8Array
-        const chunks: Uint8Array[] = []
-        const reader = response.Body.getReader()
-
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          if (value) chunks.push(value)
-        }
-
-        // Combine all chunks
-        const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
-        const result = new Uint8Array(totalLength)
-        let offset = 0
-
-        for (const chunk of chunks) {
-          result.set(chunk, offset)
-          offset += chunk.length
-        }
-
-        return result
+        // Convert stream to Uint8Array - use Effect.tryPromise to handle async
+        const bodyBytes = yield* _(
+          Effect.tryPromise({
+            try: () => response.Body!.transformToByteArray(),
+            catch: (error) =>
+              StorageErrorConstructors.QueryError(`Failed to read response body: ${error}`, `READ ${key}`, error)
+          })
+        )
+        
+        return new Uint8Array(bodyBytes)
       })
 
     const deleteRawData = (key: string): Effect.Effect<void, StorageError> =>
@@ -147,7 +135,7 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
                 `DELETE ${key}`,
                 error
               )
-          }).pipe(Effect.timeout('30 seconds'))
+          })
         )
       })
 
@@ -302,7 +290,7 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
                 `LIST ${prefix || 'all'}`,
                 error
               )
-          }).pipe(Effect.timeout('30 seconds'))
+          })
         )
 
         return objects
@@ -321,7 +309,7 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
               ),
             catch: (error) =>
               StorageErrorConstructors.ConnectionError(`S3 health check failed: ${error}`, error)
-          }).pipe(Effect.timeout('5 seconds'))
+          })
         )
         return true
       })
@@ -344,8 +332,8 @@ const parseRetentionPeriod = (period: string): number => {
     throw new Error(`Invalid retention period format: ${period}`)
   }
 
-  const value = parseInt(match[1])
-  const unit = match[2]
+  const value = parseInt(match[1]!)
+  const unit = match[2]!
 
   const millisecondsPerUnit = {
     d: 24 * 60 * 60 * 1000, // days
