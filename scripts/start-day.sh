@@ -297,3 +297,6 @@ echo "\"I'm ready to continue with Day $DAY_NUMBER of the AI-native observabilit
 echo "\"Here's my progress review and today's goals: [reference your daily note]\""
 echo ""
 echo "📂 Today's daily note: $DAILY_NOTE"
+echo ""
+echo "💡 Claude session logging:"
+echo "   Using claude-code-log for automatic session capture"
