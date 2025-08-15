@@ -1,5 +1,6 @@
 /**
- * Comprehensive test suite for SimpleStorage class
+ * Unit test suite for SimpleStorage class
+ * For integration tests with TestContainers, see simple-storage.integration.test.ts
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
@@ -10,7 +11,7 @@ describe('SimpleStorage', () => {
   let config: SimpleStorageConfig
 
   beforeAll(async () => {
-    // Test configuration using Docker services
+    // Test configuration using Docker services (if available)
     config = {
       clickhouse: {
         host: process.env.CLICKHOUSE_HOST || 'localhost',
@@ -23,12 +24,8 @@ describe('SimpleStorage', () => {
 
     storage = new SimpleStorage(config)
 
-    // Quick check if ClickHouse is available (without long retry)
-    try {
-      await storage.healthCheck()
-    } catch (error) {
-      console.warn('ClickHouse not available for integration tests')
-    }
+    // Note: These are unit tests that may require external dependencies
+    // For proper integration testing, see simple-storage.integration.test.ts
   })
 
   afterAll(async () => {
@@ -66,7 +63,7 @@ describe('SimpleStorage', () => {
   describe('Health Check', () => {
     it('should perform health check successfully when ClickHouse is available', async () => {
       const isHealthy = await storage.healthCheck()
-      // This may be false if ClickHouse is not properly set up, which is expected
+      // This may be false if ClickHouse is not available, which is expected for unit tests
       expect(typeof isHealthy).toBe('boolean')
     })
 
