@@ -16,6 +16,7 @@
     "test": "vitest",
     "test:coverage": "vitest --coverage",
     "test:integration": "vitest --config vitest.integration.config.ts",
+    "test:integration:storage": "vitest run --config vitest.integration.config.ts src/storage/",
     "lint": "eslint . --ext .ts,.tsx --max-warnings 0",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "format": "prettier --write .",

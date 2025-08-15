@@ -39,10 +39,9 @@ export { StorageConfigSchema, defaultStorageConfig } from './config.js'
 export type { StorageError } from './errors.js'
 export { StorageErrorSchema } from './errors.js'
 
-// TODO: Re-enable when Effect-TS issues are resolved in a separate PR
-// The implementation is complete but has complex Effect-TS type compatibility issues
-// export * from './clickhouse.js'
-// export * from './s3.js'
-// export * from './services.js'
-// export type { StorageService } from './services.js'
-// export { StorageServiceLive, makeStorageService } from './services.js'
+// Effect-TS storage implementations - now with resolved type issues
+export * from './clickhouse.js'
+export * from './s3.js' 
+export * from './services.js'
+export type { StorageService } from './services.js'
+export { StorageServiceLive, makeStorageService } from './services.js'

@@ -54,7 +54,7 @@ export class SimpleStorage {
       TraceId: trace.traceId,
       SpanId: trace.spanId,
       SpanName: trace.operationName,
-      Timestamp: new Date(trace.startTime / 1000000),
+      Timestamp: (trace.startTime / 1000000000).toString(), // Convert nanoseconds to seconds
       ServiceName: trace.serviceName,
       StatusCode: trace.statusCode,
       SpanAttributes: trace.attributes
@@ -87,8 +87,8 @@ export class SimpleStorage {
         StatusCode as statusCode,
         SpanAttributes as attributes
       FROM otel_traces
-      WHERE Timestamp >= '${new Date(timeRange.start).toISOString()}'
-        AND Timestamp <= '${new Date(timeRange.end).toISOString()}'
+      WHERE Timestamp >= ${timeRange.start / 1000}
+        AND Timestamp <= ${timeRange.end / 1000}
       LIMIT 100
     `
 
