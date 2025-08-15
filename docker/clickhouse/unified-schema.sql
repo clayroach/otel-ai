@@ -1,14 +1,4 @@
 -- ================================================================
--- AI-Native Observability Platform - ClickHouse Database Setup
--- ================================================================
--- Simple initialization that creates our custom tables
--- OpenTelemetry Collector will create its own tables automatically
-
--- Create database
-CREATE DATABASE IF NOT EXISTS otel;
-USE otel;
-
--- ================================================================
 -- Unified Traces Table Schema
 -- ================================================================
 -- This table combines OpenTelemetry standard fields with AI-friendly
@@ -16,7 +6,7 @@ USE otel;
 -- materialized views.
 
 -- Unified Traces Table
-CREATE TABLE IF NOT EXISTS traces_unified (
+CREATE TABLE IF NOT EXISTS otel.traces_unified (
     -- ============================================================
     -- Standard OpenTelemetry Fields (for OTel Collector compatibility)
     -- ============================================================
@@ -66,8 +56,8 @@ TTL Timestamp + INTERVAL 30 DAY
 SETTINGS index_granularity = 8192;
 
 -- ============================================================
--- Indexes for common query patterns
+-- Index for common query patterns
 -- ============================================================
-CREATE INDEX IF NOT EXISTS idx_service_operation ON traces_unified (ServiceName, SpanName) TYPE minmax GRANULARITY 1;
-CREATE INDEX IF NOT EXISTS idx_trace_id ON traces_unified (TraceId) TYPE bloom_filter GRANULARITY 1;
-CREATE INDEX IF NOT EXISTS idx_duration ON traces_unified (Duration) TYPE minmax GRANULARITY 1;
+CREATE INDEX IF NOT EXISTS idx_service_operation ON otel.traces_unified (ServiceName, SpanName) TYPE minmax GRANULARITY 1;
+CREATE INDEX IF NOT EXISTS idx_trace_id ON otel.traces_unified (TraceId) TYPE bloom_filter GRANULARITY 1;
+CREATE INDEX IF NOT EXISTS idx_duration ON otel.traces_unified (Duration) TYPE minmax GRANULARITY 1;

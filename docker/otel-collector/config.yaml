@@ -40,6 +40,8 @@ exporters:
     username: otel
     password: otel123
     ttl: 72h
+    # Use our unified table instead of default otel_traces
+    traces_table_name: traces_unified
     retry_on_failure:
       enabled: true
       initial_interval: 5s

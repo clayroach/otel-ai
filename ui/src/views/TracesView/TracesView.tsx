@@ -31,7 +31,7 @@ SELECT
   schema_version,
   is_error,
   attribute_count
-FROM otel.ai_traces_unified 
+FROM otel.traces_unified_view 
 WHERE timestamp >= subtractHours(now(), 3)
 ORDER BY timestamp DESC 
 LIMIT 100`;

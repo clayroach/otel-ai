@@ -76,6 +76,26 @@ This project uses Dendron for documentation management:
 - Design decisions in `notes/design/adr/`
 - Templates in `notes/templates/`
 
+### OpenTelemetry Demo Integration
+
+Simple integration that connects the official OTel demo to your platform:
+
+```bash
+# Start your platform first
+pnpm dev:up
+
+# Start the demo (connects to your ClickHouse + OTel Collector)
+pnpm demo:up
+
+# View load generator (data generation)
+open http://localhost:8089
+
+# View your platform
+open http://localhost:5173
+```
+
+The demo services automatically send telemetry to your platform's OTel Collector at `localhost:4318`. Core services like adservice, cartservice, paymentservice, etc. are running and generating telemetry data that flows into your ClickHouse database.
+
 ## Documentation Structure
 
 ```
