@@ -14,14 +14,21 @@ created: 2025-08-13
 
 ### Purpose
 
-Provides the storage abstraction layer for the AI-native observability platform, integrating Clickhouse for real-time analytics and S3/MinIO for raw data storage. Handles OTLP data ingestion from the OpenTelemetry Collector and provides optimized query interfaces for AI analysis.
+Provides the storage abstraction layer for the AI-native observability platform, integrating Clickhouse for real-time analytics and S3/MinIO for raw data storage. **NEW**: Supports dual ingestion architecture with both OTel Collector (OTLP native) and direct OTLP protocol ingestion. Includes unified schema harmonization for AI analysis across both data paths.
 
 ### Architecture
 
 - **Clickhouse Primary**: Real-time analytics and query engine for traces, metrics, logs
+- **Dual Schema Support**: 
+  - `otel_traces` (OTLP native via Collector)
+  - `traces` (AI-optimized custom schema via Direct OTLP)
+  - `ai_traces_unified` (harmonized view for AI processing)
 - **S3/MinIO Backend**: Raw data storage with configurable retention policies
-- **OTLP Ingestion**: Direct OTLP protocol support for seamless OTel Collector integration
-- **AI Query Interface**: Optimized data access patterns for AI/ML workloads
+- **Dual OTLP Ingestion**: 
+  - Collector-mediated ingestion (standard OTLP)
+  - Direct OTLP protocol support for custom processing
+- **AI Query Interface**: Optimized data access patterns for AI/ML workloads across both schemas
+- **Cross-Path Analytics**: Performance and quality analysis across ingestion methods
 
 ## API Surface
 

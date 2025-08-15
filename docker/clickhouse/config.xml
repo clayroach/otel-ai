@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<clickhouse>
+    <!-- Enable CORS for browser requests -->
+    <http_server_default_response><![CDATA[
+        <html>
+            <head>
+                <title>ClickHouse</title>
+            </head>
+            <body>
+                ClickHouse server is running.
+            </body>
+        </html>
+    ]]></http_server_default_response>
+    
+    <!-- CORS settings -->
+    <cors>
+        <rule>
+            <url_pattern>.*</url_pattern>
+            <allow_origin>http://localhost:5173</allow_origin>
+            <allow_methods>GET,POST,OPTIONS</allow_methods>
+            <allow_headers>*</allow_headers>
+            <allow_credentials>true</allow_credentials>
+        </rule>
+    </cors>
+    
+    <!-- HTTP interface settings -->
+    <listen_host>::</listen_host>
+    <listen_host>0.0.0.0</listen_host>
+    
+    <!-- Allow query parameters -->
+    <http_receive_timeout>300</http_receive_timeout>
+    <http_send_timeout>300</http_send_timeout>
+    
+    <!-- Enable query log for debugging -->
+    <query_log>
+        <database>system</database>
+        <table>query_log</table>
+        <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+    </query_log>
+</clickhouse>

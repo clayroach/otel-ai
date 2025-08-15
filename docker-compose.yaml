@@ -13,6 +13,7 @@ services:
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - ./docker/clickhouse/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      - ./docker/clickhouse/config.xml:/etc/clickhouse-server/config.d/cors.xml
     healthcheck:
       test: ['CMD', 'clickhouse-client', '--query', 'SELECT 1']
       interval: 30s

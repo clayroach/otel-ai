@@ -23,15 +23,25 @@ The platform will continuously analyze telemetry data to identify patterns that 
 - **Adaptive User Experience**: LLM-driven UIs that learn from user behavior
 - **Universal Deployment**: Easy installation across standalone, Docker, or Kubernetes environments
 
-### Technical Architecture
+### Technical Architecture - Dual Ingestion Design
 
-- **Clickhouse Backend**: Standard storage for traces, metrics, and logs
+- **Dual Schema Architecture**: 
+  - OTLP native (`otel_traces`) for ecosystem compatibility
+  - AI-optimized custom schema (`traces`) for ML workloads
+  - Unified view (`ai_traces_unified`) for cross-path analysis
+- **Clickhouse Backend**: Primary analytics engine with materialized views
 - **S3-Compatible Storage**: Raw data storage with S3/MinIO backend
+- **Dual Ingestion Paths**:
+  - OTel Collector → ClickHouse (standard OTLP)
+  - Direct OTLP → Storage Package (AI-optimized)
 - **TypeScript Implementation**: Universal consumption and contribution
 - **React + Apache ECharts UI**: Rich, interactive data visualization
 
-### AI-Powered Operations
+### AI-Powered Operations - Enhanced with Dual Path Analysis
 
+- **Unified AI Processing**: Analysis across both ingestion paths simultaneously
+- **Cross-Path Correlation**: Detect patterns spanning collector and direct ingestion
+- **Ingestion Path Optimization**: AI recommends optimal path per service
 - **Continuous Analysis**: LLMs constantly analyzing telemetry for patterns
 - **Autonomous Agents**: Opinionated modules using AI agents for condition evaluation
 - **Pattern Recognition**: Learning from historical data to predict issues
@@ -44,6 +54,32 @@ The platform will continuously analyze telemetry data to identify patterns that 
 ## Success Criteria
 
 [How will you measure success?]
+
+## Key Architectural Discoveries
+
+### Dual Schema Architecture (Day 3 Discovery)
+
+**Major architectural insight discovered during implementation**: The OpenTelemetry Collector's ClickHouse exporter creates native OTLP schema tables (`otel_traces`) instead of using custom schema definitions. This led to the **dual ingestion architecture**:
+
+#### The Discovery
+- **Expected**: Single custom schema for all telemetry data
+- **Reality**: Collector uses OTLP native schema, direct ingestion uses custom schema
+- **Opportunity**: Leverage both schemas for enhanced AI capabilities
+
+#### Architectural Benefits
+1. **Ecosystem Compatibility**: OTLP native schema maintains tool compatibility
+2. **AI Optimization**: Custom schema optimized for ML workloads and feature extraction
+3. **Cross-Path Analysis**: Unique AI capabilities comparing ingestion methods
+4. **Fault Tolerance**: Redundant ingestion paths provide resilience
+5. **Gradual Migration**: Flexibility to transition between approaches
+
+#### Implementation Strategy
+- **Unified View**: `ai_traces_unified` materialized view harmonizes both schemas
+- **AI-First**: AI analyzer processes unified data stream for richer insights
+- **Path-Aware Models**: ML models can learn path-specific patterns
+- **Performance Analysis**: Compare collector vs direct ingestion characteristics
+
+This discovery fundamentally enhances the AI-native vision by providing richer data contexts and unique analytical capabilities not possible with single-path architectures.
 
 ## Key Decisions Made
 
