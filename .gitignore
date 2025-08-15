@@ -32,3 +32,6 @@ Thumbs.db
 
 # Screenshots dropbox (organized during PR creation)
 screenshots-dropbox/
+
+# External demo repositories
+otel-demo/

@@ -27,9 +27,8 @@
     <listen_host>::</listen_host>
     <listen_host>0.0.0.0</listen_host>
     
-    <!-- Allow query parameters -->
-    <http_receive_timeout>300</http_receive_timeout>
-    <http_send_timeout>300</http_send_timeout>
+    <!-- Skip incorrect settings check to allow custom configuration -->
+    <skip_check_for_incorrect_settings>1</skip_check_for_incorrect_settings>
     
     <!-- Enable query log for debugging -->
     <query_log>

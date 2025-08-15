@@ -37,11 +37,11 @@ const executeClickhouseQuery = async (
       headers['Authorization'] = `Basic ${btoa(`${auth.username}:${auth.password}`)}`;
     }
 
-    const response = await axios.get(url, {
-      params: {
-        query: `${query} FORMAT JSON`,
+    const response = await axios.post(url, `${query} FORMAT JSON`, {
+      headers: {
+        ...headers,
+        'Content-Type': 'text/plain',
       },
-      headers,
       timeout: 30000, // 30 second timeout
     });
 

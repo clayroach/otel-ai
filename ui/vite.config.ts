@@ -9,7 +9,7 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api/clickhouse': {
-        target: 'http://localhost:8123',
+        target: `http://${process.env.CLICKHOUSE_HOST || 'localhost'}:${process.env.CLICKHOUSE_PORT || '8123'}`,
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/clickhouse/, ''),
         configure: (proxy, _options) => {
@@ -17,7 +17,9 @@ export default defineConfig({
             // Add ClickHouse authentication
             const auth = Buffer.from('otel:otel123').toString('base64');
             proxyReq.setHeader('Authorization', `Basic ${auth}`);
-            console.log(`Proxying: ${req.method} ${req.url} -> http://localhost:8123`);
+            const targetHost = process.env.CLICKHOUSE_HOST || 'localhost';
+            const targetPort = process.env.CLICKHOUSE_PORT || '8123';
+            console.log(`Proxying: ${req.method} ${req.url} -> http://${targetHost}:${targetPort}`);
           });
         },
       },

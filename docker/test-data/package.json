@@ -1,0 +1,18 @@
+{
+  "name": "otel-ai-test-data-generator",
+  "version": "1.0.0",
+  "description": "Continuous test data generator for AI-native observability platform",
+  "main": "generate-test-data.js",
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/sdk-node": "^0.52.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.52.0",
+    "@opentelemetry/resources": "^1.25.0",
+    "@opentelemetry/semantic-conventions": "^1.25.0",
+    "@opentelemetry/instrumentation-http": "^0.52.0",
+    "axios": "^1.7.2"
+  },
+  "scripts": {
+    "start": "node generate-test-data.js"
+  }
+}
