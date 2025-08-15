@@ -92,28 +92,48 @@ notes/
 
 ## Daily Workflow Integration
 
-### Start of Day Process
+### Start of Day Process - AI-Native Workflow
 
 ```bash
-./scripts/start-day.sh
+./scripts/start-day-claude.sh
 ```
 
-Then begin Claude Code session with:
+**NEW**: Prompt-driven approach with Claude Code that:
+- Reviews yesterday's progress from actual daily notes
+- Gathers context about project state and goals  
+- Facilitates natural language planning conversation
+- Creates today's daily note with intelligent goal setting
+- Provides project timeline awareness and focus areas
 
-> "I'm ready to continue with Day X of the AI-native observability platform. Today's main goals: [specific objectives]"
+**Legacy bash version**: `./scripts/start-day.sh` (kept for reference)
 
-### End of Day Process
+### End of Day Process - Comprehensive Review & Content Generation
 
 ```bash
-./scripts/end-day.sh
+./scripts/end-day-claude.sh
 ```
 
-This automatically:
+**NEW**: Claude Code assisted workflow that:
+- Conducts interactive progress review with context awareness
+- Generates high-quality blog content with technical depth
+- Archives Claude Code session decisions and discoveries
+- Updates daily notes with completion status and learnings
+- Plans tomorrow's priorities based on actual progress
 
-- Archives Claude Code conversations
-- Generates blog posts for Dev.to, Medium, LinkedIn
-- Tracks progress and completed goals
-- Sets up for next day
+**Legacy bash version**: `./scripts/end-day.sh` (kept for reference)
+
+### Session Archiving - Project-Local Integration
+
+```bash
+./scripts/sync-claude-sessions.sh
+```
+
+**NEW**: Integrates claude-code-log with project-local storage:
+- Syncs all Claude Code sessions to `notes/claude-sessions/` 
+- Generates consolidated and individual session HTML transcripts
+- Creates searchable archive of all development decisions
+- Maintains backup JSONL files for data integrity
+- Updates session index with timestamps and navigation
 
 ### Blog Publishing Strategy
 
