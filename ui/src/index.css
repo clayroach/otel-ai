@@ -1,0 +1,185 @@
+/* Reset and base styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+}
+
+/* Custom scrollbar for webkit browsers */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Dark mode scrollbar */
+.ant-theme-dark ::-webkit-scrollbar-track {
+  background: #2f2f2f;
+}
+
+.ant-theme-dark ::-webkit-scrollbar-thumb {
+  background: #5a5a5a;
+}
+
+.ant-theme-dark ::-webkit-scrollbar-thumb:hover {
+  background: #6a6a6a;
+}
+
+/* Monaco editor custom styles */
+.monaco-editor {
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace !important;
+}
+
+/* Antd customizations */
+.ant-table-tbody > tr:hover > td {
+  background: rgba(24, 144, 255, 0.04) !important;
+}
+
+.ant-table-thead > tr > th {
+  background: #fafafa !important;
+  font-weight: 600;
+}
+
+/* Layout customizations */
+.ant-layout-header {
+  line-height: 64px;
+  padding: 0 24px;
+}
+
+.ant-layout-sider {
+  box-shadow: 2px 0 6px rgba(0, 21, 41, 0.05);
+}
+
+/* Card customizations */
+.ant-card {
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.ant-card-head {
+  border-bottom: 1px solid #f0f0f0;
+  font-weight: 600;
+}
+
+/* Button customizations */
+.ant-btn {
+  border-radius: 6px;
+}
+
+/* Tag customizations */
+.ant-tag {
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 18px;
+}
+
+/* Table customizations */
+.ant-table {
+  font-size: 13px;
+}
+
+.ant-table-thead > tr > th {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Modal customizations */
+.ant-modal-content {
+  border-radius: 8px;
+}
+
+.ant-modal-header {
+  border-radius: 8px 8px 0 0;
+}
+
+/* Form customizations */
+.ant-form-item {
+  margin-bottom: 16px;
+}
+
+/* Select customizations */
+.ant-select {
+  border-radius: 6px;
+}
+
+/* Date picker customizations */
+.ant-picker {
+  border-radius: 6px;
+}
+
+/* Loading states */
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Error states */
+.error-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  flex-direction: column;
+  gap: 16px;
+  color: #ff4d4f;
+}
+
+/* Utility classes */
+.full-height {
+  height: 100%;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.no-margin {
+  margin: 0;
+}
+
+.small-text {
+  font-size: 12px;
+}
+
+.monospace {
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+}

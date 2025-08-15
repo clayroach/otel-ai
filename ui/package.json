@@ -1,0 +1,75 @@
+{
+  "name": "@otel-ai/ui",
+  "version": "1.0.0",
+  "description": "AI-native observability UI with Electron and Monaco integration",
+  "main": "dist/electron/main.js",
+  "homepage": "./",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"pnpm dev:web\" \"pnpm dev:electron\"",
+    "dev:web": "vite",
+    "dev:electron": "wait-on http://localhost:5173 && electron .",
+    "build": "pnpm build:web && pnpm build:electron",
+    "build:web": "vite build",
+    "build:electron": "electron-builder",
+    "preview": "vite preview",
+    "electron": "electron .",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^5.2.5",
+    "@monaco-editor/react": "^4.5.1",
+    "antd": "^5.8.4",
+    "axios": "^1.5.0",
+    "cors": "^2.8.5",
+    "dayjs": "^1.11.9",
+    "echarts": "^5.4.3",
+    "echarts-for-react": "^3.0.2",
+    "express": "^5.1.0",
+    "http-proxy-middleware": "^3.0.5",
+    "monaco-editor": "^0.41.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-query": "^3.39.3",
+    "react-router-dom": "^6.15.0",
+    "zustand": "^4.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.5.0",
+    "@types/react": "^18.2.15",
+    "@types/react-dom": "^18.2.7",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "@vitejs/plugin-react": "^4.0.3",
+    "concurrently": "^8.2.0",
+    "electron": "^25.3.1",
+    "electron-builder": "^24.6.3",
+    "eslint": "^8.45.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.3",
+    "typescript": "^5.0.2",
+    "vite": "^4.4.5",
+    "wait-on": "^7.0.1"
+  },
+  "build": {
+    "appId": "com.otel-ai.ui",
+    "productName": "OTel AI Observability",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "node_modules/**/*"
+    ],
+    "mac": {
+      "target": "dmg"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}

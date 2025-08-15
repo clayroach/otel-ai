@@ -8,17 +8,81 @@ desc: 'Architecture and design decisions'
 
 ## Architecture Overview
 
-### System Architecture
+### System Architecture - Dual Ingestion Architecture
 
 ```mermaid
 flowchart TD
-    Application[Application]
-    OTelLibrary[OTel Library]
-    Clickhouse[Clickhouse Backend]
-
+    Application[Application Services]
+    OTelLibrary[OTel SDK/Libraries]
+    
+    %% Dual Ingestion Paths
+    Collector[OTel Collector]
+    DirectOTLP[Direct OTLP Handler]
+    
+    %% Storage Layer
+    Clickhouse[ClickHouse Analytics]
+    S3[S3/MinIO Storage]
+    
+    %% Schema Layer
+    OTLPNative["otel_traces<br/>(OTLP Native)"]
+    CustomSchema["traces<br/>(AI-Optimized)"]
+    UnifiedView["ai_traces_unified<br/>(Harmonized View)"]
+    
+    %% AI Processing
+    AIAnalyzer[AI Analyzer Engine]
+    CrossPathAnalyzer[Cross-Path Analyzer]
+    
+    %% UI Layer
+    UI[React UI Components]
+    
+    %% Data Flow
     Application --> OTelLibrary
-    OTelLibrary --> Clickhouse
+    
+    %% Path 1: Collector
+    OTelLibrary --> Collector
+    Collector --> Clickhouse
+    Clickhouse --> OTLPNative
+    
+    %% Path 2: Direct
+    OTelLibrary --> DirectOTLP
+    DirectOTLP --> Clickhouse
+    Clickhouse --> CustomSchema
+    
+    %% Unified Processing
+    OTLPNative --> UnifiedView
+    CustomSchema --> UnifiedView
+    UnifiedView --> AIAnalyzer
+    UnifiedView --> CrossPathAnalyzer
+    
+    %% Storage Backend
+    Clickhouse --> S3
+    
+    %% UI Access
+    UnifiedView --> UI
+    AIAnalyzer --> UI
+    CrossPathAnalyzer --> UI
+    
+    %% Styling
+    classDef primary fill:#e1f5fe
+    classDef storage fill:#f3e5f5
+    classDef ai fill:#e8f5e8
+    classDef schema fill:#fff3e0
+    
+    class Application,OTelLibrary primary
+    class Clickhouse,S3 storage
+    class AIAnalyzer,CrossPathAnalyzer ai
+    class OTLPNative,CustomSchema,UnifiedView schema
 ```
+
+### Dual Schema Architecture Benefits
+
+**Key Innovation**: AI-native observability through dual ingestion paths with unified analysis.
+
+1. **Path Isolation**: Independent validation and testing of ingestion methods
+2. **Schema Optimization**: AI-optimized custom schema alongside OTLP compliance
+3. **Cross-Path Analysis**: Unique insights from comparing ingestion behaviors
+4. **Gradual Migration**: Transition capabilities between collector and direct paths
+5. **Fault Tolerance**: Continue operations if one ingestion path fails
 
 ## Design Principles
 
