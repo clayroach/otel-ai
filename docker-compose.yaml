@@ -1,8 +1,13 @@
-# Minimal setup for development - just storage infrastructure
+# AI-Native Observability Platform
+# Production usage: docker compose up -d
+# Development usage: docker compose --profile dev up -d
+# With test data: docker compose --profile dev --profile test-data up -d
+
 services:
   # ClickHouse for analytics storage
   clickhouse:
-    image: clickhouse/clickhouse-server:23.8
+    image: clickhouse/clickhouse-server:25.7
+    container_name: otel-ai-clickhouse
     ports:
       - '8123:8123' # HTTP interface
       - '9000:9000' # Native interface
@@ -10,61 +15,134 @@ services:
       CLICKHOUSE_DB: otel
       CLICKHOUSE_USER: otel
       CLICKHOUSE_PASSWORD: otel123
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - ./docker/clickhouse/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
       - ./docker/clickhouse/config.xml:/etc/clickhouse-server/config.d/cors.xml
     healthcheck:
-      test: ['CMD', 'clickhouse-client', '--query', 'SELECT 1']
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      test: ['CMD', 'clickhouse-client', '--user', 'otel', '--password', 'otel123', '--query', 'SELECT 1']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
-  # MinIO for S3-compatible object storage
-  minio:
-    image: minio/minio:latest
-    ports:
-      - '9001:9001' # Console
-      - '9010:9000' # API
-    environment:
-      MINIO_ROOT_USER: otel-ai
-      MINIO_ROOT_PASSWORD: otel-ai-secret
-      MINIO_CONSOLE_ADDRESS: ':9001'
-    volumes:
-      - minio_data:/data
-    command: server /data
-    healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
-      interval: 30s
-      timeout: 10s
-      retries: 3
+  # MinIO for S3-compatible object storage (DISABLED for now)
+  # minio:
+  #   image: minio/minio:latest
+  #   container_name: otel-ai-minio
+  #   ports:
+  #     - '9001:9001' # Console
+  #     - '9010:9000' # API
+  #   environment:
+  #     MINIO_ROOT_USER: otel-ai
+  #     MINIO_ROOT_PASSWORD: otel-ai-secret
+  #     MINIO_CONSOLE_ADDRESS: ':9001'
+  #   volumes:
+  #     - minio_data:/data
+  #   command: server /data
+  #   healthcheck:
+  #     test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
 
-  # Create MinIO bucket on startup
-  minio-bucket:
-    image: minio/mc:latest
-    depends_on:
-      - minio
-    entrypoint: >
-      /bin/sh -c "
-      /usr/bin/mc alias set myminio http://minio:9000 otel-ai otel-ai-secret;
-      /usr/bin/mc mb myminio/otel-data;
-      /usr/bin/mc policy set public myminio/otel-data;
-      exit 0;
-      "
+  # Create MinIO bucket on startup (DISABLED for now)
+  # minio-bucket:
+  #   image: minio/mc:latest
+  #   container_name: otel-ai-minio-setup
+  #   depends_on:
+  #     minio:
+  #       condition: service_healthy
+  #   entrypoint: >
+  #     /bin/sh -c "
+  #     /usr/bin/mc alias set myminio http://minio:9000 otel-ai otel-ai-secret;
+  #     /usr/bin/mc mb --ignore-existing myminio/otel-data;
+  #     /usr/bin/mc anonymous set public myminio/otel-data;
+  #     exit 0;
+  #     "
 
   # OpenTelemetry Collector
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel-ai-collector
     ports:
       - '4317:4317' # OTLP gRPC receiver
       - '4318:4318' # OTLP HTTP receiver
       - '8888:8888' # Prometheus metrics
+      - '13133:13133' # Health check
     volumes:
       - ./docker/otel-collector/config.yaml:/etc/otelcol-contrib/config.yaml
     depends_on:
-      - clickhouse
+      clickhouse:
+        condition: service_healthy
     command: ['--config=/etc/otelcol-contrib/config.yaml']
+    # Health check disabled as it's not working reliably
+    # The collector is healthy when port 13133 responds
+
+  # UI Service - Production build by default
+  ui-prod:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+      target: production
+    container_name: otel-ai-ui
+    ports:
+      - '80:80'
+    depends_on:
+      - clickhouse
+      - otel-collector
+    profiles:
+      - production
+
+  # UI Service - Development build with hot reload
+  ui-dev:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+      target: development
+    container_name: otel-ai-ui-dev
+    ports:
+      - '5173:5173'
+    environment:
+      - NODE_ENV=development
+      - VITE_CLICKHOUSE_URL=http://clickhouse:8123
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=8123
+    volumes:
+      - ./ui:/app
+      - /app/node_modules
+    depends_on:
+      - clickhouse
+      - otel-collector
+    command: ['pnpm', 'dev:web', '--host', '0.0.0.0']
+    profiles:
+      - dev
+
+  # Test Data Generator - Only runs when explicitly enabled
+  test-data-generator:
+    build:
+      context: .
+      dockerfile: docker/test-data/Dockerfile
+    container_name: otel-ai-test-generator
+    environment:
+      - OTLP_ENDPOINT=http://otel-collector:4318
+      - CLICKHOUSE_URL=http://clickhouse:8123
+      - GENERATE_INTERVAL=${TEST_DATA_INTERVAL:-15s}
+      - BATCH_SIZE=${TEST_DATA_BATCH:-5}
+    depends_on:
+      - otel-collector
+      - clickhouse
+    restart: unless-stopped
+    profiles:
+      - test-data
 
 volumes:
   clickhouse_data:
-  minio_data:
+    name: otel-ai-clickhouse-data
+  # minio_data:
+  #   name: otel-ai-minio-data
+
+networks:
+  default:
+    name: otel-ai-network
