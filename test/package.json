@@ -1,0 +1,21 @@
+{
+  "name": "@otel-ai/test",
+  "version": "1.0.0",
+  "description": "System testing for AI-native observability platform",
+  "private": true,
+  "scripts": {
+    "validate-infra": "node validate-infrastructure.js",
+    "generate-traces": "node telemetry-generator.js", 
+    "query-traces": "node clickhouse-queries.js",
+    "test-pipeline": "npm run validate-infra && npm run generate-traces && npm run query-traces",
+    "dev-traces": "node telemetry-generator.js"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.52.1",
+    "@opentelemetry/resources": "^1.25.1",
+    "@opentelemetry/semantic-conventions": "^1.25.1",
+    "@opentelemetry/sdk-trace-node": "^1.25.1",
+    "@opentelemetry/sdk-trace-base": "^1.25.1"
+  }
+}
