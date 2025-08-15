@@ -71,3 +71,28 @@ SETTINGS index_granularity = 8192;
 CREATE INDEX IF NOT EXISTS idx_service_operation ON traces_unified (ServiceName, SpanName) TYPE minmax GRANULARITY 1;
 CREATE INDEX IF NOT EXISTS idx_trace_id ON traces_unified (TraceId) TYPE bloom_filter GRANULARITY 1;
 CREATE INDEX IF NOT EXISTS idx_duration ON traces_unified (Duration) TYPE minmax GRANULARITY 1;
+
+-- ============================================================
+-- Queryable View for AI-Friendly Column Names
+-- ============================================================
+-- This view provides a clean interface for the UI to query traces
+-- using computed AI-friendly column names
+
+CREATE OR REPLACE VIEW traces_unified_view AS
+SELECT 
+    TraceId as trace_id,
+    ServiceName as service_name,
+    SpanName as operation_name,
+    Duration / 1000000 as duration_ms,
+    Timestamp as timestamp,
+    StatusCode as status_code,
+    'otlp' as ingestion_path,
+    'v1.0' as schema_version,
+    CASE WHEN StatusCode = 'STATUS_CODE_ERROR' THEN 1 ELSE 0 END as is_error,
+    SpanKind as span_kind,
+    ParentSpanId as parent_span_id,
+    length(SpanAttributes) as attribute_count,
+    SpanId as span_id,
+    SpanAttributes as attributes,
+    ResourceAttributes as resource_attributes
+FROM traces_unified;

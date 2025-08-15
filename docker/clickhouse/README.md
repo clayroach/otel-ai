@@ -5,49 +5,56 @@ This directory contains the ClickHouse configuration for the AI-Native Observabi
 ## Files
 
 - `config.xml` - ClickHouse server configuration with CORS enabled
-- `init-db.sql` - Database initialization script that creates custom tables
+- `init-db.sql` - Database initialization script with unified table schema
 
-## Database Schema
+## Unified Table Architecture
 
-### Automatic Tables (Created by OpenTelemetry Collector)
-- `otel_traces` - Standard OTLP traces from the collector
-- `otel_metrics_*` - Various metrics tables  
-- `otel_logs` - Standard OTLP logs
+### Core Table: `traces_unified`
+A single table that combines OpenTelemetry standard fields with AI-friendly computed columns:
 
-### Custom Tables (Created by init script)
-- `traces` - Custom traces table for direct ingestion
-- `ai_traces_unified` - Unified table combining data from both ingestion paths
+- **OpenTelemetry Fields**: Standard OTLP schema (TraceId, ServiceName, SpanName, etc.)
+- **AI-Friendly Columns**: Computed via ALIAS (trace_id, service_name, duration_ms, etc.)
+- **No Materialized Views**: Eliminates sync complexity and performance issues
+
+### Queryable View: `traces_unified_view`
+A clean interface for UI queries using AI-friendly column names:
+
+```sql
+SELECT trace_id, service_name, operation_name, duration_ms, timestamp
+FROM otel.traces_unified_view
+WHERE timestamp >= subtractHours(now(), 3)
+ORDER BY timestamp DESC;
+```
+
+## Architecture Benefits
+
+✅ **Single Source of Truth**: One table for all trace data  
+✅ **No Sync Issues**: No materialized views to maintain or fall behind  
+✅ **Column Efficiency**: ClickHouse column storage benefits preserved  
+✅ **Simple Pipeline**: Services → Collector → ClickHouse → UI  
+✅ **Easy Maintenance**: Single schema to evolve and debug  
+
+## Data Flow
+
+```
+Demo Services / Test Generator
+         ↓
+   OTel Collector (HTTP/gRPC)
+         ↓
+   traces_unified table
+         ↓
+   traces_unified_view
+         ↓
+      UI Queries
+```
 
 ## Setup Process
 
-1. **ClickHouse Start**: ClickHouse container starts and runs init-db.sql
-2. **Custom Tables**: Our custom tables are created immediately
-3. **Collector Tables**: OpenTelemetry Collector creates its tables when it starts ingesting data
-4. **Materialized Views**: Created manually after collector tables exist (see Post-Setup)
-
-## Post-Setup: Create Materialized Views
-
-After the OpenTelemetry Collector has created the `otel_traces` table, create the materialized view:
-
-```sql
-USE otel;
-CREATE MATERIALIZED VIEW IF NOT EXISTS ai_traces_unified_otlp_mv
-TO ai_traces_unified
-AS SELECT
-    TraceId as trace_id,
-    ServiceName as service_name,
-    SpanName as operation_name,
-    Duration / 1000000.0 as duration_ms,
-    Timestamp as timestamp,
-    StatusCode as status_code,
-    'collector' as ingestion_path,
-    'otlp' as schema_version,
-    if(StatusCode = 'ERROR', 1, 0) as is_error,
-    SpanKind as span_kind,
-    ParentSpanId as parent_span_id,
-    length(SpanAttributes) as attribute_count
-FROM otel.otel_traces;
-```
+1. **ClickHouse Start**: Container starts and runs `init-db.sql`
+2. **Unified Table**: `traces_unified` created with both OTLP and AI-friendly columns
+3. **Queryable View**: `traces_unified_view` created for UI compatibility
+4. **Indexes**: Performance indexes created for common query patterns
+5. **Ready**: System immediately ready for telemetry ingestion
 
 ## Testing
 
@@ -58,21 +65,36 @@ Verify the setup with:
 SHOW TABLES FROM otel;
 
 -- Check unified table data
-SELECT COUNT(*) FROM otel.ai_traces_unified;
+SELECT COUNT(*) FROM otel.traces_unified;
 
--- View recent traces
+-- View recent traces with AI-friendly columns
 SELECT service_name, operation_name, duration_ms, timestamp 
-FROM otel.ai_traces_unified 
+FROM otel.traces_unified_view 
 ORDER BY timestamp DESC 
 LIMIT 10;
+
+-- Test computed columns
+SELECT TraceId, trace_id, Duration, duration_ms 
+FROM otel.traces_unified 
+LIMIT 5;
 ```
+
+## Migration from Previous Approach
+
+The unified table replaces:
+- ❌ `otel_traces` (collector-only table)
+- ❌ `ai_traces_unified` (separate AI table)  
+- ❌ Materialized views and sync complexity
+
+With:
+- ✅ `traces_unified` (unified table with both schemas)
+- ✅ `traces_unified_view` (clean query interface)
+- ✅ Direct data flow with no sync points
 
 ## Current Status
 
-- ✅ **Simple, reliable setup** using standard ClickHouse initialization
-- ✅ **Automatic table creation** via init script
-- ✅ **Working materialized views** for unified data processing  
-- ✅ **UI integration** with all required columns
-- ✅ **Test data generation** flowing through both paths
-
-Note: Advanced schema migration tools like Atlas can be added later as a separate improvement.
+- ✅ **Unified table architecture** eliminating materialized view complexity
+- ✅ **Working telemetry pipeline** from demo services to UI
+- ✅ **AI-friendly query interface** via computed columns and views
+- ✅ **Test data flowing** successfully through unified approach
+- ✅ **UI integration** complete with unified table queries
