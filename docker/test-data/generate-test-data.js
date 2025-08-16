@@ -15,12 +15,14 @@ const axios = require('axios');
 
 // Configuration from environment variables
 const OTLP_ENDPOINT = process.env.OTLP_ENDPOINT || 'http://localhost:4318';
+const DIRECT_OTLP_ENDPOINT = process.env.DIRECT_OTLP_ENDPOINT || 'http://localhost:4319';
 const CLICKHOUSE_URL = process.env.CLICKHOUSE_URL || 'http://localhost:8123';
 const GENERATE_INTERVAL = process.env.GENERATE_INTERVAL || '30s';
 const DIRECT_INGESTION_RATIO = 0.2; // 20% direct, 80% collector
 
 console.log('🚀 Starting AI-Native Observability Test Data Generator');
-console.log(`📡 OTLP Endpoint: ${OTLP_ENDPOINT}`);
+console.log(`📡 OTLP Collector Endpoint: ${OTLP_ENDPOINT}`);
+console.log(`🎯 Direct OTLP Endpoint: ${DIRECT_OTLP_ENDPOINT}`);
 console.log(`💾 ClickHouse URL: ${CLICKHOUSE_URL}`);
 console.log(`⏱️  Generation Interval: ${GENERATE_INTERVAL}`);
 
@@ -151,103 +153,98 @@ async function generateCollectorTrace() {
   });
 }
 
-// Generate test trace via direct ingestion path
+// Generate test trace via direct ingestion path (using OTLP but with direct metadata)
 async function generateDirectTrace() {
+  console.log('📍 ENTRY: generateDirectTrace() called - using OTLP with direct metadata');
   const service = getRandomElement(SERVICES);
   const operation = getRandomElement(OPERATIONS[service.type]);
   const isError = Math.random() < 0.08; // Slightly lower error rate for direct path
   const traceId = generateTraceId();
   const spanId = generateSpanId();
   const duration = generateRandomDuration();
-  const timestamp = new Date().toISOString();
   
-  // Custom schema optimized for AI analysis
-  const traceData = {
-    trace_id: traceId,
-    span_id: spanId,
-    parent_span_id: '',
-    service_name: service.name,
-    operation_name: operation,
-    start_time: new Date(Date.now() - duration).toISOString(),
-    end_time: timestamp,
-    duration_ms: duration,
-    status_code: isError ? 2 : 1,
-    status_message: isError ? 'Simulated direct ingestion error' : 'OK',
-    span_kind: 'SERVER',
-    attributes: {
-      'service.version': service.version,
-      'service.type': service.type,
-      'ingestion.path': 'direct',
-      'ingestion.schema': 'custom',
-      'test.data.source': 'direct',
-      'ai.optimization.enabled': 'true',
-      'http.method': getRandomElement(['GET', 'POST', 'PUT', 'DELETE']),
-      'http.status_code': isError ? getRandomElement([400, 404, 500, 503]) : getRandomElement([200, 201, 204]),
-      'user.id': `user-${Math.floor(Math.random() * 1000)}`,
-      'session.id': generateSpanId(),
-      'environment': 'development',
-      'ai.feature.enabled': Math.random() < 0.7 ? 'true' : 'false'
-    },
-    events: JSON.stringify([
-      {
-        name: 'operation.start',
-        timestamp: new Date(Date.now() - duration).toISOString(),
-        attributes: { 'component': service.type }
+  // Create OTLP trace data with special metadata to mark it as "direct" ingestion
+  const otlpTrace = {
+    resourceSpans: [{
+      resource: {
+        attributes: [
+          { key: 'service.name', value: { stringValue: service.name } },
+          { key: 'service.version', value: { stringValue: service.version } },
+          { key: 'service.type', value: { stringValue: service.type } },
+          // Special marker for direct ingestion path
+          { key: 'ingestion.path', value: { stringValue: 'direct' } },
+          { key: 'ingestion.method', value: { stringValue: 'otlp-direct' } },
+          { key: 'test.data.source', value: { stringValue: 'direct-generator' } },
+          { key: 'environment', value: { stringValue: 'development' } }
+        ]
       },
-      {
-        name: 'operation.complete',
-        timestamp: timestamp,
-        attributes: { 
-          'records.processed': Math.floor(Math.random() * 1000),
-          'duration.ms': duration 
-        }
-      }
-    ]),
-    resource_attributes: {
-      'service.name': service.name,
-      'service.version': service.version,
-      'deployment.environment': 'development'
-    },
-    schema_version: 'ai-optimized-v1.0'
+      scopeSpans: [{
+        spans: [{
+          traceId: traceId,
+          spanId: spanId,
+          name: operation,
+          kind: 'SPAN_KIND_SERVER',
+          startTimeUnixNano: (Date.now() - duration) * 1000000,
+          endTimeUnixNano: Date.now() * 1000000,
+          status: { 
+            code: isError ? 'STATUS_CODE_ERROR' : 'STATUS_CODE_OK',
+            message: isError ? 'Simulated direct ingestion error' : 'OK'
+          },
+          attributes: [
+            { key: 'http.method', value: { stringValue: getRandomElement(['GET', 'POST', 'PUT', 'DELETE']) } },
+            { key: 'http.status_code', value: { intValue: isError ? getRandomElement([400, 404, 500, 503]) : getRandomElement([200, 201, 204]) } },
+            { key: 'user.id', value: { stringValue: `user-${Math.floor(Math.random() * 1000)}` } },
+            { key: 'session.id', value: { stringValue: generateSpanId() } },
+            { key: 'ai.optimization.enabled', value: { boolValue: true } },
+            { key: 'direct.ingestion.marker', value: { stringValue: 'true' } }, // Special marker
+            { key: 'test.generator.type', value: { stringValue: 'direct-path' } }
+          ],
+          events: [
+            {
+              name: 'operation.start',
+              timeUnixNano: (Date.now() - duration) * 1000000,
+              attributes: [
+                { key: 'component', value: { stringValue: service.type } }
+              ]
+            },
+            {
+              name: 'operation.complete', 
+              timeUnixNano: Date.now() * 1000000,
+              attributes: [
+                { key: 'records.processed', value: { intValue: Math.floor(Math.random() * 1000) } },
+                { key: 'duration.ms', value: { intValue: duration } }
+              ]
+            }
+          ]
+        }]
+      }]
+    }]
   };
   
   try {
-    // Direct insertion to ClickHouse custom table
-    const query = `
-      INSERT INTO otel.traces (
-        trace_id, span_id, parent_span_id, operation_name,
-        start_time, end_time, duration,
-        service_name, service_version,
-        status_code, status_message, span_kind,
-        attributes, resource_attributes
-      ) VALUES (
-        '${traceData.trace_id}',
-        '${traceData.span_id}',
-        '${traceData.parent_span_id}',
-        '${traceData.operation_name}',
-        parseDateTimeBestEffort('${traceData.start_time}'),
-        parseDateTimeBestEffort('${traceData.end_time}'),
-        ${traceData.duration_ms * 1000000},
-        '${traceData.service_name}',
-        '${service.version}',
-        ${traceData.status_code},
-        '${traceData.status_message}',
-        '${traceData.span_kind}',
-        ${JSON.stringify(traceData.attributes)},
-        ${JSON.stringify(traceData.resource_attributes)}
-      )
-    `;
-    
-    await axios.post(`${CLICKHOUSE_URL}/?database=otel`, query, {
-      headers: {
-        'Content-Type': 'text/plain',
-        'Authorization': 'Basic ' + Buffer.from('otel:otel123').toString('base64')
-      }
+    console.log(`🔍 Sending direct OTLP trace to ${DIRECT_OTLP_ENDPOINT}/v1/traces`);
+    console.log(`🔍 Direct trace data:`, {
+      traceId: traceId.substring(0, 8) + '...',
+      service: service.name,
+      operation: operation,
+      ingestionPath: 'direct'
     });
     
+    // Send to backend OTLP endpoint for direct ingestion
+    const response = await axios.post(`${DIRECT_OTLP_ENDPOINT}/v1/traces`, otlpTrace, {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Ingestion-Path': 'direct', // Custom header to help identify
+        'X-Generator-Type': 'direct-test-generator'
+      },
+      timeout: 10000
+    });
+    
+    console.log(`✅ Direct OTLP trace sent successfully, status: ${response.status}`);
+    
     return {
-      traceId: traceData.trace_id,
-      spanId: traceData.span_id,
+      traceId: traceId,
+      spanId: spanId,
       service: service.name,
       operation,
       duration,
@@ -255,7 +252,13 @@ async function generateDirectTrace() {
       path: 'direct'
     };
   } catch (error) {
-    console.error('❌ Failed to insert direct trace:', error.message);
+    console.error('❌ Failed to send direct OTLP trace:', error.message);
+    console.error('❌ Error details:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      url: `${DIRECT_OTLP_ENDPOINT}/v1/traces`,
+      method: 'POST'
+    });
     throw error;
   }
 }
@@ -286,9 +289,11 @@ async function startDataGeneration() {
       
       for (let i = 0; i < batchSize; i++) {
         if (Math.random() < DIRECT_INGESTION_RATIO) {
+          console.log(`🎯 Generating direct trace ${i + 1} of ${batchSize}`);
           promises.push(generateDirectTrace().then(result => ({ ...result, path: 'direct' })));
           directCount++;
         } else {
+          console.log(`🎯 Generating collector trace ${i + 1} of ${batchSize}`);
           promises.push(generateCollectorTrace().then(result => ({ ...result, path: 'collector' })));
           collectorCount++;
         }
@@ -297,6 +302,13 @@ async function startDataGeneration() {
       const results = await Promise.allSettled(promises);
       const successful = results.filter(r => r.status === 'fulfilled').length;
       const failed = results.length - successful;
+      
+      // Log details about failed promises
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          console.log(`❌ Promise ${index} failed:`, result.reason?.message || result.reason);
+        }
+      });
       
       generationCount += successful;
       

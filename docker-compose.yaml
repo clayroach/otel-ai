@@ -119,6 +119,30 @@ services:
     profiles:
       - dev
 
+  # Backend Service - OTLP ingestion and storage layer
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: otel-ai-backend
+    ports:
+      - '4319:4319' # OTLP ingestion endpoint for direct path
+    environment:
+      - NODE_ENV=production
+      - PORT=4319
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=8123
+      - CLICKHOUSE_DATABASE=otel
+      - CLICKHOUSE_USERNAME=otel
+      - CLICKHOUSE_PASSWORD=otel123
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles:
+      - dev
+      - production
+
   # Test Data Generator - Only runs when explicitly enabled
   test-data-generator:
     build:
@@ -127,11 +151,13 @@ services:
     container_name: otel-ai-test-generator
     environment:
       - OTLP_ENDPOINT=http://otel-collector:4318
+      - DIRECT_OTLP_ENDPOINT=http://backend:4319
       - CLICKHOUSE_URL=http://clickhouse:8123
       - GENERATE_INTERVAL=${TEST_DATA_INTERVAL:-15s}
       - BATCH_SIZE=${TEST_DATA_BATCH:-5}
     depends_on:
       - otel-collector
+      - backend
       - clickhouse
     restart: unless-stopped
     profiles:

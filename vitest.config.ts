@@ -8,6 +8,7 @@ export default defineConfig({
     testTimeout: 30000, // 30 seconds for integration tests
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     exclude: ['node_modules', 'dist'],
+    watch: false, // Disable watch mode by default - run once and exit
     coverage: {
       reporter: ['text', 'html', 'json'],
       exclude: ['node_modules/', 'dist/', '**/*.d.ts', '**/*.test.ts', '**/*.spec.ts']
