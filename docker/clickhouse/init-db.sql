@@ -9,11 +9,14 @@ CREATE DATABASE IF NOT EXISTS otel;
 USE otel;
 
 -- ================================================================
--- Custom Tables for Direct Ingestion
+-- AI-Friendly Views for Dual Ingestion Paths
 -- ================================================================
+-- The OpenTelemetry Collector creates otel_traces with standard schema
+-- We also support direct ingestion to ai_traces_direct for testing
+-- Both paths are unified in traces_unified_view for the UI
 
--- Custom Traces Table (AI-Optimized Schema)
-CREATE TABLE IF NOT EXISTS traces (
+-- Direct ingestion table for test generator (bypasses collector)
+CREATE TABLE IF NOT EXISTS ai_traces_direct (
     trace_id String,
     span_id String,
     parent_span_id String,
@@ -29,29 +32,10 @@ CREATE TABLE IF NOT EXISTS traces (
     attributes Map(String, String),
     resource_attributes Map(String, String)
 ) ENGINE = MergeTree()
-PARTITION BY toYYYYMM(start_time)
-ORDER BY (service_name, start_time, trace_id)
-TTL start_time + INTERVAL 30 DAY;
+ORDER BY (service_name, start_time, trace_id);
 
--- ================================================================
--- AI-Unified Analysis Table
--- ================================================================
-
--- Unified Traces Table for Cross-Path Analysis
-CREATE TABLE IF NOT EXISTS ai_traces_unified (
-    trace_id String,
-    service_name LowCardinality(String),
-    operation_name LowCardinality(String),
-    duration_ms Float64,
-    timestamp DateTime64(9),
-    status_code LowCardinality(String),
-    ingestion_path LowCardinality(String),
-    schema_version LowCardinality(String),
-    is_error UInt8,
-    span_kind LowCardinality(String),
-    parent_span_id String,
-    attribute_count UInt64 DEFAULT 0
-) ENGINE = MergeTree()
-PARTITION BY (ingestion_path, toYYYYMM(timestamp))
-ORDER BY (ingestion_path, service_name, timestamp, trace_id)
-TTL timestamp + INTERVAL 30 DAY;
+-- ============================================================
+-- Unified View - Created Later After OTel Collector Starts
+-- ============================================================
+-- The unified view will be created by the backend service after
+-- the OTel Collector has created the otel_traces table

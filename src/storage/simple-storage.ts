@@ -22,7 +22,7 @@ export interface SimpleTraceData {
   operationName: string
   startTime: number
   serviceName: string
-  statusCode: number
+  statusCode: number | string
   attributes: Record<string, string>
 }
 
@@ -45,8 +45,33 @@ export class SimpleStorage {
 
   async writeOTLP(data: SimpleOTLPData): Promise<void> {
     if (data.traces && data.traces.length > 0) {
-      await this.writeTraces(data.traces)
+      await this.writeDirectTraces(data.traces)
     }
+  }
+
+  private async writeDirectTraces(traces: any[]): Promise<void> {
+    const values = traces.map((trace) => ({
+      trace_id: trace.traceId,
+      span_id: trace.spanId,
+      parent_span_id: trace.parentSpanId || '',
+      operation_name: trace.operationName,
+      start_time: trace.startTime, // Keep as nanoseconds for DateTime64(9)
+      end_time: trace.endTime,
+      duration: trace.endTime - trace.startTime,
+      service_name: trace.serviceName,
+      service_version: '1.0.0',
+      status_code: trace.statusCode,
+      status_message: trace.statusMessage || '',
+      span_kind: trace.spanKind || 'SPAN_KIND_INTERNAL',
+      attributes: trace.attributes || {},
+      resource_attributes: trace.resourceAttributes || {}
+    }))
+
+    await this.client.insert({
+      table: 'ai_traces_direct',
+      values,
+      format: 'JSONEachRow'
+    })
   }
 
   private async writeTraces(traces: SimpleTraceData[]): Promise<void> {
@@ -77,18 +102,22 @@ export class SimpleStorage {
   }
 
   async queryTraces(timeRange: { start: number; end: number }): Promise<SimpleTraceData[]> {
+    // Convert milliseconds to nanoseconds for the query
+    const startNano = timeRange.start * 1000000
+    const endNano = timeRange.end * 1000000
+    
     const query = `
       SELECT 
-        TraceId as traceId,
-        SpanId as spanId,
-        SpanName as operationName,
-        toUnixTimestamp64Nano(Timestamp) as startTime,
-        ServiceName as serviceName,
-        StatusCode as statusCode,
-        SpanAttributes as attributes
-      FROM otel_traces
-      WHERE Timestamp >= ${timeRange.start / 1000}
-        AND Timestamp <= ${timeRange.end / 1000}
+        trace_id as traceId,
+        span_id as spanId,
+        operation_name as operationName,
+        toUnixTimestamp64Nano(start_time) as startTime,
+        service_name as serviceName,
+        status_code as statusCode,
+        attributes as attributes
+      FROM ai_traces_direct
+      WHERE toUnixTimestamp64Nano(start_time) >= ${startNano}
+        AND toUnixTimestamp64Nano(start_time) <= ${endNano}
       LIMIT 100
     `
 
@@ -106,10 +135,14 @@ export class SimpleStorage {
         operationName: String(rowData.operationName),
         startTime: parseInt(String(rowData.startTime)),
         serviceName: String(rowData.serviceName),
-        statusCode: Number(rowData.statusCode),
+        statusCode: String(rowData.statusCode),
         attributes: (rowData.attributes as Record<string, string>) || {}
       }
     })
+  }
+
+  async query(sql: string): Promise<void> {
+    await this.client.query({ query: sql })
   }
 
   async close(): Promise<void> {

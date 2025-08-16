@@ -45,7 +45,30 @@ describe('SimpleStorage Integration Tests', () => {
     
     console.log('✅ ClickHouse connection verified')
     
-    // Create the otel_traces table for testing
+    // Create the ai_traces_direct table for testing (used by writeOTLP method)
+    await storage['client'].command({
+      query: `
+        CREATE TABLE IF NOT EXISTS ai_traces_direct (
+          trace_id String,
+          span_id String,
+          parent_span_id String,
+          operation_name LowCardinality(String),
+          start_time DateTime64(9),
+          end_time DateTime64(9),
+          duration UInt64,
+          service_name LowCardinality(String),
+          service_version LowCardinality(String),
+          status_code LowCardinality(String),
+          status_message String,
+          span_kind LowCardinality(String),
+          attributes Map(String, String),
+          resource_attributes Map(String, String)
+        ) ENGINE = MergeTree()
+        ORDER BY (service_name, start_time, trace_id)
+      `
+    })
+    
+    // Also create the otel_traces table for collector path testing
     await storage['client'].command({
       query: `
         CREATE TABLE IF NOT EXISTS otel_traces (
@@ -89,16 +112,22 @@ describe('SimpleStorage Integration Tests', () => {
   })
 
   describe('OTLP Data Integration', () => {
+    const now = Date.now() * 1000000 // Convert to nanoseconds
     const testTraceData: SimpleOTLPData = {
       traces: [
         {
           traceId: 'integration-trace-123',
           spanId: 'integration-span-123',
+          parentSpanId: '',
           operationName: 'integration-test-operation',
-          startTime: Date.now() * 1000000, // nanoseconds
+          startTime: now,
+          endTime: now + 1000000, // 1ms later
           serviceName: 'integration-test-service',
-          statusCode: 1,
-          attributes: { 'test.environment': 'integration', 'test.type': 'container' }
+          statusCode: 'STATUS_CODE_OK',
+          statusMessage: 'OK',
+          spanKind: 'SPAN_KIND_SERVER',
+          attributes: { 'test.environment': 'integration', 'test.type': 'container' },
+          resourceAttributes: { 'service.name': 'integration-test-service' }
         }
       ],
       timestamp: Date.now()
@@ -119,29 +148,45 @@ describe('SimpleStorage Integration Tests', () => {
       
       // Should find our trace
       const ourTrace = traces.find(t => t.traceId === 'integration-trace-123')
+      expect(ourTrace).toBeDefined()
+      
       if (ourTrace) {
         expect(ourTrace.spanId).toBe('integration-span-123')
         expect(ourTrace.operationName).toBe('integration-test-operation')
         expect(ourTrace.serviceName).toBe('integration-test-service')
-        expect(ourTrace.statusCode).toBe(1)
+        // The statusCode is stored as a string in the database
+        expect(typeof ourTrace.statusCode).toBe('string')
+        expect(ourTrace.statusCode).toMatch(/STATUS_CODE_OK|Ok/i)
       }
     })
 
     it('should handle large datasets in real database', async () => {
+      const baseTime = Date.now() * 1000000
       const largeDataset: SimpleOTLPData = {
-        traces: Array.from({ length: 50 }, (_, index) => ({
-          traceId: `bulk-trace-${index}`,
-          spanId: `bulk-span-${index}`,
-          operationName: `bulk-operation-${index}`,
-          startTime: (Date.now() - index * 1000) * 1000000,
-          serviceName: `bulk-service-${index % 5}`,
-          statusCode: index % 2 === 0 ? 1 : 2,
-          attributes: { 
-            index: index.toString(), 
-            category: `cat-${index % 3}`,
-            'test.bulk': 'true'
+        traces: Array.from({ length: 50 }, (_, index) => {
+          const startTime = baseTime - (index * 1000 * 1000000) // Each trace 1 second apart
+          return {
+            traceId: `bulk-trace-${index}`,
+            spanId: `bulk-span-${index}`,
+            parentSpanId: index > 0 ? `bulk-span-${index - 1}` : '',
+            operationName: `bulk-operation-${index}`,
+            startTime: startTime,
+            endTime: startTime + (100 + index) * 1000000, // Variable duration
+            serviceName: `bulk-service-${index % 5}`,
+            statusCode: index % 2 === 0 ? 'STATUS_CODE_OK' : 'STATUS_CODE_ERROR',
+            statusMessage: index % 2 === 0 ? 'OK' : 'Error',
+            spanKind: 'SPAN_KIND_INTERNAL',
+            attributes: { 
+              index: index.toString(), 
+              category: `cat-${index % 3}`,
+              'test.bulk': 'true'
+            },
+            resourceAttributes: { 
+              'service.name': `bulk-service-${index % 5}`,
+              'service.version': '1.0.0'
+            }
           }
-        })),
+        }),
         timestamp: Date.now()
       }
 

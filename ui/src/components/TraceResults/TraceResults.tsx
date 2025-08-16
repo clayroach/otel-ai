@@ -6,7 +6,7 @@ import dayjs from 'dayjs';
 
 const { Text, Title } = Typography;
 
-// Types for unified traces from ai_traces_unified view
+// Types for unified traces from traces_unified table
 interface UnifiedTrace {
   trace_id: string;
   service_name: string;

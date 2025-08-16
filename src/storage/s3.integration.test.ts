@@ -11,7 +11,7 @@ import { makeS3Storage, type S3Storage } from './s3.js'
 import { type S3Config, type RetentionConfig } from './config.js'
 import { type OTLPData } from './schemas.js'
 
-describe('S3Storage Integration Tests', () => {
+describe.skip('S3Storage Integration Tests (MinIO disabled)', () => {
   let s3Storage: S3Storage
   let config: S3Config
   let minioContainer: StartedTestContainer

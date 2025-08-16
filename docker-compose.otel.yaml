@@ -1,0 +1,319 @@
+# OpenTelemetry Demo - Simplified for our platform
+# Uses demo services but sends telemetry to our platform
+# Usage: docker compose -f docker-compose.otel.yaml up -d
+
+version: '3.9'
+
+# Use project root as build context
+x-default-logging: &logging
+  driver: "json-file"
+  options:
+    max-size: "5m"
+    max-file: "2"
+
+networks:
+  default:
+    name: otel-ai-network
+    external: true
+
+services:
+  # Frontend Proxy (Envoy) - Main entry point
+  frontendproxy:
+    image: ghcr.io/open-telemetry/demo:v1.2.1-frontendproxy
+    container_name: frontend-proxy
+    ports:
+      - "8080:8080"
+    environment:
+      - PUBLIC_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://localhost:4318/v1/traces
+      - FRONTEND_PORT=8080
+      - FRONTEND_HOST=frontend
+      - LOCUST_WEB_HOST=loadgenerator
+      - LOCUST_WEB_PORT=8089
+      - ENVOY_PORT=8080
+      - OTEL_COLLECTOR_HOST=otel-ai-collector
+      - OTEL_COLLECTOR_PORT=4317
+      - FEATURE_FLAG_SERVICE_HOST=feature-flag-service
+      - FEATURE_FLAG_SERVICE_PORT=8081
+      - GRAFANA_SERVICE_HOST=localhost
+      - GRAFANA_SERVICE_PORT=3000
+      - JAEGER_SERVICE_HOST=localhost
+      - JAEGER_SERVICE_PORT=16686
+    depends_on:
+      - frontend
+      - loadgenerator
+    logging: *logging
+
+  # Frontend
+  frontend:
+    image: ghcr.io/open-telemetry/demo:v1.2.1-frontend
+    container_name: frontend
+    environment:
+      - PORT=8080
+      - FRONTEND_ADDR=0.0.0.0:8080
+      - AD_SERVICE_ADDR=adservice:9555
+      - CART_SERVICE_ADDR=cartservice:7070
+      - CHECKOUT_SERVICE_ADDR=checkoutservice:5050
+      - CURRENCY_SERVICE_ADDR=currencyservice:7001
+      - PRODUCT_CATALOG_SERVICE_ADDR=productcatalogservice:3550
+      - RECOMMENDATION_SERVICE_ADDR=recommendationservice:8080
+      - SHIPPING_SERVICE_ADDR=shippingservice:50051
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-ai-collector:4318/v1/traces
+      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://otel-ai-collector:4318/v1/metrics
+      - OTEL_RESOURCE_ATTRIBUTES=service.name=frontend,service.namespace=otel-demo
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-ai-collector:4318
+      - OTEL_SERVICE_NAME=frontend
+      - PUBLIC_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://localhost:4318/v1/traces
+    depends_on:
+      - adservice
+      - cartservice
+      - checkoutservice
+      - currencyservice
+      - productcatalogservice
+      - quoteservice
+      - recommendationservice
+      - shippingservice
+    logging: *logging
+
+  # AdService
+  adservice:
+    image: ghcr.io/open-telemetry/demo:v1.2.1-adservice
+    container_name: ad-service
+    environment:
+      - AD_SERVICE_PORT=9555
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-ai-collector:4318/v1/traces
+      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://otel-ai-collector:4318/v1/metrics
+      - OTEL_SERVICE_NAME=adservice
+    logging: *logging
+
+  # Cart service
+  cartservice:
+    image: ghcr.io/open-telemetry/demo:v1.2.1-cartservice
+    container_name: cart-service
+    environment:
+      - CART_SERVICE_PORT=7070
+      - REDIS_ADDR=redis-cart:6379
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-ai-collector:4318
+      - OTEL_SERVICE_NAME=cartservice
+      - ASPNETCORE_URLS=http://*:7070
+    depends_on:
+      - redis-cart
+    logging: *logging
+
+  # Checkout service
+  checkoutservice:
+    image: ghcr.io/open-telemetry/demo:v1.2.1-checkoutservice
+    container_name: checkout-service
+    environment:
+      - CHECKOUT_SERVICE_PORT=5050
+      - CART_SERVICE_ADDR=cartservice:7070
+      - CURRENCY_SERVICE_ADDR=currencyservice:7001
+      - EMAIL_SERVICE_ADDR=emailservice:8080
+      - PAYMENT_SERVICE_ADDR=paymentservice:50051
+      - PRODUCT_CATALOG_SERVICE_ADDR=productcatalogservice:3550
+      - SHIPPING_SERVICE_ADDR=shippingservice:50051
+      - KAFKA_SERVICE_ADDR=kafka:9092
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-ai-collector:4318/v1/traces
+      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://otel-ai-collector:4318/v1/metrics
+      - OTEL_SERVICE_NAME=checkoutservice
+    depends_on:
+      - cartservice
+      - currencyservice
+      - emailservice
+      - paymentservice
+      - productcatalogservice
+      - shippingservice
+      - kafka
+    logging: *logging
+
+  # Currency service
+  currencyservice:
+    image: ghcr.io/open-telemetry/demo:v1.2.1-currencyservice
+    container_name: currency-service
+    environment:
+      - CURRENCY_SERVICE_PORT=7001
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-ai-collector:4318/v1/traces
+      - OTEL_RESOURCE_ATTRIBUTES=service.name=currencyservice,service.namespace=otel-demo
+    logging: *logging
+
+  # Email service
+  emailservice:
+    image: ghcr.io/open-telemetry/demo:v1.2.1-emailservice
+    container_name: email-service
+    environment:
+      - APP_ENV=production
+      - EMAIL_SERVICE_PORT=8080
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-ai-collector:4318/v1/traces
+      - OTEL_SERVICE_NAME=emailservice
+    logging: *logging
+
+  # Payment service
+  paymentservice:
+    image: ghcr.io/open-telemetry/demo:v1.2.1-paymentservice
+    container_name: payment-service
+    environment:
+      - PAYMENT_SERVICE_PORT=50051
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-ai-collector:4318/v1/traces
+      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://otel-ai-collector:4318/v1/metrics
+      - OTEL_SERVICE_NAME=paymentservice
+    logging: *logging
+
+  # Product Catalog service
+  productcatalogservice:
+    image: ghcr.io/open-telemetry/demo:v1.2.1-productcatalogservice
+    container_name: product-catalog-service
+    environment:
+      - PRODUCT_CATALOG_SERVICE_PORT=3550
+      - FEATURE_FLAG_GRPC_SERVICE_ADDR=featureflagservice:50053
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-ai-collector:4318/v1/traces
+      - OTEL_SERVICE_NAME=productcatalogservice
+    depends_on:
+      - featureflagservice
+    logging: *logging
+
+  # Quote service
+  quoteservice:
+    image: ghcr.io/open-telemetry/demo:v1.2.1-quoteservice
+    container_name: quoteservice
+    environment:
+      - QUOTE_SERVICE_PORT=8080
+      - OTEL_SERVICE_NAME=quoteservice
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-ai-collector:4318
+      - OTEL_TRACES_SAMPLER=parentbased_always_on
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http/protobuf
+    logging: *logging
+
+  # Recommendation service
+  recommendationservice:
+    image: ghcr.io/open-telemetry/demo:v1.2.1-recommendationservice
+    container_name: recommendation-service
+    environment:
+      - RECOMMENDATION_SERVICE_PORT=8080
+      - PRODUCT_CATALOG_SERVICE_ADDR=productcatalogservice:3550
+      - FEATURE_FLAG_GRPC_SERVICE_ADDR=featureflagservice:50053
+      - OTEL_PYTHON_LOG_CORRELATION=true
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-ai-collector:4318
+      - OTEL_SERVICE_NAME=recommendationservice
+      - PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
+    depends_on:
+      - productcatalogservice
+      - featureflagservice
+    logging: *logging
+
+  # Shipping service
+  shippingservice:
+    image: ghcr.io/open-telemetry/demo:v1.2.1-shippingservice
+    container_name: shipping-service
+    environment:
+      - SHIPPING_SERVICE_PORT=50051
+      - QUOTE_SERVICE_ADDR=quoteservice:8080
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-ai-collector:4318/v1/traces
+      - OTEL_SERVICE_NAME=shippingservice
+    logging: *logging
+
+  # Load Generator
+  loadgenerator:
+    image: ghcr.io/open-telemetry/demo:v1.2.1-loadgenerator
+    container_name: load-generator
+    environment:
+      - LOCUST_WEB_PORT=8089
+      - LOCUST_USERS=10
+      - LOCUST_HOST=http://frontend:8080
+      - LOCUST_HEADLESS=false
+      - LOCUST_AUTOSTART=true
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-ai-collector:4318
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-ai-collector:4318/v1/traces
+      - OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http/protobuf
+      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://otel-ai-collector:4318/v1/metrics
+      - OTEL_EXPORTER_OTLP_METRICS_PROTOCOL=http/protobuf
+      - OTEL_SERVICE_NAME=loadgenerator
+      - PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
+    ports:
+      - "8089:8089"  # Locust web UI
+    depends_on:
+      - frontend
+    logging: *logging
+
+  # Feature Flag service
+  featureflagservice:
+    image: ghcr.io/open-telemetry/demo:v1.2.1-featureflagservice
+    container_name: feature-flag-service
+    environment:
+      - FEATURE_FLAG_SERVICE_PORT=8081
+      - FEATURE_FLAG_GRPC_SERVICE_PORT=50053
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-ai-collector:4318/v1/traces
+      - OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=grpc
+      - OTEL_SERVICE_NAME=featureflagservice
+      - DATABASE_URL=ecto://ffs:ffs@ffs_postgres:5432/ffs
+      - FEATURE_FLAG_SERVICE_PATH_ROOT="/feature"
+    depends_on:
+      ffs_postgres:
+        condition: service_healthy
+    logging: *logging
+
+  # Accounting service
+  accountingservice:
+    image: ghcr.io/open-telemetry/demo:v1.2.1-accountingservice
+    container_name: accounting-service
+    environment:
+      - KAFKA_SERVICE_ADDR=kafka:9092
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-ai-collector:4317
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-ai-collector:4317
+      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://otel-ai-collector:4317
+      - OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=cumulative
+      - OTEL_SERVICE_NAME=accountingservice
+    depends_on:
+      kafka:
+        condition: service_healthy
+    logging: *logging
+
+  # Fraud Detection service
+  frauddetectionservice:
+    image: ghcr.io/open-telemetry/demo:v1.2.1-frauddetectionservice
+    container_name: frauddetection-service
+    environment:
+      - KAFKA_SERVICE_ADDR=kafka:9092
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-ai-collector:4317
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-ai-collector:4317
+      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://otel-ai-collector:4317
+      - OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=cumulative
+      - OTEL_SERVICE_NAME=frauddetectionservice
+    depends_on:
+      kafka:
+        condition: service_healthy
+    logging: *logging
+
+  # Supporting services
+  ffs_postgres:
+    image: postgres:14
+    container_name: postgres
+    environment:
+      - POSTGRES_USER=ffs
+      - POSTGRES_DB=ffs
+      - POSTGRES_PASSWORD=ffs
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d ffs -U ffs"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *logging
+
+  kafka:
+    image: ghcr.io/open-telemetry/demo:v1.2.1-kafka
+    container_name: kafka
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+    healthcheck:
+      test: nc -z kafka 9092
+      start_period: 10s
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    logging: *logging
+
+  redis-cart:
+    image: redis:alpine
+    container_name: redis-cart
+    logging: *logging

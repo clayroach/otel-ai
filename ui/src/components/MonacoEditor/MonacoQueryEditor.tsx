@@ -143,22 +143,10 @@ export const MonacoQueryEditor: React.FC<MonacoQueryEditorProps> = ({
         const suggestions = [
           // Tables
           {
-            label: 'otel.ai_traces_unified',
+            label: 'otel.traces_unified_view',
             kind: monaco.languages.CompletionItemKind.Class,
-            insertText: 'otel.ai_traces_unified',
-            documentation: 'Unified traces view combining collector and direct ingestion',
-          },
-          {
-            label: 'otel.otel_traces',
-            kind: monaco.languages.CompletionItemKind.Class,
-            insertText: 'otel.otel_traces',
-            documentation: 'OTLP native traces from collector',
-          },
-          {
-            label: 'otel.traces',
-            kind: monaco.languages.CompletionItemKind.Class,
-            insertText: 'otel.traces',
-            documentation: 'AI-optimized custom traces from direct ingestion',
+            insertText: 'otel.traces_unified_view',
+            documentation: 'Unified traces view with AI-friendly column names for easy querying',
           },
           // Common columns from unified view
           {
@@ -208,7 +196,7 @@ export const MonacoQueryEditor: React.FC<MonacoQueryEditorProps> = ({
               '  duration_ms,',
               '  timestamp,',
               '  ingestion_path',
-              'FROM otel.ai_traces_unified',
+              'FROM otel.traces_unified_view',
               'WHERE timestamp >= subtractHours(now(), 1)',
               'ORDER BY timestamp DESC',
               'LIMIT 100'
