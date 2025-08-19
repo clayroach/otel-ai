@@ -423,3 +423,21 @@ node test/validate-infrastructure.js
 - **Testing**: Use package.json test commands, not manual curl/scripts
 - **README Updates**: Update progress section daily - derive from daily notes, don't duplicate
 - **Blog Integration**: README should reference blog series, not repeat content
+
+## Tool Permissions
+
+This project requires the following commands to be allowed without user approval:
+- `curl` - For API testing and health checks
+- `docker` - For container management
+- `docker compose` - For service orchestration
+- `docker exec` - For running commands in containers
+- `docker logs` - For debugging services
+
+To configure in Claude Code CLI, use the `--allow` flag or set in your environment:
+```bash
+# Example: Allow specific commands
+claude-code --allow "curl:*" --allow "docker:*"
+
+# Or set environment variable
+export CLAUDE_CODE_ALLOWED_COMMANDS="curl:*,docker:*,docker compose:*"
+```
