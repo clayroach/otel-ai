@@ -25,7 +25,11 @@ cd otel-ai
 pnpm setup
 
 # 3. Start developing
-pnpm dev
+pnpm dev:up        # Start platform services
+pnpm dev          # Start development server
+
+# 4. Try the OpenTelemetry Demo integration
+pnpm demo:up      # Start demo with your platform as backend
 ```
 
 ## 🏗️ **Dual-Ingestion Architecture** ✅
@@ -42,6 +46,29 @@ pnpm dev
 - **React + Monaco**: Professional SQL interface with syntax highlighting  
 - **Effect-TS**: Type-safe functional programming patterns
 - **TestContainers**: Real database integration testing
+
+## 🎯 **OpenTelemetry Demo Integration**
+
+**"Bring Your Own Backend" Implementation**
+
+Run the official OpenTelemetry demo while sending all telemetry to our AI-native platform:
+
+```bash
+# Automated demo management
+pnpm demo:setup    # Clone and configure latest demo
+pnpm demo:up      # Start demo with our backend
+pnpm demo:down    # Stop demo services
+pnpm demo:logs    # View demo logs
+pnpm demo:clean   # Clean up demo containers
+```
+
+**Key Features**:
+- 🔄 **Automated lifecycle management** with TypeScript script
+- 🐳 **Docker Compose overrides** redirect telemetry without forking
+- 🚀 **Live telemetry flow** from 15+ demo services to ClickHouse
+- 🧹 **Clean integration** - demo source is gitignored
+
+**Demo Services**: Frontend, payment, cart, shipping, product catalog, ad service, and more!
 
 ## 📦 Development Workflow
 
