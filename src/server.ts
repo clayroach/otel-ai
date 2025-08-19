@@ -99,6 +99,151 @@ app.get('/health', async (req, res) => {
   }
 })
 
+// Query traces endpoint for real-time updates
+app.get('/api/traces', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 100
+    const since = req.query.since as string || '5 MINUTE'
+    
+    // Query recent traces from collector path for now (most active)
+    const query = `
+      SELECT 
+        TraceId as trace_id,
+        ServiceName as service_name,
+        SpanName as operation_name,
+        Duration / 1000000 as duration_ms,
+        Timestamp as timestamp,
+        StatusCode as status_code,
+        'collector' as ingestion_path,
+        CASE WHEN StatusCode = 'STATUS_CODE_ERROR' THEN 1 ELSE 0 END as is_error,
+        SpanKind as span_kind
+      FROM otel_traces
+      WHERE Timestamp > now() - INTERVAL ${since}
+      ORDER BY Timestamp DESC
+      LIMIT ${limit}
+    `
+    
+    const result = await storage.queryWithResults(query)
+    
+    res.json({
+      traces: result.data,
+      count: result.data.length,
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('❌ Error querying traces:', error)
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// Service statistics endpoint
+app.get('/api/services/stats', async (req, res) => {
+  try {
+    const since = req.query.since as string || '5 MINUTE'
+    
+    const query = `
+      SELECT 
+        ServiceName as service_name,
+        COUNT(*) as trace_count,
+        AVG(Duration / 1000000) as avg_duration_ms,
+        MAX(Duration / 1000000) as max_duration_ms,
+        SUM(CASE WHEN StatusCode = 'STATUS_CODE_ERROR' THEN 1 ELSE 0 END) as error_count,
+        COUNT(DISTINCT TraceId) as unique_traces,
+        'collector' as ingestion_path
+      FROM otel_traces
+      WHERE Timestamp > now() - INTERVAL ${since}
+      GROUP BY ServiceName
+      ORDER BY trace_count DESC
+    `
+    
+    const result = await storage.queryWithResults(query)
+    
+    res.json({
+      services: result.data,
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('❌ Error querying service stats:', error)
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// AI Anomaly Detection endpoint - Simple statistical anomaly detection
+app.get('/api/anomalies', async (req, res) => {
+  try {
+    const since = req.query.since as string || '15 MINUTE'
+    const threshold = parseFloat(req.query.threshold as string) || 2.0 // Z-score threshold
+    
+    // Query for anomalies using statistical methods
+    const query = `
+      WITH service_stats AS (
+        SELECT 
+          ServiceName as service_name,
+          AVG(Duration / 1000000) as avg_duration_ms,
+          stddevSamp(Duration / 1000000) as std_duration_ms,
+          COUNT(*) as sample_count,
+          MAX(Timestamp) as latest_timestamp
+        FROM otel_traces
+        WHERE Timestamp > now() - INTERVAL ${since}
+        GROUP BY ServiceName
+        HAVING sample_count >= 10  -- Need enough samples for statistical significance
+      ),
+      recent_traces AS (
+        SELECT 
+          ServiceName as service_name,
+          SpanName as operation_name,
+          Duration / 1000000 as duration_ms,
+          Timestamp as timestamp,
+          TraceId as trace_id
+        FROM otel_traces
+        WHERE Timestamp > now() - INTERVAL 2 MINUTE  -- Recent traces to check
+      )
+      SELECT 
+        rt.service_name,
+        rt.operation_name,
+        rt.duration_ms,
+        rt.timestamp,
+        rt.trace_id,
+        ss.avg_duration_ms as service_avg_duration_ms,
+        ss.std_duration_ms as service_std_duration_ms,
+        (rt.duration_ms - ss.avg_duration_ms) / ss.std_duration_ms as z_score,
+        'latency_anomaly' as anomaly_type,
+        CASE 
+          WHEN ABS((rt.duration_ms - ss.avg_duration_ms) / ss.std_duration_ms) >= ${threshold}
+          THEN 'high'
+          ELSE 'normal'
+        END as severity
+      FROM recent_traces rt
+      JOIN service_stats ss ON rt.service_name = ss.service_name
+      WHERE ABS((rt.duration_ms - ss.avg_duration_ms) / ss.std_duration_ms) >= ${threshold}
+      ORDER BY ABS((rt.duration_ms - ss.avg_duration_ms) / ss.std_duration_ms) DESC
+      LIMIT 50
+    `
+    
+    const result = await storage.queryWithResults(query)
+    
+    res.json({
+      anomalies: result.data,
+      count: result.data.length,
+      threshold_zscore: threshold,
+      detection_window: since,
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('❌ Error detecting anomalies:', error)
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
 // OTLP Traces ingestion endpoint (direct path)
 app.post('/v1/traces', async (req, res) => {
   try {

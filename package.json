@@ -51,6 +51,7 @@
     "demo:logs": "tsx scripts/demo-setup.ts logs",
     "demo:clean": "tsx scripts/demo-setup.ts clean",
     "demo:status": "tsx scripts/demo-setup.ts status",
+    "demo:validate": "tsx scripts/validate-demo.ts",
     "// Combined workflows": "",
     "setup": "run-s dev:up install",
     "ci": "run-s format:check lint typecheck test",
