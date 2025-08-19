@@ -6,11 +6,19 @@ DAY_NUM=${1:-$(( $(find notes/daily -name "*.md" | wc -l) + 1 ))}
 echo "🌅 Starting Day $DAY_NUM - AI-Native Observability Platform"
 echo "============================================================"
 echo ""
-echo "Launching Claude Code with daily planning template..."
+echo "Daily Planning Template Ready!"
 echo ""
 
-# Launch Claude Code with structured prompt
-claude-code --prompt="I'm ready to start Day $DAY_NUM of the AI-native observability platform.
+# Display the structured prompt for Claude Code
+cat << EOF
+
+📋 **Day $DAY_NUM Planning Session**
+
+Use this prompt with Claude Code to start your daily planning:
+
+---
+
+I'm ready to start Day $DAY_NUM of the AI-native observability platform.
 
 Please help me with daily planning:
 
@@ -24,4 +32,8 @@ Please help me with daily planning:
 
 5. **Set Context**: Provide a summary of where we are in the 30-day timeline and key focus areas
 
-Let's start with reviewing yesterday's progress. What should I focus on today?"
+Let's start with reviewing yesterday's progress. What should I focus on today?
+
+---
+
+EOF
