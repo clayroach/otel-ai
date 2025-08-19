@@ -33,5 +33,11 @@ Thumbs.db
 # Screenshots dropbox (organized during PR creation)
 screenshots-dropbox/
 
-# External demo repositories
+# External demo repositories - do not check in cloned code
 otel-demo/
+demo/otel-demo-app/
+demo/**/
+
+# Demo-related temp files
+*.override
+.env.override
