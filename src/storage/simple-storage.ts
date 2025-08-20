@@ -84,34 +84,32 @@ export class SimpleStorage {
 
   async writeOTLP(data: SimpleOTLPData): Promise<void> {
     if (data.traces && data.traces.length > 0) {
-      await this.writeTraces(data.traces)
+      // Convert SimpleTraceData to DatabaseTraceRecord for unified schema
+      const databaseRecords: DatabaseTraceRecord[] = data.traces.map(trace => ({
+        trace_id: trace.traceId,
+        span_id: trace.spanId,
+        parent_span_id: '',
+        start_time: new Date(trace.startTime / 1000000).toISOString().replace('T', ' ').replace('Z', '.000000000'), // Convert to ClickHouse DateTime64 format
+        end_time: new Date((trace.startTime + 1000000000) / 1000000).toISOString().replace('T', ' ').replace('Z', '.000000000'), // Assume 1 second duration
+        duration_ns: 1000000000,
+        service_name: trace.serviceName,
+        operation_name: trace.operationName,
+        span_kind: 'SPAN_KIND_INTERNAL',
+        status_code: String(trace.statusCode),
+        status_message: '',
+        trace_state: '',
+        scope_name: '',
+        scope_version: '',
+        span_attributes: trace.attributes || {},
+        resource_attributes: {},
+        events: '[]',
+        links: '[]',
+        encoding_type: 'json'
+      }))
+      await this.writeTracesToSimplifiedSchema(databaseRecords)
     }
   }
 
-  private async writeDirectTraces(traces: DetailedTraceData[]): Promise<void> {
-    const values = traces.map((trace) => ({
-      trace_id: trace.traceId,
-      span_id: trace.spanId,
-      parent_span_id: trace.parentSpanId || '',
-      operation_name: trace.operationName,
-      start_time: trace.startTime, // Keep as nanoseconds for DateTime64(9)
-      end_time: trace.endTime,
-      duration: Number(trace.endTime) - Number(trace.startTime),
-      service_name: trace.serviceName,
-      service_version: '1.0.0',
-      status_code: trace.statusCode,
-      status_message: trace.statusMessage || '',
-      span_kind: trace.spanKind || 'SPAN_KIND_INTERNAL',
-      attributes: trace.attributes || {},
-      resource_attributes: trace.resourceAttributes || {}
-    }))
-
-    await this.client.insert({
-      table: 'ai_traces_direct',
-      values,
-      format: 'JSONEachRow'
-    })
-  }
 
   // New method for simplified schema (single table)
   async writeTracesToSimplifiedSchema(traces: DatabaseTraceRecord[]): Promise<void> {
@@ -184,8 +182,8 @@ export class SimpleStorage {
         toUnixTimestamp64Nano(start_time) as startTime,
         service_name as serviceName,
         status_code as statusCode,
-        attributes as attributes
-      FROM ai_traces_direct
+        span_attributes as attributes
+      FROM traces
       WHERE toUnixTimestamp64Nano(start_time) >= ${startNano}
         AND toUnixTimestamp64Nano(start_time) <= ${endNano}
       LIMIT 100

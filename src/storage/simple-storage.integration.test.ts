@@ -45,26 +45,34 @@ describe('SimpleStorage Integration Tests', () => {
     
     console.log('✅ ClickHouse connection verified')
     
-    // Create the ai_traces_direct table for testing (used by writeOTLP method)
+    // Create the unified traces table for testing
     await storage['client'].command({
       query: `
-        CREATE TABLE IF NOT EXISTS ai_traces_direct (
+        CREATE TABLE IF NOT EXISTS traces (
           trace_id String,
           span_id String,
           parent_span_id String,
-          operation_name LowCardinality(String),
           start_time DateTime64(9),
           end_time DateTime64(9),
-          duration UInt64,
+          duration_ns UInt64,
           service_name LowCardinality(String),
-          service_version LowCardinality(String),
+          operation_name LowCardinality(String),
+          span_kind LowCardinality(String),
           status_code LowCardinality(String),
           status_message String,
-          span_kind LowCardinality(String),
-          attributes Map(String, String),
-          resource_attributes Map(String, String)
+          trace_state String,
+          scope_name String,
+          scope_version String,
+          span_attributes Map(String, String),
+          resource_attributes Map(String, String),
+          events String,
+          links String,
+          ingestion_time DateTime DEFAULT now(),
+          processing_version UInt8 DEFAULT 1,
+          encoding_type LowCardinality(String)
         ) ENGINE = MergeTree()
-        ORDER BY (service_name, start_time, trace_id)
+        PARTITION BY toDate(start_time)
+        ORDER BY (service_name, operation_name, toUnixTimestamp(start_time), trace_id)
       `
     })
     
