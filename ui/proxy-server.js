@@ -15,7 +15,7 @@ app.use(cors({
 
 // Proxy ClickHouse requests
 app.use('/api/clickhouse', createProxyMiddleware({
-  target: 'http://localhost:8123',
+  target: 'http://localhost:8123/otel',
   changeOrigin: true,
   pathRewrite: {
     '^/api/clickhouse': ''
@@ -28,7 +28,7 @@ app.use('/api/clickhouse', createProxyMiddleware({
     const auth = Buffer.from('otel:otel123').toString('base64');
     proxyReq.setHeader('Authorization', `Basic ${auth}`);
     
-    console.log(`Proxying: ${req.method} ${req.url} -> http://localhost:8123${proxyReq.path}`);
+    console.log(`Proxying: ${req.method} ${req.url} -> http://localhost:8123/otel${proxyReq.path}`);
     console.log('Final Headers:', proxyReq.getHeaders());
   },
   onProxyRes: (proxyRes, req, res) => {
