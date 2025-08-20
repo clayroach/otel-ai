@@ -6,7 +6,7 @@ An OpenTelemetry-based observability platform where machine learning is integrat
 
 ## 🏆 **Project Status**
 
-An AI-native observability platform with dual-ingestion architecture and OpenTelemetry Demo integration.
+An AI-native observability platform with unified OTLP ingestion and OpenTelemetry Demo integration.
 
 > 📊 **Daily Progress**: Follow the journey in [`notes/daily/`](notes/daily/) | **Blog Series**: [Dev.to Series](blog/platforms/)
 
@@ -30,17 +30,17 @@ pnpm dev          # Start development server
 pnpm demo:up      # Start demo with your platform as backend
 ```
 
-## 🏗️ **Dual-Ingestion Architecture** ✅
+## 🏗️ **Unified OTLP Ingestion** ✅
 
-**Key Innovation**: Two telemetry ingestion paths with unified AI analysis
+**Simplified Architecture**: Single path for all telemetry data
 
-- **Path 1: Collector Route**: OTel Demo → OTel Collector → `otel_traces` (OTLP native)
-- **Path 2: Direct Route**: API/Tests → Backend Service → `ai_traces_direct` (AI-optimized)
-- **Unified View**: `traces_unified_view` harmonizes both schemas for ML processing
-- **Professional UI**: Monaco SQL editor with dual-path visualization
+- **Single Path**: All Sources → OTel Collector → Backend Service → `traces` table
+- **Simplified Schema**: One optimized table design for all trace data
+- **AI-Ready**: Schema optimized for machine learning and analytics
+- **Professional UI**: Monaco SQL editor with unified data access
 
 **Tech Stack**:
-- **ClickHouse**: Real-time analytics with dual-schema support
+- **ClickHouse**: Real-time analytics with unified schema
 - **React + Monaco**: Professional SQL interface with syntax highlighting  
 - **Effect-TS**: Type-safe functional programming patterns
 - **TestContainers**: Real database integration testing

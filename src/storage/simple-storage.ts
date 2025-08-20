@@ -74,6 +74,37 @@ export class SimpleStorage {
     })
   }
 
+  // New method for simplified schema (single table)
+  async writeTracesToSimplifiedSchema(traces: any[]): Promise<void> {
+    const values = traces.map((trace) => ({
+      trace_id: trace.trace_id,
+      span_id: trace.span_id,
+      parent_span_id: trace.parent_span_id || '',
+      start_time: trace.start_time,
+      end_time: trace.end_time,
+      duration_ns: trace.duration_ns,
+      service_name: trace.service_name,
+      operation_name: trace.operation_name,
+      span_kind: trace.span_kind,
+      status_code: trace.status_code,
+      status_message: trace.status_message || '',
+      trace_state: trace.trace_state || '',
+      scope_name: trace.scope_name || '',
+      scope_version: trace.scope_version || '',
+      span_attributes: trace.span_attributes || '{}',
+      resource_attributes: trace.resource_attributes || '{}',
+      events: trace.events || '[]',
+      links: trace.links || '[]',
+      encoding_type: trace.encoding_type || 'protobuf'
+    }))
+
+    await this.client.insert({
+      table: 'traces',
+      values,
+      format: 'JSONEachRow'
+    })
+  }
+
   private async writeTraces(traces: SimpleTraceData[]): Promise<void> {
     const values = traces.map((trace) => ({
       TraceId: trace.traceId,

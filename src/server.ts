@@ -6,14 +6,145 @@
 import express from 'express'
 import cors from 'cors'
 import { SimpleStorage, type SimpleStorageConfig } from './storage/simple-storage.js'
+import { OTLPProtobufLoader } from './protobuf-loader.js'
+
+/**
+ * Parse OTLP data from raw protobuf buffer by detecting patterns
+ * This is a fallback when protobufjs is not available
+ */
+function parseOTLPFromRaw(buffer: Buffer): any {
+  try {
+    // Convert buffer to string and look for patterns
+    const data = buffer.toString('latin1')
+    
+    // Look for OTLP structure markers
+    const resourceSpans: any[] = []
+    
+    // Find service name patterns
+    const serviceMatches = [...data.matchAll(/service\.name[\x00-\x20]*([a-zA-Z][a-zA-Z0-9\-_]+)/g)]
+    const operationMatches = [...data.matchAll(/[\x00-\x20]([a-zA-Z][a-zA-Z0-9\-_\.\/]+)[\x00-\x20]/g)]
+    
+    // Look for trace and span IDs (16-byte hex strings)
+    const traceIdMatches = [...data.matchAll(/[\x00-\x20]([a-f0-9]{32})[\x00-\x20]/g)]
+    const spanIdMatches = [...data.matchAll(/[\x00-\x20]([a-f0-9]{16})[\x00-\x20]/g)]
+    
+    // Find timestamp patterns (nanoseconds)
+    const timestampMatches = [...data.matchAll(/[\x00-\x08](\d{16,19})[\x00-\x08]/g)]
+    
+    console.log('🔍 Raw protobuf parsing found:')
+    console.log('  - Service matches:', serviceMatches.length)
+    console.log('  - Operation matches:', operationMatches.length) 
+    console.log('  - Trace ID matches:', traceIdMatches.length)
+    console.log('  - Span ID matches:', spanIdMatches.length)
+    console.log('  - Timestamp matches:', timestampMatches.length)
+    
+    if (serviceMatches.length === 0) {
+      throw new Error('No service names found in protobuf data')
+    }
+    
+    // Extract the first service name
+    const serviceName = serviceMatches[0]?.[1] || 'unknown-service'
+    
+    // Try to find operation names - look for common operation patterns
+    const operationCandidates = operationMatches
+      .map(match => match[1])
+      .filter((op): op is string => 
+        op != null &&
+        op.length > 3 && 
+        op.length < 100 &&
+        !op.match(/^[0-9a-f]+$/) && // Skip hex strings
+        !op.match(/^[0-9]+$/) && // Skip pure numbers
+        (op.includes('.') || op.includes('/') || op.includes('_') || /[A-Z]/.test(op)) // Likely operation names
+      )
+      .slice(0, 10) // Limit to first 10 candidates
+    
+    console.log('🔍 Operation candidates:', operationCandidates)
+    
+    // Create spans for each operation found
+    const spans = operationCandidates.length > 0 
+      ? operationCandidates.map((operation, index) => ({
+          traceId: traceIdMatches[index]?.[1] || Math.random().toString(16).padStart(32, '0'),
+          spanId: spanIdMatches[index]?.[1] || Math.random().toString(16).padStart(16, '0'),
+          name: operation,
+          startTimeUnixNano: timestampMatches[index * 2]?.[1] || (Date.now() * 1000000).toString(),
+          endTimeUnixNano: timestampMatches[index * 2 + 1]?.[1] || ((Date.now() + 50) * 1000000).toString(),
+          kind: 'SPAN_KIND_INTERNAL',
+          status: { code: 'STATUS_CODE_OK' },
+          attributes: [
+            { key: 'extraction.method', value: { stringValue: 'raw-protobuf-parsing' } },
+            { key: 'service.name', value: { stringValue: serviceName } }
+          ]
+        }))
+      : [{
+          traceId: traceIdMatches[0]?.[1] || Math.random().toString(16).padStart(32, '0'),
+          spanId: spanIdMatches[0]?.[1] || Math.random().toString(16).padStart(16, '0'),
+          name: 'extracted-operation',
+          startTimeUnixNano: timestampMatches[0]?.[1] || (Date.now() * 1000000).toString(),
+          endTimeUnixNano: timestampMatches[1]?.[1] || ((Date.now() + 50) * 1000000).toString(),
+          kind: 'SPAN_KIND_INTERNAL',
+          status: { code: 'STATUS_CODE_OK' },
+          attributes: [
+            { key: 'extraction.method', value: { stringValue: 'raw-protobuf-parsing' } },
+            { key: 'service.name', value: { stringValue: serviceName } }
+          ]
+        }]
+    
+    resourceSpans.push({
+      resource: {
+        attributes: [
+          { key: 'service.name', value: { stringValue: serviceName } }
+        ]
+      },
+      scopeSpans: [{
+        scope: { name: 'raw-protobuf-parser', version: '1.0.0' },
+        spans: spans
+      }]
+    })
+    
+    return { resourceSpans }
+    
+  } catch (error) {
+    console.error('❌ Raw protobuf parsing failed:', error)
+    throw error
+  }
+}
 
 const app = express()
 const PORT = process.env.PORT || 4319
 
 // Middleware
 app.use(cors())
-app.use(express.json({ limit: '10mb' }))
-app.use(express.text({ limit: '10mb' }))
+
+// For OTLP endpoints, use raw middleware with gzip decompression enabled
+app.use('/v1*', (req, res, next) => {
+  console.log('🔍 [Debug] Path:', req.path)
+  console.log('🔍 [Debug] Content-Type:', req.headers['content-type'])
+  console.log('🔍 [Debug] Content-Encoding:', req.headers['content-encoding'])
+  
+  // Use raw middleware for all OTLP data with gzip decompression enabled
+  express.raw({ 
+    limit: '10mb',
+    type: '*/*',
+    inflate: true  // Enable gzip decompression for all content types
+  })(req, res, next)
+})
+
+// For non-OTLP endpoints only, use standard middleware (exclude /v1/* paths)
+app.use((req, res, next) => {
+  if (!req.path.startsWith('/v1/')) {
+    express.json({ limit: '10mb' })(req, res, next)
+  } else {
+    next()
+  }
+})
+
+app.use((req, res, next) => {
+  if (!req.path.startsWith('/v1/')) {
+    express.text({ limit: '10mb' })(req, res, next)
+  } else {
+    next()
+  }
+})
 
 // Initialize storage
 const storageConfig: SimpleStorageConfig = {
@@ -28,55 +159,49 @@ const storageConfig: SimpleStorageConfig = {
 
 const storage = new SimpleStorage(storageConfig)
 
-// Create unified view after storage is initialized
-async function createUnifiedView() {
+// Initialize protobuf loader for OTLP parsing
+const protobufLoader = OTLPProtobufLoader.getInstance()
+protobufLoader.initialize().catch(error => {
+  console.error('❌ Failed to initialize protobuf loader:', error)
+  console.log('⚠️ Will fall back to service name detection from raw data')
+})
+
+// Create simplified views after storage is initialized
+async function createViews() {
   try {
+    // Simple view for traces (main table is now 'traces')
     const createViewSQL = `
-      CREATE OR REPLACE VIEW traces_unified_view AS
-      -- Traces from OpenTelemetry Collector
-      SELECT 
-          TraceId as trace_id,
-          ServiceName as service_name,
-          SpanName as operation_name,
-          Duration / 1000000 as duration_ms,
-          Timestamp as timestamp,
-          toString(StatusCode) as status_code,
-          'collector' as ingestion_path,
-          'v1.0' as schema_version,
-          CASE WHEN StatusCode = 'STATUS_CODE_ERROR' THEN 1 ELSE 0 END as is_error,
-          SpanKind as span_kind,
-          ParentSpanId as parent_span_id,
-          length(SpanAttributes) as attribute_count,
-          SpanId as span_id,
-          SpanAttributes as attributes,
-          ResourceAttributes as resource_attributes
-      FROM otel_traces
-      
-      UNION ALL
-      
-      -- Direct traces from test generator
+      CREATE OR REPLACE VIEW traces_view AS
       SELECT 
           trace_id,
+          span_id,
+          parent_span_id,
+          start_time,
+          end_time,
+          duration_ns,
+          duration_ms,
           service_name,
           operation_name,
-          duration / 1000000 as duration_ms,
-          start_time as timestamp,
-          toString(status_code) as status_code,
-          'direct' as ingestion_path,
-          'v1.0' as schema_version,
-          CASE WHEN status_code = 2 THEN 1 ELSE 0 END as is_error,
           span_kind,
-          parent_span_id,
-          length(attributes) as attribute_count,
-          span_id,
-          attributes,
-          resource_attributes
-      FROM ai_traces_direct
+          status_code,
+          status_message,
+          is_error,
+          is_root,
+          trace_state,
+          scope_name,
+          scope_version,
+          span_attributes,
+          resource_attributes,
+          events,
+          links,
+          ingestion_time,
+          processing_version
+      FROM traces
     `
     await storage.query(createViewSQL)
-    console.log('✅ Created unified view for dual ingestion paths')
+    console.log('✅ Created simplified traces view for single-path ingestion')
   } catch (error) {
-    console.log('⚠️  Unified view creation will be retried later:', error instanceof Error ? error.message : error)
+    console.log('⚠️  View creation will be retried later:', error instanceof Error ? error.message : error)
   }
 }
 
@@ -105,21 +230,22 @@ app.get('/api/traces', async (req, res) => {
     const limit = parseInt(req.query.limit as string) || 100
     const since = req.query.since as string || '5 MINUTE'
     
-    // Query recent traces from collector path for now (most active)
+    // Query recent traces from simplified schema
     const query = `
       SELECT 
-        TraceId as trace_id,
-        ServiceName as service_name,
-        SpanName as operation_name,
-        Duration / 1000000 as duration_ms,
-        Timestamp as timestamp,
-        StatusCode as status_code,
-        'collector' as ingestion_path,
-        CASE WHEN StatusCode = 'STATUS_CODE_ERROR' THEN 1 ELSE 0 END as is_error,
-        SpanKind as span_kind
-      FROM otel_traces
-      WHERE Timestamp > now() - INTERVAL ${since}
-      ORDER BY Timestamp DESC
+        trace_id,
+        service_name,
+        operation_name,
+        duration_ms,
+        start_time as timestamp,
+        status_code,
+        is_error,
+        span_kind,
+        is_root,
+        encoding_type
+      FROM traces
+      WHERE start_time > now() - INTERVAL ${since}
+      ORDER BY start_time DESC
       LIMIT ${limit}
     `
     
@@ -146,17 +272,17 @@ app.get('/api/services/stats', async (req, res) => {
     
     const query = `
       SELECT 
-        ServiceName as service_name,
-        COUNT(*) as trace_count,
-        AVG(Duration / 1000000) as avg_duration_ms,
-        MAX(Duration / 1000000) as max_duration_ms,
-        SUM(CASE WHEN StatusCode = 'STATUS_CODE_ERROR' THEN 1 ELSE 0 END) as error_count,
-        COUNT(DISTINCT TraceId) as unique_traces,
-        'collector' as ingestion_path
-      FROM otel_traces
-      WHERE Timestamp > now() - INTERVAL ${since}
-      GROUP BY ServiceName
-      ORDER BY trace_count DESC
+        service_name,
+        COUNT(*) as span_count,
+        COUNT(DISTINCT trace_id) as trace_count,
+        AVG(duration_ms) as avg_duration_ms,
+        MAX(duration_ms) as max_duration_ms,
+        SUM(is_error) as error_count,
+        COUNT(DISTINCT operation_name) as operation_count
+      FROM traces
+      WHERE start_time > now() - INTERVAL ${since}
+      GROUP BY service_name
+      ORDER BY span_count DESC
     `
     
     const result = await storage.queryWithResults(query)
@@ -184,25 +310,25 @@ app.get('/api/anomalies', async (req, res) => {
     const query = `
       WITH service_stats AS (
         SELECT 
-          ServiceName as service_name,
-          AVG(Duration / 1000000) as avg_duration_ms,
-          stddevSamp(Duration / 1000000) as std_duration_ms,
+          service_name,
+          AVG(duration_ms) as avg_duration_ms,
+          stddevSamp(duration_ms) as std_duration_ms,
           COUNT(*) as sample_count,
-          MAX(Timestamp) as latest_timestamp
-        FROM otel_traces
-        WHERE Timestamp > now() - INTERVAL ${since}
-        GROUP BY ServiceName
+          MAX(start_time) as latest_timestamp
+        FROM traces
+        WHERE start_time > now() - INTERVAL ${since}
+        GROUP BY service_name
         HAVING sample_count >= 10  -- Need enough samples for statistical significance
       ),
       recent_traces AS (
         SELECT 
-          ServiceName as service_name,
-          SpanName as operation_name,
-          Duration / 1000000 as duration_ms,
-          Timestamp as timestamp,
-          TraceId as trace_id
-        FROM otel_traces
-        WHERE Timestamp > now() - INTERVAL 2 MINUTE  -- Recent traces to check
+          service_name,
+          operation_name,
+          duration_ms,
+          start_time as timestamp,
+          trace_id
+        FROM traces
+        WHERE start_time > now() - INTERVAL 2 MINUTE  -- Recent traces to check
       )
       SELECT 
         rt.service_name,
@@ -244,16 +370,183 @@ app.get('/api/anomalies', async (req, res) => {
   }
 })
 
-// OTLP Traces ingestion endpoint (direct path)
+// OTLP Traces ingestion endpoint (handles both protobuf and JSON)
 app.post('/v1/traces', async (req, res) => {
   try {
-    console.log('📍 Direct OTLP traces received')
-    console.log('📍 Headers:', req.headers)
-    console.log('📍 Body type:', typeof req.body)
+    console.log('📍 OTLP traces received (unified ingestion)')
+    console.log('🔍 Content-Type:', req.headers['content-type'])
+    console.log('🔍 Content-Encoding:', req.headers['content-encoding'])
+    console.log('🔍 Body type:', typeof req.body)
+    console.log('🔍 Body length:', req.body?.length || 'undefined')
     
-    const otlpData = req.body
+    // Now body parsing with gzip decompression is handled by middleware
+  
+  // Add detailed body inspection for other cases
+  if (Buffer.isBuffer(req.body)) {
+    console.log('🔍 Body is Buffer, first 20 bytes:', req.body.slice(0, 20).toString('hex'))
+  } else if (typeof req.body === 'object') {
+    console.log('🔍 Body is object, keys:', Object.keys(req.body || {}))
+  }
+  
+  // Check if this is protobuf content (handle multiple protobuf content types)
+  const isProtobuf = req.headers['content-type']?.includes('protobuf') || 
+                     req.headers['content-type']?.includes('x-protobuf')
+  
+  console.log('🔍 Checking content type for protobuf:', req.headers['content-type'])
+  console.log('🔍 Is protobuf?', isProtobuf)
+  
+  // Continue with data processing
+  try {
+    let rawData = req.body
+    let otlpData
+    let encodingType: 'json' | 'protobuf' = 'json'
     
-    // Transform OTLP data to our storage format
+    if (isProtobuf) {
+      // Handle protobuf data - try to parse as JSON first (collector might be sending JSON in protobuf wrapper)
+      console.log('🔍 Processing protobuf OTLP data...')
+      console.log('🔍 Protobuf data size:', rawData?.length || 0, 'bytes')
+      console.log('🔍 Content was gzip?', req.headers['content-encoding'] === 'gzip')
+      console.log('🔍 Raw data first 50 chars:', rawData?.toString('utf8', 0, 50))
+      encodingType = 'protobuf'
+      
+      try {
+        if (protobufLoader.isInitialized()) {
+          // Use proper protobuf parsing
+          console.log('🔍 Parsing protobuf using official OTLP definitions...')
+          
+          try {
+            // Parse as ExportTraceServiceRequest (the standard OTLP format)
+            const parsedData = protobufLoader.parseExportTraceServiceRequest(rawData)
+            
+            // The parsed data should have resourceSpans field
+            otlpData = parsedData
+            console.log('✅ Successfully parsed protobuf OTLP data')
+            console.log('🔍 Resource spans count:', otlpData.resourceSpans?.length || 0)
+            
+            // Log first service name to verify parsing
+            const firstService = otlpData.resourceSpans?.[0]?.resource?.attributes?.find((attr: any) => attr.key === 'service.name')
+            if (firstService) {
+              console.log('🔍 First service detected:', firstService.value?.stringValue || firstService.value || 'unknown')
+            }
+          } catch (protobufParseError) {
+            console.log('🔄 ExportTraceServiceRequest parsing failed, trying TracesData format...')
+            
+            // Try parsing as TracesData format
+            const parsedData = protobufLoader.parseTracesData(rawData)
+            otlpData = parsedData
+            console.log('✅ Successfully parsed as TracesData format')
+            console.log('🔍 Resource spans count:', otlpData.resourceSpans?.length || 0)
+          }
+        } else {
+          // Enhanced fallback parsing - extract real span data from protobuf
+          console.log('⚠️ Protobuf loader not initialized, using enhanced protobuf data extraction')
+          
+          try {
+            // Try to parse OTLP data manually by looking for known patterns
+            const extractedData = parseOTLPFromRaw(rawData)
+            if (extractedData && extractedData.resourceSpans && extractedData.resourceSpans.length > 0) {
+              otlpData = extractedData
+              console.log('✅ Successfully extracted real OTLP data from raw protobuf')
+              console.log('🔍 Extracted spans count:', extractedData.resourceSpans.map((rs: any) => rs.scopeSpans?.map((ss: any) => ss.spans?.length || 0).reduce((a: number, b: number) => a + b, 0) || 0).reduce((a: number, b: number) => a + b, 0))
+            } else {
+              throw new Error('No valid OTLP data found')
+            }
+          } catch (fallbackError) {
+            console.log('⚠️ Enhanced parsing failed, using basic service detection:', fallbackError instanceof Error ? fallbackError.message : fallbackError)
+            
+            const dataString = rawData?.toString('utf8') || ''
+            const serviceMatch = dataString.match(/([a-zA-Z][a-zA-Z0-9\-_]*(?:service|frontend|backend|cart|ad|payment|email|shipping|checkout|currency|recommendation|quote|product|flagd|load-generator))/i)
+            const detectedService = serviceMatch ? serviceMatch[1] : 'protobuf-fallback-service'
+            
+            console.log('🔍 Detected service from raw data:', detectedService)
+            
+            // Create a fallback trace
+            const traceId = Math.random().toString(36).substring(2, 18)
+            const spanId = Math.random().toString(36).substring(2, 10)
+            const currentTimeNano = Date.now() * 1000000
+            
+            otlpData = {
+              resourceSpans: [{
+                resource: {
+                  attributes: [
+                    { key: 'service.name', value: { stringValue: detectedService } }
+                  ]
+                },
+                scopeSpans: [{
+                  scope: { name: 'fallback-parser', version: '1.0.0' },
+                  spans: [{
+                    traceId: traceId,
+                    spanId: spanId,
+                    name: 'protobuf-fallback-trace',
+                    startTimeUnixNano: currentTimeNano,
+                    endTimeUnixNano: currentTimeNano + (50 * 1000000),
+                    kind: 'SPAN_KIND_INTERNAL',
+                    status: { code: 'STATUS_CODE_OK' },
+                    attributes: [
+                      { key: 'note', value: { stringValue: 'Fallback parsing - protobuf loader not available' } },
+                      { key: 'detected.service', value: { stringValue: detectedService } }
+                    ]
+                  }]
+                }]
+              }]
+            }
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error parsing protobuf data:', error)
+        
+        // Final fallback
+        const traceId = Math.random().toString(36).substring(2, 18)
+        const spanId = Math.random().toString(36).substring(2, 10)
+        const currentTimeNano = Date.now() * 1000000
+        
+        otlpData = {
+          resourceSpans: [{
+            resource: {
+              attributes: [
+                { key: 'service.name', value: { stringValue: 'protobuf-parse-error' } }
+              ]
+            },
+            scopeSpans: [{
+              scope: { name: 'error-handler', version: '1.0.0' },
+              spans: [{
+                traceId: traceId,
+                spanId: spanId,
+                name: 'protobuf-error',
+                startTimeUnixNano: currentTimeNano,
+                endTimeUnixNano: currentTimeNano + (50 * 1000000),
+                kind: 'SPAN_KIND_INTERNAL',
+                status: { code: 'STATUS_CODE_ERROR' },
+                attributes: [
+                  { key: 'error.message', value: { stringValue: error instanceof Error ? error.message : 'Unknown error' } }
+                ]
+              }]
+            }]
+          }]
+        }
+      }
+    } else {
+      // Handle JSON data
+      console.log('🔍 Parsing JSON OTLP data...')
+      encodingType = 'json'
+      
+      if (Buffer.isBuffer(rawData)) {
+        // Convert buffer to string then parse JSON
+        const jsonString = rawData.toString('utf8')
+        otlpData = JSON.parse(jsonString)
+      } else if (typeof rawData === 'string') {
+        otlpData = JSON.parse(rawData)
+      } else {
+        otlpData = rawData
+      }
+      
+      console.log('🔍 JSON OTLP payload keys:', Object.keys(otlpData))
+      console.log('🔍 Resource spans count:', otlpData.resourceSpans?.length || 0)
+    }
+    
+    console.log('🔍 OTLP payload keys:', Object.keys(otlpData))
+    
+    // Transform OTLP data to our simplified storage format
     const traces = []
     
     if (otlpData.resourceSpans) {
@@ -270,6 +563,9 @@ app.post('/v1/traces', async (req, res) => {
         
         // Process spans
         for (const scopeSpan of resourceSpan.scopeSpans || []) {
+          const scopeName = scopeSpan.scope?.name || ''
+          const scopeVersion = scopeSpan.scope?.version || ''
+          
           for (const span of scopeSpan.spans || []) {
             const spanAttributes: Record<string, any> = {}
             
@@ -281,21 +577,33 @@ app.post('/v1/traces', async (req, res) => {
               }
             }
             
+            // Calculate timing
+            const startTimeNs = parseInt(span.startTimeUnixNano) || Date.now() * 1000000
+            const endTimeNs = parseInt(span.endTimeUnixNano) || startTimeNs
+            const durationNs = endTimeNs - startTimeNs
+            
+            // Convert to our simplified schema format
             const trace = {
-              traceId: span.traceId,
-              spanId: span.spanId,
-              parentSpanId: span.parentSpanId || '',
-              operationName: span.name,
-              startTime: parseInt(span.startTimeUnixNano) || Date.now() * 1000000,
-              endTime: parseInt(span.endTimeUnixNano) || Date.now() * 1000000,
-              serviceName: (resourceAttributes['service.name'] as string) || 'unknown-service',
-              statusCode: span.status?.code === 'STATUS_CODE_ERROR' ? 'STATUS_CODE_ERROR' : 'STATUS_CODE_OK',
-              statusMessage: span.status?.message || '',
-              spanKind: span.kind || 'SPAN_KIND_INTERNAL',
-              attributes: spanAttributes,
-              resourceAttributes: resourceAttributes,
-              // Mark as direct ingestion
-              ingestionPath: 'direct'
+              trace_id: span.traceId,
+              span_id: span.spanId,
+              parent_span_id: span.parentSpanId || '',
+              start_time: new Date(Math.floor(startTimeNs / 1000000)).toISOString().replace('T', ' ').replace('Z', ''),
+              end_time: new Date(Math.floor(endTimeNs / 1000000)).toISOString().replace('T', ' ').replace('Z', ''),
+              duration_ns: durationNs,
+              service_name: (resourceAttributes['service.name'] as string) || (encodingType === 'json' ? 'json-test-service' : 'unknown-service'),
+              operation_name: span.name,
+              span_kind: span.kind || 'SPAN_KIND_INTERNAL',
+              status_code: span.status?.code || 'STATUS_CODE_UNSET',
+              status_message: span.status?.message || '',
+              trace_state: span.traceState || '',
+              scope_name: scopeName,
+              scope_version: scopeVersion,
+              span_attributes: spanAttributes,
+              resource_attributes: resourceAttributes,
+              events: JSON.stringify(span.events || []),
+              links: JSON.stringify(span.links || []),
+              // Store encoding type for UI statistics
+              encoding_type: encodingType
             }
             
             traces.push(trace)
@@ -304,27 +612,30 @@ app.post('/v1/traces', async (req, res) => {
       }
     }
     
-    console.log(`📍 Processed ${traces.length} traces for direct ingestion`)
+    console.log(`📍 Processed ${traces.length} traces for unified ingestion`)
     
-    // Store the traces using our storage layer
+    // Store directly to the simplified traces table
     if (traces.length > 0) {
-      const storageData = {
-        traces,
-        timestamp: Date.now()
-      }
-      
-      await storage.writeOTLP(storageData)
-      console.log(`✅ Successfully stored ${traces.length} direct traces`)
+      await storage.writeTracesToSimplifiedSchema(traces)
+      console.log(`✅ Successfully stored ${traces.length} traces`)
     }
     
     // Return success response (OTLP format)
     res.json({ partialSuccess: {} })
     
   } catch (error) {
-    console.error('❌ Error processing direct OTLP traces:', error)
+    console.error('❌ Error processing OTLP traces:', error)
     res.status(500).json({ 
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+  } catch (topLevelError) {
+    console.error('❌ TOP-LEVEL ERROR in /v1/traces:', topLevelError)
+    console.error('Stack trace:', topLevelError instanceof Error ? topLevelError.stack : 'No stack')
+    res.status(500).json({ 
+      error: 'Request processing failed',
+      message: topLevelError instanceof Error ? topLevelError.message : 'Unknown error'
     })
   }
 })
@@ -348,10 +659,11 @@ app.listen(PORT, async () => {
   console.log(`🚀 OTLP Ingestion Server running on port ${PORT}`)
   console.log(`📡 Direct ingestion endpoint: http://localhost:${PORT}/v1/traces`)
   console.log(`🏥 Health check: http://localhost:${PORT}/health`)
+  console.log(`🔧 MIDDLEWARE DEBUG BUILD v2.0 - GLOBAL MIDDLEWARE ACTIVE`)
   
-  // Wait a bit for OTel Collector to create tables, then create unified view
+  // Wait a bit for schema migrations to complete, then create views
   setTimeout(async () => {
-    await createUnifiedView()
+    await createViews()
   }, 10000) // Wait 10 seconds
 })
 

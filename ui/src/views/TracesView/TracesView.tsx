@@ -19,21 +19,20 @@ import { useClickhouseQuery } from '../../hooks/useClickhouseQuery';
 
 const { Title } = Typography;
 
-const DEFAULT_QUERY = `-- Query unified traces across both ingestion paths
+const DEFAULT_QUERY = `-- Query traces from simplified single-path ingestion
 SELECT 
   trace_id,
   service_name,
   operation_name,
   duration_ms,
-  timestamp,
+  start_time as timestamp,
   status_code,
-  ingestion_path,
-  schema_version,
   is_error,
-  attribute_count
-FROM otel.traces_unified_view 
-WHERE timestamp >= subtractHours(now(), 3)
-ORDER BY timestamp DESC 
+  span_kind,
+  is_root
+FROM otel.traces 
+WHERE start_time >= subtractHours(now(), 3)
+ORDER BY start_time DESC 
 LIMIT 100`;
 
 export const TracesView: React.FC = () => {

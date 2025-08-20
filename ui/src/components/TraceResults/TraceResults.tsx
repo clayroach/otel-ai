@@ -6,7 +6,7 @@ import dayjs from 'dayjs';
 
 const { Text, Title } = Typography;
 
-// Types for unified traces from traces_unified table
+// Types for traces from simplified single-table schema
 interface UnifiedTrace {
   trace_id: string;
   service_name: string;
@@ -14,12 +14,12 @@ interface UnifiedTrace {
   duration_ms: number;
   timestamp: string;
   status_code: string;
-  ingestion_path: 'collector' | 'direct';
-  schema_version: string;
   is_error: number;
-  attribute_count: number;
+  span_kind?: string;
   span_id?: string;
   parent_span_id?: string;
+  is_root?: number;
+  encoding_type?: 'json' | 'protobuf';
   attributes?: Record<string, any>;
   resource_attributes?: Record<string, any>;
 }
@@ -110,31 +110,49 @@ export const TraceResults: React.FC<TraceResultsProps> = ({ data }) => {
       ),
     },
     {
-      title: 'Ingestion',
-      dataIndex: 'ingestion_path',
-      key: 'ingestion_path',
+      title: 'Span Kind',
+      dataIndex: 'span_kind',
+      key: 'span_kind',
       width: 100,
-      render: (path: string) => (
-        <Tag color={path === 'collector' ? 'blue' : 'orange'}>
-          {path === 'collector' ? 'Collector' : 'Direct'}
+      render: (kind: string) => {
+        const kindMap: Record<string, { label: string; color: string }> = {
+          '1': { label: 'Internal', color: 'default' },
+          '2': { label: 'Server', color: 'blue' },
+          '3': { label: 'Client', color: 'green' },
+          '4': { label: 'Producer', color: 'orange' },
+          '5': { label: 'Consumer', color: 'purple' },
+        };
+        const kindInfo = kindMap[kind] || { label: kind || 'Unknown', color: 'default' };
+        return (
+          <Tag color={kindInfo.color}>
+            {kindInfo.label}
+          </Tag>
+        );
+      },
+      filters: [
+        { text: 'Internal', value: '1' },
+        { text: 'Server', value: '2' },
+        { text: 'Client', value: '3' },
+        { text: 'Producer', value: '4' },
+        { text: 'Consumer', value: '5' },
+      ],
+      onFilter: (value, record) => record.span_kind === value,
+    },
+    {
+      title: 'Type',
+      dataIndex: 'is_root',
+      key: 'is_root',
+      width: 80,
+      render: (isRoot: number) => (
+        <Tag color={isRoot ? 'red' : 'default'}>
+          {isRoot ? 'Root' : 'Child'}
         </Tag>
       ),
       filters: [
-        { text: 'Collector', value: 'collector' },
-        { text: 'Direct', value: 'direct' },
+        { text: 'Root Spans', value: 1 },
+        { text: 'Child Spans', value: 0 },
       ],
-      onFilter: (value, record) => record.ingestion_path === value,
-    },
-    {
-      title: 'Schema',
-      dataIndex: 'schema_version',
-      key: 'schema_version',
-      width: 120,
-      render: (version: string) => (
-        <Text type="secondary" style={{ fontSize: '11px' }}>
-          {version}
-        </Text>
-      ),
+      onFilter: (value, record) => record.is_root === value,
     },
     {
       title: 'Timestamp',
@@ -173,9 +191,12 @@ export const TraceResults: React.FC<TraceResultsProps> = ({ data }) => {
     avgDuration: data.data.length > 0 
       ? Math.round(data.data.reduce((sum, t) => sum + t.duration_ms, 0) / data.data.length)
       : 0,
-    collectorTraces: data.data.filter(t => t.ingestion_path === 'collector').length,
-    directTraces: data.data.filter(t => t.ingestion_path === 'direct').length,
+    rootSpans: data.data.filter(t => t.is_root === 1).length,
+    childSpans: data.data.filter(t => t.is_root === 0).length,
     uniqueServices: new Set(data.data.map(t => t.service_name)).size,
+    // Count by actual encoding type stored in traces
+    protobufTraces: data.data.filter(t => !t.encoding_type || t.encoding_type === 'protobuf').length,
+    jsonTraces: data.data.filter(t => t.encoding_type === 'json').length,
   };
 
   return (
@@ -197,8 +218,8 @@ export const TraceResults: React.FC<TraceResultsProps> = ({ data }) => {
           <Text><strong>Services:</strong> {stats.uniqueServices}</Text>
         </Space>
         <Space size="large">
-          <Text><strong>Collector:</strong> <Tag color="blue">{stats.collectorTraces}</Tag></Text>
-          <Text><strong>Direct:</strong> <Tag color="orange">{stats.directTraces}</Tag></Text>
+          <Text><strong>Protobuf:</strong> <Tag color="blue">{stats.protobufTraces}</Tag></Text>
+          <Text><strong>JSON:</strong> <Tag color="orange">{stats.jsonTraces}</Tag></Text>
         </Space>
       </div>
 
@@ -240,11 +261,7 @@ export const TraceResults: React.FC<TraceResultsProps> = ({ data }) => {
           <Space>
             <BugOutlined />
             <span>Trace Details</span>
-            {selectedTrace && (
-              <Tag color={selectedTrace.ingestion_path === 'collector' ? 'blue' : 'orange'}>
-                {selectedTrace.ingestion_path}
-              </Tag>
-            )}
+            <Tag color="blue">OTLP/Protobuf</Tag>
           </Space>
         }
         open={detailsVisible}
@@ -274,13 +291,13 @@ export const TraceResults: React.FC<TraceResultsProps> = ({ data }) => {
                   {selectedTrace.status_code}
                 </Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="Ingestion Path">
-                <Tag color={selectedTrace.ingestion_path === 'collector' ? 'blue' : 'orange'}>
-                  {selectedTrace.ingestion_path}
-                </Tag>
+              <Descriptions.Item label="Encoding">
+                <Tag color="blue">OTLP/Protobuf</Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="Schema Version">
-                {selectedTrace.schema_version}
+              <Descriptions.Item label="Span Type">
+                <Tag color={selectedTrace.is_root ? 'red' : 'default'}>
+                  {selectedTrace.is_root ? 'Root Span' : 'Child Span'}
+                </Tag>
               </Descriptions.Item>
               <Descriptions.Item label="Timestamp">
                 {dayjs(selectedTrace.timestamp).format('YYYY-MM-DD HH:mm:ss.SSS')}
@@ -288,8 +305,17 @@ export const TraceResults: React.FC<TraceResultsProps> = ({ data }) => {
               <Descriptions.Item label="Span ID" span={2}>
                 <Text code>{selectedTrace.span_id || 'N/A'}</Text>
               </Descriptions.Item>
-              <Descriptions.Item label="Attributes Count" span={2}>
-                {selectedTrace.attribute_count} attributes
+              <Descriptions.Item label="Span Kind" span={2}>
+                {(() => {
+                  const kindMap: Record<string, string> = {
+                    '1': 'Internal',
+                    '2': 'Server', 
+                    '3': 'Client',
+                    '4': 'Producer',
+                    '5': 'Consumer',
+                  };
+                  return kindMap[selectedTrace.span_kind || ''] || selectedTrace.span_kind || 'Unknown';
+                })()}
               </Descriptions.Item>
             </Descriptions>
 

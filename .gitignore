@@ -41,3 +41,7 @@ demo/**/
 # Demo-related temp files
 *.override
 .env.override
+
+# UI build artifacts
+ui/dist/
+ui/release/

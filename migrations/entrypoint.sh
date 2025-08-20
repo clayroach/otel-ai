@@ -162,8 +162,7 @@ validate_schema() {
     
     # Check core tables
     REQUIRED_TABLES=(
-        "otel_traces"
-        "ai_traces_direct"
+        "traces"
         "ai_anomalies"
         "ai_service_baselines"
     )
@@ -183,7 +182,7 @@ validate_schema() {
     
     # Check critical views
     REQUIRED_VIEWS=(
-        "traces_unified_view"
+        "traces_view"
         "service_summary_view"
     )
     
