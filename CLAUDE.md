@@ -270,58 +270,60 @@ This project includes comprehensive Copilot instructions in `.github/copilot-ins
 - ✅ **config-manager** - Self-healing configuration (specification complete)
 - ✅ **deployment** - Bazel build + deployment (specification complete)
 
-## Dual-Ingestion Architecture (CRITICAL)
+## Unified OTLP Ingestion Architecture (SIMPLIFIED)
 
-⚠️ **IMPORTANT**: This platform implements a dual-ingestion architecture that requires careful handling:
+✅ **SIMPLIFIED**: This platform now uses a unified single-path ingestion architecture:
 
-### Two Ingestion Paths
+### Single Ingestion Path
 
-1. **Collector Path**: OTel Demo/External → OTel Collector → `otel_traces` table
-2. **Direct Path**: Test Data/API → Backend Service → `ai_traces_direct` table
+**All Sources → OpenTelemetry Collector → Backend Service → `traces` table**
 
-### Unified View Implementation
+- All telemetry data flows through the OpenTelemetry Collector
+- Backend service receives OTLP data via HTTP/gRPC
+- Single optimized table design: `traces`
+- No dual schemas or complex views needed
+
+### Simplified Schema
 
 ```sql
--- traces_unified_view combines both paths
-CREATE OR REPLACE VIEW traces_unified_view AS
-SELECT 
-    TraceId as trace_id,
-    ServiceName as service_name,
-    toString(StatusCode) as status_code,
-    'collector' as ingestion_path,
-    toUnixTimestamp64Nano(Timestamp) as start_time
-FROM otel_traces
-UNION ALL
-SELECT 
-    trace_id,
-    service_name, 
-    toString(status_code) as status_code,
-    'direct' as ingestion_path,
-    toUnixTimestamp64Nano(start_time) as start_time
-FROM ai_traces_direct
+-- Single traces table optimized for AI processing
+CREATE TABLE traces (
+    trace_id String,
+    span_id String,
+    parent_span_id String,
+    start_time DateTime64(9),
+    end_time DateTime64(9),
+    duration_ns UInt64,
+    service_name LowCardinality(String),
+    operation_name LowCardinality(String),
+    span_kind LowCardinality(String),
+    status_code LowCardinality(String),
+    -- ... additional fields for AI processing
+) ENGINE = MergeTree()
+PARTITION BY toDate(start_time)
+ORDER BY (service_name, operation_name, toUnixTimestamp(start_time), trace_id)
 ```
 
 ### Critical Design Patterns
 
-1. **Dynamic View Creation**: Views must be created AFTER table initialization
-   - Remove from `init-db.sql` to avoid startup errors
-   - Create in backend service after OTel Collector starts
-   - Use `server.ts` to create view on startup
+1. **Single Table Design**: All trace data goes to the `traces` table
+   - Consistent schema eliminates mapping complexity
+   - AI-optimized fields included directly in table
+   - Computed columns for common analytics queries
 
-2. **Type Compatibility**: Handle different schemas between tables
-   - Convert status codes to strings for unified view compatibility
-   - Map column names consistently (TraceId vs trace_id)
-   - Handle DateTime formats properly (seconds vs nanoseconds)
+2. **OTLP Processing**: Backend service handles all OTLP ingestion
+   - Transform OTLP format to optimized storage format
+   - Extract and flatten attributes for AI processing
+   - Consistent field naming across all data sources
 
-3. **Storage Layer Routing**:
-   - `SimpleStorage.writeOTLP()` → Must route to correct table based on path
-   - Direct ingestion: `writeDirectTraces()` → `ai_traces_direct`
-   - Collector ingestion: OTel Collector → `otel_traces`
-   - `queryTraces()` should specify which table/view to query
+3. **Storage Layer Simplification**:
+   - `SimpleStorage.writeTracesToSimplifiedSchema()` → Single method for all traces
+   - No routing logic needed - everything goes to `traces` table
+   - Simplified query patterns with consistent column names
 
 ### Testing Requirements & Patterns
 
-- **Always test both ingestion paths** when validating end-to-end functionality
+- **Test unified ingestion path** with comprehensive validation
 - **Use existing test commands** from package.json, avoid custom curl scripts
 - **Configure Vitest non-interactive**: Set `watch: false` to prevent test hanging
 - **Temporarily disable external dependencies**: Use `describe.skip()` for MinIO/S3 tests
@@ -330,24 +332,20 @@ FROM ai_traces_direct
 ### Schema Validation & Type Safety
 
 ```typescript
-// Direct path schema (ai_traces_direct)
-interface DirectTrace {
+// Unified traces schema - single table for all data
+interface TraceRecord {
   trace_id: string
   span_id: string
-  operation_name: string
+  parent_span_id: string
   start_time: DateTime64(9) // nanoseconds precision
+  end_time: DateTime64(9) 
+  duration_ns: number
   service_name: string
-  status_code: string | number // Handle both for compatibility
-}
-
-// Collector path schema (otel_traces) - managed by OTel Collector
-interface CollectorTrace {
-  TraceId: string
-  SpanId: string
-  SpanName: string
-  Timestamp: DateTime64(9) // seconds precision 
-  ServiceName: string
-  StatusCode: number
+  operation_name: string
+  span_kind: string
+  status_code: string
+  status_message: string
+  // ... additional fields for AI processing
 }
 ```
 

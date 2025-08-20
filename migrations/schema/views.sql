@@ -1,76 +1,54 @@
--- Unified Views for Dual-Ingestion Architecture
--- These views harmonize data from both collector and direct ingestion paths
+-- Simplified Views for Single-Path OTLP Ingestion
+-- These views provide convenient access to the unified traces table
 
--- Main unified view for traces
-CREATE OR REPLACE VIEW otel.traces_unified_view AS
+-- Main traces view with computed analytics
+CREATE OR REPLACE VIEW otel.traces_view AS
 SELECT 
-    -- Common fields
-    TraceId as trace_id,
-    SpanId as span_id,
-    ParentSpanId as parent_span_id,
-    ServiceName as service_name,
-    SpanName as operation_name,
-    toUnixTimestamp64Nano(Timestamp) as start_time,
-    toUnixTimestamp64Nano(Timestamp) + (Duration * 1000) as end_time,
-    Duration / 1000000 as duration_ms,
-    Timestamp as timestamp,
-    toString(StatusCode) as status_code,
-    StatusMessage as status_message,
-    SpanKind as span_kind,
-    
-    -- Computed fields
-    'collector' as ingestion_path,
-    'v1.0' as schema_version,
-    CASE 
-        WHEN StatusCode = 'STATUS_CODE_ERROR' OR StatusCode = '2' 
-        THEN 1 
-        ELSE 0 
-    END as is_error,
-    length(SpanAttributes) as attribute_count,
-    
-    -- Complex fields
-    SpanAttributes as attributes,
-    ResourceAttributes as resource_attributes
-FROM otel.otel_traces
-
-UNION ALL
-
-SELECT 
-    -- Common fields
+    -- Core identifiers
     trace_id,
     span_id,
     parent_span_id,
+    
+    -- Timing
+    start_time,
+    end_time,
+    duration_ns,
+    duration_ms,
+    
+    -- Service context
     service_name,
     operation_name,
-    toUnixTimestamp64Nano(start_time) as start_time,
-    toUnixTimestamp64Nano(end_time) as end_time,
-    duration / 1000000 as duration_ms,
-    start_time as timestamp,
-    toString(status_code) as status_code,
-    status_message,
     span_kind,
     
-    -- Computed fields
-    'direct' as ingestion_path,
-    'v1.0' as schema_version,
-    CASE 
-        WHEN status_code = 'STATUS_CODE_ERROR' OR status_code = '2' 
-        THEN 1 
-        ELSE 0 
-    END as is_error,
-    length(attributes) as attribute_count,
+    -- Status
+    status_code,
+    status_message,
+    is_error,
+    is_root,
     
-    -- Complex fields
-    attributes,
-    resource_attributes
-FROM otel.ai_traces_direct;
+    -- OpenTelemetry context
+    trace_state,
+    scope_name,
+    scope_version,
+    
+    -- Attributes
+    span_attributes,
+    resource_attributes,
+    
+    -- Events and links
+    events,
+    links,
+    
+    -- Metadata
+    ingestion_time,
+    processing_version
+FROM otel.traces;
 
 -- Service-level aggregation view
 CREATE OR REPLACE VIEW otel.service_summary_view AS
 SELECT 
     service_name,
-    ingestion_path,
-    COUNT(*) as trace_count,
+    COUNT(*) as span_count,
     COUNT(DISTINCT trace_id) as unique_traces,
     AVG(duration_ms) as avg_duration_ms,
     quantile(0.5)(duration_ms) as p50_duration_ms,
@@ -80,11 +58,12 @@ SELECT
     MIN(duration_ms) as min_duration_ms,
     SUM(is_error) as error_count,
     SUM(is_error) / COUNT(*) as error_rate,
-    MAX(timestamp) as latest_trace_time,
-    MIN(timestamp) as earliest_trace_time
-FROM otel.traces_unified_view
-WHERE timestamp > now() - INTERVAL 1 HOUR
-GROUP BY service_name, ingestion_path;
+    MAX(start_time) as latest_trace_time,
+    MIN(start_time) as earliest_trace_time,
+    COUNT(DISTINCT operation_name) as operation_count
+FROM otel.traces
+WHERE start_time > now() - INTERVAL 1 HOUR
+GROUP BY service_name;
 
 -- Operation-level performance view
 CREATE OR REPLACE VIEW otel.operation_performance_view AS
@@ -99,8 +78,8 @@ SELECT
     stddevPop(duration_ms) as std_deviation,
     SUM(is_error) as error_count,
     SUM(is_error) / COUNT(*) * 100 as error_percentage
-FROM otel.traces_unified_view
-WHERE timestamp > now() - INTERVAL 15 MINUTE
+FROM otel.traces
+WHERE start_time > now() - INTERVAL 15 MINUTE
 GROUP BY service_name, operation_name
 HAVING call_count >= 10
 ORDER BY service_name, avg_duration_ms DESC;
@@ -113,9 +92,9 @@ WITH service_baselines AS (
         AVG(duration_ms) as baseline_avg,
         stddevPop(duration_ms) as baseline_std,
         COUNT(*) as sample_count
-    FROM otel.traces_unified_view
-    WHERE timestamp > now() - INTERVAL 1 HOUR
-        AND timestamp < now() - INTERVAL 5 MINUTE
+    FROM otel.traces
+    WHERE start_time > now() - INTERVAL 1 HOUR
+        AND start_time < now() - INTERVAL 5 MINUTE
     GROUP BY service_name
     HAVING sample_count >= 100
 ),
@@ -125,17 +104,17 @@ recent_traces AS (
         service_name,
         operation_name,
         duration_ms,
-        timestamp,
+        start_time,
         is_error
-    FROM otel.traces_unified_view
-    WHERE timestamp > now() - INTERVAL 5 MINUTE
+    FROM otel.traces
+    WHERE start_time > now() - INTERVAL 5 MINUTE
 )
 SELECT 
     rt.trace_id,
     rt.service_name,
     rt.operation_name,
     rt.duration_ms,
-    rt.timestamp,
+    rt.start_time,
     sb.baseline_avg,
     sb.baseline_std,
     (rt.duration_ms - sb.baseline_avg) / sb.baseline_std as z_score,
@@ -160,8 +139,8 @@ WITH trace_spans AS (
         span_id,
         parent_span_id,
         operation_name
-    FROM otel.traces_unified_view
-    WHERE timestamp > now() - INTERVAL 1 HOUR
+    FROM otel.traces
+    WHERE start_time > now() - INTERVAL 1 HOUR
 )
 SELECT 
     t1.service_name as source_service,

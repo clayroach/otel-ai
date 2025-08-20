@@ -28,55 +28,42 @@ const storageConfig: SimpleStorageConfig = {
 
 const storage = new SimpleStorage(storageConfig)
 
-// Create unified view after storage is initialized
-async function createUnifiedView() {
+// Create simplified views after storage is initialized
+async function createViews() {
   try {
+    // Simple view for traces (main table is now 'traces')
     const createViewSQL = `
-      CREATE OR REPLACE VIEW traces_unified_view AS
-      -- Traces from OpenTelemetry Collector
-      SELECT 
-          TraceId as trace_id,
-          ServiceName as service_name,
-          SpanName as operation_name,
-          Duration / 1000000 as duration_ms,
-          Timestamp as timestamp,
-          toString(StatusCode) as status_code,
-          'collector' as ingestion_path,
-          'v1.0' as schema_version,
-          CASE WHEN StatusCode = 'STATUS_CODE_ERROR' THEN 1 ELSE 0 END as is_error,
-          SpanKind as span_kind,
-          ParentSpanId as parent_span_id,
-          length(SpanAttributes) as attribute_count,
-          SpanId as span_id,
-          SpanAttributes as attributes,
-          ResourceAttributes as resource_attributes
-      FROM otel_traces
-      
-      UNION ALL
-      
-      -- Direct traces from test generator
+      CREATE OR REPLACE VIEW traces_view AS
       SELECT 
           trace_id,
+          span_id,
+          parent_span_id,
+          start_time,
+          end_time,
+          duration_ns,
+          duration_ms,
           service_name,
           operation_name,
-          duration / 1000000 as duration_ms,
-          start_time as timestamp,
-          toString(status_code) as status_code,
-          'direct' as ingestion_path,
-          'v1.0' as schema_version,
-          CASE WHEN status_code = 2 THEN 1 ELSE 0 END as is_error,
           span_kind,
-          parent_span_id,
-          length(attributes) as attribute_count,
-          span_id,
-          attributes,
-          resource_attributes
-      FROM ai_traces_direct
+          status_code,
+          status_message,
+          is_error,
+          is_root,
+          trace_state,
+          scope_name,
+          scope_version,
+          span_attributes,
+          resource_attributes,
+          events,
+          links,
+          ingestion_time,
+          processing_version
+      FROM traces
     `
     await storage.query(createViewSQL)
-    console.log('✅ Created unified view for dual ingestion paths')
+    console.log('✅ Created simplified traces view for single-path ingestion')
   } catch (error) {
-    console.log('⚠️  Unified view creation will be retried later:', error instanceof Error ? error.message : error)
+    console.log('⚠️  View creation will be retried later:', error instanceof Error ? error.message : error)
   }
 }
 
@@ -105,21 +92,20 @@ app.get('/api/traces', async (req, res) => {
     const limit = parseInt(req.query.limit as string) || 100
     const since = req.query.since as string || '5 MINUTE'
     
-    // Query recent traces from collector path for now (most active)
+    // Query recent traces from simplified schema
     const query = `
       SELECT 
-        TraceId as trace_id,
-        ServiceName as service_name,
-        SpanName as operation_name,
-        Duration / 1000000 as duration_ms,
-        Timestamp as timestamp,
-        StatusCode as status_code,
-        'collector' as ingestion_path,
-        CASE WHEN StatusCode = 'STATUS_CODE_ERROR' THEN 1 ELSE 0 END as is_error,
-        SpanKind as span_kind
-      FROM otel_traces
-      WHERE Timestamp > now() - INTERVAL ${since}
-      ORDER BY Timestamp DESC
+        trace_id,
+        service_name,
+        operation_name,
+        duration_ms,
+        start_time as timestamp,
+        status_code,
+        is_error,
+        span_kind
+      FROM traces
+      WHERE start_time > now() - INTERVAL ${since}
+      ORDER BY start_time DESC
       LIMIT ${limit}
     `
     
@@ -146,17 +132,17 @@ app.get('/api/services/stats', async (req, res) => {
     
     const query = `
       SELECT 
-        ServiceName as service_name,
-        COUNT(*) as trace_count,
-        AVG(Duration / 1000000) as avg_duration_ms,
-        MAX(Duration / 1000000) as max_duration_ms,
-        SUM(CASE WHEN StatusCode = 'STATUS_CODE_ERROR' THEN 1 ELSE 0 END) as error_count,
-        COUNT(DISTINCT TraceId) as unique_traces,
-        'collector' as ingestion_path
-      FROM otel_traces
-      WHERE Timestamp > now() - INTERVAL ${since}
-      GROUP BY ServiceName
-      ORDER BY trace_count DESC
+        service_name,
+        COUNT(*) as span_count,
+        AVG(duration_ms) as avg_duration_ms,
+        MAX(duration_ms) as max_duration_ms,
+        SUM(is_error) as error_count,
+        COUNT(DISTINCT trace_id) as unique_traces,
+        COUNT(DISTINCT operation_name) as operation_count
+      FROM traces
+      WHERE start_time > now() - INTERVAL ${since}
+      GROUP BY service_name
+      ORDER BY span_count DESC
     `
     
     const result = await storage.queryWithResults(query)
@@ -184,25 +170,25 @@ app.get('/api/anomalies', async (req, res) => {
     const query = `
       WITH service_stats AS (
         SELECT 
-          ServiceName as service_name,
-          AVG(Duration / 1000000) as avg_duration_ms,
-          stddevSamp(Duration / 1000000) as std_duration_ms,
+          service_name,
+          AVG(duration_ms) as avg_duration_ms,
+          stddevSamp(duration_ms) as std_duration_ms,
           COUNT(*) as sample_count,
-          MAX(Timestamp) as latest_timestamp
-        FROM otel_traces
-        WHERE Timestamp > now() - INTERVAL ${since}
-        GROUP BY ServiceName
+          MAX(start_time) as latest_timestamp
+        FROM traces
+        WHERE start_time > now() - INTERVAL ${since}
+        GROUP BY service_name
         HAVING sample_count >= 10  -- Need enough samples for statistical significance
       ),
       recent_traces AS (
         SELECT 
-          ServiceName as service_name,
-          SpanName as operation_name,
-          Duration / 1000000 as duration_ms,
-          Timestamp as timestamp,
-          TraceId as trace_id
-        FROM otel_traces
-        WHERE Timestamp > now() - INTERVAL 2 MINUTE  -- Recent traces to check
+          service_name,
+          operation_name,
+          duration_ms,
+          start_time as timestamp,
+          trace_id
+        FROM traces
+        WHERE start_time > now() - INTERVAL 2 MINUTE  -- Recent traces to check
       )
       SELECT 
         rt.service_name,
@@ -244,16 +230,14 @@ app.get('/api/anomalies', async (req, res) => {
   }
 })
 
-// OTLP Traces ingestion endpoint (direct path)
+// OTLP Traces ingestion endpoint (unified path for all telemetry)
 app.post('/v1/traces', async (req, res) => {
   try {
-    console.log('📍 Direct OTLP traces received')
-    console.log('📍 Headers:', req.headers)
-    console.log('📍 Body type:', typeof req.body)
+    console.log('📍 OTLP traces received (unified ingestion)')
     
     const otlpData = req.body
     
-    // Transform OTLP data to our storage format
+    // Transform OTLP data to our simplified storage format
     const traces = []
     
     if (otlpData.resourceSpans) {
@@ -270,6 +254,9 @@ app.post('/v1/traces', async (req, res) => {
         
         // Process spans
         for (const scopeSpan of resourceSpan.scopeSpans || []) {
+          const scopeName = scopeSpan.scope?.name || ''
+          const scopeVersion = scopeSpan.scope?.version || ''
+          
           for (const span of scopeSpan.spans || []) {
             const spanAttributes: Record<string, any> = {}
             
@@ -281,21 +268,31 @@ app.post('/v1/traces', async (req, res) => {
               }
             }
             
+            // Calculate timing
+            const startTimeNs = parseInt(span.startTimeUnixNano) || Date.now() * 1000000
+            const endTimeNs = parseInt(span.endTimeUnixNano) || startTimeNs
+            const durationNs = endTimeNs - startTimeNs
+            
+            // Convert to our simplified schema format
             const trace = {
-              traceId: span.traceId,
-              spanId: span.spanId,
-              parentSpanId: span.parentSpanId || '',
-              operationName: span.name,
-              startTime: parseInt(span.startTimeUnixNano) || Date.now() * 1000000,
-              endTime: parseInt(span.endTimeUnixNano) || Date.now() * 1000000,
-              serviceName: (resourceAttributes['service.name'] as string) || 'unknown-service',
-              statusCode: span.status?.code === 'STATUS_CODE_ERROR' ? 'STATUS_CODE_ERROR' : 'STATUS_CODE_OK',
-              statusMessage: span.status?.message || '',
-              spanKind: span.kind || 'SPAN_KIND_INTERNAL',
-              attributes: spanAttributes,
-              resourceAttributes: resourceAttributes,
-              // Mark as direct ingestion
-              ingestionPath: 'direct'
+              trace_id: span.traceId,
+              span_id: span.spanId,
+              parent_span_id: span.parentSpanId || '',
+              start_time: new Date(startTimeNs / 1000000).toISOString(),
+              end_time: new Date(endTimeNs / 1000000).toISOString(),
+              duration_ns: durationNs,
+              service_name: (resourceAttributes['service.name'] as string) || 'unknown-service',
+              operation_name: span.name,
+              span_kind: span.kind || 'SPAN_KIND_INTERNAL',
+              status_code: span.status?.code || 'STATUS_CODE_UNSET',
+              status_message: span.status?.message || '',
+              trace_state: span.traceState || '',
+              scope_name: scopeName,
+              scope_version: scopeVersion,
+              span_attributes: JSON.stringify(spanAttributes),
+              resource_attributes: JSON.stringify(resourceAttributes),
+              events: JSON.stringify(span.events || []),
+              links: JSON.stringify(span.links || [])
             }
             
             traces.push(trace)
@@ -304,24 +301,19 @@ app.post('/v1/traces', async (req, res) => {
       }
     }
     
-    console.log(`📍 Processed ${traces.length} traces for direct ingestion`)
+    console.log(`📍 Processed ${traces.length} traces for unified ingestion`)
     
-    // Store the traces using our storage layer
+    // Store directly to the simplified traces table
     if (traces.length > 0) {
-      const storageData = {
-        traces,
-        timestamp: Date.now()
-      }
-      
-      await storage.writeOTLP(storageData)
-      console.log(`✅ Successfully stored ${traces.length} direct traces`)
+      await storage.writeTracesToSimplifiedSchema(traces)
+      console.log(`✅ Successfully stored ${traces.length} traces`)
     }
     
     // Return success response (OTLP format)
     res.json({ partialSuccess: {} })
     
   } catch (error) {
-    console.error('❌ Error processing direct OTLP traces:', error)
+    console.error('❌ Error processing OTLP traces:', error)
     res.status(500).json({ 
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -349,9 +341,9 @@ app.listen(PORT, async () => {
   console.log(`📡 Direct ingestion endpoint: http://localhost:${PORT}/v1/traces`)
   console.log(`🏥 Health check: http://localhost:${PORT}/health`)
   
-  // Wait a bit for OTel Collector to create tables, then create unified view
+  // Wait a bit for schema migrations to complete, then create views
   setTimeout(async () => {
-    await createUnifiedView()
+    await createViews()
   }, 10000) // Wait 10 seconds
 })
 

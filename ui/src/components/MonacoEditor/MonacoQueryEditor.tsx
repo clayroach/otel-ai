@@ -143,10 +143,10 @@ export const MonacoQueryEditor: React.FC<MonacoQueryEditorProps> = ({
         const suggestions = [
           // Tables
           {
-            label: 'otel.traces_unified_view',
+            label: 'otel.traces',
             kind: monaco.languages.CompletionItemKind.Class,
-            insertText: 'otel.traces_unified_view',
-            documentation: 'Unified traces view with AI-friendly column names for easy querying',
+            insertText: 'otel.traces',
+            documentation: 'Main traces table with all telemetry data from unified ingestion',
           },
           // Common columns from unified view
           {
@@ -194,11 +194,11 @@ export const MonacoQueryEditor: React.FC<MonacoQueryEditorProps> = ({
               '  service_name,',
               '  operation_name,',
               '  duration_ms,',
-              '  timestamp,',
-              '  ingestion_path',
-              'FROM otel.traces_unified_view',
-              'WHERE timestamp >= subtractHours(now(), 1)',
-              'ORDER BY timestamp DESC',
+              '  start_time as timestamp,',
+              '  status_code',
+              'FROM otel.traces',
+              'WHERE start_time >= subtractHours(now(), 1)',
+              'ORDER BY start_time DESC',
               'LIMIT 100'
             ].join('\n'),
             documentation: 'Template for querying unified traces',

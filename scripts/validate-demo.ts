@@ -134,49 +134,41 @@ class DemoValidator {
     this.log('📊 Validating telemetry data flow...');
     
     try {
-      // Check collector path (otel_traces table)
-      const collectorQuery = `
+      // Check unified traces table
+      const tracesQuery = `
         SELECT 
           COUNT(*) as total_traces,
-          COUNT(DISTINCT ServiceName) as unique_services,
-          MAX(Timestamp) as latest_trace,
-          COUNT(CASE WHEN Timestamp > now() - INTERVAL 2 MINUTE THEN 1 END) as recent_traces
-        FROM otel_traces
+          COUNT(DISTINCT service_name) as unique_services,
+          MAX(start_time) as latest_trace,
+          COUNT(CASE WHEN start_time > now() - INTERVAL 2 MINUTE THEN 1 END) as recent_traces
+        FROM traces
       `;
       
-      const collectorResult = await this.execCommand(
-        `docker exec otel-ai-clickhouse clickhouse-client -u otel --password otel123 --database otel --format JSONEachRow --query "${collectorQuery}"`
+      const tracesResult = await this.execCommand(
+        `docker exec otel-ai-clickhouse clickhouse-client -u otel --password otel123 --database otel --format JSONEachRow --query "${tracesQuery}"`
       );
       
-      const collectorData = JSON.parse(collectorResult);
+      const tracesData = JSON.parse(tracesResult);
       
-      if (collectorData.total_traces < 1000) {
-        throw new Error(`Insufficient trace data: ${collectorData.total_traces} traces (expected 1000+)`);
+      if (tracesData.total_traces < 1000) {
+        throw new Error(`Insufficient trace data: ${tracesData.total_traces} traces (expected 1000+)`);
       }
       
-      if (collectorData.unique_services < 10) {
-        throw new Error(`Too few services: ${collectorData.unique_services} services (expected 10+)`);
+      if (tracesData.unique_services < 10) {
+        throw new Error(`Too few services: ${tracesData.unique_services} services (expected 10+)`);
       }
       
-      if (collectorData.recent_traces < 50) {
-        throw new Error(`No recent telemetry: ${collectorData.recent_traces} traces in last 2 minutes (expected 50+)`);
+      if (tracesData.recent_traces < 50) {
+        throw new Error(`No recent telemetry: ${tracesData.recent_traces} traces in last 2 minutes (expected 50+)`);
       }
-
-      // Check direct path (ai_traces_direct table) 
-      const directQuery = `SELECT COUNT(*) as total_direct_traces FROM ai_traces_direct`;
-      const directResult = await this.execCommand(
-        `docker exec otel-ai-clickhouse clickhouse-client -u otel --password otel123 --database otel --format JSONEachRow --query "${directQuery}"`
-      );
-      const directData = JSON.parse(directResult);
 
       this.results.push({
         name: 'Telemetry Flow',
         passed: true,
-        message: `Collector: ${collectorData.total_traces} traces from ${collectorData.unique_services} services, Direct: ${directData.total_direct_traces} traces`,
+        message: `${tracesData.total_traces} traces from ${tracesData.unique_services} services via unified ingestion`,
         details: {
-          collector: collectorData,
-          direct: directData,
-          latestTrace: collectorData.latest_trace
+          traces: tracesData,
+          latestTrace: tracesData.latest_trace
         }
       });
 
@@ -307,11 +299,11 @@ class DemoValidator {
       // Check how recent the latest data is
       const query = `
         SELECT 
-          ServiceName as service_name,
-          MAX(Timestamp) as latest_timestamp,
-          COUNT(CASE WHEN Timestamp > now() - INTERVAL 1 MINUTE THEN 1 END) as last_minute_traces
-        FROM otel_traces 
-        GROUP BY ServiceName 
+          service_name,
+          MAX(start_time) as latest_timestamp,
+          COUNT(CASE WHEN start_time > now() - INTERVAL 1 MINUTE THEN 1 END) as last_minute_traces
+        FROM traces 
+        GROUP BY service_name 
         ORDER BY latest_timestamp DESC 
         LIMIT 5
       `;
