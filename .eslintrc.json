@@ -16,7 +16,7 @@
     "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
     "@typescript-eslint/explicit-function-return-type": "off",
     "@typescript-eslint/explicit-module-boundary-types": "off",
-    "@typescript-eslint/no-explicit-any": "warn",
+    "@typescript-eslint/no-explicit-any": "error",
     "@typescript-eslint/no-non-null-assertion": "warn",
     "prefer-const": "error",
     "no-var": "error"
@@ -24,8 +24,9 @@
   "ignorePatterns": [
     "dist/**/*",
     "node_modules/**/*",
+    "src/opentelemetry/**/*",
     "src/storage/clickhouse.ts",
-    "src/storage/s3.ts",
+    "src/storage/s3.ts", 
     "src/storage/services.ts",
     "**/*.test.ts",
     "**/*.spec.ts",

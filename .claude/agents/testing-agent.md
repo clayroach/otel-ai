@@ -13,12 +13,13 @@ You are the testing-agent for comprehensive test execution and validation.
 
 ## Test Commands
 
-- pnpm test (all tests)
-- pnpm test:unit (unit tests)  
-- pnpm test:integration (integration tests)
-- pnpm typecheck (TypeScript validation)
-- pnpm lint (code quality)
-- pnpm build (build validation)
+- pnpm test (all tests - unit tests via vitest)
+- pnpm test:integration (integration tests with testcontainers)
+- pnpm test:coverage (test coverage analysis)
+- pnpm typecheck (TypeScript strict mode validation)
+- pnpm lint (ESLint with strict rules)
+- pnpm build (protobuf generation + TypeScript compilation)
+- pnpm proto:generate (protobuf static code generation)
 
 ## Process
 

@@ -23,6 +23,8 @@ export default defineConfig({
       '**/dist/**',
     ],
     
+    watch: false, // Disable watch mode by default - run once and exit
+
     // Environment setup
     environment: 'node',
     

@@ -6,30 +6,36 @@
 import express from 'express'
 import cors from 'cors'
 import { SimpleStorage, type SimpleStorageConfig } from './storage/simple-storage.js'
-import { OTLPProtobufLoader } from './protobuf-loader.js'
+import { ExportTraceServiceRequestSchema, ResourceSpans, KeyValue, ScopeSpans } from './opentelemetry/index.js'
+import { fromBinary } from '@bufbuild/protobuf'
+
+/**
+ * Type for OpenTelemetry attribute values
+ */
+type AttributeValue = string | number | boolean | bigint | Uint8Array | undefined
 
 /**
  * Parse OTLP data from raw protobuf buffer by detecting patterns
  * This is a fallback when protobufjs is not available
  */
-function parseOTLPFromRaw(buffer: Buffer): any {
+function parseOTLPFromRaw(buffer: Buffer): { resourceSpans: unknown[] } {
   try {
     // Convert buffer to string and look for patterns
     const data = buffer.toString('latin1')
     
     // Look for OTLP structure markers
-    const resourceSpans: any[] = []
+    const resourceSpans: unknown[] = []
     
     // Find service name patterns
-    const serviceMatches = [...data.matchAll(/service\.name[\x00-\x20]*([a-zA-Z][a-zA-Z0-9\-_]+)/g)]
-    const operationMatches = [...data.matchAll(/[\x00-\x20]([a-zA-Z][a-zA-Z0-9\-_\.\/]+)[\x00-\x20]/g)]
+    const serviceMatches = [...data.matchAll(/service\.name\s*([a-zA-Z][a-zA-Z0-9\-_]+)/g)]
+    const operationMatches = [...data.matchAll(/\s([a-zA-Z][a-zA-Z0-9\-_./]+)\s/g)]
     
     // Look for trace and span IDs (16-byte hex strings)
-    const traceIdMatches = [...data.matchAll(/[\x00-\x20]([a-f0-9]{32})[\x00-\x20]/g)]
-    const spanIdMatches = [...data.matchAll(/[\x00-\x20]([a-f0-9]{16})[\x00-\x20]/g)]
+    const traceIdMatches = [...data.matchAll(/\s([a-f0-9]{32})\s/g)]
+    const spanIdMatches = [...data.matchAll(/\s([a-f0-9]{16})\s/g)]
     
     // Find timestamp patterns (nanoseconds)
-    const timestampMatches = [...data.matchAll(/[\x00-\x08](\d{16,19})[\x00-\x08]/g)]
+    const timestampMatches = [...data.matchAll(/\s(\d{16,19})\s/g)]
     
     console.log('🔍 Raw protobuf parsing found:')
     console.log('  - Service matches:', serviceMatches.length)
@@ -159,12 +165,8 @@ const storageConfig: SimpleStorageConfig = {
 
 const storage = new SimpleStorage(storageConfig)
 
-// Initialize protobuf loader for OTLP parsing
-const protobufLoader = OTLPProtobufLoader.getInstance()
-protobufLoader.initialize().catch(error => {
-  console.error('❌ Failed to initialize protobuf loader:', error)
-  console.log('⚠️ Will fall back to service name detection from raw data')
-})
+// Protobuf parsing now uses generated types from @bufbuild/protobuf
+console.log('✅ Using generated protobuf types for OTLP parsing')
 
 // Create simplified views after storage is initialized
 async function createViews() {
@@ -397,7 +399,7 @@ app.post('/v1/traces', async (req, res) => {
   
   // Continue with data processing
   try {
-    let rawData = req.body
+    const rawData = req.body
     let otlpData
     let encodingType: 'json' | 'protobuf' = 'json'
     
@@ -410,36 +412,29 @@ app.post('/v1/traces', async (req, res) => {
       encodingType = 'protobuf'
       
       try {
-        if (protobufLoader.isInitialized()) {
-          // Use proper protobuf parsing
-          console.log('🔍 Parsing protobuf using official OTLP definitions...')
+        // Use generated protobuf types for parsing
+        console.log('🔍 Parsing protobuf using generated types...')
+        
+        try {
+          // Parse as ExportTraceServiceRequest (the standard OTLP format)
+          const parsedData = fromBinary(ExportTraceServiceRequestSchema, rawData)
           
-          try {
-            // Parse as ExportTraceServiceRequest (the standard OTLP format)
-            const parsedData = protobufLoader.parseExportTraceServiceRequest(rawData)
-            
-            // The parsed data should have resourceSpans field
-            otlpData = parsedData
-            console.log('✅ Successfully parsed protobuf OTLP data')
-            console.log('🔍 Resource spans count:', otlpData.resourceSpans?.length || 0)
-            
-            // Log first service name to verify parsing
-            const firstService = otlpData.resourceSpans?.[0]?.resource?.attributes?.find((attr: any) => attr.key === 'service.name')
-            if (firstService) {
-              console.log('🔍 First service detected:', firstService.value?.stringValue || firstService.value || 'unknown')
-            }
-          } catch (protobufParseError) {
-            console.log('🔄 ExportTraceServiceRequest parsing failed, trying TracesData format...')
-            
-            // Try parsing as TracesData format
-            const parsedData = protobufLoader.parseTracesData(rawData)
-            otlpData = parsedData
-            console.log('✅ Successfully parsed as TracesData format')
-            console.log('🔍 Resource spans count:', otlpData.resourceSpans?.length || 0)
+          // Convert to the expected format for storage
+          otlpData = {
+            resourceSpans: parsedData.resourceSpans
           }
-        } else {
-          // Enhanced fallback parsing - extract real span data from protobuf
-          console.log('⚠️ Protobuf loader not initialized, using enhanced protobuf data extraction')
+          console.log('✅ Successfully parsed protobuf OTLP data with generated types')
+          console.log('🔍 Resource spans count:', otlpData.resourceSpans?.length || 0)
+          
+          // Log first service name to verify parsing
+          const firstService = otlpData.resourceSpans?.[0]?.resource?.attributes?.find((attr: KeyValue) => attr.key === 'service.name')
+          if (firstService && firstService.value) {
+            const serviceValue = firstService.value.value?.case === 'stringValue' ? firstService.value.value.value : 'unknown'
+            console.log('🔍 First service detected:', serviceValue)
+          }
+        } catch (protobufParseError) {
+          console.log('⚠️ Generated type parsing failed, falling back to raw parsing...')
+          console.log('Parse error:', protobufParseError instanceof Error ? protobufParseError.message : protobufParseError)
           
           try {
             // Try to parse OTLP data manually by looking for known patterns
@@ -447,7 +442,7 @@ app.post('/v1/traces', async (req, res) => {
             if (extractedData && extractedData.resourceSpans && extractedData.resourceSpans.length > 0) {
               otlpData = extractedData
               console.log('✅ Successfully extracted real OTLP data from raw protobuf')
-              console.log('🔍 Extracted spans count:', extractedData.resourceSpans.map((rs: any) => rs.scopeSpans?.map((ss: any) => ss.spans?.length || 0).reduce((a: number, b: number) => a + b, 0) || 0).reduce((a: number, b: number) => a + b, 0))
+              console.log('🔍 Extracted spans count:', (extractedData.resourceSpans as ResourceSpans[]).map((rs: ResourceSpans) => rs.scopeSpans?.map((ss: ScopeSpans) => ss.spans?.length || 0).reduce((a: number, b: number) => a + b, 0) || 0).reduce((a: number, b: number) => a + b, 0))
             } else {
               throw new Error('No valid OTLP data found')
             }
@@ -551,7 +546,7 @@ app.post('/v1/traces', async (req, res) => {
     
     if (otlpData.resourceSpans) {
       for (const resourceSpan of otlpData.resourceSpans) {
-        const resourceAttributes: Record<string, any> = {}
+        const resourceAttributes: Record<string, AttributeValue> = {}
         
         // Extract resource attributes
         if (resourceSpan.resource?.attributes) {
@@ -567,7 +562,7 @@ app.post('/v1/traces', async (req, res) => {
           const scopeVersion = scopeSpan.scope?.version || ''
           
           for (const span of scopeSpan.spans || []) {
-            const spanAttributes: Record<string, any> = {}
+            const spanAttributes: Record<string, AttributeValue> = {}
             
             // Extract span attributes
             if (span.attributes) {
