@@ -34,7 +34,7 @@ processors:
 
 exporters:
   # OTLP exporter to our AI-native backend service
-  otlp/backend:
+  otlphttp/backend:
     endpoint: http://backend:4319
     tls:
       insecure: true
@@ -72,17 +72,17 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, resourcedetection, batch]
-      exporters: [otlp/backend, debug]
+      exporters: [otlphttp/backend, debug]
 
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, resourcedetection, batch]
-      exporters: [otlp/backend, debug]
+      exporters: [otlphttp/backend, debug]
 
     logs:
       receivers: [otlp]
       processors: [memory_limiter, resourcedetection, batch]
-      exporters: [otlp/backend, debug]
+      exporters: [otlphttp/backend, debug]
 
   telemetry:
     logs:

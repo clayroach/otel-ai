@@ -94,7 +94,8 @@ export class SimpleStorage {
       span_attributes: trace.span_attributes || '{}',
       resource_attributes: trace.resource_attributes || '{}',
       events: trace.events || '[]',
-      links: trace.links || '[]'
+      links: trace.links || '[]',
+      encoding_type: trace.encoding_type || 'protobuf'
     }))
 
     await this.client.insert({
