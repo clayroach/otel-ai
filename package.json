@@ -10,7 +10,7 @@
   },
   "packageManager": "pnpm@8.15.0",
   "scripts": {
-    "build": "tsc",
+    "build": "pnpm proto:generate && tsc",
     "dev": "tsx --watch src/index.ts",
     "start": "node dist/index.js",
     "test": "vitest",
@@ -47,6 +47,12 @@
     "// Code generation": "",
     "generate": "tsx scripts/generate-from-specs.ts",
     "generate:storage": "tsx scripts/generate-from-specs.ts storage",
+    "// Protobuf code generation": "",
+    "proto:generate": "buf generate",
+    "proto:clean": "rimraf src/otel-protobuf",
+    "proto:rebuild": "pnpm proto:clean && pnpm proto:generate",
+    "proto:lint": "buf lint protobuf",
+    "proto:format": "buf format protobuf",
     "// OpenTelemetry Demo Integration": "",
     "demo:clone": "tsx scripts/demo-setup.ts clone",
     "demo:setup": "tsx scripts/demo-setup.ts setup",
@@ -63,6 +69,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.658.0",
+    "@bufbuild/protobuf": "^2.7.0",
     "@clickhouse/client": "^1.5.0",
     "@effect/platform": "^0.58.0",
     "@effect/schema": "^0.68.0",
@@ -77,6 +84,8 @@
     "protobufjs": "^7.5.4"
   },
   "devDependencies": {
+    "@bufbuild/buf": "^1.28.1",
+    "@bufbuild/protoc-gen-es": "^2.7.0",
     "@testcontainers/clickhouse": "^10.11.0",
     "@testcontainers/minio": "^10.11.0",
     "@types/cors": "^2.8.17",
