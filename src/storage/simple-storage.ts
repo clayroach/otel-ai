@@ -145,6 +145,16 @@ export class SimpleStorage {
     await this.client.query({ query: sql })
   }
 
+  async queryWithResults(sql: string): Promise<{ data: any[] }> {
+    const result = await this.client.query({
+      query: sql,
+      format: 'JSONEachRow'
+    })
+    
+    const data = (await result.json()) as unknown[]
+    return { data }
+  }
+
   async close(): Promise<void> {
     await this.client.close()
   }

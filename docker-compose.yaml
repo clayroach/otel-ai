@@ -18,7 +18,7 @@ services:
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
     volumes:
       - clickhouse_data:/var/lib/clickhouse
-      - ./docker/clickhouse/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      # init-db.sql removed - now handled by schema-migrator service
       - ./docker/clickhouse/config.xml:/etc/clickhouse-server/config.d/cors.xml
     healthcheck:
       test: ['CMD', 'clickhouse-client', '--user', 'otel', '--password', 'otel123', '--query', 'SELECT 1']
@@ -62,6 +62,28 @@ services:
   #     exit 0;
   #     "
 
+  # Schema Migration Service - Manages all database schemas
+  schema-migrator:
+    build:
+      context: ./migrations
+      dockerfile: Dockerfile
+    image: otel-ai-migrator:latest
+    container_name: otel-ai-migrator
+    profiles: ["migrate", "dev", "production"]
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    environment:
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 9000
+      CLICKHOUSE_DATABASE: otel
+      CLICKHOUSE_USER: otel
+      CLICKHOUSE_PASSWORD: otel123
+      MIGRATION_MODE: migrate  # Options: migrate | init | validate | wait
+    volumes:
+      - ./migrations:/migrations:ro
+    restart: "no"  # Run once and exit
+
   # OpenTelemetry Collector
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
@@ -90,8 +112,10 @@ services:
     ports:
       - '80:80'
     depends_on:
-      - clickhouse
-      - otel-collector
+      clickhouse:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
     profiles:
       - production
 
@@ -113,8 +137,10 @@ services:
       - ./ui:/app
       - /app/node_modules
     depends_on:
-      - clickhouse
-      - otel-collector
+      clickhouse:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
     command: ['pnpm', 'dev:web', '--host', '0.0.0.0']
     profiles:
       - dev
@@ -138,6 +164,8 @@ services:
     depends_on:
       clickhouse:
         condition: service_healthy
+      schema-migrator:
+        condition: service_completed_successfully
     restart: unless-stopped
     profiles:
       - dev

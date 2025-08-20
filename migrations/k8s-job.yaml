@@ -1,0 +1,171 @@
+# Kubernetes Job for ClickHouse Schema Migration
+# This can be run as a Job or used as an init container
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: clickhouse-schema-migration
+  namespace: otel-ai
+spec:
+  template:
+    metadata:
+      name: clickhouse-schema-migration
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: migrator
+        image: otel-ai-migrator:latest
+        imagePullPolicy: Always
+        env:
+        - name: CLICKHOUSE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: clickhouse-config
+              key: host
+        - name: CLICKHOUSE_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: clickhouse-config
+              key: port
+        - name: CLICKHOUSE_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: clickhouse-config
+              key: database
+        - name: CLICKHOUSE_USER
+          valueFrom:
+            secretKeyRef:
+              name: clickhouse-credentials
+              key: username
+        - name: CLICKHOUSE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: clickhouse-credentials
+              key: password
+        - name: MIGRATION_MODE
+          value: "migrate"
+        - name: MAX_RETRIES
+          value: "60"  # Wait up to 2 minutes for ClickHouse
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+  backoffLimit: 3  # Retry up to 3 times on failure
+  ttlSecondsAfterFinished: 600  # Clean up after 10 minutes
+
+---
+# Example of using as init container in a deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-ai-backend
+  namespace: otel-ai
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: otel-ai-backend
+  template:
+    metadata:
+      labels:
+        app: otel-ai-backend
+    spec:
+      initContainers:
+      # Wait for schema to be ready
+      - name: schema-wait
+        image: otel-ai-migrator:latest
+        imagePullPolicy: Always
+        env:
+        - name: CLICKHOUSE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: clickhouse-config
+              key: host
+        - name: CLICKHOUSE_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: clickhouse-config
+              key: port
+        - name: CLICKHOUSE_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: clickhouse-config
+              key: database
+        - name: CLICKHOUSE_USER
+          valueFrom:
+            secretKeyRef:
+              name: clickhouse-credentials
+              key: username
+        - name: CLICKHOUSE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: clickhouse-credentials
+              key: password
+        - name: MIGRATION_MODE
+          value: "validate"  # Just validate schema exists
+        - name: MAX_RETRIES
+          value: "120"  # Wait up to 4 minutes
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+      containers:
+      - name: backend
+        image: otel-ai-backend:latest
+        ports:
+        - containerPort: 4319
+          name: otlp
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "4319"
+        - name: CLICKHOUSE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: clickhouse-config
+              key: host
+        - name: CLICKHOUSE_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: clickhouse-config
+              key: http-port
+        - name: CLICKHOUSE_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: clickhouse-config
+              key: database
+        - name: CLICKHOUSE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: clickhouse-credentials
+              key: username
+        - name: CLICKHOUSE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: clickhouse-credentials
+              key: password
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: otlp
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: otlp
+          initialDelaySeconds: 10
+          periodSeconds: 5

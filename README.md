@@ -45,6 +45,34 @@ pnpm demo:up      # Start demo with your platform as backend
 - **Effect-TS**: Type-safe functional programming patterns
 - **TestContainers**: Real database integration testing
 
+## 🗄️ **Schema Migration System** ✅
+
+**Production-Ready Atlas Migration Framework**
+
+Container-native schema management with zero external dependencies:
+
+```bash
+# Automatic migration on startup
+pnpm dev:up              # Runs migrations before services start
+
+# Manual migration commands  
+pnpm db:migrate          # Run migrations explicitly
+pnpm db:migrate:reset    # Clean slate + migrate
+```
+
+**Key Features**:
+- **Container-Native**: Self-contained migration container with HTTP-based ClickHouse client
+- **Multi-Environment**: Docker Compose + Kubernetes init container patterns
+- **Zero Duplication**: Single source of truth eliminates init script redundancy
+- **Production Ready**: Health checks, resource limits, retry policies
+- **Version Controlled**: Atlas HCL schema definitions with migration history
+
+**Architecture**:
+- `migrations/entrypoint.sh`: Multi-mode operation (migrate|init|validate|wait)
+- `migrations/schema/`: Centralized schema definitions and views
+- `migrations/k8s-job.yaml`: Kubernetes Job and Deployment examples
+- HTTP-based connectivity for broad platform compatibility
+
 ## 🎯 **OpenTelemetry Demo Integration**
 
 **"Bring Your Own Backend" Implementation**
@@ -149,8 +177,13 @@ otel-ai/
 │   ├── llm-manager/       # Multi-model LLM orchestration (TODO)
 │   ├── ui-generator/      # Dynamic React components (TODO)
 │   └── config-manager/    # Self-healing config (TODO)
+├── migrations/            # Atlas schema migration system
+│   ├── entrypoint.sh     # Container-native migration entrypoint
+│   ├── schema/          # HCL schema definitions and views
+│   ├── clickhouse/      # SQL migration files
+│   └── k8s-job.yaml     # Kubernetes deployment examples
 ├── docker/                # Container configurations
-│   ├── clickhouse/       # ClickHouse schema and init
+│   ├── clickhouse/       # ClickHouse configuration
 │   ├── otel-collector/   # OpenTelemetry Collector config
 │   └── envoy/           # Load balancer config
 ├── notes/                 # Dendron documentation vault
