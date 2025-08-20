@@ -441,3 +441,5 @@ claude-code --allow "curl:*" --allow "docker:*"
 # Or set environment variable
 export CLAUDE_CODE_ALLOWED_COMMANDS="curl:*,docker:*,docker compose:*"
 ```
+
+- Always try to consider production-readiness when creation of new assets - for instance init scripts for containers rather than standalone scripts
