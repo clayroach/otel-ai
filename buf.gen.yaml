@@ -3,7 +3,7 @@ inputs:
   - directory: protobuf
 plugins:
   - local: protoc-gen-es
-    out: src/otel-protobuf
+    out: src
     opt:
       - target=ts
       - import_extension=js
