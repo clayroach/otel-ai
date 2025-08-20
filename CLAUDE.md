@@ -300,6 +300,37 @@ histogram.record(durationMs, { 'operation.status': 'success' })
 3. **Graceful Degradation** - System works even if telemetry fails
 4. **Configuration Over Code** - Prefer environment-based config
 5. **Testability** - All instrumentation must be testable in isolation
+6. **Modular Architecture** - Interface-first development for AI/LLM compatibility
+
+## Modular Design for AI/LLM Development
+
+This project follows strict modular design principles to enable efficient AI-driven development:
+
+### Core Principles
+- **Interface-First Development**: Define clear, immutable API contracts before implementation
+- **Minimal Context Architecture**: Each package understandable with minimal external context
+- **Single Responsibility**: One focused purpose per package
+- **Dependency Isolation**: Packages depend on interfaces, not implementations
+
+### AI-Friendly Benefits
+1. **Reduced Context**: AI can focus on single package without understanding entire system
+2. **Parallel Development**: Multiple packages can be developed simultaneously
+3. **Easy Integration**: Well-defined interfaces make integration straightforward
+4. **Quality Assurance**: Isolated testing ensures each module works correctly
+
+### Implementation Pattern
+All packages follow this Effect-TS pattern:
+```typescript
+// Clear interface definition
+export interface PackageName extends Context.Tag<"PackageName", {
+  readonly operation: (input: InputType) => Effect.Effect<OutputType, ErrorType, never>
+}>{}
+
+// Independent implementation
+export const PackageNameLive = Layer.succeed(PackageName, /* implementation */)
+```
+
+See `notes/packages/implementation-status.md` for complete modular design guidelines.
 
 ## Code Quality Standards
 

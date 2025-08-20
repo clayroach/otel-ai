@@ -302,6 +302,16 @@ pnpm type-check     # TypeScript type validation
 
 ## Change Log
 
+### 2025-08-20 - Encoding Type UI Enhancements
+- **Visual Indicators**: Added "Encoding" column with orange (JSON) and blue (Protobuf) tags
+- **Trace Classification**: UI now displays encoding type for each trace (JSON vs Protobuf)
+- **Filter Support**: Added filter capabilities for JSON and Protobuf traces
+- **Statistics Display**: Statistics bar shows Protobuf and JSON trace counts
+- **Trace Details Modal**: Shows encoding type in modal header and description
+- **Query Enhancement**: Updated DEFAULT_QUERY to include encoding_type field
+- **Integration Testing**: Added comprehensive JSON OTLP testing with encoding validation
+- **DateTime Compatibility**: Fixed datetime formatting for ClickHouse DateTime64 support
+
 ### 2025-08-15 - Initial Implementation
 - **Core Features**: Monaco SQL editor with ClickHouse integration
 - **Resizable Interface**: Professional drag-to-resize panels (30%/70% default)
