@@ -4,11 +4,9 @@
 
 An OpenTelemetry-based observability platform where machine learning is integrated from the ground up - not bolted on as an afterthought. Features real-time anomaly detection, LLM-generated dashboards, and intelligent system insights that adapt to your team's needs.
 
-## 🏆 **Challenge Progress: Day 3 - Accelerating at 2x Expected Pace**
+## 🏆 **Project Status**
 
-**Current Status**: 20% complete in 3 days (originally planned 10%)  
-**Velocity**: 50% faster than expected timeline  
-**Key Breakthrough**: Dual-ingestion architecture with professional UI complete
+An AI-native observability platform with dual-ingestion architecture and OpenTelemetry Demo integration.
 
 > 📊 **Daily Progress**: Follow the journey in [`notes/daily/`](notes/daily/) | **Blog Series**: [Dev.to Series](blog/platforms/)
 
@@ -25,7 +23,11 @@ cd otel-ai
 pnpm setup
 
 # 3. Start developing
-pnpm dev
+pnpm dev:up        # Start platform services
+pnpm dev          # Start development server
+
+# 4. Try the OpenTelemetry Demo integration
+pnpm demo:up      # Start demo with your platform as backend
 ```
 
 ## 🏗️ **Dual-Ingestion Architecture** ✅
@@ -70,6 +72,29 @@ pnpm db:migrate:reset    # Clean slate + migrate
 - `migrations/schema/`: Centralized schema definitions and views
 - `migrations/k8s-job.yaml`: Kubernetes Job and Deployment examples
 - HTTP-based connectivity for broad platform compatibility
+
+## 🎯 **OpenTelemetry Demo Integration**
+
+**"Bring Your Own Backend" Implementation**
+
+Run the official OpenTelemetry demo while sending all telemetry to our AI-native platform:
+
+```bash
+# Automated demo management
+pnpm demo:setup    # Clone and configure latest demo
+pnpm demo:up      # Start demo with our backend
+pnpm demo:down    # Stop demo services
+pnpm demo:logs    # View demo logs
+pnpm demo:clean   # Clean up demo containers
+```
+
+**Key Features**:
+- 🔄 **Automated lifecycle management** with TypeScript script
+- 🐳 **Docker Compose overrides** redirect telemetry without forking
+- 🚀 **Live telemetry flow** from 15+ demo services to ClickHouse
+- 🧹 **Clean integration** - demo source is gitignored
+
+**Demo Services**: Frontend, payment, cart, shipping, product catalog, ad service, and more!
 
 ## 📦 Development Workflow
 
@@ -121,32 +146,26 @@ pnpm test:coverage     # Coverage report
 pnpm test:integration  # Integration tests (requires Docker)
 ```
 
-## 📊 **Milestone Achievements**
+## ✅ **Current Features**
 
-### ✅ **Week 1 Complete** (Days 1-3) - Ahead of Schedule!
+### Core Platform
+- **Dual-ingestion architecture** with unified trace view
+- **Professional Monaco SQL interface** with ClickHouse syntax highlighting
+- **Comprehensive test suite** (42 tests with TestContainers integration)
+- **Production Docker environment** with full observability stack
+- **OpenTelemetry Demo integration** using "Bring Your Own Backend" approach
 
-**Foundation + Storage + UI (Originally 2 weeks of work)**
+### Data Processing
+- **ClickHouse storage** with real-time analytics and dual-schema support
+- **Effect-TS patterns** for type-safe functional programming
+- **OTLP native ingestion** through OpenTelemetry Collector
+- **Direct API ingestion** for AI-optimized data processing
 
-- [x] **Dual-ingestion architecture** with unified trace view
-- [x] **Professional Monaco SQL interface** with ClickHouse syntax  
-- [x] **42 comprehensive tests** (unit + integration with TestContainers)
-- [x] **Production Docker environment** with OTel Demo integration
-- [x] **End-to-end validation** of both ingestion paths
-- [x] **AI-native workflows** replacing traditional bash complexity
-
-### 🏃 **Week 2 In Progress** (Days 4-10) - Originally Week 3 Scope
-
-**Advanced UI + Real-time Features**
-
-- [ ] WebSocket streaming for live trace updates
-- [ ] Enhanced visualization with Apache ECharts
-- [ ] User interaction tracking and personalization
-- [ ] Multi-model LLM integration for dashboard generation
-
-### 🎯 **Upcoming: Enhanced Timeline**
-
-- **Week 3**: AI/ML Integration (anomaly detection, pattern recognition)
-- **Week 4**: Advanced Features + Production (bonus scope due to velocity)
+### Development Experience
+- **AI-native workflows** with Claude Code integration
+- **Documentation-driven development** with living specifications
+- **TestContainers testing** against real databases
+- **TypeScript automation** for complex workflow management
 
 ## 🏛️ Project Structure
 
