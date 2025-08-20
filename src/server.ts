@@ -5,8 +5,6 @@
 
 import express from 'express'
 import cors from 'cors'
-import { createGunzip } from 'zlib'
-import { promisify } from 'util'
 import { SimpleStorage, type SimpleStorageConfig } from './storage/simple-storage.js'
 
 const app = express()
@@ -15,11 +13,12 @@ const PORT = process.env.PORT || 4319
 // Middleware
 app.use(cors())
 
-// For OTLP endpoints, use only raw body parsing with no automatic decompression
+// For OTLP endpoints, use raw body parsing with automatic decompression
+// Based on research: Express handles gzip decompression correctly when inflate: true
 app.use('/v1/*', express.raw({ 
   limit: '10mb',
   type: '*/*',  // Accept all content types
-  inflate: false  // CRITICAL: disable ALL automatic decompression
+  inflate: true  // Enable automatic gzip decompression (Express handles this correctly)
 }))
 
 // For non-OTLP endpoints, use standard middleware
@@ -306,7 +305,7 @@ app.post('/v1/traces', async (req, res) => {
     
     let rawData = req.body
     
-    // No decompression - using raw data from middleware with inflate: false
+    // Express automatically handles gzip decompression with inflate: true
     
     // Parse protobuf data using OTLP transformer
     let otlpData
