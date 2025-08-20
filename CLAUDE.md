@@ -441,3 +441,4 @@ export CLAUDE_CODE_ALLOWED_COMMANDS="curl:*,docker:*,docker compose:*"
 ```
 
 - Always try to consider production-readiness when creation of new assets - for instance init scripts for containers rather than standalone scripts
+- use the package.json by default for starting demo and other scripts and not call them directly.  Most everything should be controlled during dev/test using pnpm.

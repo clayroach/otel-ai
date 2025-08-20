@@ -1,0 +1,5 @@
+v1.7.0
+# OpenTelemetry Protocol Buffer Definitions
+# Downloaded from: https://github.com/open-telemetry/opentelemetry-proto
+# Date: 2025-08-20
+# Used for parsing OTLP trace, metrics, and logs data

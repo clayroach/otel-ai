@@ -13,8 +13,9 @@ COPY package.json pnpm-lock.yaml ./
 # Install dependencies
 RUN pnpm install --frozen-lockfile
 
-# Copy source code
+# Copy source code and protobuf definitions
 COPY src/ ./src/
+COPY protobuf/ ./protobuf/
 COPY tsconfig.json ./
 
 # Build stage
@@ -35,8 +36,9 @@ COPY package.json pnpm-lock.yaml ./
 # Install production dependencies only (skip prepare scripts)
 RUN pnpm install --frozen-lockfile --prod --ignore-scripts
 
-# Copy built application
+# Copy built application and protobuf definitions
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/protobuf ./protobuf
 
 # Set environment variables
 ENV NODE_ENV=production
@@ -49,5 +51,5 @@ ENV CLICKHOUSE_PASSWORD=otel123
 # Expose port for OTLP ingestion
 EXPOSE 4319
 
-# Start the backend
+# Start the backend (TypeScript builds to dist/)
 CMD ["node", "dist/index.js"]

@@ -38,6 +38,8 @@ exporters:
     endpoint: http://backend:4319
     tls:
       insecure: true
+    encoding: json  # Force JSON encoding instead of protobuf
+    compression: gzip
     retry_on_failure:
       enabled: true
       initial_interval: 5s
