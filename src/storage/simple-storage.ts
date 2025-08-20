@@ -151,7 +151,7 @@ export class SimpleStorage {
       SpanName: trace.operationName,
       Timestamp: (trace.startTime / 1000000000).toString(), // Convert nanoseconds to seconds
       ServiceName: trace.serviceName,
-      StatusCode: trace.statusCode,
+      StatusCode: String(trace.statusCode), // Ensure statusCode is always a string
       SpanAttributes: trace.attributes
     }))
 

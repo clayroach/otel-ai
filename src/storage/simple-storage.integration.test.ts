@@ -81,7 +81,7 @@ describe('SimpleStorage Integration Tests', () => {
           ServiceName String,
           ResourceAttributes Map(String, String),
           Duration UInt64,
-          StatusCode UInt8,
+          StatusCode String,
           StatusMessage String,
           SpanAttributes Map(String, String),
           Events String
