@@ -6,7 +6,7 @@
 import express from 'express'
 import cors from 'cors'
 import { SimpleStorage, type SimpleStorageConfig } from './storage/simple-storage.js'
-import { ExportTraceServiceRequestSchema, TracesData, ResourceSpans, KeyValue, ScopeSpans } from './opentelemetry/index.js'
+import { ExportTraceServiceRequestSchema, ResourceSpans, KeyValue, ScopeSpans } from './opentelemetry/index.js'
 import { fromBinary } from '@bufbuild/protobuf'
 
 /**
@@ -18,13 +18,13 @@ type AttributeValue = string | number | boolean | bigint | Uint8Array | undefine
  * Parse OTLP data from raw protobuf buffer by detecting patterns
  * This is a fallback when protobufjs is not available
  */
-function parseOTLPFromRaw(buffer: Buffer): TracesData {
+function parseOTLPFromRaw(buffer: Buffer): { resourceSpans: unknown[] } {
   try {
     // Convert buffer to string and look for patterns
     const data = buffer.toString('latin1')
     
     // Look for OTLP structure markers
-    const resourceSpans: ResourceSpans[] = []
+    const resourceSpans: unknown[] = []
     
     // Find service name patterns
     const serviceMatches = [...data.matchAll(/service\.name\s*([a-zA-Z][a-zA-Z0-9\-_]+)/g)]
@@ -442,7 +442,7 @@ app.post('/v1/traces', async (req, res) => {
             if (extractedData && extractedData.resourceSpans && extractedData.resourceSpans.length > 0) {
               otlpData = extractedData
               console.log('✅ Successfully extracted real OTLP data from raw protobuf')
-              console.log('🔍 Extracted spans count:', extractedData.resourceSpans.map((rs: ResourceSpans) => rs.scopeSpans?.map((ss: ScopeSpans) => ss.spans?.length || 0).reduce((a: number, b: number) => a + b, 0) || 0).reduce((a: number, b: number) => a + b, 0))
+              console.log('🔍 Extracted spans count:', (extractedData.resourceSpans as ResourceSpans[]).map((rs: ResourceSpans) => rs.scopeSpans?.map((ss: ScopeSpans) => ss.spans?.length || 0).reduce((a: number, b: number) => a + b, 0) || 0).reduce((a: number, b: number) => a + b, 0))
             } else {
               throw new Error('No valid OTLP data found')
             }

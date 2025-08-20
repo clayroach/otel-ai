@@ -41,6 +41,28 @@ export interface DetailedTraceData {
   resourceAttributes?: Record<string, unknown>
 }
 
+export interface DatabaseTraceRecord {
+  trace_id: string
+  span_id: string
+  parent_span_id: string
+  start_time: string
+  end_time: string
+  duration_ns: number
+  service_name: string
+  operation_name: string
+  span_kind: string
+  status_code: string
+  status_message: string
+  trace_state: string
+  scope_name: string
+  scope_version: string
+  span_attributes: Record<string, unknown>
+  resource_attributes: Record<string, unknown>
+  events: string
+  links: string
+  encoding_type: string
+}
+
 export interface SimpleOTLPData {
   traces?: SimpleTraceData[]
   timestamp: number
@@ -48,8 +70,10 @@ export interface SimpleOTLPData {
 
 export class SimpleStorage {
   private client: ClickHouseClient
+  private config: SimpleStorageConfig
 
-  constructor(private config: SimpleStorageConfig) {
+  constructor(config: SimpleStorageConfig) {
+    this.config = config
     this.client = createClient({
       host: `http://${config.clickhouse.host}:${config.clickhouse.port}`,
       database: config.clickhouse.database,
@@ -60,7 +84,7 @@ export class SimpleStorage {
 
   async writeOTLP(data: SimpleOTLPData): Promise<void> {
     if (data.traces && data.traces.length > 0) {
-      await this.writeDirectTraces(data.traces)
+      await this.writeTraces(data.traces)
     }
   }
 
@@ -72,7 +96,7 @@ export class SimpleStorage {
       operation_name: trace.operationName,
       start_time: trace.startTime, // Keep as nanoseconds for DateTime64(9)
       end_time: trace.endTime,
-      duration: trace.endTime - trace.startTime,
+      duration: Number(trace.endTime) - Number(trace.startTime),
       service_name: trace.serviceName,
       service_version: '1.0.0',
       status_code: trace.statusCode,
@@ -90,7 +114,7 @@ export class SimpleStorage {
   }
 
   // New method for simplified schema (single table)
-  async writeTracesToSimplifiedSchema(traces: DetailedTraceData[]): Promise<void> {
+  async writeTracesToSimplifiedSchema(traces: DatabaseTraceRecord[]): Promise<void> {
     const values = traces.map((trace) => ({
       trace_id: trace.trace_id,
       span_id: trace.span_id,
@@ -197,7 +221,7 @@ export class SimpleStorage {
       format: 'JSONEachRow'
     })
     
-    const data = (await result.json()) as unknown[]
+    const data = (await result.json()) as Record<string, unknown>[]
     return { data }
   }
 
