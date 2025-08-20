@@ -1,0 +1,9 @@
+version: v2
+inputs:
+  - directory: protobuf
+plugins:
+  - local: protoc-gen-es
+    out: src/otel-protobuf
+    opt:
+      - target=ts
+      - import_extension=js

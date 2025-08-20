@@ -16,13 +16,16 @@ Building an AI-native observability platform where machine learning is integrate
 - **Multi-model AI orchestration** (GPT, Claude, local Llama) with intelligent routing
 - **No Grafana required** - platform generates React components dynamically
 
-### 30-Day Timeline Challenge
+### 4-Hour Workday Challenge
 
-This project aims to prove that AI-assisted development can achieve what traditionally requires:
+This project demonstrates that AI-assisted development can achieve enterprise-level results with:
 
 - **Team of 10+ developers** → **Solo developer with Claude Code**
-- **12+ months development** → **30 days**
-- **Traditional workflows** → **Documentation-driven development**
+- **12+ months development** → **120 focused hours (30 × 4-hour workdays)**
+- **Traditional workflows** → **Documentation-driven development with AI automation**
+- **8-hour workdays** → **4-hour focused sessions with AI handling routine tasks**
+
+The philosophy: Technology should give us more time for life and family, not consume it. See [ADR-001](notes/design/adr/adr-001-4-hour-workday-philosophy.md) for the complete strategy.
 
 ## Architecture
 
@@ -43,11 +46,82 @@ Core packages:
 
 ## Development Workflow
 
-This project uses **documentation-driven development**:
+This project uses **documentation-driven development** with **AI subagent orchestration**:
 
 1. **Write specifications first** in `notes/packages/[package]/package.md`
-2. **Generate code** using the scripts and Copilot integration
-3. **Keep documentation in sync** with implementation changes
+2. **Use specialized subagents** for daily workflow management
+3. **Generate code** using AI assistance and Copilot integration
+4. **Keep documentation in sync** with implementation changes
+
+## AI Subagent Workflow Patterns
+
+This project uses specialized Claude Code agents for streamlined development workflow. Agent definitions are stored in `.claude/agents/` and are automatically discovered by Claude Code.
+
+### Available Agents
+
+The following agents are available in `.claude/agents/`:
+
+- **start-day-agent** - Daily planning and goal setting
+- **end-day-agent** - Progress review and blog generation  
+- **testing-agent** - Comprehensive test execution and validation
+- **code-review-agent** - Quality assurance and best practices validation
+- **code-to-docs-sync-agent** - Bidirectional documentation synchronization
+- **pr-creation-agent** - PR creation with screenshot organization
+- **quick-archive-agent** - Session archiving and content generation
+
+### Agent Usage Examples
+
+#### Starting Your Development Day
+```
+Use the start-day-agent to plan today's goals and create the daily note.
+```
+
+#### Ending Your Development Day  
+```
+Use the end-day-agent to review progress, generate blog content, and plan tomorrow.
+```
+
+#### Running Comprehensive Tests
+```
+Use the testing-agent to validate infrastructure, execute test suites, and report detailed results.
+```
+
+#### Code Review Before Commit
+```
+Use the code-review-agent to review for quality, conventions, and best practices.
+```
+
+#### Sync Code and Documentation
+```
+Use the code-to-docs-sync-agent to ensure implementation and specs are aligned.
+```
+
+#### Create Pull Request
+```
+Use the pr-creation-agent to organize screenshots and create comprehensive PRs.
+```
+
+#### Archive Session
+```
+Use the quick-archive-agent for end-of-day archiving and content generation.
+```
+
+### Orchestration Patterns
+
+**Daily Development Workflow**:
+1. Start day → `start-day-agent` sets goals
+2. Development work with periodic `testing-agent` validation
+3. Before commits → `code-review-agent` quality check
+4. After major changes → `code-to-docs-sync-agent` alignment
+5. End day → `end-day-agent` review and content generation
+
+**Quality Assurance Workflow**:
+1. `testing-agent` → comprehensive validation
+2. `code-review-agent` → quality and convention check  
+3. `code-to-docs-sync-agent` → documentation alignment
+4. Ready for commit/PR
+
+The subagents handle routine workflow tasks, allowing focus on high-value creative development work while maintaining consistency and quality.
 
 ### Key Scripts
 
