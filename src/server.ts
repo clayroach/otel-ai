@@ -6,31 +6,36 @@
 import express from 'express'
 import cors from 'cors'
 import { SimpleStorage, type SimpleStorageConfig } from './storage/simple-storage.js'
-import { ExportTraceServiceRequestSchema } from './opentelemetry/index.js'
+import { ExportTraceServiceRequestSchema, TracesData, ResourceSpans, KeyValue, ScopeSpans } from './opentelemetry/index.js'
 import { fromBinary } from '@bufbuild/protobuf'
+
+/**
+ * Type for OpenTelemetry attribute values
+ */
+type AttributeValue = string | number | boolean | bigint | Uint8Array | undefined
 
 /**
  * Parse OTLP data from raw protobuf buffer by detecting patterns
  * This is a fallback when protobufjs is not available
  */
-function parseOTLPFromRaw(buffer: Buffer): any {
+function parseOTLPFromRaw(buffer: Buffer): TracesData {
   try {
     // Convert buffer to string and look for patterns
     const data = buffer.toString('latin1')
     
     // Look for OTLP structure markers
-    const resourceSpans: any[] = []
+    const resourceSpans: ResourceSpans[] = []
     
     // Find service name patterns
-    const serviceMatches = [...data.matchAll(/service\.name[\x00-\x20]*([a-zA-Z][a-zA-Z0-9\-_]+)/g)]
-    const operationMatches = [...data.matchAll(/[\x00-\x20]([a-zA-Z][a-zA-Z0-9\-_\.\/]+)[\x00-\x20]/g)]
+    const serviceMatches = [...data.matchAll(/service\.name\s*([a-zA-Z][a-zA-Z0-9\-_]+)/g)]
+    const operationMatches = [...data.matchAll(/\s([a-zA-Z][a-zA-Z0-9\-_./]+)\s/g)]
     
     // Look for trace and span IDs (16-byte hex strings)
-    const traceIdMatches = [...data.matchAll(/[\x00-\x20]([a-f0-9]{32})[\x00-\x20]/g)]
-    const spanIdMatches = [...data.matchAll(/[\x00-\x20]([a-f0-9]{16})[\x00-\x20]/g)]
+    const traceIdMatches = [...data.matchAll(/\s([a-f0-9]{32})\s/g)]
+    const spanIdMatches = [...data.matchAll(/\s([a-f0-9]{16})\s/g)]
     
     // Find timestamp patterns (nanoseconds)
-    const timestampMatches = [...data.matchAll(/[\x00-\x08](\d{16,19})[\x00-\x08]/g)]
+    const timestampMatches = [...data.matchAll(/\s(\d{16,19})\s/g)]
     
     console.log('🔍 Raw protobuf parsing found:')
     console.log('  - Service matches:', serviceMatches.length)
@@ -394,7 +399,7 @@ app.post('/v1/traces', async (req, res) => {
   
   // Continue with data processing
   try {
-    let rawData = req.body
+    const rawData = req.body
     let otlpData
     let encodingType: 'json' | 'protobuf' = 'json'
     
@@ -422,7 +427,7 @@ app.post('/v1/traces', async (req, res) => {
           console.log('🔍 Resource spans count:', otlpData.resourceSpans?.length || 0)
           
           // Log first service name to verify parsing
-          const firstService = otlpData.resourceSpans?.[0]?.resource?.attributes?.find((attr: any) => attr.key === 'service.name')
+          const firstService = otlpData.resourceSpans?.[0]?.resource?.attributes?.find((attr: KeyValue) => attr.key === 'service.name')
           if (firstService && firstService.value) {
             const serviceValue = firstService.value.value?.case === 'stringValue' ? firstService.value.value.value : 'unknown'
             console.log('🔍 First service detected:', serviceValue)
@@ -437,7 +442,7 @@ app.post('/v1/traces', async (req, res) => {
             if (extractedData && extractedData.resourceSpans && extractedData.resourceSpans.length > 0) {
               otlpData = extractedData
               console.log('✅ Successfully extracted real OTLP data from raw protobuf')
-              console.log('🔍 Extracted spans count:', extractedData.resourceSpans.map((rs: any) => rs.scopeSpans?.map((ss: any) => ss.spans?.length || 0).reduce((a: number, b: number) => a + b, 0) || 0).reduce((a: number, b: number) => a + b, 0))
+              console.log('🔍 Extracted spans count:', extractedData.resourceSpans.map((rs: ResourceSpans) => rs.scopeSpans?.map((ss: ScopeSpans) => ss.spans?.length || 0).reduce((a: number, b: number) => a + b, 0) || 0).reduce((a: number, b: number) => a + b, 0))
             } else {
               throw new Error('No valid OTLP data found')
             }
@@ -541,7 +546,7 @@ app.post('/v1/traces', async (req, res) => {
     
     if (otlpData.resourceSpans) {
       for (const resourceSpan of otlpData.resourceSpans) {
-        const resourceAttributes: Record<string, any> = {}
+        const resourceAttributes: Record<string, AttributeValue> = {}
         
         // Extract resource attributes
         if (resourceSpan.resource?.attributes) {
@@ -557,7 +562,7 @@ app.post('/v1/traces', async (req, res) => {
           const scopeVersion = scopeSpan.scope?.version || ''
           
           for (const span of scopeSpan.spans || []) {
-            const spanAttributes: Record<string, any> = {}
+            const spanAttributes: Record<string, AttributeValue> = {}
             
             // Extract span attributes
             if (span.attributes) {

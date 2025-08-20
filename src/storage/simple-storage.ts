@@ -26,6 +26,21 @@ export interface SimpleTraceData {
   attributes: Record<string, string>
 }
 
+export interface DetailedTraceData {
+  traceId: string
+  spanId: string
+  parentSpanId?: string
+  operationName: string
+  startTime: number | bigint
+  endTime: number | bigint
+  serviceName: string
+  statusCode: string
+  statusMessage?: string
+  spanKind?: string
+  attributes?: Record<string, unknown>
+  resourceAttributes?: Record<string, unknown>
+}
+
 export interface SimpleOTLPData {
   traces?: SimpleTraceData[]
   timestamp: number
@@ -49,7 +64,7 @@ export class SimpleStorage {
     }
   }
 
-  private async writeDirectTraces(traces: any[]): Promise<void> {
+  private async writeDirectTraces(traces: DetailedTraceData[]): Promise<void> {
     const values = traces.map((trace) => ({
       trace_id: trace.traceId,
       span_id: trace.spanId,
@@ -75,7 +90,7 @@ export class SimpleStorage {
   }
 
   // New method for simplified schema (single table)
-  async writeTracesToSimplifiedSchema(traces: any[]): Promise<void> {
+  async writeTracesToSimplifiedSchema(traces: DetailedTraceData[]): Promise<void> {
     const values = traces.map((trace) => ({
       trace_id: trace.trace_id,
       span_id: trace.span_id,
@@ -176,7 +191,7 @@ export class SimpleStorage {
     await this.client.query({ query: sql })
   }
 
-  async queryWithResults(sql: string): Promise<{ data: any[] }> {
+  async queryWithResults(sql: string): Promise<{ data: Record<string, unknown>[] }> {
     const result = await this.client.query({
       query: sql,
       format: 'JSONEachRow'
