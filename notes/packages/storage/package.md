@@ -347,7 +347,32 @@ ORDER BY (metric_name, timestamp);
 
 <!-- Auto-updated by Copilot when code changes -->
 
-### 2025-08-15 (Day 3) - MAJOR IMPLEMENTATION MILESTONE ✅
+### 2025-08-20 - Unified Single-Path Architecture (Current Implementation) ✅
+
+**Simplified Architecture Complete:**
+- ✅ **Single-path ingestion**: All OTLP data flows to unified `traces` table
+- ✅ **Encoding type tracking**: JSON vs Protobuf traces distinguished by `encoding_type` field
+- ✅ **Protobuf code generation**: Static generated types using @bufbuild/protobuf
+- ✅ **GZIP decompression**: Automatic middleware handling for compressed protobuf data
+- ✅ **Real-time API endpoints**: /api/traces, /api/services/stats, /api/anomalies
+- ✅ **AI anomaly detection**: Statistical Z-score based anomaly detection
+- ✅ **Comprehensive testing**: JSON and Protobuf OTLP integration tests
+
+**Technical Implementation Details:**
+- **File**: `src/storage/simple-storage.ts` - Simplified storage with single table design
+- **Table**: `traces` - Unified table for all ingestion with encoding type classification
+- **Protobuf**: Generated TypeScript types in `src/opentelemetry/proto/`
+- **Server**: `src/server.ts` - OTLP endpoints with protobuf/JSON parsing
+- **Test Coverage**: 6/6 integration tests passing with encoding type validation
+- **DateTime Support**: ClickHouse DateTime64(9) compatibility with nanosecond precision
+
+**Key Architectural Patterns:**
+- ✅ Single ingestion path reduces complexity
+- ✅ Encoding type visibility enables debugging and analytics
+- ✅ Generated protobuf types improve type safety
+- ✅ Statistical anomaly detection provides immediate value
+
+### 2025-08-15 (Day 3) - DUAL-INGESTION ARCHITECTURE (DEPRECATED)
 
 **Dual-Ingestion Architecture Completed:**
 - ✅ **Implemented dual ingestion paths**: Collector → `otel_traces`, Direct → `ai_traces_direct`
@@ -369,6 +394,8 @@ ORDER BY (metric_name, timestamp);
 - ✅ Type compatibility handling between different schemas
 - ✅ Dual ingestion path validation and testing
 - ✅ Production-ready error handling and logging
+
+**Note**: This architecture was simplified to single-path on 2025-08-20 for reduced complexity and better performance.
 
 ### 2025-08-13
 
