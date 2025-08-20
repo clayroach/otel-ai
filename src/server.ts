@@ -13,13 +13,30 @@ const PORT = process.env.PORT || 4319
 // Middleware
 app.use(cors())
 
-// For OTLP endpoints, use raw body parsing with automatic decompression
-// Based on research: Express handles gzip decompression correctly when inflate: true
-app.use('/v1/*', express.raw({ 
-  limit: '10mb',
-  type: '*/*',  // Accept all content types
-  inflate: true  // Enable automatic gzip decompression (Express handles this correctly)
-}))
+// For OTLP endpoints, handle different content types differently
+app.use('/v1/*', (req, res, next) => {
+  // Log early to debug
+  console.log('🔍 [Middleware] Path:', req.path)
+  console.log('🔍 [Middleware] Content-Type:', req.headers['content-type'])
+  console.log('🔍 [Middleware] Content-Encoding:', req.headers['content-encoding'])
+  
+  // For protobuf with gzip, disable inflation to avoid the error
+  if (req.headers['content-type']?.includes('protobuf') && req.headers['content-encoding'] === 'gzip') {
+    console.log('🔍 [Middleware] Protobuf+gzip detected, using raw without inflation')
+    express.raw({ 
+      limit: '10mb',
+      type: ['application/x-protobuf', 'application/protobuf'],
+      inflate: false  // Don't decompress - we'll handle it manually or skip it
+    })(req, res, next)
+  } else {
+    console.log('🔍 [Middleware] Other content, using raw with inflation')
+    express.raw({ 
+      limit: '10mb',
+      type: '*/*',
+      inflate: true  // Let Express handle decompression for non-protobuf
+    })(req, res, next)
+  }
+})
 
 // For non-OTLP endpoints, use standard middleware
 app.use(express.json({ limit: '10mb' }))
@@ -244,11 +261,19 @@ app.get('/api/anomalies', async (req, res) => {
 
 // OTLP Traces ingestion endpoint (handles both protobuf and JSON)
 app.post('/v1/traces', async (req, res) => {
-  console.log('📍 OTLP traces received (unified ingestion)')
-  console.log('🔍 Content-Type:', req.headers['content-type'])
-  console.log('🔍 Content-Encoding:', req.headers['content-encoding'])
-  console.log('🔍 Body type:', typeof req.body)
-  console.log('🔍 Body length:', req.body?.length || 'undefined')
+  try {
+    console.log('📍 OTLP traces received (unified ingestion)')
+    console.log('🔍 Content-Type:', req.headers['content-type'])
+    console.log('🔍 Content-Encoding:', req.headers['content-encoding'])
+    console.log('🔍 Body type:', typeof req.body)
+    console.log('🔍 Body length:', req.body?.length || 'undefined')
+  
+  // Add detailed body inspection
+  if (Buffer.isBuffer(req.body)) {
+    console.log('🔍 Body is Buffer, first 20 bytes:', req.body.slice(0, 20).toString('hex'))
+  } else if (typeof req.body === 'object') {
+    console.log('🔍 Body is object, keys:', Object.keys(req.body || {}))
+  }
   
   // EARLY RETURN for protobuf content to avoid ANY processing that might trigger decompression
   console.log('🔍 Checking content type for protobuf:', req.headers['content-type'])
@@ -450,6 +475,14 @@ app.post('/v1/traces', async (req, res) => {
     res.status(500).json({ 
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+  } catch (topLevelError) {
+    console.error('❌ TOP-LEVEL ERROR in /v1/traces:', topLevelError)
+    console.error('Stack trace:', topLevelError instanceof Error ? topLevelError.stack : 'No stack')
+    res.status(500).json({ 
+      error: 'Request processing failed',
+      message: topLevelError instanceof Error ? topLevelError.message : 'Unknown error'
     })
   }
 })
