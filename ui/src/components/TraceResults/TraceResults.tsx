@@ -169,6 +169,25 @@ export const TraceResults: React.FC<TraceResultsProps> = ({ data }) => {
       defaultSortOrder: 'descend',
     },
     {
+      title: 'Encoding',
+      dataIndex: 'encoding_type',
+      key: 'encoding_type',
+      width: 100,
+      render: (encoding: string) => {
+        const isJson = encoding === 'json';
+        return (
+          <Tag color={isJson ? 'orange' : 'blue'}>
+            {isJson ? 'JSON' : 'Protobuf'}
+          </Tag>
+        );
+      },
+      filters: [
+        { text: 'JSON', value: 'json' },
+        { text: 'Protobuf', value: 'protobuf' },
+      ],
+      onFilter: (value, record) => record.encoding_type === value || (!record.encoding_type && value === 'protobuf'),
+    },
+    {
       title: 'Actions',
       key: 'action',
       width: 80,
@@ -261,7 +280,9 @@ export const TraceResults: React.FC<TraceResultsProps> = ({ data }) => {
           <Space>
             <BugOutlined />
             <span>Trace Details</span>
-            <Tag color="blue">OTLP/Protobuf</Tag>
+            <Tag color={selectedTrace?.encoding_type === 'json' ? 'orange' : 'blue'}>
+              OTLP/{selectedTrace?.encoding_type === 'json' ? 'JSON' : 'Protobuf'}
+            </Tag>
           </Space>
         }
         open={detailsVisible}
@@ -292,7 +313,9 @@ export const TraceResults: React.FC<TraceResultsProps> = ({ data }) => {
                 </Tag>
               </Descriptions.Item>
               <Descriptions.Item label="Encoding">
-                <Tag color="blue">OTLP/Protobuf</Tag>
+                <Tag color={selectedTrace.encoding_type === 'json' ? 'orange' : 'blue'}>
+                  OTLP/{selectedTrace.encoding_type === 'json' ? 'JSON' : 'Protobuf'}
+                </Tag>
               </Descriptions.Item>
               <Descriptions.Item label="Span Type">
                 <Tag color={selectedTrace.is_root ? 'red' : 'default'}>

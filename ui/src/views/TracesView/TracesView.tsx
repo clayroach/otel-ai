@@ -29,7 +29,8 @@ SELECT
   status_code,
   is_error,
   span_kind,
-  is_root
+  is_root,
+  encoding_type
 FROM otel.traces 
 WHERE start_time >= subtractHours(now(), 3)
 ORDER BY start_time DESC 

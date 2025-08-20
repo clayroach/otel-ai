@@ -89,8 +89,8 @@ export class SimpleStorage {
         trace_id: trace.traceId,
         span_id: trace.spanId,
         parent_span_id: '',
-        start_time: new Date(trace.startTime / 1000000).toISOString().replace('T', ' ').replace('Z', '.000000000'), // Convert to ClickHouse DateTime64 format
-        end_time: new Date((trace.startTime + 1000000000) / 1000000).toISOString().replace('T', ' ').replace('Z', '.000000000'), // Assume 1 second duration
+        start_time: new Date(trace.startTime / 1000000).toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '.000000000'), // Convert to ClickHouse DateTime64 format
+        end_time: new Date((trace.startTime + 1000000000) / 1000000).toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '.000000000'), // Assume 1 second duration
         duration_ns: 1000000000,
         service_name: trace.serviceName,
         operation_name: trace.operationName,

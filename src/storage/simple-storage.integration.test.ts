@@ -230,4 +230,134 @@ describe('SimpleStorage Integration Tests', () => {
       expect(duration).toBeLessThan(5000) // Should complete in under 5 seconds
     })
   })
+
+  describe('JSON OTLP Integration', () => {
+    it('should handle JSON OTLP data and track encoding type correctly', async () => {
+      const now = Date.now() * 1000000 // Convert to nanoseconds
+      const jsonTraceData: SimpleOTLPData = {
+        traces: [
+          {
+            traceId: 'json-trace-test-123',
+            spanId: 'json-span-test-123',
+            parentSpanId: '',
+            operationName: 'json-test-operation',
+            startTime: now,
+            endTime: now + 2000000, // 2ms later
+            serviceName: 'json-test-service',
+            statusCode: 'STATUS_CODE_OK',
+            statusMessage: 'OK',
+            spanKind: 'SPAN_KIND_CLIENT',
+            attributes: { 'test.format': 'json', 'test.environment': 'integration' },
+            resourceAttributes: { 'service.name': 'json-test-service', 'encoding.format': 'json' }
+          }
+        ],
+        timestamp: Date.now()
+      }
+
+      // Write JSON data using writeOTLP (which should set encoding_type to 'json')
+      await storage.writeOTLP(jsonTraceData)
+      
+      // Query the data back and verify encoding type
+      const query = `
+        SELECT 
+          trace_id,
+          service_name,
+          operation_name,
+          encoding_type,
+          span_attributes,
+          resource_attributes
+        FROM traces 
+        WHERE service_name = 'json-test-service'
+        ORDER BY start_time DESC
+        LIMIT 1
+      `
+      
+      const result = await storage.queryWithResults(query)
+      expect(result.data).toHaveLength(1)
+      
+      const trace = result.data[0]
+      expect(trace.trace_id).toBe('json-trace-test-123')
+      expect(trace.service_name).toBe('json-test-service')
+      expect(trace.operation_name).toBe('json-test-operation')
+      expect(trace.encoding_type).toBe('json') // This is the key validation
+    })
+
+    it('should differentiate between JSON and protobuf encoding types in database', async () => {
+      const now = Date.now() * 1000000
+      
+      // Create test data for JSON format
+      const jsonData: SimpleOTLPData = {
+        traces: [{
+          traceId: 'format-test-json-456',
+          spanId: 'format-test-json-span',
+          parentSpanId: '',
+          operationName: 'format-comparison-test',
+          startTime: now,
+          endTime: now + 1000000,
+          serviceName: 'format-test-service-json',
+          statusCode: 'STATUS_CODE_OK',
+          statusMessage: 'OK',
+          spanKind: 'SPAN_KIND_INTERNAL',
+          attributes: {},
+          resourceAttributes: { 'service.name': 'format-test-service-json' }
+        }],
+        timestamp: Date.now()
+      }
+
+      // Write JSON data
+      await storage.writeOTLP(jsonData)
+
+      // Also create a protobuf-style record directly for comparison
+      const protobufRecord: DatabaseTraceRecord = {
+        trace_id: 'format-test-protobuf-789',
+        span_id: 'format-test-protobuf-span',
+        parent_span_id: '',
+        start_time: new Date(now / 1000000).toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '.000000000'),
+        end_time: new Date((now + 1000000) / 1000000).toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '.000000000'),
+        duration_ns: 1000000,
+        service_name: 'format-test-service-protobuf',
+        operation_name: 'format-comparison-test',
+        span_kind: 'SPAN_KIND_INTERNAL',
+        status_code: 'STATUS_CODE_OK',
+        status_message: 'OK',
+        trace_state: '',
+        scope_name: '',
+        scope_version: '',
+        span_attributes: {},
+        resource_attributes: { 'service.name': 'format-test-service-protobuf' },
+        events: '[]',
+        links: '[]',
+        encoding_type: 'protobuf'
+      }
+
+      await storage.writeTracesToSimplifiedSchema([protobufRecord])
+
+      // Query both and verify encoding types
+      const query = `
+        SELECT 
+          service_name,
+          encoding_type,
+          COUNT(*) as count
+        FROM traces 
+        WHERE service_name LIKE 'format-test-service-%'
+        GROUP BY service_name, encoding_type
+        ORDER BY service_name
+      `
+      
+      const result = await storage.queryWithResults(query)
+      expect(result.data).toHaveLength(2)
+      
+      // Verify JSON service has encoding_type = 'json'
+      const jsonRecord = result.data.find((r: any) => r.service_name === 'format-test-service-json')
+      expect(jsonRecord).toBeDefined()
+      expect(jsonRecord!.encoding_type).toBe('json')
+      expect(Number(jsonRecord!.count)).toBe(1)
+      
+      // Verify protobuf service has encoding_type = 'protobuf'  
+      const protobufRecord_result = result.data.find((r: any) => r.service_name === 'format-test-service-protobuf')
+      expect(protobufRecord_result).toBeDefined()
+      expect(protobufRecord_result!.encoding_type).toBe('protobuf')
+      expect(Number(protobufRecord_result!.count)).toBe(1)
+    })
+  })
 })
