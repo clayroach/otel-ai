@@ -48,3 +48,4 @@ demo/**/
 # UI build artifacts
 ui/dist/
 ui/release/
+ui/proxy.log
