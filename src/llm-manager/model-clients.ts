@@ -7,6 +7,7 @@
 import { Effect, Layer, Stream } from 'effect'
 import { ModelClientService, LLMConfigService } from './services.js'
 import { makeLocalModelClient, defaultLocalConfig } from './clients/local-client.js'
+import { LLMConfigLayer } from './config.js'
 
 /**
  * Model Client Service Implementation
@@ -55,4 +56,6 @@ export const makeModelClientService = () =>
 export const ModelClientLayer = Layer.effect(
   ModelClientService,
   makeModelClientService()
+).pipe(
+  Layer.provide(LLMConfigLayer)
 )
