@@ -53,6 +53,65 @@ This project uses **documentation-driven development** with **AI subagent orches
 3. **Generate code** using AI assistance and Copilot integration
 4. **Keep documentation in sync** with implementation changes
 
+### ⚠️ CRITICAL: Development Memory - NEVER Declare Early Success
+
+**NEVER declare success while known issues exist:**
+
+- ❌ **WRONG**: "✅ All TypeScript issues fixed!" (while tests are still failing)
+- ❌ **WRONG**: "✅ Service layer complete!" (while runtime errors exist)
+- ❌ **WRONG**: "🎯 Production ready!" (while ignoring failures)
+
+**ALWAYS be honest about current state:**
+
+- ✅ **CORRECT**: "TypeScript compiles, but service layer tests failing - investigating"
+- ✅ **CORRECT**: "Foundation works, advanced features need debugging"
+- ✅ **CORRECT**: "Partial success: X works, Y needs fixing"
+
+**When reporting status:**
+
+1. **State what actually works** (with evidence)
+2. **Acknowledge all known issues** (don't hide them)
+3. **Be specific about failures** (don't use vague language)
+4. **Provide next steps** (concrete actions to fix issues)
+
+### ⚠️ CRITICAL: Git Workflow - NEVER Commit to Main
+
+**ALWAYS use feature branches for development work:**
+
+```bash
+# Create feature branch for new work
+git checkout -b feat/package-name-feature
+
+# Make changes and commit to feature branch
+git add .
+git commit -m "feat: implement feature with proper description"
+
+# Push feature branch
+git push -u origin feat/package-name-feature
+
+# Create PR to main via GitHub/CLI
+gh pr create --title "Feature: Description" --body "..."
+```
+
+**Branch naming conventions:**
+- `feat/package-feature` - New features (e.g., `feat/llm-manager-foundation`)
+- `fix/issue-description` - Bug fixes (e.g., `fix/protobuf-parsing`)
+- `docs/section-update` - Documentation updates
+- `refactor/component-cleanup` - Code refactoring
+
+**NEVER:**
+- Commit directly to `main` branch
+- Push unfinished/broken code
+- Skip PR review process
+
+**If you accidentally commit to main:**
+```bash
+# Immediately move the commit to a feature branch
+git reset --soft HEAD~1  # Undo commit, keep changes staged
+git checkout -b feat/proper-branch-name
+git commit -m "proper commit message"
+```
+
 ## AI Subagent Workflow Patterns
 
 This project uses specialized Claude Code agents for streamlined development workflow. Agent definitions are stored in `.claude/agents/` and are automatically discovered by Claude Code.
