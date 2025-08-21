@@ -7,6 +7,7 @@
 import { Effect, Layer, Stream } from 'effect'
 import { ModelClientService, LLMConfigService } from './services.js'
 import { makeLocalModelClient, defaultLocalConfig } from './clients/local-client.js'
+import { makeOpenAIClient, defaultOpenAIConfig } from './clients/openai-client.js'
 import { LLMConfigLayer } from './config.js'
 
 /**
@@ -39,8 +40,28 @@ export const makeModelClientService = () =>
         })()
       : undefined
 
-    // GPT and Claude clients would be created here when implemented
-    const gptClient = undefined
+    // Create OpenAI GPT client if configured
+    const gptClient = config.models.gpt 
+      ? (() => {
+          const client = makeOpenAIClient({
+            ...defaultOpenAIConfig,
+            ...config.models.gpt
+          })
+          
+          // Ensure generateStream is always available
+          return {
+            ...client,
+            generateStream: client.generateStream || (() => 
+              Stream.fail({
+                _tag: 'ConfigurationError' as const,
+                message: 'Streaming not supported by this model'
+              })
+            )
+          }
+        })()
+      : undefined
+
+    // Claude client would be created here when implemented
     const claudeClient = undefined
 
     return {

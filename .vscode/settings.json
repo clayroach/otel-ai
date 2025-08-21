@@ -6,10 +6,58 @@
   "files.associations": {
     "**/notes/packages/**/*.md": "markdown",
     "**/notes/daily/**/*.md": "markdown",
-    "**/notes/design/**/*.md": "markdown"
+    "**/notes/design/**/*.md": "markdown",
+    ".env.default": "properties",
+    ".env": "properties"
   },
   "github.copilot.editor.enableAutoCompletions": true,
   "[markdown]": {
     "editor.wordWrap": "on"
+  },
+  
+  "typescript.preferences.useAliasesForRenames": false,
+  "typescript.preferences.includePackageJsonAutoImports": "on",
+  "typescript.suggest.autoImports": true,
+  
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit",
+    "source.organizeImports": "explicit"
+  },
+  
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.dendron.cache.*": true,
+    "**/screenshots-dropbox": true
+  },
+  
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.dendron.cache.*": true,
+    "**/screenshots-dropbox": true
+  },
+  
+  "vitest.enable": true,
+  "vitest.commandLine": "pnpm test",
+  
+  "debug.javascript.autoAttachFilter": "smart",
+  "debug.node.autoAttach": "on",
+  
+  "emmet.includeLanguages": {
+    "typescript": "html",
+    "typescriptreact": "html"
+  },
+  
+  "terminal.integrated.env.osx": {
+    "NODE_OPTIONS": "--inspect"
+  },
+  
+  "terminal.integrated.env.linux": {
+    "NODE_OPTIONS": "--inspect"
+  },
+  
+  "terminal.integrated.env.windows": {
+    "NODE_OPTIONS": "--inspect"
   }
 }
