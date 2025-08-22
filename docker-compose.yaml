@@ -84,7 +84,7 @@ services:
       - ./migrations:/migrations:ro
     restart: "no"  # Run once and exit
 
-  # OpenTelemetry Collector
+  # OpenTelemetry Collector - Default (protobuf encoding)
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
     container_name: otel-ai-collector
@@ -99,8 +99,29 @@ services:
       clickhouse:
         condition: service_healthy
     command: ['--config=/etc/otelcol-contrib/config.yaml']
+    profiles:
+      - dev
+      - production
     # Health check disabled as it's not working reliably
     # The collector is healthy when port 13133 responds
+
+  # OpenTelemetry Collector - JSON encoding (alternative config)
+  otel-collector-json:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel-ai-collector
+    ports:
+      - '4317:4317' # OTLP gRPC receiver
+      - '4318:4318' # OTLP HTTP receiver  
+      - '8888:8888' # Prometheus metrics
+      - '13133:13133' # Health check
+    volumes:
+      - ./docker/otel-collector/config-json.yaml:/etc/otelcol-contrib/config.yaml
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    command: ['--config=/etc/otelcol-contrib/config.yaml']
+    profiles:
+      - collector-json
 
   # UI Service - Production build by default
   ui-prod:
