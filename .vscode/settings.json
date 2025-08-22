@@ -43,21 +43,15 @@
   
   "debug.javascript.autoAttachFilter": "smart",
   "debug.node.autoAttach": "on",
+  "debug.terminal.clearBeforeReusing": true,
+  "debug.inlineValues": "auto",
   
   "emmet.includeLanguages": {
     "typescript": "html",
     "typescriptreact": "html"
   },
   
-  "terminal.integrated.env.osx": {
-    "NODE_OPTIONS": "--inspect"
-  },
-  
-  "terminal.integrated.env.linux": {
-    "NODE_OPTIONS": "--inspect"
-  },
-  
-  "terminal.integrated.env.windows": {
-    "NODE_OPTIONS": "--inspect"
-  }
+  "terminal.integrated.env.osx": {},
+  "terminal.integrated.env.linux": {},
+  "terminal.integrated.env.windows": {}
 }

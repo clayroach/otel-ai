@@ -253,3 +253,16 @@ The LLM Manager integrates with other platform packages:
 - **Cached Responses**: <100ms retrieval time
 - **Streaming**: Real-time token streaming for long responses
 - **Concurrent Requests**: 10+ simultaneous requests supported
+
+## Documentation
+
+For comprehensive documentation, architecture details, and design decisions, see:
+
+- 📋 **[Package Specification](../../notes/packages/llm-manager/package.md)** - Complete specifications and requirements
+- 🏗️ **[Architecture Documentation](../../notes/packages/llm-manager/architecture.md)** - Design and implementation details  
+- 📚 **[API Documentation](../../notes/packages/llm-manager/api.md)** - Detailed API reference
+- 🧪 **[Test Documentation](./test/)** - Test suites and examples
+
+---
+
+Part of the [otel-ai](../../README.md) AI-native observability platform.

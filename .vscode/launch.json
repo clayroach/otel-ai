@@ -18,68 +18,75 @@
       "name": "Debug Current Test File",
       "type": "node",
       "request": "launch",
-      "program": "${workspaceFolder}/node_modules/.bin/vitest",
-      "args": [
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "vitest",
         "run",
-        "${relativeFile}",
-        "--inspect-brk=9229"
+        "${relativeFile}"
       ],
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
       "skipFiles": [
         "<node_internals>/**",
         "**/node_modules/**"
-      ]
+      ],
+      "stopOnEntry": false,
+      "cwd": "${workspaceFolder}"
     },
     {
       "name": "Debug All Tests",
       "type": "node",
       "request": "launch",
-      "program": "${workspaceFolder}/node_modules/.bin/vitest",
-      "args": [
-        "run",
-        "--inspect-brk=9229"
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "test"
       ],
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
       "skipFiles": [
         "<node_internals>/**",
         "**/node_modules/**"
-      ]
+      ],
+      "stopOnEntry": false,
+      "cwd": "${workspaceFolder}"
     },
     {
       "name": "Debug LLM Manager Tests",
       "type": "node",
       "request": "launch",
-      "program": "${workspaceFolder}/node_modules/.bin/vitest",
-      "args": [
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "vitest",
         "run",
-        "src/llm-manager/test/",
-        "--inspect-brk=9229"
+        "src/llm-manager/test/"
       ],
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
       "skipFiles": [
         "<node_internals>/**",
         "**/node_modules/**"
-      ]
+      ],
+      "stopOnEntry": false,
+      "cwd": "${workspaceFolder}"
     },
     {
       "name": "Debug Storage Tests",
       "type": "node",
       "request": "launch",
-      "program": "${workspaceFolder}/node_modules/.bin/vitest",
-      "args": [
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "vitest",
         "run",
-        "src/storage/test/",
-        "--inspect-brk=9229"
+        "src/storage/test/"
       ],
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
       "skipFiles": [
         "<node_internals>/**",
         "**/node_modules/**"
-      ]
+      ],
+      "stopOnEntry": false,
+      "cwd": "${workspaceFolder}"
     },
     {
       "name": "Debug UI Dev Server",
@@ -100,12 +107,13 @@
       ]
     },
     {
-      "name": "Debug Backend Services",
+      "name": "Debug Main Server",
       "type": "node",
       "request": "launch",
-      "program": "${workspaceFolder}/src/storage/backend/server.ts",
+      "program": "${workspaceFolder}/node_modules/.bin/tsx",
       "args": [
-        "--inspect=9229"
+        "--inspect=9229",
+        "${workspaceFolder}/src/server.ts"
       ],
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
@@ -115,7 +123,46 @@
       ],
       "env": {
         "NODE_ENV": "development"
-      }
+      },
+      "outputCapture": "std"
+    },
+    {
+      "name": "Debug Single Test File (No Watch)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "vitest",
+        "run",
+        "${relativeFile}"
+      ],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": [
+        "<node_internals>/**",
+        "**/node_modules/**"
+      ],
+      "stopOnEntry": false,
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Debug LLM Manager Multi-Model Test",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "vitest",
+        "run",
+        "src/llm-manager/test/multi-model-integration.test.ts"
+      ],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": [
+        "<node_internals>/**",
+        "**/node_modules/**"
+      ],
+      "stopOnEntry": false,
+      "cwd": "${workspaceFolder}"
     }
   ]
 }
