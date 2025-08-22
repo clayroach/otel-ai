@@ -1,5 +1,5 @@
-# OpenTelemetry Collector configuration
-# Simplified for development - basic functionality only
+# OpenTelemetry Collector configuration - JSON encoding
+# Use with: docker compose --profile collector-json up -d
 
 receivers:
   otlp:
@@ -33,12 +33,12 @@ processors:
     override: false
 
 exporters:
-  # OTLP exporter to our AI-native backend service  
+  # OTLP exporter to our AI-native backend service - JSON encoding
   otlphttp/backend:
     endpoint: http://backend:4319
     tls:
       insecure: true
-    encoding: proto  # Use protobuf encoding (default)
+    encoding: json  # Force JSON encoding for testing
     compression: gzip
     retry_on_failure:
       enabled: true
