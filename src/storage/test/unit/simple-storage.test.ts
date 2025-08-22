@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
-import { SimpleStorage, type SimpleStorageConfig, type SimpleOTLPData } from './simple-storage.js'
+import { SimpleStorage, type SimpleStorageConfig, type SimpleOTLPData } from '../../simple-storage.js'
 
 describe('SimpleStorage', () => {
   let storage: SimpleStorage

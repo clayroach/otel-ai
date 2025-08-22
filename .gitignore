@@ -49,3 +49,7 @@ demo/**/
 ui/dist/
 ui/release/
 ui/proxy.log
+
+# Test coverage reports
+coverage/
+.nyc_output/

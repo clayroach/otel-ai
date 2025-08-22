@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { ClickHouseContainer, type StartedClickHouseContainer } from '@testcontainers/clickhouse'
-import { SimpleStorage, type SimpleStorageConfig, type SimpleOTLPData } from './simple-storage.js'
+import { SimpleStorage, type SimpleStorageConfig, type SimpleOTLPData } from '../../simple-storage.js'
 
 describe('SimpleStorage Integration Tests', () => {
   let storage: SimpleStorage

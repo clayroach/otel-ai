@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { StorageConfigSchema, defaultStorageConfig } from './config.js'
+import { StorageConfigSchema, defaultStorageConfig } from '../../config.js'
 import { Schema } from '@effect/schema'
 
 describe('Storage Configuration', () => {
