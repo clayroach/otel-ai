@@ -1,5 +1,5 @@
-# OpenTelemetry Collector configuration
-# Simplified for development - basic functionality only
+# OpenTelemetry Collector configuration - Protobuf encoding
+# Use with: docker compose --profile collector-protobuf up -d
 
 receivers:
   otlp:
@@ -33,7 +33,7 @@ processors:
     override: false
 
 exporters:
-  # OTLP exporter to our AI-native backend service  
+  # OTLP exporter to our AI-native backend service - Protobuf encoding
   otlphttp/backend:
     endpoint: http://backend:4319
     tls:

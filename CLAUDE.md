@@ -606,7 +606,7 @@ interface TraceRecord {
 Simple integration that connects the official OTel demo to your platform:
 
 ```bash
-# Start your platform first
+# Start your platform first (protobuf encoding by default)
 pnpm dev:up
 
 # Start the demo (connects to your ClickHouse + OTel Collector)
@@ -620,6 +620,27 @@ open http://localhost:5173
 ```
 
 The demo services automatically send telemetry to your platform's OTel Collector at `localhost:4318`. Core services like adservice, cartservice, paymentservice, etc. are running and generating telemetry data that flows into your ClickHouse database.
+
+### Encoding Type Testing
+
+You can test different OTLP encoding types:
+
+```bash
+# Default: Protobuf encoding (recommended)
+pnpm dev:up
+pnpm demo:up
+
+# Alternative: JSON encoding for testing  
+pnpm dev:up:json
+pnpm demo:up
+
+# Check encoding types in database
+docker exec otel-ai-clickhouse clickhouse-client --user=otel --password=otel123 --database=otel --query="SELECT encoding_type, COUNT(*) FROM traces GROUP BY encoding_type"
+```
+
+**Encoding Types Available:**
+- **`protobuf`** - Default, efficient binary encoding from OTel Collector
+- **`json`** - Alternative JSON encoding for debugging/testing
 
 ### Test Commands Reference
 
