@@ -10,8 +10,41 @@ export default defineConfig({
     exclude: ['node_modules', 'dist'],
     watch: false, // Disable watch mode by default - run once and exit
     coverage: {
-      reporter: ['text', 'html', 'json'],
-      exclude: ['node_modules/', 'dist/', '**/*.d.ts', '**/*.test.ts', '**/*.spec.ts']
+      provider: 'v8',
+      reporter: ['text', 'html', 'json', 'lcov'],
+      reportsDirectory: 'coverage',
+      exclude: [
+        'node_modules/',
+        'dist/',
+        'build/',
+        '**/*.d.ts',
+        '**/*.test.ts',
+        '**/*.spec.ts',
+        '**/test-setup.ts',
+        'scripts/',
+        'notes/',
+        '.claude/',
+        'ui/',
+        'demo/',
+        'src/opentelemetry/'
+      ],
+      include: ['src/**/*.ts'],
+      thresholds: {
+        global: {
+          statements: 80,
+          branches: 70,
+          functions: 80,
+          lines: 80
+        },
+        'src/llm-manager/**': {
+          statements: 40,
+          branches: 58,
+          functions: 35,
+          lines: 40
+        }
+      },
+      all: true,
+      skipFull: false
     }
   },
   resolve: {

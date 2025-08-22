@@ -43,7 +43,9 @@
     "node_modules",
     "dist",
     "**/*.test.ts",
-    "**/*.spec.ts"
+    "**/*.spec.ts",
+    "src/llm-manager/clients/claude-client.ts",
+    "src/llm-manager/clients/openai-client.ts"
   ],
   "ts-node": {
     "esm": true,

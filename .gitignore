@@ -42,6 +42,14 @@ demo/**/
 *.override
 .env.override
 
+# Environment files with sensitive data
+.env
+
 # UI build artifacts
 ui/dist/
 ui/release/
+ui/proxy.log
+
+# Test coverage reports
+coverage/
+.nyc_output/

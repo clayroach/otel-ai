@@ -53,6 +53,65 @@ This project uses **documentation-driven development** with **AI subagent orches
 3. **Generate code** using AI assistance and Copilot integration
 4. **Keep documentation in sync** with implementation changes
 
+### ⚠️ CRITICAL: Development Memory - NEVER Declare Early Success
+
+**NEVER declare success while known issues exist:**
+
+- ❌ **WRONG**: "✅ All TypeScript issues fixed!" (while tests are still failing)
+- ❌ **WRONG**: "✅ Service layer complete!" (while runtime errors exist)
+- ❌ **WRONG**: "🎯 Production ready!" (while ignoring failures)
+
+**ALWAYS be honest about current state:**
+
+- ✅ **CORRECT**: "TypeScript compiles, but service layer tests failing - investigating"
+- ✅ **CORRECT**: "Foundation works, advanced features need debugging"
+- ✅ **CORRECT**: "Partial success: X works, Y needs fixing"
+
+**When reporting status:**
+
+1. **State what actually works** (with evidence)
+2. **Acknowledge all known issues** (don't hide them)
+3. **Be specific about failures** (don't use vague language)
+4. **Provide next steps** (concrete actions to fix issues)
+
+### ⚠️ CRITICAL: Git Workflow - NEVER Commit to Main
+
+**ALWAYS use feature branches for development work:**
+
+```bash
+# Create feature branch for new work
+git checkout -b feat/package-name-feature
+
+# Make changes and commit to feature branch
+git add .
+git commit -m "feat: implement feature with proper description"
+
+# Push feature branch
+git push -u origin feat/package-name-feature
+
+# Create PR to main via GitHub/CLI
+gh pr create --title "Feature: Description" --body "..."
+```
+
+**Branch naming conventions:**
+- `feat/package-feature` - New features (e.g., `feat/llm-manager-foundation`)
+- `fix/issue-description` - Bug fixes (e.g., `fix/protobuf-parsing`)
+- `docs/section-update` - Documentation updates
+- `refactor/component-cleanup` - Code refactoring
+
+**NEVER:**
+- Commit directly to `main` branch
+- Push unfinished/broken code
+- Skip PR review process
+
+**If you accidentally commit to main:**
+```bash
+# Immediately move the commit to a feature branch
+git reset --soft HEAD~1  # Undo commit, keep changes staged
+git checkout -b feat/proper-branch-name
+git commit -m "proper commit message"
+```
+
 ## AI Subagent Workflow Patterns
 
 This project uses specialized Claude Code agents for streamlined development workflow. Agent definitions are stored in `.claude/agents/` and are automatically discovered by Claude Code.
@@ -170,15 +229,65 @@ open http://localhost:5173
 
 The demo services automatically send telemetry to your platform's OTel Collector at `localhost:4318`. Core services like adservice, cartservice, paymentservice, etc. are running and generating telemetry data that flows into your ClickHouse database.
 
-## Documentation Structure
+## Documentation Structure & Standards
+
+### **CRITICAL: Documentation Strategy (Option C - Hybrid Approach)**
+
+**ALWAYS follow this pattern for ALL packages:**
+
+```text
+src/package-name/
+├── README.md           # Essential package info, getting started, API overview
+├── test/              # ALL tests in subdirectory (NEVER scattered *.test.ts)
+│   ├── unit/          # Unit tests
+│   ├── integration/   # Integration tests  
+│   └── fixtures/      # Test data and fixtures
+├── src/               # Implementation code
+└── ...
+
+notes/packages/package-name/
+├── package.md         # Comprehensive specifications and design decisions
+├── api.md            # Detailed API documentation
+├── architecture.md   # Design and architecture details
+└── screenshots/      # Visual documentation
+```
+
+**Documentation Responsibilities:**
+- **README.md**: Quick start, essential API, installation, basic examples
+- **Dendron notes**: Comprehensive specs, design decisions, cross-package relationships
+- **Auto-linking**: READMEs MUST link to relevant Dendron notes
+- **Bidirectional sync**: Keep both in sync, but avoid duplication
+
+### **CRITICAL: Test Structure Standards**
+
+**ALWAYS use `test/` subdirectories - NEVER scattered `*.test.ts` files:**
+
+```text
+src/package/
+├── test/                    # ALL tests here
+│   ├── unit/               # Unit tests
+│   ├── integration/        # Integration tests
+│   ├── fixtures/           # Test data
+│   └── setup.ts           # Test setup/teardown
+├── src/                    # Implementation
+└── README.md              # Package documentation
+```
+
+**Test Organization Rules:**
+- ✅ **CORRECT**: `src/llm-manager/test/unit/simple-manager.test.ts`
+- ❌ **WRONG**: `src/llm-manager/simple-manager.test.ts`
+- ✅ **CORRECT**: `src/storage/test/integration/clickhouse.test.ts`  
+- ❌ **WRONG**: `src/storage/clickhouse.test.ts`
+
+### Dendron Structure
 
 ```text
 notes/
 ├── daily/           # Daily development journals
-├── packages/        # Package specifications and docs
-│   ├── tracer/     # Tracing implementation
-│   ├── metrics/    # Metrics implementation
-│   └── exporter/   # Export implementations
+├── packages/        # Package specifications and comprehensive docs
+│   ├── storage/     # Storage package comprehensive documentation
+│   ├── llm-manager/ # LLM Manager package comprehensive documentation
+│   └── ai-analyzer/ # AI Analyzer package comprehensive documentation
 ├── design/         # Architecture decisions
 │   └── adr/       # Architecture Decision Records
 └── templates/      # Note templates
@@ -358,13 +467,51 @@ This project includes comprehensive Copilot instructions in `.github/copilot-ins
 
 ## Package Generation Workflow
 
+### **CRITICAL: Documentation & Test Structure Enforcement**
+
+**BEFORE any code generation, ALWAYS enforce these standards:**
+
 ### For New Packages
 
 1. **Read specification** in `notes/packages/[package]/package.md`
-2. **Use Effect-TS patterns** for service definitions and error handling
-3. **Generate comprehensive code** with interfaces, implementations, and tests
-4. **Follow OOTB OpenTelemetry Collector** integration (not custom OTel packages)
-5. **Implement Bazel build integration** for reproducible builds
+2. **Create package README.md** following Option C pattern:
+   - Essential package info and getting started guide
+   - Link to comprehensive Dendron documentation
+   - Basic API examples and installation
+3. **ENFORCE test/ subdirectory structure**:
+   - Create `src/[package]/test/` directory
+   - Organize tests in `unit/`, `integration/`, `fixtures/` subdirectories
+   - NEVER create scattered `*.test.ts` files in package root
+4. **Use Effect-TS patterns** for service definitions and error handling
+5. **Generate comprehensive code** with interfaces, implementations, and tests
+6. **Follow OOTB OpenTelemetry Collector** integration (not custom OTel packages)
+7. **Implement Bazel build integration** for reproducible builds
+8. **Update both README.md AND Dendron notes** to maintain bidirectional sync
+
+### **CRITICAL: Code Generation Rules**
+
+**ALL code generation MUST follow these patterns:**
+
+```bash
+# CORRECT package structure
+src/package-name/
+├── README.md                           # Essential info + links to Dendron
+├── test/                              # ALL tests here
+│   ├── unit/package-name.test.ts      # Unit tests
+│   ├── integration/api.test.ts        # Integration tests
+│   └── fixtures/test-data.ts          # Test fixtures
+├── src/
+│   ├── index.ts                       # Main exports
+│   ├── service.ts                     # Core implementation
+│   └── types.ts                       # Type definitions
+└── package.json                       # Package configuration
+```
+
+**Test File Rules:**
+- ✅ `src/ai-analyzer/test/unit/autoencoder.test.ts`
+- ❌ `src/ai-analyzer/autoencoder.test.ts`
+- ✅ `src/ui-generator/test/integration/component-generation.test.ts`
+- ❌ `src/ui-generator/component-generation.test.ts`
 
 ### Current Package Status (Day 1 Complete)
 
