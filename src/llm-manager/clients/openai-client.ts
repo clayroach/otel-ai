@@ -8,6 +8,7 @@
 import { Effect, Stream, Schedule, Duration } from 'effect'
 import { Schema } from '@effect/schema'
 import type { ModelClient, LLMRequest, LLMResponse, LLMError } from '../types.js'
+import { ensureLLMError, withLLMError } from './error-utils.js'
 
 /**
  * OpenAI Configuration Schema
@@ -80,6 +81,9 @@ const calculateCost = (model: string, promptTokens: number, completionTokens: nu
   }
   
   const modelPricing = pricing[model] || pricing['gpt-3.5-turbo']
+  if (!modelPricing) {
+    return 0 // Default cost if pricing not found
+  }
   return (promptTokens * modelPricing.input) + (completionTokens * modelPricing.output)
 }
 
@@ -183,8 +187,8 @@ export const checkOpenAIHealth = (config?: Partial<OpenAIConfig>) =>
  * Create OpenAI Model Client
  */
 export const makeOpenAIClient = (config: OpenAIConfig): ModelClient => ({
-  generate: (request: LLMRequest) =>
-    Effect.gen(function* (_) {
+  generate: (request: LLMRequest): Effect.Effect<LLMResponse, LLMError, never> =>
+    withLLMError(Effect.gen(function* (_) {
       const validatedConfig = yield* _(
         Schema.decodeUnknown(OpenAIConfigSchema)(config).pipe(
           Effect.mapError((error): LLMError => ({
@@ -247,9 +251,9 @@ export const makeOpenAIClient = (config: OpenAIConfig): ModelClient => ({
         ))
       }
 
-      const data: OpenAIResponse = yield* _(
+      const data = yield* _(
         Effect.tryPromise({
-          try: () => response.json(),
+          try: () => response.json() as Promise<OpenAIResponse>,
           catch: (error) => ({
             _tag: 'NetworkError' as const,
             model: 'openai',
@@ -292,15 +296,15 @@ export const makeOpenAIClient = (config: OpenAIConfig): ModelClient => ({
           cached: false
         }
       }
-    }).pipe(
+    }), 'openai').pipe(
       Effect.retry(Schedule.exponential(Duration.millis(1000)).pipe(
         Schedule.compose(Schedule.recurs(config.retryAttempts || 3))
       ))
     ),
 
-  generateStream: (request: LLMRequest) =>
+  generateStream: (request: LLMRequest): Stream.Stream<string, LLMError, never> =>
     Stream.unwrap(
-      Effect.gen(function* (_) {
+      withLLMError(Effect.gen(function* (_) {
         const validatedConfig = yield* _(
           Schema.decodeUnknown(OpenAIConfigSchema)(config).pipe(
             Effect.mapError((error): LLMError => ({
@@ -311,11 +315,11 @@ export const makeOpenAIClient = (config: OpenAIConfig): ModelClient => ({
         )
 
         if (!validatedConfig.apiKey) {
-          return yield* _(Stream.fail({
+          return Stream.fail({
             _tag: 'AuthenticationFailed' as const,
             model: 'openai',
             message: 'No API key provided'
-          }))
+          })
         }
 
         const payload = {
@@ -356,17 +360,17 @@ export const makeOpenAIClient = (config: OpenAIConfig): ModelClient => ({
             })
           )
           
-          return yield* _(Stream.fail(
+          return Stream.fail(
             mapHttpErrorToLLMError(response.status, errorText, 'openai')
-          ))
+          )
         }
 
         if (!response.body) {
-          return yield* _(Stream.fail({
+          return Stream.fail({
             _tag: 'NetworkError' as const,
             model: 'openai',
             message: 'No response body'
-          }))
+          })
         }
 
         const reader = response.body.getReader()
@@ -434,12 +438,15 @@ export const makeOpenAIClient = (config: OpenAIConfig): ModelClient => ({
             })
           })
         })
-      })
+      }), 'openai')
     ),
 
-  isHealthy: () =>
-    Effect.gen(function* (_) {
-      const health = yield* _(checkOpenAIHealth(config))
-      return health.healthy
-    })
+  isHealthy: (): Effect.Effect<boolean, LLMError, never> =>
+    withLLMError(
+      Effect.gen(function* (_) {
+        const health = yield* _(checkOpenAIHealth(config))
+        return health.healthy
+      }),
+      'openai'
+    )
 })

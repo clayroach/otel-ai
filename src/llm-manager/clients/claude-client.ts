@@ -8,6 +8,7 @@
 import { Effect, Stream, Schedule, Duration } from 'effect'
 import { Schema } from '@effect/schema'
 import type { ModelClient, LLMRequest, LLMResponse, LLMError } from '../types.js'
+import { ensureLLMError, withLLMError } from './error-utils.js'
 
 /**
  * Claude Configuration Schema
@@ -202,8 +203,8 @@ export const checkClaudeHealth = (config?: Partial<ClaudeConfig>) =>
  * Create Claude Model Client
  */
 export const makeClaudeClient = (config: ClaudeConfig): ModelClient => ({
-  generate: (request: LLMRequest) =>
-    Effect.gen(function* (_) {
+  generate: (request: LLMRequest): Effect.Effect<LLMResponse, LLMError, never> =>
+    withLLMError(Effect.gen(function* (_) {
       const validatedConfig = yield* _(
         Schema.decodeUnknown(ClaudeConfigSchema)(config).pipe(
           Effect.mapError((error): LLMError => ({
@@ -267,14 +268,14 @@ export const makeClaudeClient = (config: ClaudeConfig): ModelClient => ({
 
       const data = yield* _(
         Effect.tryPromise({
-          try: () => response.json(),
+          try: () => response.json() as Promise<ClaudeResponse>,
           catch: (error) => ({
             _tag: 'NetworkError' as const,
             model: 'claude',
             message: `Failed to parse response: ${error instanceof Error ? error.message : 'Unknown error'}`
           })
         })
-      ) as ClaudeResponse
+      )
 
       const latency = Date.now() - startTime
       const content = data.content[0]?.text || ''
@@ -309,15 +310,15 @@ export const makeClaudeClient = (config: ClaudeConfig): ModelClient => ({
           cached: false
         }
       }
-    }).pipe(
+    }), 'claude').pipe(
       Effect.retry(Schedule.exponential(Duration.millis(1000)).pipe(
         Schedule.compose(Schedule.recurs(config.retryAttempts || 3))
       ))
     ),
 
-  generateStream: (request: LLMRequest) =>
+  generateStream: (request: LLMRequest): Stream.Stream<string, LLMError, never> =>
     Stream.unwrap(
-      Effect.gen(function* (_) {
+      withLLMError(Effect.gen(function* (_) {
         const validatedConfig = yield* _(
           Schema.decodeUnknown(ClaudeConfigSchema)(config).pipe(
             Effect.mapError((error): LLMError => ({
@@ -366,15 +367,15 @@ export const makeClaudeClient = (config: ClaudeConfig): ModelClient => ({
         )
 
         if (!response.ok) {
-          const errorText = yield* _(
+          const errorTextResult = yield* _(
             Effect.tryPromise({
               try: () => response.text(),
-              catch: () => 'Unknown error'
+              catch: () => 'Failed to read error response'
             })
           )
           
           return Stream.fail(
-            mapHttpErrorToLLMError(response.status, errorText, 'claude')
+            mapHttpErrorToLLMError(response.status, errorTextResult, 'claude')
           )
         }
 
@@ -450,12 +451,15 @@ export const makeClaudeClient = (config: ClaudeConfig): ModelClient => ({
             })
           })
         })
-      })
+      }), 'claude')
     ),
 
-  isHealthy: () =>
-    Effect.gen(function* (_) {
-      const health = yield* _(checkClaudeHealth(config))
-      return health.healthy
-    })
+  isHealthy: (): Effect.Effect<boolean, LLMError, never> =>
+    withLLMError(
+      Effect.gen(function* (_) {
+        const health = yield* _(checkClaudeHealth(config))
+        return health.healthy
+      }),
+      'claude'
+    )
 })

@@ -30,6 +30,9 @@
     "src/storage/services.ts",
     "**/*.test.ts",
     "**/*.spec.ts",
-    "vitest.config.ts"
+    "vitest.config.ts",
+    "demo/**/*",
+    "src/llm-manager/clients/claude-client.ts",
+    "src/llm-manager/clients/openai-client.ts"
   ]
 }

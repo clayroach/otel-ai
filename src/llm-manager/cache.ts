@@ -18,12 +18,12 @@ interface CacheEntry {
  * In-Memory Cache Implementation
  */
 export const makeCacheService = () =>
-  Effect.gen(function* (_) {
+  Effect.gen(function* () {
     const cache = new Map<string, CacheEntry>()
 
     return {
       get: (key: string) =>
-        Effect.gen(function* (_) {
+        Effect.gen(function* () {
           const entry = cache.get(key)
           
           if (!entry) {
@@ -41,7 +41,7 @@ export const makeCacheService = () =>
         }),
 
       set: (key: string, value: LLMResponse, ttlSeconds: number) =>
-        Effect.gen(function* (_) {
+        Effect.gen(function* () {
           cache.set(key, {
             value,
             timestamp: Date.now(),
@@ -50,12 +50,12 @@ export const makeCacheService = () =>
         }),
 
       invalidate: (key: string) =>
-        Effect.gen(function* (_) {
+        Effect.gen(function* () {
           cache.delete(key)
         }),
 
       clear: () =>
-        Effect.gen(function* (_) {
+        Effect.gen(function* () {
           cache.clear()
         }),
 
