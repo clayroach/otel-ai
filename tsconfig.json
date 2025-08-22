@@ -17,6 +17,7 @@
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "exactOptionalPropertyTypes": true,
+    "downlevelIteration": true,
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
@@ -44,8 +45,7 @@
     "dist",
     "**/*.test.ts",
     "**/*.spec.ts",
-    "src/llm-manager/clients/claude-client.ts",
-    "src/llm-manager/clients/openai-client.ts"
+    "src/ui/dist/**/*"
   ],
   "ts-node": {
     "esm": true,

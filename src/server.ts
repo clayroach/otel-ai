@@ -8,8 +8,9 @@ import cors from 'cors'
 import { SimpleStorage, type SimpleStorageConfig } from './storage/simple-storage.js'
 import { ExportTraceServiceRequestSchema, ResourceSpans, KeyValue, ScopeSpans } from './opentelemetry/index.js'
 import { fromBinary } from '@bufbuild/protobuf'
-import { AIAnalyzerService, makeAIAnalyzerService, defaultAnalyzerConfig } from './ai-analyzer/service.js'
-import { Effect, Layer } from 'effect'
+import { AIAnalyzerService } from './ai-analyzer/index.js'
+import { AIAnalyzerLayer, defaultAnalyzerConfig } from './ai-analyzer/service.js'
+import { Effect, Context, Layer, Stream } from 'effect'
 
 /**
  * Type for OpenTelemetry attribute values
@@ -168,7 +169,7 @@ const storageConfig: SimpleStorageConfig = {
 const storage = new SimpleStorage(storageConfig)
 
 // Initialize AI analyzer service
-let aiAnalyzer: AIAnalyzerService | null = null
+let aiAnalyzer: Context.Tag.Service<typeof AIAnalyzerService> | null = null
 
 // Protobuf parsing now uses generated types from @bufbuild/protobuf
 console.log('✅ Using generated protobuf types for OTLP parsing')
@@ -777,11 +778,11 @@ app.listen(PORT, async () => {
       
       // Create a mock implementation that works without full Effect runtime
       aiAnalyzer = {
-        analyzeArchitecture: async (request) => {
+        analyzeArchitecture: (request: Parameters<Context.Tag.Service<typeof AIAnalyzerService>['analyzeArchitecture']>[0]) => Effect.gen(function* (_) {
           console.log('🤖 AI analysis for:', request.type)
           
           // Simple topology discovery from actual database
-          const topology = await storage.queryWithResults(`
+          const topology = yield* _(Effect.promise(async () => await storage.queryWithResults(`
             SELECT 
               service_name,
               COUNT(DISTINCT operation_name) as operation_count,
@@ -793,20 +794,41 @@ app.listen(PORT, async () => {
             GROUP BY service_name
             ORDER BY span_count DESC
             LIMIT 20
-          `)
+          `)))
 
           // Transform to expected format
-          const services = topology.data.map((row: any) => ({
+          interface TopologyRow {
+            service_name: string
+            operation_count: number
+            span_count: number
+            avg_latency_ms: number
+            error_rate: number
+          }
+          const typedData = topology.data as unknown as TopologyRow[]
+          const services = typedData.map((row) => ({
             service: row.service_name,
             type: 'backend' as const,
             operations: [`operation-${Math.floor(Math.random() * 100)}`],
             dependencies: [],
             metadata: {
-              avgLatencyMs: row.avg_latency_ms || 0,
-              errorRate: row.error_rate || 0,
-              totalSpans: row.span_count || 0
+              avgLatencyMs: Number(row.avg_latency_ms) || 0,
+              errorRate: Number(row.error_rate) || 0,
+              totalSpans: typeof row.span_count === 'string' 
+                ? parseInt(row.span_count, 10) 
+                : typeof row.span_count === 'bigint'
+                  ? parseInt((row.span_count as unknown as bigint).toString(), 10)
+                  : Number(row.span_count) || 0
             }
           }))
+
+          // Calculate total spans safely - ensure all values are proper numbers
+          let totalSpans = 0
+          for (const service of services) {
+            const spans = service.metadata.totalSpans
+            if (typeof spans === 'number' && !isNaN(spans)) {
+              totalSpans += spans
+            }
+          }
 
           return {
             requestId: `analysis-${Date.now()}`,
@@ -822,16 +844,17 @@ app.listen(PORT, async () => {
             },
             insights: [],
             metadata: {
-              analyzedSpans: topology.data.reduce((sum: number, row: any) => sum + (row.span_count || 0), 0),
+              analyzedSpans: totalSpans,
               analysisTimeMs: 150,
               llmTokensUsed: 0,
+              llmModel: 'local-statistical-analyzer', // No external LLM used - local statistical analysis only
               confidence: 0.7
             }
           }
-        },
+        }),
         
-        getServiceTopology: async (timeRange) => {
-          const topology = await storage.queryWithResults(`
+        getServiceTopology: (timeRange: Parameters<Context.Tag.Service<typeof AIAnalyzerService>['getServiceTopology']>[0]) => Effect.gen(function* (_) {
+          const topology = yield* _(Effect.promise(async () => await storage.queryWithResults(`
             SELECT 
               service_name,
               COUNT(DISTINCT operation_name) as operation_count,
@@ -843,34 +866,39 @@ app.listen(PORT, async () => {
             GROUP BY service_name
             ORDER BY span_count DESC
             LIMIT 20
-          `)
+          `)))
 
-          return topology.data.map((row: any) => ({
+          interface TopologyRow {
+            service_name: string
+            operation_count: number
+            span_count: number
+            avg_latency_ms: number
+            error_rate: number
+          }
+          const typedData = topology.data as unknown as TopologyRow[]
+          return typedData.map((row) => ({
             service: row.service_name,
             type: 'backend' as const,
             operations: [`operation-${Math.floor(Math.random() * 100)}`],
             dependencies: [],
             metadata: {
-              avgLatencyMs: row.avg_latency_ms || 0,
-              errorRate: row.error_rate || 0,
-              totalSpans: row.span_count || 0
+              avgLatencyMs: Number(row.avg_latency_ms) || 0,
+              errorRate: Number(row.error_rate) || 0,
+              totalSpans: Number(row.span_count) || 0
             }
           }))
-        },
+        }),
         
-        streamAnalysis: async function* (request) {
+        streamAnalysis: (request: Parameters<Context.Tag.Service<typeof AIAnalyzerService>['streamAnalysis']>[0]) => {
           const words = ['Analyzing', 'telemetry', 'data...', 'Discovered', 'services', 'from', 'actual', 'traces.']
-          for (const word of words) {
-            yield word + ' '
-            await new Promise(resolve => setTimeout(resolve, 100))
-          }
+          return Stream.fromIterable(words).pipe(
+            Stream.map(word => word + ' ')
+          )
         },
         
-        generateDocumentation: async (architecture) => {
-          return {
-            markdown: `# ${architecture.applicationName}\n\n${architecture.description}\n\nDiscovered ${architecture.services.length} services.`
-          }
-        }
+        generateDocumentation: (architecture: Parameters<Context.Tag.Service<typeof AIAnalyzerService>['generateDocumentation']>[0]) => Effect.succeed(
+          `# ${architecture.applicationName}\n\n${architecture.description}\n\nDiscovered ${architecture.services.length} services.`
+        )
       }
       
       console.log('✅ AI Analyzer service initialized')

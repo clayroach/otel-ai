@@ -112,7 +112,7 @@ ${architecture.criticalPaths.slice(0, 5).map(path => `
 `).join('\n')}
 
 ### Service Performance Profiles
-${architecture.services
+${[...architecture.services]
   .sort((a, b) => (b.metadata.avgLatencyMs as number) - (a.metadata.avgLatencyMs as number))
   .slice(0, 10)
   .map(service => `
@@ -124,7 +124,7 @@ ${architecture.services
 `).join('\n')}
 
 ### High-Volume Data Flows
-${architecture.dataFlows
+${[...architecture.dataFlows]
   .sort((a, b) => b.volume - a.volume)
   .slice(0, 10)
   .map(flow => `
@@ -263,7 +263,7 @@ export const PromptUtils = {
   /**
    * Add service filtering context to prompts
    */
-  withServiceFilter: (basePrompt: string, services: string[]) => {
+  withServiceFilter: (basePrompt: string, services: readonly string[]) => {
     return basePrompt + `\n\n**Note:** This analysis is filtered to focus on these services: ${services.join(', ')}`
   },
 

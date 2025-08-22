@@ -7,19 +7,21 @@
 
 import { Effect, Context, Layer, Stream } from 'effect'
 import { Schema } from '@effect/schema'
+import { 
+  AIAnalyzerService
+} from './types.js'
 import type { 
-  AIAnalyzerService, 
   AnalysisRequest, 
   AnalysisResult, 
   AnalysisError,
   ApplicationArchitecture,
   ServiceTopology
 } from './types.js'
-import { ArchitectureQueries, executeAnalysisQuery } from './queries.js'
 import { discoverApplicationTopology } from './topology.js'
 import { PromptTemplates, PromptUtils } from './prompts.js'
 import { LLMManagerService } from '../llm-manager/services.js'
-import { ClickHouseStorageTag, type ClickHouseStorage } from '../storage/clickhouse.js'
+import { makeMultiModelOrchestrator } from '../llm-manager/multi-model-orchestrator.js'
+import { StorageServiceTag } from '../storage/services.js'
 
 /**
  * Configuration for AI Analyzer
@@ -73,7 +75,10 @@ export const defaultAnalyzerConfig: AnalyzerConfig = {
 export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
   Effect.gen(function* (_) {
     const llmManager = yield* _(LLMManagerService)
-    const clickhouseStorage = yield* _(ClickHouseStorageTag)
+    const storageService = yield* _(StorageServiceTag)
+    
+    // Initialize multi-model orchestrator for advanced insights
+    const multiModelOrchestrator = makeMultiModelOrchestrator({})
 
     const analyzeArchitecture = (request: AnalysisRequest): Effect.Effect<AnalysisResult, AnalysisError, never> =>
       Effect.gen(function* (_) {
@@ -82,19 +87,26 @@ export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
         
         try {
           // Step 1: Gather raw data from ClickHouse
-          const [topologyData, dependencyData, traceFlows] = yield* _(
-            Effect.all([
-              clickhouseStorage.queryRaw(ArchitectureQueries.getServiceTopology(timeRangeHours)),
-              clickhouseStorage.queryRaw(ArchitectureQueries.getServiceDependencies(timeRangeHours)),  
-              clickhouseStorage.queryRaw(ArchitectureQueries.getTraceFlows(100, timeRangeHours))
-            ]).pipe(
+          // Query traces for topology analysis
+          const traces = yield* _(
+            storageService.queryTraces({
+              timeRange: {
+                start: request.timeRange.startTime.getTime(),
+                end: request.timeRange.endTime.getTime()
+              },
+              limit: 10000, // Large limit for comprehensive analysis
+              filters: request.filters || {}
+            }).pipe(
               Effect.mapError((storageError): AnalysisError => ({
                 _tag: 'QueryError',
-                message: `Failed to query ClickHouse: ${storageError.message}`,
-                query: 'Multiple queries'
+                message: `Failed to query traces: ${storageError.message}`,
+                query: 'Traces query for topology analysis'
               }))
             )
           )
+
+          // Transform traces to topology data format
+          const [topologyData, dependencyData, traceFlows] = transformTracesToTopology(traces, timeRangeHours)
           
           // Check if we have sufficient data
           if (topologyData.length < config.analysis.minSpanThreshold) {
@@ -108,19 +120,9 @@ export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
           // Step 2: Discover application topology
           const architecture = yield* _(discoverApplicationTopology(topologyData, dependencyData, traceFlows))
           
-          // Step 3: Generate LLM analysis based on request type
-          const llmPrompt = generatePromptForAnalysisType(request.type, architecture, request)
-          
+          // Step 3: Generate enhanced architectural insights using multi-model orchestrator
           const llmResponse = yield* _(
-            llmManager.generate({
-              prompt: llmPrompt,
-              taskType: 'analysis',
-              preferences: {
-                model: config.llm.preferredModel,
-                maxTokens: config.llm.maxTokens,
-                temperature: config.llm.temperature
-              }
-            })
+            generateEnhancedInsights(request.type, architecture, llmManager, multiModelOrchestrator, config)
           )
           
           // Step 4: Generate insights based on the data
@@ -143,7 +145,7 @@ export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
             metadata: {
               analyzedSpans: topologyData.reduce((sum, t) => sum + t.total_spans, 0),
               analysisTimeMs,
-              llmTokensUsed: llmResponse.usage.totalTokens,
+              llmTokensUsed: ((llmResponse as { usage?: { totalTokens?: number } }).usage?.totalTokens) || 0,
               confidence: calculateConfidenceScore(topologyData, dependencyData)
             }
           }
@@ -164,12 +166,15 @@ export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
           // Get architecture data first
           const timeRangeHours = Math.abs(request.timeRange.endTime.getTime() - request.timeRange.startTime.getTime()) / (1000 * 60 * 60)
           
-          const [topologyData, dependencyData, traceFlows] = yield* _(
-            Effect.all([
-              clickhouseStorage.queryRaw(ArchitectureQueries.getServiceTopology(timeRangeHours)),
-              clickhouseStorage.queryRaw(ArchitectureQueries.getServiceDependencies(timeRangeHours)),
-              clickhouseStorage.queryRaw(ArchitectureQueries.getTraceFlows(50, timeRangeHours))
-            ]).pipe(
+          const traces = yield* _(
+            storageService.queryTraces({
+              timeRange: {
+                start: request.timeRange.startTime.getTime(),
+                end: request.timeRange.endTime.getTime()
+              },
+              limit: 5000, // Smaller limit for streaming
+              filters: request.filters || {}
+            }).pipe(
               Effect.mapError((storageError): AnalysisError => ({
                 _tag: 'QueryError',
                 message: `Failed to query ClickHouse: ${storageError.message}`,
@@ -177,33 +182,46 @@ export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
               }))
             )
           )
+
+          const [topologyData, dependencyData, traceFlows] = transformTracesToTopology(traces, timeRangeHours)
           
           const architecture = yield* _(discoverApplicationTopology(topologyData, dependencyData, traceFlows))
           const llmPrompt = generatePromptForAnalysisType(request.type, architecture, request)
           
-          // Stream the LLM response
+          // Stream the LLM response with enhanced task type
           return llmManager.generateStream({
             prompt: llmPrompt,
-            taskType: 'analysis',
+            taskType: 'architectural-insights',
             preferences: {
               model: config.llm.preferredModel,
               maxTokens: config.llm.maxTokens,
-              temperature: config.llm.temperature
+              temperature: config.llm.temperature,
+              useMultiModel: false // Keep streaming simple with single model
             },
             streaming: true
-          })
+          }).pipe(
+            Stream.mapError((error): AnalysisError => ({
+              _tag: 'LLMError',
+              message: (error as { message?: string }).message || 'LLM streaming failed',
+              model: (error as { model?: string }).model || 'unknown'
+            }))
+          )
         })
       )
 
-    const getServiceTopology = (timeRange: { startTime: Date; endTime: Date }): Effect.Effect<ServiceTopology[], AnalysisError, never> =>
+    const getServiceTopology = (timeRange: { startTime: Date; endTime: Date }): Effect.Effect<readonly ServiceTopology[], AnalysisError, never> =>
       Effect.gen(function* (_) {
         const timeRangeHours = Math.abs(timeRange.endTime.getTime() - timeRange.startTime.getTime()) / (1000 * 60 * 60)
         
-        const [topologyData, dependencyData] = yield* _(
-          Effect.all([
-            clickhouseStorage.queryRaw(ArchitectureQueries.getServiceTopology(timeRangeHours)),
-            clickhouseStorage.queryRaw(ArchitectureQueries.getServiceDependencies(timeRangeHours))
-          ]).pipe(
+        const traces = yield* _(
+          storageService.queryTraces({
+            timeRange: {
+              start: timeRange.startTime.getTime(),
+              end: timeRange.endTime.getTime()
+            },
+            limit: 5000,
+            filters: {}
+          }).pipe(
             Effect.mapError((storageError): AnalysisError => ({
               _tag: 'QueryError',
               message: `Failed to query ClickHouse: ${storageError.message}`,
@@ -212,19 +230,23 @@ export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
           )
         )
         
+        const [topologyData, dependencyData, traceFlows] = transformTracesToTopology(traces, timeRangeHours)
+        
         const architecture = yield* _(discoverApplicationTopology(topologyData, dependencyData, []))
         return architecture.services
       })
 
     const generateDocumentationMethod = (architecture: ApplicationArchitecture): Effect.Effect<string, AnalysisError, never> =>
-      generateDocumentation(architecture, llmManager, config)
+      generateDocumentation(architecture, llmManager, config).pipe(
+        Effect.map(result => result.markdown)
+      )
 
     return {
       analyzeArchitecture,
       streamAnalysis,
       getServiceTopology,
       generateDocumentation: generateDocumentationMethod
-    } satisfies AIAnalyzerService
+    }
   })
 
 /**
@@ -266,7 +288,7 @@ const generatePromptForAnalysisType = (
   return basePrompt
 }
 
-const generateInsights = (architecture: ApplicationArchitecture, analysisType: AnalysisRequest['type']) => {
+const generateInsights = (architecture: ApplicationArchitecture, _analysisType: AnalysisRequest['type']) => {
   const insights = []
   
   // Performance insights
@@ -322,7 +344,7 @@ const generateInsights = (architecture: ApplicationArchitecture, analysisType: A
 
 const generateDocumentation = (
   architecture: ApplicationArchitecture,
-  llmManager: any, // TODO: Proper type
+  llmManager: Context.Tag.Service<typeof LLMManagerService>,
   config: AnalyzerConfig
 ): Effect.Effect<{ markdown: string }, AnalysisError, never> =>
   Effect.gen(function* (_) {
@@ -331,13 +353,21 @@ const generateDocumentation = (
     const response = yield* _(
       llmManager.generate({
         prompt,
-        taskType: 'analysis',
+        taskType: 'architectural-insights',
         preferences: {
           model: config.llm.preferredModel,
           maxTokens: 8000, // Longer for documentation
-          temperature: 0.1
+          temperature: 0.1,
+          useMultiModel: true, // Use multi-model for comprehensive documentation
+          requireStructuredOutput: false
         }
-      })
+      }).pipe(
+        Effect.mapError((error): AnalysisError => ({
+          _tag: 'LLMError',
+          message: (error as { message?: string }).message || 'Documentation generation failed',
+          model: (error as { model?: string }).model || config.llm.preferredModel
+        }))
+      )
     )
     
     return {
@@ -372,7 +402,247 @@ export const AIAnalyzerLayer = (config: AnalyzerConfig = defaultAnalyzerConfig) 
   )
 
 /**
- * Configuration tag for dependency injection
+ * Generate Enhanced Insights using Multi-Model Orchestrator
  */
-export interface AIAnalyzerConfig extends Context.Tag<'AIAnalyzerConfig', AnalyzerConfig> {}
-export const AIAnalyzerConfig = Context.GenericTag<AnalyzerConfig>('AIAnalyzerConfig')
+const generateEnhancedInsights = (
+  analysisType: AnalysisRequest['type'],
+  architecture: ApplicationArchitecture,
+  llmManager: Context.Tag.Service<typeof LLMManagerService>,
+  multiModelOrchestrator: ReturnType<typeof makeMultiModelOrchestrator>,
+  config: AnalyzerConfig
+): Effect.Effect<{ content: string }, AnalysisError, never> =>
+  Effect.gen(function* (_) {
+      // Prepare data for multi-model analysis based on analysis type
+      let analysisData: Record<string, unknown> = {}
+      
+      switch (analysisType) {
+        case 'architecture':
+          analysisData = {
+            services: architecture.services.map(s => s.service),
+            dependencies: architecture.services.reduce((acc, s) => {
+              acc[s.service] = s.dependencies.map(d => ({ 
+                service: d.service, 
+                operation: d.operation,
+                callCount: d.callCount,
+                avgLatencyMs: d.avgLatencyMs,
+                errorRate: d.errorRate
+              }))
+              return acc
+            }, {} as Record<string, any[]>)
+          }
+          break
+          
+        case 'dependencies':
+          analysisData = {
+            services: architecture.services.map(s => s.service),
+            dependencies: architecture.services.reduce((acc, s) => {
+              acc[s.service] = s.dependencies
+              return acc
+            }, {} as Record<string, any>)
+          }
+          break
+          
+        case 'dataflow':
+        case 'insights':
+          analysisData = {
+            metrics: {
+              totalServices: architecture.services.length,
+              totalDataFlows: architecture.dataFlows.length,
+              avgLatency: architecture.services.reduce((sum, s) => sum + (s.metadata.avgLatencyMs as number), 0) / architecture.services.length,
+              avgErrorRate: architecture.services.reduce((sum, s) => sum + (s.metadata.errorRate as number), 0) / architecture.services.length
+            },
+            bottlenecks: architecture.services
+              .filter(s => (s.metadata.avgLatencyMs as number) > 1000)
+              .map(s => s.service),
+            highErrorRateServices: architecture.services
+              .filter(s => (s.metadata.errorRate as number) > 0.01)
+              .map(s => s.service)
+          }
+          break
+      }
+      
+      // Try to use multi-model orchestrator for enhanced analysis, fallback to standard LLM
+      const llmPrompt = generatePromptForAnalysisType(analysisType, architecture, { type: analysisType, timeRange: { startTime: new Date(), endTime: new Date() } })
+      
+      const multiModelResponse = yield* _(
+        multiModelOrchestrator.generateArchitecturalInsights(
+          analysisType === 'architecture' ? 'system-analysis' :
+          analysisType === 'dependencies' ? 'system-analysis' :
+          'performance-optimization',
+          analysisData
+        ).pipe(
+          Effect.map((response) => ({ content: (response as { consensus: { content: string } }).consensus.content })),
+          Effect.mapError((error): AnalysisError => ({
+            _tag: 'LLMError',
+            message: (error as { message?: string }).message || 'Multi-model analysis failed',
+            model: 'multi-model'
+          })),
+          Effect.timeout(30000), // 30 second timeout
+          Effect.orElse(() => {
+            // Fallback to standard LLM if orchestrator fails
+            console.log('Multi-model orchestrator unavailable, falling back to standard LLM')
+            return llmManager.generate({
+              prompt: llmPrompt,
+              taskType: 'architectural-insights',
+              preferences: {
+                model: config.llm.preferredModel,
+                maxTokens: config.llm.maxTokens,
+                temperature: config.llm.temperature
+              }
+            }).pipe(
+              Effect.map((response) => ({ content: (response as { content: string }).content })),
+              Effect.mapError((error): AnalysisError => ({
+                _tag: 'LLMError',
+                message: (error as { message?: string }).message || 'LLM generation failed',
+                model: config.llm.preferredModel
+              }))
+            )
+          })
+        )
+      )
+      
+      return multiModelResponse
+  })
+
+/**
+ * Transform trace data to topology data format
+ * 
+ * This helper function transforms TraceData[] into the format expected by the topology analyzer
+ */
+import type { ServiceTopologyRaw, ServiceDependencyRaw, TraceFlowRaw } from './queries.js'
+
+const transformTracesToTopology = (
+  traces: Array<Record<string, unknown>>, 
+  _timeRangeHours: number
+): [ServiceTopologyRaw[], ServiceDependencyRaw[], TraceFlowRaw[]] => {
+  // Internal working types for accumulation
+  interface ServiceAccumulator {
+    service_name: string
+    operation_name: string
+    total_spans: number
+    unique_traces: Set<unknown>
+    error_spans: number
+    root_spans: number
+    span_kind: string
+    total_duration: number
+    avg_duration_ms: number
+    p95_duration_ms: number
+  }
+  
+  // Simple transformation - in a real implementation, this would be more sophisticated
+  const serviceMap = new Map<string, ServiceAccumulator>()
+  const dependencies = new Map<string, Set<string>>()
+  const traceFlows: TraceFlowRaw[] = []
+  
+  // Process each trace to build topology data
+  traces.forEach(trace => {
+    const resourceAttrs = trace.resourceAttributes as Record<string, unknown> | undefined
+    const serviceName = (resourceAttrs?.['service.name'] as string) || 'unknown'
+    const operationName = (trace.name as string) || (trace.operationName as string) || 'unknown'
+    const spanKind = (trace.spanKind as string) || 'INTERNAL'
+    
+    // Build service topology data
+    if (!serviceMap.has(serviceName)) {
+      serviceMap.set(serviceName, {
+        service_name: serviceName,
+        operation_name: operationName,
+        span_kind: spanKind,
+        total_spans: 0,
+        error_spans: 0,
+        root_spans: 0,
+        unique_traces: new Set(),
+        avg_duration_ms: 0,
+        p95_duration_ms: 0,
+        total_duration: 0
+      })
+    }
+    
+    const service = serviceMap.get(serviceName)
+    if (service) {
+      service.total_spans++
+      service.unique_traces.add(trace.traceId)
+      const endTime = trace.endTime as number || 0
+      const startTime = trace.startTime as number || 0
+      service.total_duration += (endTime - startTime) / 1000000 // Convert to ms
+      
+      if (trace.statusCode === 'ERROR') {
+        service.error_spans++
+      }
+      
+      if (!trace.parentSpanId) {
+        service.root_spans++
+      }
+    }
+    
+    // Build dependency data
+    const parentTrace = trace.parentSpanId ? 
+      traces.find(t => t.spanId === trace.parentSpanId) : null
+    const parentAttrs = parentTrace?.resourceAttributes as Record<string, unknown> | undefined
+    const parentService = parentAttrs?.['service.name'] as string | null
+    
+    if (parentService && parentService !== serviceName) {
+      if (!dependencies.has(parentService)) {
+        dependencies.set(parentService, new Set())
+      }
+      const parentDeps = dependencies.get(parentService)
+      if (parentDeps) {
+        parentDeps.add(serviceName)
+      }
+    }
+    
+    // Build trace flow data (simplified)
+    const traceId = trace.traceId as string || 'unknown'
+    const endTime = trace.endTime as number || 0
+    const startTime = trace.startTime as number || 0
+    const statusCode = trace.statusCode as string || 'OK'
+    
+    traceFlows.push({
+      trace_id: traceId,
+      service_name: serviceName,
+      operation_name: operationName,
+      parent_service: parentService,
+      parent_operation: null, // Would need more analysis
+      start_time: new Date(startTime / 1000000).toISOString(),
+      duration_ms: (endTime - startTime) / 1000000,
+      span_kind: spanKind,
+      status_code: statusCode,
+      level: trace.parentSpanId ? 1 : 0
+    })
+  })
+  
+  // Finalize service calculations - convert to match expected interface
+  const topologyData: ServiceTopologyRaw[] = Array.from(serviceMap.values()).map(service => {
+    const avgDuration = service.total_spans > 0 ? service.total_duration / service.total_spans : 0
+    return {
+      service_name: service.service_name,
+      operation_name: service.operation_name,
+      span_kind: service.span_kind,
+      total_spans: service.total_spans,
+      root_spans: service.root_spans,
+      error_spans: service.error_spans,
+      avg_duration_ms: avgDuration,
+      p95_duration_ms: avgDuration * 1.5, // Rough estimate
+      unique_traces: service.unique_traces.size
+    }
+  })
+  
+  // Build dependency data in expected format
+  const dependencyData: ServiceDependencyRaw[] = []
+  dependencies.forEach((dependentServices, serviceName) => {
+    dependentServices.forEach(dependentService => {
+      dependencyData.push({
+        service_name: serviceName,
+        operation_name: 'unknown', // Would need more analysis
+        dependent_service: dependentService,
+        dependent_operation: 'unknown', // Would need more analysis
+        call_count: 1, // Simplified
+        total_count: 1,
+        error_count: 0,
+        avg_duration_ms: 100 // Default estimate
+      })
+    })
+  })
+  
+  return [topologyData, dependencyData, traceFlows]
+}
+
