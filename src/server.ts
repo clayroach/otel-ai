@@ -551,7 +551,33 @@ app.post('/v1/traces', async (req, res) => {
         // Extract resource attributes
         if (resourceSpan.resource?.attributes) {
           for (const attr of resourceSpan.resource.attributes) {
-            const value = attr.value?.stringValue || attr.value?.intValue || attr.value?.boolValue || attr.value
+            // Handle protobuf format from @bufbuild/protobuf parsing
+            let value: any
+            if (attr.value && typeof attr.value === 'object' && '$typeName' in attr.value && 'value' in attr.value) {
+              // Protobuf format: attr.value.value has { case: 'stringValue', value: 'actual_value' }
+              const protoValue = (attr.value as any).value
+              if (protoValue?.case === 'stringValue') {
+                value = protoValue.value
+              } else if (protoValue?.case === 'intValue') {
+                value = typeof protoValue.value === 'bigint' ? protoValue.value.toString() : protoValue.value
+              } else if (protoValue?.case === 'boolValue') {
+                value = protoValue.value
+              } else if (protoValue?.case === 'doubleValue') {
+                value = protoValue.value
+              } else if (protoValue?.case === 'arrayValue') {
+                // Handle array values by converting any BigInt values
+                value = JSON.parse(JSON.stringify(protoValue.value, (key, val) => typeof val === 'bigint' ? val.toString() : val))
+              } else if (protoValue?.case === 'kvlistValue') {
+                // Handle key-value list by converting any BigInt values
+                value = JSON.parse(JSON.stringify(protoValue.value, (key, val) => typeof val === 'bigint' ? val.toString() : val))
+              } else {
+                // For any other cases, ensure BigInt values are converted
+                value = typeof protoValue?.value === 'bigint' ? protoValue.value.toString() : protoValue?.value
+              }
+            } else {
+              // Fallback for other formats
+              value = attr.value?.stringValue || attr.value?.intValue || attr.value?.boolValue || attr.value
+            }
             resourceAttributes[attr.key] = value
           }
         }
@@ -567,7 +593,33 @@ app.post('/v1/traces', async (req, res) => {
             // Extract span attributes
             if (span.attributes) {
               for (const attr of span.attributes) {
-                const value = attr.value?.stringValue || attr.value?.intValue || attr.value?.boolValue || attr.value
+                // Handle protobuf format from @bufbuild/protobuf parsing (same as resource attributes)
+                let value: any
+                if (attr.value && typeof attr.value === 'object' && '$typeName' in attr.value && 'value' in attr.value) {
+                  // Protobuf format: attr.value.value has { case: 'stringValue', value: 'actual_value' }
+                  const protoValue = (attr.value as any).value
+                  if (protoValue?.case === 'stringValue') {
+                    value = protoValue.value
+                  } else if (protoValue?.case === 'intValue') {
+                    value = typeof protoValue.value === 'bigint' ? protoValue.value.toString() : protoValue.value
+                  } else if (protoValue?.case === 'boolValue') {
+                    value = protoValue.value
+                  } else if (protoValue?.case === 'doubleValue') {
+                    value = protoValue.value
+                  } else if (protoValue?.case === 'arrayValue') {
+                    // Handle array values by converting any BigInt values
+                    value = JSON.parse(JSON.stringify(protoValue.value, (key, val) => typeof val === 'bigint' ? val.toString() : val))
+                  } else if (protoValue?.case === 'kvlistValue') {
+                    // Handle key-value list by converting any BigInt values
+                    value = JSON.parse(JSON.stringify(protoValue.value, (key, val) => typeof val === 'bigint' ? val.toString() : val))
+                  } else {
+                    // For any other cases, ensure BigInt values are converted
+                    value = typeof protoValue?.value === 'bigint' ? protoValue.value.toString() : protoValue?.value
+                  }
+                } else {
+                  // Fallback for other formats
+                  value = attr.value?.stringValue || attr.value?.intValue || attr.value?.boolValue || attr.value
+                }
                 spanAttributes[attr.key] = value
               }
             }
@@ -578,10 +630,21 @@ app.post('/v1/traces', async (req, res) => {
             const durationNs = endTimeNs - startTimeNs
             
             // Convert to our simplified schema format
+            // Convert IDs from Buffer to hex strings if needed
+            const traceIdStr = Buffer.isBuffer(span.traceId) ? 
+              Buffer.from(span.traceId).toString('hex') : 
+              (span.traceId || '')
+            const spanIdStr = Buffer.isBuffer(span.spanId) ? 
+              Buffer.from(span.spanId).toString('hex') : 
+              (span.spanId || '')
+            const parentSpanIdStr = Buffer.isBuffer(span.parentSpanId) ? 
+              Buffer.from(span.parentSpanId).toString('hex') : 
+              (span.parentSpanId || '')
+            
             const trace = {
-              trace_id: span.traceId,
-              span_id: span.spanId,
-              parent_span_id: span.parentSpanId || '',
+              trace_id: traceIdStr,
+              span_id: spanIdStr,
+              parent_span_id: parentSpanIdStr,
               start_time: new Date(Math.floor(startTimeNs / 1000000)).toISOString().replace('T', ' ').replace('Z', ''),
               end_time: new Date(Math.floor(endTimeNs / 1000000)).toISOString().replace('T', ' ').replace('Z', ''),
               duration_ns: durationNs,
@@ -595,8 +658,8 @@ app.post('/v1/traces', async (req, res) => {
               scope_version: scopeVersion,
               span_attributes: spanAttributes,
               resource_attributes: resourceAttributes,
-              events: JSON.stringify(span.events || []),
-              links: JSON.stringify(span.links || []),
+              events: JSON.stringify(span.events || [], (key, value) => typeof value === 'bigint' ? value.toString() : value),
+              links: JSON.stringify(span.links || [], (key, value) => typeof value === 'bigint' ? value.toString() : value),
               // Store encoding type for UI statistics
               encoding_type: encodingType
             }
