@@ -44,9 +44,6 @@ dependencies:
   express:
     specifier: ^4.19.2
     version: 4.21.2
-  protobufjs:
-    specifier: ^7.5.4
-    version: 7.5.4
 
 devDependencies:
   '@bufbuild/buf':

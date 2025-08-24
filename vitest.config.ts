@@ -7,7 +7,11 @@ export default defineConfig({
     setupFiles: ['./src/test-setup.ts'],
     testTimeout: 30000, // 30 seconds for integration tests
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
-    exclude: ['node_modules', 'dist'],
+    exclude: [
+      'node_modules', 
+      'dist',
+      '**/node_modules/**',
+    ],
     watch: false, // Disable watch mode by default - run once and exit
     coverage: {
       provider: 'v8',

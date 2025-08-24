@@ -100,14 +100,25 @@ export const TraceResults: React.FC<TraceResultsProps> = ({ data }) => {
       dataIndex: 'status_code',
       key: 'status_code',
       width: 80,
-      render: (status: string, record: UnifiedTrace) => (
-        <Tag
-          color={record.is_error ? 'red' : 'green'}
-          icon={record.is_error ? <BugOutlined /> : <ClockCircleOutlined />}
-        >
-          {status}
-        </Tag>
-      ),
+      render: (status: string, record: UnifiedTrace) => {
+        // Convert long OpenTelemetry status codes to short UI labels
+        const statusMap: Record<string, string> = {
+          'STATUS_CODE_UNSET': 'UNSET',
+          'STATUS_CODE_OK': 'OK',
+          'STATUS_CODE_ERROR': 'ERROR'
+        };
+        const displayStatus = statusMap[status] || status;
+        
+        return (
+          <Tag
+            color={record.is_error ? 'red' : 'green'}
+            icon={record.is_error ? <BugOutlined /> : <ClockCircleOutlined />}
+            title={status} // Show full status on hover
+          >
+            {displayStatus}
+          </Tag>
+        );
+      },
     },
     {
       title: 'Span Kind',
@@ -308,8 +319,18 @@ export const TraceResults: React.FC<TraceResultsProps> = ({ data }) => {
                 {Math.round(selectedTrace.duration_ms)}ms
               </Descriptions.Item>
               <Descriptions.Item label="Status">
-                <Tag color={selectedTrace.is_error ? 'red' : 'green'}>
-                  {selectedTrace.status_code}
+                <Tag 
+                  color={selectedTrace.is_error ? 'red' : 'green'}
+                  title={selectedTrace.status_code}
+                >
+                  {(() => {
+                    const statusMap: Record<string, string> = {
+                      'STATUS_CODE_UNSET': 'UNSET',
+                      'STATUS_CODE_OK': 'OK',
+                      'STATUS_CODE_ERROR': 'ERROR'
+                    };
+                    return statusMap[selectedTrace.status_code] || selectedTrace.status_code;
+                  })()}
                 </Tag>
               </Descriptions.Item>
               <Descriptions.Item label="Encoding">
