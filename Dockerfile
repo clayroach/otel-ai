@@ -17,6 +17,7 @@ RUN pnpm install --frozen-lockfile
 COPY src/ ./src/
 COPY protobuf/ ./protobuf/
 COPY tsconfig.json ./
+COPY buf.gen.yaml ./
 
 # Build stage
 FROM base AS builder
