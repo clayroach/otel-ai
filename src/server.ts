@@ -9,7 +9,7 @@ import { SimpleStorage, type SimpleStorageConfig } from './storage/simple-storag
 import { ExportTraceServiceRequestSchema, ResourceSpans, KeyValue, ScopeSpans } from './opentelemetry/index.js'
 import { fromBinary } from '@bufbuild/protobuf'
 import { AIAnalyzerService } from './ai-analyzer/index.js'
-import { AIAnalyzerLayer, defaultAnalyzerConfig } from './ai-analyzer/service.js'
+import { AIAnalyzerLayer, defaultAnalyzerConfig, generateInsights, generateRequestId } from './ai-analyzer/service.js'
 import { Effect, Context, Layer, Stream } from 'effect'
 
 /**
@@ -877,12 +877,58 @@ app.listen(PORT, async () => {
         clickhouse: storageConfig.clickhouse
       }
       
+      // Helper function to generate critical paths
+      function generateCriticalPaths(services: any[], dataFlows: any[]) {
+        const paths = []
+        
+        // Find high-volume service chains
+        const highVolumeFlows = dataFlows
+          .filter(flow => flow.volume > 50) // Threshold for high volume
+          .sort((a, b) => b.volume - a.volume)
+          .slice(0, 10) // Top 10 flows
+        
+        for (const flow of highVolumeFlows) {
+          const fromService = services.find(s => s.service === flow.from)
+          const toService = services.find(s => s.service === flow.to)
+          
+          if (fromService && toService) {
+            paths.push({
+              name: `${flow.from} → ${flow.to}`,
+              services: [flow.from, flow.to],
+              avgLatencyMs: flow.latency.p50,
+              errorRate: 0, // Not directly available in dataFlow
+              volume: flow.volume,
+              type: 'high-volume'
+            })
+          }
+        }
+        
+        // Find high-latency service chains
+        const highLatencyFlows = dataFlows
+          .filter(flow => flow.latency.p50 > 1000) // >1s latency
+          .sort((a, b) => b.latency.p50 - a.latency.p50)
+          .slice(0, 5)
+          
+        for (const flow of highLatencyFlows) {
+          paths.push({
+            name: `${flow.from} → ${flow.to} (slow)`,
+            services: [flow.from, flow.to],
+            avgLatencyMs: flow.latency.p50,
+            errorRate: 0, // Not directly available in dataFlow
+            volume: flow.volume,
+            type: 'high-latency'
+          })
+        }
+        
+        return paths
+      }
+
       // Create a mock implementation that works without full Effect runtime
       aiAnalyzer = {
+        
         analyzeArchitecture: (request: Parameters<Context.Tag.Service<typeof AIAnalyzerService>['analyzeArchitecture']>[0]) => Effect.gen(function* (_) {
-          console.log('🤖 AI analysis for:', request.type)
-          
-          // Simple topology discovery from actual database
+          console.log('🤖 AI analysis starting for:', request.type)
+          // Get service topology
           const topology = yield* _(Effect.promise(async () => await storage.queryWithResults(`
             SELECT 
               service_name,
@@ -897,7 +943,22 @@ app.listen(PORT, async () => {
             LIMIT 20
           `)))
 
-          // Transform to expected format
+          // Get service dependencies
+          const dependencies = yield* _(Effect.promise(async () => await storage.queryWithResults(`
+            SELECT 
+              parent.service_name as parent_service,
+              child.service_name as child_service,
+              COUNT(*) as call_count,
+              AVG(child.duration_ms) as avg_duration_ms,
+              SUM(child.is_error) / COUNT(*) as error_rate
+            FROM traces child 
+            JOIN traces parent ON child.parent_span_id = parent.span_id 
+            WHERE parent.service_name != child.service_name 
+              AND child.start_time > now() - INTERVAL 1 HOUR
+            GROUP BY parent.service_name, child.service_name
+            ORDER BY call_count DESC
+          `)))
+
           interface TopologyRow {
             service_name: string
             operation_count: number
@@ -905,56 +966,106 @@ app.listen(PORT, async () => {
             avg_latency_ms: number
             error_rate: number
           }
+
+          interface DependencyRow {
+            parent_service: string
+            child_service: string
+            call_count: number
+            avg_duration_ms: number
+            error_rate: number
+          }
+
           const typedData = topology.data as unknown as TopologyRow[]
+          const dependencyData = dependencies.data as unknown as DependencyRow[]
+          
+          console.log('🔍 Dependency query results:', dependencyData.length, 'dependencies found')
+          if (dependencyData.length > 0) {
+            console.log('🔍 First dependency:', dependencyData[0])
+          }
+          
+          // Build dependency map: parent_service -> [child dependencies]
+          const dependencyMap = new Map<string, Array<{
+            service: string
+            operation: string
+            callCount: number
+            avgLatencyMs: number
+            errorRate: number
+          }>>()
+
+          dependencyData.forEach(dep => {
+            if (!dependencyMap.has(dep.parent_service)) {
+              dependencyMap.set(dep.parent_service, [])
+            }
+            dependencyMap.get(dep.parent_service)?.push({
+              service: dep.child_service,
+              operation: 'unknown', // Could be enhanced with operation-level analysis
+              callCount: Number(dep.call_count) || 0,
+              avgLatencyMs: Number(dep.avg_duration_ms) || 0,
+              errorRate: Number(dep.error_rate) || 0
+            })
+          })
+
           const services = typedData.map((row) => ({
             service: row.service_name,
             type: 'backend' as const,
             operations: [`operation-${Math.floor(Math.random() * 100)}`],
-            dependencies: [],
+            dependencies: dependencyMap.get(row.service_name) || [],
             metadata: {
               avgLatencyMs: Number(row.avg_latency_ms) || 0,
               errorRate: Number(row.error_rate) || 0,
-              totalSpans: typeof row.span_count === 'string' 
-                ? parseInt(row.span_count, 10) 
-                : typeof row.span_count === 'bigint'
-                  ? parseInt((row.span_count as unknown as bigint).toString(), 10)
-                  : Number(row.span_count) || 0
+              totalSpans: Number(row.span_count) || 0
             }
           }))
 
-          // Calculate total spans safely - ensure all values are proper numbers
-          let totalSpans = 0
-          for (const service of services) {
-            const spans = service.metadata.totalSpans
-            if (typeof spans === 'number' && !isNaN(spans)) {
-              totalSpans += spans
+          // Generate data flows from dependencies
+          const dataFlows = dependencyData.map(dep => ({
+            from: dep.parent_service,
+            operation: 'unknown', // Could be enhanced with operation-level analysis
+            to: dep.child_service,
+            volume: Number(dep.call_count) || 0,
+            latency: {
+              p50: Number(dep.avg_duration_ms) || 0,
+              p95: Number(dep.avg_duration_ms) * 1.5 || 0, // Estimated
+              p99: Number(dep.avg_duration_ms) * 2 || 0    // Estimated
             }
+          }))
+
+          // Generate critical paths (sequences of services with high volume or latency)
+          const criticalPaths = generateCriticalPaths(services, dataFlows)
+
+          // Create architecture object for insights generation
+          const architecture = {
+            applicationName: 'Discovered Application',
+            description: 'Auto-discovered from telemetry data',
+            services,
+            dataFlows,
+            criticalPaths,
+            generatedAt: new Date()
           }
 
-          return {
-            requestId: `analysis-${Date.now()}`,
+          // Generate actual insights using the real logic
+          const insights = generateInsights(architecture, request.type)
+
+          const result = {
+            requestId: generateRequestId(),
             type: request.type,
             summary: `Discovered ${services.length} services from actual telemetry data in the last hour.`,
-            architecture: {
-              applicationName: 'Discovered Application',
-              description: 'Auto-discovered from telemetry data',
-              services,
-              dataFlows: [],
-              criticalPaths: [],
-              generatedAt: new Date()
-            },
-            insights: [],
+            architecture: request.type === 'architecture' ? architecture : undefined,
+            insights,
             metadata: {
-              analyzedSpans: totalSpans,
+              analyzedSpans: services.reduce((sum, s) => sum + (s.metadata.totalSpans as number), 0),
               analysisTimeMs: 150,
               llmTokensUsed: 0,
-              llmModel: 'local-statistical-analyzer', // No external LLM used - local statistical analysis only
+              llmModel: 'local-statistical-analyzer',
               confidence: 0.7
             }
           }
+
+          return result
         }),
         
         getServiceTopology: (timeRange: Parameters<Context.Tag.Service<typeof AIAnalyzerService>['getServiceTopology']>[0]) => Effect.gen(function* (_) {
+          // Simple query for service topology
           const topology = yield* _(Effect.promise(async () => await storage.queryWithResults(`
             SELECT 
               service_name,
@@ -981,7 +1092,7 @@ app.listen(PORT, async () => {
             service: row.service_name,
             type: 'backend' as const,
             operations: [`operation-${Math.floor(Math.random() * 100)}`],
-            dependencies: [],
+            dependencies: [], // TODO: Fix dependency discovery
             metadata: {
               avgLatencyMs: Number(row.avg_latency_ms) || 0,
               errorRate: Number(row.error_rate) || 0,

@@ -288,7 +288,7 @@ const generatePromptForAnalysisType = (
   return basePrompt
 }
 
-const generateInsights = (architecture: ApplicationArchitecture, _analysisType: AnalysisRequest['type']) => {
+export const generateInsights = (architecture: ApplicationArchitecture, _analysisType: AnalysisRequest['type']) => {
   const insights = []
   
   // Performance insights
@@ -375,7 +375,7 @@ const generateDocumentation = (
     }
   })
 
-const generateRequestId = (): string => 
+export const generateRequestId = (): string => 
   `ai-analysis-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 
 const calculateConfidenceScore = (topologyData: any[], dependencyData: any[]): number => {
