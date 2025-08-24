@@ -303,7 +303,9 @@ export const generateInsights = (architecture: ApplicationArchitecture, _analysi
       title: 'High Latency Services Detected',
       description: `${slowServices.length} services have average latency > 1000ms: ${slowServices.slice(0, 3).map(s => s.service).join(', ')}`,
       recommendation: 'Investigate performance bottlenecks in these services',
-      evidence: slowServices.slice(0, 5)
+      evidence: slowServices.slice(0, 5).map(s => 
+        `${s.service}: ${Math.round(s.metadata.avgLatencyMs as number)}ms avg latency (${s.metadata.totalSpans} spans)`
+      )
     })
   }
   
@@ -319,7 +321,9 @@ export const generateInsights = (architecture: ApplicationArchitecture, _analysi
       title: 'High Error Rate Services',
       description: `${errorProneServices.length} services have error rates > 1%: ${errorProneServices.slice(0, 3).map(s => `${s.service} (${((s.metadata.errorRate as number) * 100).toFixed(1)}%)`).join(', ')}`,
       recommendation: 'Review error handling and monitoring for these services',
-      evidence: errorProneServices.slice(0, 5)
+      evidence: errorProneServices.slice(0, 5).map(s => 
+        `${s.service}: ${((s.metadata.errorRate as number) * 100).toFixed(1)}% error rate (${s.metadata.totalSpans} spans, ${Math.round(s.metadata.avgLatencyMs as number)}ms avg)`
+      )
     })
   }
   
@@ -335,7 +339,9 @@ export const generateInsights = (architecture: ApplicationArchitecture, _analysi
       title: 'Complex Service Dependencies',
       description: `${complexServices.length} services have > 5 dependencies: ${complexServices.slice(0, 3).map(s => `${s.service} (${s.dependencies.length})`).join(', ')}`,
       recommendation: 'Consider dependency injection or service consolidation',
-      evidence: complexServices.slice(0, 3)
+      evidence: complexServices.slice(0, 3).map(s => 
+        `${s.service}: ${s.dependencies.length} dependencies (${s.metadata.totalSpans} spans, ${Math.round(s.metadata.avgLatencyMs as number)}ms avg)`
+      )
     })
   }
   
