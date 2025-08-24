@@ -541,6 +541,82 @@ app.post('/v1/traces', async (req, res) => {
     
     console.log('🔍 OTLP payload keys:', Object.keys(otlpData))
     
+    // Helper function to recursively extract values from protobuf objects
+    function extractProtobufValue(value: any): any {
+      // If it's a protobuf object with $typeName
+      if (value && typeof value === 'object' && '$typeName' in value && 'value' in value) {
+        const protoValue = value.value
+        
+        if (protoValue?.case === 'stringValue') {
+          return protoValue.value
+        } else if (protoValue?.case === 'intValue') {
+          return typeof protoValue.value === 'bigint' ? protoValue.value.toString() : protoValue.value
+        } else if (protoValue?.case === 'boolValue') {
+          return protoValue.value
+        } else if (protoValue?.case === 'doubleValue') {
+          return protoValue.value
+        } else if (protoValue?.case === 'arrayValue') {
+          // Recursively process array values
+          const arrayValue = protoValue.value
+          if (arrayValue?.values && Array.isArray(arrayValue.values)) {
+            return arrayValue.values.map((v: any) => extractProtobufValue(v))
+          }
+          return []
+        } else if (protoValue?.case === 'kvlistValue') {
+          // Recursively process key-value list
+          const kvList = protoValue.value
+          if (kvList?.values && Array.isArray(kvList.values)) {
+            const result: Record<string, any> = {}
+            for (const kv of kvList.values) {
+              if (kv.key) {
+                result[kv.key] = extractProtobufValue(kv.value)
+              }
+            }
+            return result
+          }
+          return {}
+        } else {
+          return protoValue.value
+        }
+      }
+      
+      // If it's an array, process each element
+      if (Array.isArray(value)) {
+        return value.map(v => extractProtobufValue(v))
+      }
+      
+      // If it's a regular object with potential nested protobuf values
+      if (value && typeof value === 'object' && !Buffer.isBuffer(value)) {
+        // Check if it has protobuf array structure
+        if ('values' in value && Array.isArray(value.values)) {
+          return value.values.map((v: any) => extractProtobufValue(v))
+        }
+        // Otherwise process as regular object
+        const result: Record<string, any> = {}
+        for (const key in value) {
+          result[key] = extractProtobufValue(value[key])
+        }
+        return result
+      }
+      
+      // Handle BigInt directly
+      if (typeof value === 'bigint') {
+        return value.toString()
+      }
+      
+      // Return primitive values as-is
+      return value
+    }
+    
+    // Helper function to deeply clean attributes of any protobuf artifacts
+    function cleanAttributes(attributes: Record<string, any>): Record<string, any> {
+      const cleaned: Record<string, any> = {}
+      for (const [key, value] of Object.entries(attributes)) {
+        cleaned[key] = extractProtobufValue(value)
+      }
+      return cleaned
+    }
+    
     // Transform OTLP data to our simplified storage format
     const traces = []
     
@@ -551,33 +627,14 @@ app.post('/v1/traces', async (req, res) => {
         // Extract resource attributes
         if (resourceSpan.resource?.attributes) {
           for (const attr of resourceSpan.resource.attributes) {
-            // Handle protobuf format from @bufbuild/protobuf parsing
-            let value: any
-            if (attr.value && typeof attr.value === 'object' && '$typeName' in attr.value && 'value' in attr.value) {
-              // Protobuf format: attr.value.value has { case: 'stringValue', value: 'actual_value' }
-              const protoValue = (attr.value as any).value
-              if (protoValue?.case === 'stringValue') {
-                value = protoValue.value
-              } else if (protoValue?.case === 'intValue') {
-                value = typeof protoValue.value === 'bigint' ? protoValue.value.toString() : protoValue.value
-              } else if (protoValue?.case === 'boolValue') {
-                value = protoValue.value
-              } else if (protoValue?.case === 'doubleValue') {
-                value = protoValue.value
-              } else if (protoValue?.case === 'arrayValue') {
-                // Handle array values by converting any BigInt values
-                value = JSON.parse(JSON.stringify(protoValue.value, (key, val) => typeof val === 'bigint' ? val.toString() : val))
-              } else if (protoValue?.case === 'kvlistValue') {
-                // Handle key-value list by converting any BigInt values
-                value = JSON.parse(JSON.stringify(protoValue.value, (key, val) => typeof val === 'bigint' ? val.toString() : val))
-              } else {
-                // For any other cases, ensure BigInt values are converted
-                value = typeof protoValue?.value === 'bigint' ? protoValue.value.toString() : protoValue?.value
-              }
-            } else {
-              // Fallback for other formats
+            // Use the recursive extraction function
+            let value = extractProtobufValue(attr.value)
+            
+            // Fallback for other formats if extraction returns null/undefined
+            if (value === null || value === undefined) {
               value = attr.value?.stringValue || attr.value?.intValue || attr.value?.boolValue || attr.value
             }
+            
             resourceAttributes[attr.key] = value
           }
         }
@@ -593,33 +650,14 @@ app.post('/v1/traces', async (req, res) => {
             // Extract span attributes
             if (span.attributes) {
               for (const attr of span.attributes) {
-                // Handle protobuf format from @bufbuild/protobuf parsing (same as resource attributes)
-                let value: any
-                if (attr.value && typeof attr.value === 'object' && '$typeName' in attr.value && 'value' in attr.value) {
-                  // Protobuf format: attr.value.value has { case: 'stringValue', value: 'actual_value' }
-                  const protoValue = (attr.value as any).value
-                  if (protoValue?.case === 'stringValue') {
-                    value = protoValue.value
-                  } else if (protoValue?.case === 'intValue') {
-                    value = typeof protoValue.value === 'bigint' ? protoValue.value.toString() : protoValue.value
-                  } else if (protoValue?.case === 'boolValue') {
-                    value = protoValue.value
-                  } else if (protoValue?.case === 'doubleValue') {
-                    value = protoValue.value
-                  } else if (protoValue?.case === 'arrayValue') {
-                    // Handle array values by converting any BigInt values
-                    value = JSON.parse(JSON.stringify(protoValue.value, (key, val) => typeof val === 'bigint' ? val.toString() : val))
-                  } else if (protoValue?.case === 'kvlistValue') {
-                    // Handle key-value list by converting any BigInt values
-                    value = JSON.parse(JSON.stringify(protoValue.value, (key, val) => typeof val === 'bigint' ? val.toString() : val))
-                  } else {
-                    // For any other cases, ensure BigInt values are converted
-                    value = typeof protoValue?.value === 'bigint' ? protoValue.value.toString() : protoValue?.value
-                  }
-                } else {
-                  // Fallback for other formats
+                // Use the recursive extraction function
+                let value = extractProtobufValue(attr.value)
+                
+                // Fallback for other formats if extraction returns null/undefined
+                if (value === null || value === undefined) {
                   value = attr.value?.stringValue || attr.value?.intValue || attr.value?.boolValue || attr.value
                 }
+                
                 spanAttributes[attr.key] = value
               }
             }
@@ -656,10 +694,10 @@ app.post('/v1/traces', async (req, res) => {
               trace_state: span.traceState || '',
               scope_name: scopeName,
               scope_version: scopeVersion,
-              span_attributes: spanAttributes,
-              resource_attributes: resourceAttributes,
-              events: JSON.stringify(span.events || [], (key, value) => typeof value === 'bigint' ? value.toString() : value),
-              links: JSON.stringify(span.links || [], (key, value) => typeof value === 'bigint' ? value.toString() : value),
+              span_attributes: cleanAttributes(spanAttributes),
+              resource_attributes: cleanAttributes(resourceAttributes),
+              events: JSON.stringify(span.events || [], (_, value) => typeof value === 'bigint' ? value.toString() : value),
+              links: JSON.stringify(span.links || [], (_, value) => typeof value === 'bigint' ? value.toString() : value),
               // Store encoding type for UI statistics
               encoding_type: encodingType
             }
@@ -699,14 +737,14 @@ app.post('/v1/traces', async (req, res) => {
 })
 
 // OTLP Metrics ingestion endpoint (for completeness)
-app.post('/v1/metrics', async (req, res) => {
+app.post('/v1/metrics', async (_, res) => {
   console.log('📍 Direct OTLP metrics received')
   // For now, just acknowledge
   res.json({ partialSuccess: {} })
 })
 
 // OTLP Logs ingestion endpoint (for completeness)  
-app.post('/v1/logs', async (req, res) => {
+app.post('/v1/logs', async (_, res) => {
   console.log('📍 Direct OTLP logs received')
   // For now, just acknowledge
   res.json({ partialSuccess: {} })
