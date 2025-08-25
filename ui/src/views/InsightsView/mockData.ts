@@ -12,6 +12,8 @@ export interface AnalysisResult {
     analysisTimeMs: number;
     llmTokensUsed: number;
     confidence: number;
+    selectedModel?: string;
+    llmModel?: string;
   };
 }
 
@@ -282,16 +284,74 @@ This distributed application follows a microservices pattern with 8 core service
   }
 };
 
-export const generateMockData = (analysisType: 'architecture' | 'dataflow' | 'dependencies' | 'insights'): AnalysisResult => {
+// Model-specific insights for demonstration
+const getModelSpecificInsights = (model: string): AnalysisInsight[] => {
+  const baseInsights = mockAnalysisResult.insights;
+  
+  if (model === 'local-statistical-analyzer') {
+    // Statistical model returns fewer, basic insights
+    return baseInsights.slice(0, 2).map(insight => ({
+      ...insight,
+      type: 'performance',
+      severity: 'info' as const
+    }));
+  }
+  
+  // Enhanced models have unique insights
+  const modelInsights: Record<string, AnalysisInsight> = {
+    claude: {
+      title: 'Architectural Pattern Analysis',
+      description: 'Claude identifies sophisticated architectural patterns and suggests improvements based on domain-driven design principles.',
+      type: 'architecture',
+      severity: 'info',
+      evidence: ['Microservices pattern detected', 'Event-driven communication', 'CQRS implementation opportunity'],
+      recommendation: 'Consider implementing event sourcing for audit trail capabilities.'
+    },
+    gpt: {
+      title: 'Performance Optimization Opportunities',
+      description: 'GPT-4 analysis reveals specific performance bottlenecks and provides actionable optimization strategies.',
+      type: 'performance', 
+      severity: 'warning',
+      evidence: ['Database connection pooling inefficient', 'Caching layer underutilized', 'Query optimization needed'],
+      recommendation: 'Implement connection pooling and add Redis caching layer for frequently accessed data.'
+    },
+    llama: {
+      title: 'Resource Utilization & Scalability Analysis',
+      description: 'Llama provides detailed resource usage analysis and scalability recommendations for cloud deployment.',
+      type: 'optimization',
+      severity: 'info', 
+      evidence: ['CPU utilization spikes detected', 'Memory usage patterns analyzed', 'Scaling policies recommended'],
+      recommendation: 'Implement horizontal pod autoscaling with custom CPU and memory thresholds.'
+    }
+  };
+  
+  const modelSpecificInsight = modelInsights[model];
+  if (modelSpecificInsight) {
+    return [modelSpecificInsight, ...baseInsights];
+  }
+  
+  return baseInsights;
+};
+
+export const generateMockData = (
+  analysisType: 'architecture' | 'dataflow' | 'dependencies' | 'insights', 
+  model: string = 'claude'
+): AnalysisResult => {
   return {
     ...mockAnalysisResult,
     type: analysisType,
+    insights: getModelSpecificInsights(model),
     summary: analysisType === 'dependencies' 
-      ? 'Dependency analysis shows well-structured service relationships with minimal circular dependencies'
+      ? `Dependency analysis using ${model === 'local-statistical-analyzer' ? 'statistical analysis' : model + ' model'} shows well-structured service relationships with minimal circular dependencies`
       : analysisType === 'dataflow'
-      ? 'Data flow analysis reveals efficient request patterns with optimal cache utilization'
+      ? `Data flow analysis using ${model === 'local-statistical-analyzer' ? 'statistical analysis' : model + ' model'} reveals efficient request patterns with optimal cache utilization`
       : analysisType === 'insights'
-      ? 'Performance insights indicate overall healthy system with specific optimization opportunities'
-      : mockAnalysisResult.summary
+      ? `Performance insights using ${model === 'local-statistical-analyzer' ? 'statistical analysis' : model + ' model'} indicate overall healthy system with specific optimization opportunities`
+      : `Architecture analysis using ${model === 'local-statistical-analyzer' ? 'statistical analysis' : model + ' model'}: ${mockAnalysisResult.summary}`,
+    metadata: {
+      ...mockAnalysisResult.metadata,
+      selectedModel: model,
+      llmModel: model === 'local-statistical-analyzer' ? 'local-statistical-analyzer' : `${model}-via-llm-manager`
+    }
   };
 };

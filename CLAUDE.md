@@ -126,7 +126,7 @@ The following agents are available in `.claude/agents/`:
 - **code-review-agent** - Quality assurance and best practices validation
 - **code-to-docs-sync-agent** - Bidirectional documentation synchronization
 - **pr-creation-agent** - PR creation with screenshot organization
-- **quick-archive-agent** - Session archiving and content generation
+- **claude-review-session-agent** - Historical context recovery and development continuity
 
 ### Agent Usage Examples
 
@@ -160,19 +160,20 @@ Use the code-to-docs-sync-agent to ensure implementation and specs are aligned.
 Use the pr-creation-agent to organize screenshots and create comprehensive PRs.
 ```
 
-#### Archive Session
+#### Recover Session Context
 ```
-Use the quick-archive-agent for end-of-day archiving and content generation.
+Use the claude-review-session-agent to understand recent development context and identify gaps between planned and implemented features.
 ```
 
 ### Orchestration Patterns
 
 **Daily Development Workflow**:
 1. Start day → `start-day-agent` sets goals
-2. Development work with periodic `testing-agent` validation
-3. Before commits → `code-review-agent` quality check
-4. After major changes → `code-to-docs-sync-agent` alignment
-5. End day → `end-day-agent` review and content generation
+2. Context recovery → `claude-review-session-agent` provides historical understanding
+3. Development work with periodic `testing-agent` validation
+4. Before commits → `code-review-agent` quality check
+5. After major changes → `code-to-docs-sync-agent` alignment
+6. End day → `end-day-agent` review and content generation
 
 **Quality Assurance Workflow**:
 1. `testing-agent` → comprehensive validation
@@ -182,23 +183,17 @@ Use the quick-archive-agent for end-of-day archiving and content generation.
 
 The subagents handle routine workflow tasks, allowing focus on high-value creative development work while maintaining consistency and quality.
 
-### Key Scripts
+### Agent-Based Workflow (No Scripts Needed)
 
-```bash
-# Daily workflow
-./scripts/start-day.sh          # Start of day setup and goal setting
-./scripts/end-day.sh            # End of day archiving and blog generation
+All daily workflow, documentation sync, and session management is handled by specialized Claude Code agents:
 
-# Documentation workflow
-./scripts/generate-from-note.sh notes/packages/storage/package.md
-./scripts/update-note-from-code.sh src/storage
-./scripts/sync-all-notes.sh
+- **Daily workflow**: Use `start-day-agent` and `end-day-agent`
+- **Context recovery**: Use `claude-review-session-agent` 
+- **Documentation sync**: Use `code-to-docs-sync-agent`
+- **Quality assurance**: Use `testing-agent` and `code-review-agent`
+- **PR creation**: Use `pr-creation-agent`
 
-# Archiving and publishing
-./scripts/archive-claude-discussion.sh    # Archive Claude Code conversations
-./scripts/generate-blog-from-daily.sh     # Generate blog posts from daily notes
-./scripts/quick-archive.sh                # Combined archiving and blog generation
-```
+This eliminates the need for bash scripts and provides a more integrated, AI-native development experience.
 
 ### Dendron Integration
 
@@ -297,11 +292,11 @@ notes/
 
 ### Start of Day Process - AI-Native Workflow
 
-```bash
-./scripts/start-day-claude.sh
+```
+Use start-day-agent to plan today's goals and review progress.
 ```
 
-**NEW**: Prompt-driven approach with Claude Code that:
+**Agent-driven approach** with Claude Code that:
 
 - Reviews yesterday's progress from actual daily notes
 - Gathers context about project state and goals
@@ -309,15 +304,13 @@ notes/
 - Creates today's daily note with intelligent goal setting
 - Provides project timeline awareness and focus areas
 
-**Legacy bash version**: `./scripts/start-day.sh` (kept for reference)
-
 ### End of Day Process - Comprehensive Review & Content Generation
 
-```bash
-./scripts/end-day-claude.sh
+```
+Use end-day-agent for progress review and content generation.
 ```
 
-**NEW**: Claude Code assisted workflow that:
+**Agent-driven workflow** that:
 
 - Conducts interactive progress review with context awareness
 - Generates high-quality blog content with technical depth
@@ -325,21 +318,19 @@ notes/
 - Updates daily notes with completion status and learnings
 - Plans tomorrow's priorities based on actual progress
 
-**Legacy bash version**: `./scripts/end-day.sh` (kept for reference)
+### Session Context Recovery - AI-Native Approach
 
-### Session Archiving - Project-Local Integration
-
-```bash
-./scripts/sync-claude-sessions.sh
+```
+Use claude-review-session-agent to understand recent development context and identify implementation gaps.
 ```
 
-**NEW**: Integrates claude-code-log (https://github.com/daaain/claude-code-log) with project-local storage:
+**Agent-driven context recovery** leveraging claude-code-log (https://github.com/daaain/claude-code-log):
 
-- Syncs all Claude Code sessions to `notes/claude-sessions/`
-- Generates consolidated and individual session HTML transcripts
-- Creates searchable archive of all development decisions
-- Maintains backup JSONL files for data integrity
-- Updates session index with timestamps and navigation
+- Analyzes historical Claude Code sessions for context
+- Identifies gaps between planned and implemented features
+- Provides development continuity across sessions
+- Maps test expectations to actual implementations
+- Enables informed decision making based on historical context
 
 ### Historical Session Data Access
 
@@ -664,8 +655,8 @@ pnpm test:integration  # Integration tests only
 # Infrastructure validation
 node test/validate-infrastructure.js
 
-# Manual data generation (for testing)
-./scripts/generate-test-traces.sh
+# Manual data generation (for testing) 
+pnpm run generate:test-traces
 ```
 
 ### Screenshot Workflow
@@ -677,10 +668,10 @@ node test/validate-infrastructure.js
 # Save directly to screenshots-dropbox/ with descriptive name
 
 # During end-of-day workflow
-./scripts/end-day-claude.sh  # Will help organize screenshots into package docs
+Use end-day-agent  # Will help organize screenshots into package docs
 
 # Create PR with organized screenshots
-./scripts/create-pr-claude.sh  # Auto-organizes and references screenshots
+Use pr-creation-agent  # Auto-organizes and references screenshots
 ```
 
 **File naming suggestions**:

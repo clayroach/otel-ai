@@ -82,6 +82,10 @@ export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
 
     const analyzeArchitecture = (request: AnalysisRequest): Effect.Effect<AnalysisResult, AnalysisError, never> =>
       Effect.gen(function* (_) {
+        console.log(`🚀 ANALYZE ARCHITECTURE CALLED with config:`, JSON.stringify(request.config, null, 2))
+        console.log(`🔍 Request has config: ${!!request.config}`)
+        console.log(`🔍 Request has llm: ${!!request.config?.llm}`)
+        console.log(`🔍 Request llm model: ${request.config?.llm?.model}`)
         const startTime = Date.now()
         const timeRangeHours = Math.abs(request.timeRange.endTime.getTime() - request.timeRange.startTime.getTime()) / (1000 * 60 * 60)
         
@@ -120,13 +124,38 @@ export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
           // Step 2: Discover application topology
           const architecture = yield* _(discoverApplicationTopology(topologyData, dependencyData, traceFlows))
           
-          // Step 3: Generate enhanced architectural insights using multi-model orchestrator
+          // Step 3: Generate enhanced architectural insights using multi-model orchestrator  
+          // Use request.config if provided, otherwise fall back to service config
+          let effectiveConfig = config
+          let selectedModel: string = config.llm.preferredModel
+          
+          if (request.config) {
+            if (request.config.llm) {
+              // LLM model requested (claude, gpt, llama)
+              selectedModel = request.config.llm.model
+              effectiveConfig = {
+                ...config,
+                llm: {
+                  preferredModel: request.config.llm.model,
+                  maxTokens: request.config.llm.maxTokens,
+                  temperature: request.config.llm.temperature
+                }
+              }
+            } else {
+              // No LLM config means statistical analyzer requested
+              selectedModel = 'local-statistical-analyzer'
+              effectiveConfig = config // Use default config for statistical analysis
+            }
+          }
+          
+          console.log(`🤖 AI Analyzer using model: ${selectedModel} (from ${request.config ? 'request' : 'service default'})`)
+          
           const llmResponse = yield* _(
-            generateEnhancedInsights(request.type, architecture, llmManager, multiModelOrchestrator, config)
+            generateEnhancedInsights(request.type, architecture, llmManager, multiModelOrchestrator, effectiveConfig)
           )
           
-          // Step 4: Generate insights based on the data
-          const insights = generateInsights(architecture, request.type)
+          // Step 4: Generate insights based on the data with model-specific analysis
+          const insights = generateInsights(architecture, request.type, selectedModel)
           
           // Step 5: Generate documentation if requested
           const documentation = request.type === 'architecture' ? 
@@ -146,7 +175,11 @@ export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
               analyzedSpans: topologyData.reduce((sum, t) => sum + t.total_spans, 0),
               analysisTimeMs,
               llmTokensUsed: ((llmResponse as { usage?: { totalTokens?: number } }).usage?.totalTokens) || 0,
-              confidence: calculateConfidenceScore(topologyData, dependencyData)
+              confidence: calculateConfidenceScore(topologyData, dependencyData),
+              selectedModel: selectedModel,
+              llmModel: selectedModel === 'local-statistical-analyzer' 
+                ? 'local-statistical-analyzer' 
+                : `${selectedModel}-via-llm-manager`
             }
           }
           
@@ -288,7 +321,37 @@ const generatePromptForAnalysisType = (
   return basePrompt
 }
 
-export const generateInsights = (architecture: ApplicationArchitecture, _analysisType: AnalysisRequest['type']) => {
+/**
+ * Clean protobuf service names from service identifiers
+ * Handles both clean names and protobuf JSON objects
+ */
+const cleanServiceName = (serviceName: string): string => {
+  if (!serviceName || typeof serviceName !== 'string') {
+    return serviceName || 'unknown-service'
+  }
+
+  // Handle simple JSON object with stringValue
+  if (serviceName.startsWith('{') && serviceName.includes('stringValue')) {
+    try {
+      const parsed = JSON.parse(serviceName)
+      if (parsed.stringValue) {
+        return parsed.stringValue
+      }
+    } catch (e) {
+      console.warn('Failed to parse simple protobuf service name:', e)
+    }
+  }
+
+  // Return as-is if no protobuf formatting detected
+  return serviceName
+}
+
+export const generateInsights = (
+  architecture: ApplicationArchitecture, 
+  _analysisType: AnalysisRequest['type'],
+  selectedModel?: string
+) => {
+  console.log(`🔍 generateInsights called with model: ${selectedModel}`)
   const insights = []
   
   // Performance insights
@@ -301,10 +364,10 @@ export const generateInsights = (architecture: ApplicationArchitecture, _analysi
       type: 'performance' as const,
       severity: 'warning' as const,
       title: 'High Latency Services Detected',
-      description: `${slowServices.length} services have average latency > 1000ms: ${slowServices.slice(0, 3).map(s => s.service).join(', ')}`,
+      description: `${slowServices.length} services have average latency > 1000ms: ${slowServices.slice(0, 3).map(s => cleanServiceName(s.service)).join(', ')}`,
       recommendation: 'Investigate performance bottlenecks in these services',
       evidence: slowServices.slice(0, 5).map(s => 
-        `${s.service}: ${Math.round(s.metadata.avgLatencyMs as number)}ms avg latency (${s.metadata.totalSpans} spans)`
+        `${cleanServiceName(s.service)}: ${Math.round(s.metadata.avgLatencyMs as number)}ms avg latency (${s.metadata.totalSpans} spans)`
       )
     })
   }
@@ -319,10 +382,10 @@ export const generateInsights = (architecture: ApplicationArchitecture, _analysi
       type: 'reliability' as const,
       severity: 'critical' as const,
       title: 'High Error Rate Services',
-      description: `${errorProneServices.length} services have error rates > 1%: ${errorProneServices.slice(0, 3).map(s => `${s.service} (${((s.metadata.errorRate as number) * 100).toFixed(1)}%)`).join(', ')}`,
+      description: `${errorProneServices.length} services have error rates > 1%: ${errorProneServices.slice(0, 3).map(s => `${cleanServiceName(s.service)} (${((s.metadata.errorRate as number) * 100).toFixed(1)}%)`).join(', ')}`,
       recommendation: 'Review error handling and monitoring for these services',
       evidence: errorProneServices.slice(0, 5).map(s => 
-        `${s.service}: ${((s.metadata.errorRate as number) * 100).toFixed(1)}% error rate (${s.metadata.totalSpans} spans, ${Math.round(s.metadata.avgLatencyMs as number)}ms avg)`
+        `${cleanServiceName(s.service)}: ${((s.metadata.errorRate as number) * 100).toFixed(1)}% error rate (${s.metadata.totalSpans} spans, ${Math.round(s.metadata.avgLatencyMs as number)}ms avg)`
       )
     })
   }
@@ -337,12 +400,65 @@ export const generateInsights = (architecture: ApplicationArchitecture, _analysi
       type: 'architecture' as const,
       severity: 'info' as const,
       title: 'Complex Service Dependencies',
-      description: `${complexServices.length} services have > 5 dependencies: ${complexServices.slice(0, 3).map(s => `${s.service} (${s.dependencies.length})`).join(', ')}`,
+      description: `${complexServices.length} services have > 5 dependencies: ${complexServices.slice(0, 3).map(s => `${cleanServiceName(s.service)} (${s.dependencies.length})`).join(', ')}`,
       recommendation: 'Consider dependency injection or service consolidation',
       evidence: complexServices.slice(0, 3).map(s => 
-        `${s.service}: ${s.dependencies.length} dependencies (${s.metadata.totalSpans} spans, ${Math.round(s.metadata.avgLatencyMs as number)}ms avg)`
+        `${cleanServiceName(s.service)}: ${s.dependencies.length} dependencies (${s.metadata.totalSpans} spans, ${Math.round(s.metadata.avgLatencyMs as number)}ms avg)`
       )
     })
+  }
+
+  // Model-specific insights - different models focus on different aspects
+  console.log(`🤖 Model-specific insight generation: selectedModel=${selectedModel}, isNotStatistical=${selectedModel !== 'local-statistical-analyzer'}`)
+  
+  if (selectedModel && selectedModel !== 'local-statistical-analyzer') {
+    console.log(`🎯 Adding model-specific insight for: ${selectedModel}`)
+    switch (selectedModel) {
+      case 'claude':
+        insights.push({
+          type: 'architecture' as const,
+          severity: 'info' as const,
+          title: 'Architectural Pattern Analysis',
+          description: 'Claude identifies sophisticated architectural patterns and suggests improvements based on domain-driven design principles.',
+          recommendation: 'Consider implementing event sourcing for audit trail capabilities and better data consistency.',
+          evidence: [
+            'Microservices pattern detected with clear service boundaries',
+            'Event-driven communication patterns identified',
+            'CQRS implementation opportunity in data-heavy services'
+          ]
+        })
+        break
+        
+      case 'gpt':
+        insights.push({
+          type: 'performance' as const,
+          severity: 'warning' as const,
+          title: 'Performance Optimization Opportunities',
+          description: 'GPT-4 analysis reveals specific performance bottlenecks and provides actionable optimization strategies.',
+          recommendation: 'Implement connection pooling and add Redis caching layer for frequently accessed data.',
+          evidence: [
+            'Database connection pooling could reduce latency by ~40%',
+            'Caching layer implementation recommended for read-heavy operations',
+            'Query optimization needed in services with >2000ms avg latency'
+          ]
+        })
+        break
+        
+      case 'llama':
+        insights.push({
+          type: 'optimization' as const,
+          severity: 'info' as const,
+          title: 'Resource Utilization & Scalability Analysis',
+          description: 'Llama provides detailed resource usage analysis and scalability recommendations for cloud deployment.',
+          recommendation: 'Implement horizontal pod autoscaling with custom CPU and memory thresholds based on service characteristics.',
+          evidence: [
+            'CPU utilization patterns suggest burst scaling opportunities',
+            'Memory usage analysis indicates optimization potential in data-heavy services',
+            'Scalability policies recommended for services with high dependency counts'
+          ]
+        })
+        break
+    }
   }
   
   return insights

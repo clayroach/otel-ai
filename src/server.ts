@@ -3,19 +3,38 @@
  * Provides direct OTLP ingestion endpoint for "direct" path testing
  */
 
-import express from 'express'
-import cors from 'cors'
-import { SimpleStorage, type SimpleStorageConfig } from './storage/simple-storage.js'
-import { ExportTraceServiceRequestSchema, ResourceSpans, KeyValue, ScopeSpans } from './opentelemetry/index.js'
 import { fromBinary } from '@bufbuild/protobuf'
+import cors from 'cors'
+import { Context, Effect, Stream } from 'effect'
+import express from 'express'
 import { AIAnalyzerService } from './ai-analyzer/index.js'
-import { AIAnalyzerLayer, defaultAnalyzerConfig, generateInsights, generateRequestId } from './ai-analyzer/service.js'
-import { Effect, Context, Layer, Stream } from 'effect'
+import { defaultAnalyzerConfig, generateInsights, generateRequestId } from './ai-analyzer/service.js'
+import { ExportTraceServiceRequestSchema, KeyValue, ResourceSpans, ScopeSpans } from './opentelemetry/index.js'
+import { SimpleStorage, type SimpleStorageConfig } from './storage/simple-storage.js'
 
 /**
  * Type for OpenTelemetry attribute values
  */
 type AttributeValue = string | number | boolean | bigint | Uint8Array | undefined
+
+// TypeScript interfaces for protobuf value extraction
+interface ProtobufValue {
+  case: 'stringValue' | 'intValue' | 'boolValue' | 'doubleValue' | 'arrayValue' | 'kvlistValue'
+  value: unknown
+}
+
+interface ProtobufObject {
+  $typeName: string
+  value: ProtobufValue
+}
+
+interface ProtobufArrayValue {
+  values: unknown[]
+}
+
+interface ProtobufKvListValue {
+  values: Array<{ key: string; value: unknown }>
+}
 
 /**
  * Parse OTLP data from raw protobuf buffer by detecting patterns
@@ -214,7 +233,7 @@ async function createViews() {
 }
 
 // Health check endpoint
-app.get('/health', async (req, res) => {
+app.get('/health', async (_req, res) => {
   try {
     const isHealthy = await storage.healthCheck()
     res.json({ 
@@ -476,6 +495,129 @@ app.post('/api/ai-analyzer/topology', async (req, res) => {
   }
 })
 
+// Helper function to recursively extract values from protobuf objects
+function extractProtobufValue(value: unknown): unknown {
+  // If it's a protobuf object with $typeName
+  if (value && typeof value === 'object' && value !== null && '$typeName' in value && 'value' in value) {
+    const protoObj = value as ProtobufObject
+    const protoValue = protoObj.value
+    
+    if (protoValue?.case === 'stringValue') {
+      return protoValue.value
+    } else if (protoValue?.case === 'intValue') {
+      return typeof protoValue.value === 'bigint' ? protoValue.value.toString() : protoValue.value
+    } else if (protoValue?.case === 'boolValue') {
+      return protoValue.value
+    } else if (protoValue?.case === 'doubleValue') {
+      return protoValue.value
+    } else if (protoValue?.case === 'arrayValue') {
+      // Recursively process array values
+      const arrayValue = protoValue.value as ProtobufArrayValue
+      if (arrayValue?.values && Array.isArray(arrayValue.values)) {
+        return arrayValue.values.map((v: unknown) => extractProtobufValue(v))
+      }
+      return []
+    } else if (protoValue?.case === 'kvlistValue') {
+      // Recursively process key-value list
+      const kvList = protoValue.value as ProtobufKvListValue
+      if (kvList?.values && Array.isArray(kvList.values)) {
+        const result: Record<string, unknown> = {}
+        for (const kv of kvList.values) {
+          if (kv.key) {
+            result[kv.key] = extractProtobufValue(kv.value)
+          }
+        }
+        return result
+      }
+      return {}
+    } else {
+      return protoValue.value
+    }
+  }
+  
+  // If it's an array, process each element
+  if (Array.isArray(value)) {
+    return value.map(v => extractProtobufValue(v))
+  }
+  
+  // If it's a regular object with potential nested protobuf values
+  if (value && typeof value === 'object' && !Buffer.isBuffer(value)) {
+    // Check if it has protobuf array structure
+    if ('values' in value && Array.isArray((value as { values: unknown[] }).values)) {
+      return (value as { values: unknown[] }).values.map((v: unknown) => extractProtobufValue(v))
+    }
+    // Otherwise process as regular object
+    const result: Record<string, unknown> = {}
+    for (const key in value as Record<string, unknown>) {
+      result[key] = extractProtobufValue((value as Record<string, unknown>)[key])
+    }
+    return result
+  }
+  
+  // Handle BigInt directly
+  if (typeof value === 'bigint') {
+    return value.toString()
+  }
+  
+  // Return primitive values as-is
+  return value
+}
+
+// Helper function to deeply clean attributes of any protobuf artifacts
+function cleanAttributes(attributes: Record<string, unknown>): Record<string, unknown> {
+  const cleaned: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(attributes)) {
+    cleaned[key] = extractProtobufValue(value)
+  }
+  return cleaned
+}
+
+// Helper function to generate critical paths for AI analysis
+function generateCriticalPaths(services: Array<{ service: string }>, dataFlows: Array<{ from: string; to: string; volume: number; latency: { p50: number } }>) {
+  const paths = []
+  
+  // Find high-volume service chains
+  const highVolumeFlows = dataFlows
+    .filter(flow => flow.volume > 50) // Threshold for high volume
+    .sort((a, b) => b.volume - a.volume)
+    .slice(0, 10) // Top 10 flows
+  
+  for (const flow of highVolumeFlows) {
+    const fromService = services.find(s => s.service === flow.from)
+    const toService = services.find(s => s.service === flow.to)
+    
+    if (fromService && toService) {
+      paths.push({
+        name: `${flow.from} → ${flow.to}`,
+        services: [flow.from, flow.to],
+        avgLatencyMs: flow.latency.p50,
+        errorRate: 0, // Not directly available in dataFlow
+        volume: flow.volume,
+        type: 'high-volume'
+      })
+    }
+  }
+  
+  // Find high-latency service chains
+  const highLatencyFlows = dataFlows
+    .filter(flow => flow.latency.p50 > 1000) // >1s latency
+    .sort((a, b) => b.latency.p50 - a.latency.p50)
+    .slice(0, 5)
+    
+  for (const flow of highLatencyFlows) {
+    paths.push({
+      name: `${flow.from} → ${flow.to} (slow)`,
+      services: [flow.from, flow.to],
+      avgLatencyMs: flow.latency.p50,
+      errorRate: 0, // Not directly available in dataFlow
+      volume: flow.volume,
+      type: 'high-latency'
+    })
+  }
+  
+  return paths
+}
+
 // OTLP Traces ingestion endpoint (handles both protobuf and JSON)
 app.post('/v1/traces', async (req, res) => {
   try {
@@ -489,7 +631,7 @@ app.post('/v1/traces', async (req, res) => {
   
   // Add detailed body inspection for other cases
   if (Buffer.isBuffer(req.body)) {
-    console.log('🔍 Body is Buffer, first 20 bytes:', req.body.slice(0, 20).toString('hex'))
+    console.log('🔍 Body is Buffer, first 20 bytes:', Buffer.from(req.body).subarray(0, 20).toString('hex'))
   } else if (typeof req.body === 'object') {
     console.log('🔍 Body is object, keys:', Object.keys(req.body || {}))
   }
@@ -648,82 +790,6 @@ app.post('/v1/traces', async (req, res) => {
     
     console.log('🔍 OTLP payload keys:', Object.keys(otlpData))
     
-    // Helper function to recursively extract values from protobuf objects
-    function extractProtobufValue(value: any): any {
-      // If it's a protobuf object with $typeName
-      if (value && typeof value === 'object' && '$typeName' in value && 'value' in value) {
-        const protoValue = value.value
-        
-        if (protoValue?.case === 'stringValue') {
-          return protoValue.value
-        } else if (protoValue?.case === 'intValue') {
-          return typeof protoValue.value === 'bigint' ? protoValue.value.toString() : protoValue.value
-        } else if (protoValue?.case === 'boolValue') {
-          return protoValue.value
-        } else if (protoValue?.case === 'doubleValue') {
-          return protoValue.value
-        } else if (protoValue?.case === 'arrayValue') {
-          // Recursively process array values
-          const arrayValue = protoValue.value
-          if (arrayValue?.values && Array.isArray(arrayValue.values)) {
-            return arrayValue.values.map((v: any) => extractProtobufValue(v))
-          }
-          return []
-        } else if (protoValue?.case === 'kvlistValue') {
-          // Recursively process key-value list
-          const kvList = protoValue.value
-          if (kvList?.values && Array.isArray(kvList.values)) {
-            const result: Record<string, any> = {}
-            for (const kv of kvList.values) {
-              if (kv.key) {
-                result[kv.key] = extractProtobufValue(kv.value)
-              }
-            }
-            return result
-          }
-          return {}
-        } else {
-          return protoValue.value
-        }
-      }
-      
-      // If it's an array, process each element
-      if (Array.isArray(value)) {
-        return value.map(v => extractProtobufValue(v))
-      }
-      
-      // If it's a regular object with potential nested protobuf values
-      if (value && typeof value === 'object' && !Buffer.isBuffer(value)) {
-        // Check if it has protobuf array structure
-        if ('values' in value && Array.isArray(value.values)) {
-          return value.values.map((v: any) => extractProtobufValue(v))
-        }
-        // Otherwise process as regular object
-        const result: Record<string, any> = {}
-        for (const key in value) {
-          result[key] = extractProtobufValue(value[key])
-        }
-        return result
-      }
-      
-      // Handle BigInt directly
-      if (typeof value === 'bigint') {
-        return value.toString()
-      }
-      
-      // Return primitive values as-is
-      return value
-    }
-    
-    // Helper function to deeply clean attributes of any protobuf artifacts
-    function cleanAttributes(attributes: Record<string, any>): Record<string, any> {
-      const cleaned: Record<string, any> = {}
-      for (const [key, value] of Object.entries(attributes)) {
-        cleaned[key] = extractProtobufValue(value)
-      }
-      return cleaned
-    }
-    
     // Transform OTLP data to our simplified storage format
     const traces = []
     
@@ -734,15 +800,44 @@ app.post('/v1/traces', async (req, res) => {
         // Extract resource attributes
         if (resourceSpan.resource?.attributes) {
           for (const attr of resourceSpan.resource.attributes) {
+            // Debug the format we're receiving
+            if (attr.key === 'service.name') {
+              console.log('🔍 DEBUG: service.name attribute value:', JSON.stringify(attr.value, null, 2))
+              console.log('🔍 DEBUG: typeof attr.value:', typeof attr.value)
+              console.log('🔍 DEBUG: attr.value keys:', attr.value ? Object.keys(attr.value) : 'null/undefined')
+            }
+            
             // Use the recursive extraction function
             let value = extractProtobufValue(attr.value)
             
-            // Fallback for other formats if extraction returns null/undefined
+            // Enhanced fallback for simple JSON protobuf format
             if (value === null || value === undefined) {
-              value = attr.value?.stringValue || attr.value?.intValue || attr.value?.boolValue || attr.value
+              // Handle simple JSON protobuf format: {stringValue: "value"}
+              if (attr.value && typeof attr.value === 'object' && 'stringValue' in attr.value) {
+                value = (attr.value as any).stringValue
+              } else if (attr.value && typeof attr.value === 'object' && 'intValue' in attr.value) {
+                value = (attr.value as any).intValue
+              } else if (attr.value && typeof attr.value === 'object' && 'boolValue' in attr.value) {
+                value = (attr.value as any).boolValue
+              } else if (attr.value && typeof attr.value === 'object' && 'doubleValue' in attr.value) {
+                value = (attr.value as any).doubleValue
+              } else {
+                // Original fallback
+                value = attr.value?.stringValue || attr.value?.intValue || attr.value?.boolValue || attr.value?.doubleValue || attr.value
+              }
             }
             
-            resourceAttributes[attr.key] = value
+            // Additional safety check - if we still have an object with stringValue, extract it
+            if (value && typeof value === 'object' && 'stringValue' in value) {
+              value = (value as any).stringValue
+            }
+            
+            // Debug the final extracted value
+            if (attr.key === 'service.name') {
+              console.log('🔍 DEBUG: final extracted service.name value:', value, typeof value)
+            }
+            
+            resourceAttributes[attr.key] = value as AttributeValue
           }
         }
         
@@ -765,7 +860,7 @@ app.post('/v1/traces', async (req, res) => {
                   value = attr.value?.stringValue || attr.value?.intValue || attr.value?.boolValue || attr.value
                 }
                 
-                spanAttributes[attr.key] = value
+                spanAttributes[attr.key] = value as AttributeValue
               }
             }
             
@@ -872,62 +967,16 @@ app.listen(PORT, async () => {
     try {
       console.log('🤖 Initializing AI Analyzer service...')
       
-      const config = {
-        ...defaultAnalyzerConfig,
-        clickhouse: storageConfig.clickhouse
-      }
-      
-      // Helper function to generate critical paths
-      function generateCriticalPaths(services: any[], dataFlows: any[]) {
-        const paths = []
-        
-        // Find high-volume service chains
-        const highVolumeFlows = dataFlows
-          .filter(flow => flow.volume > 50) // Threshold for high volume
-          .sort((a, b) => b.volume - a.volume)
-          .slice(0, 10) // Top 10 flows
-        
-        for (const flow of highVolumeFlows) {
-          const fromService = services.find(s => s.service === flow.from)
-          const toService = services.find(s => s.service === flow.to)
-          
-          if (fromService && toService) {
-            paths.push({
-              name: `${flow.from} → ${flow.to}`,
-              services: [flow.from, flow.to],
-              avgLatencyMs: flow.latency.p50,
-              errorRate: 0, // Not directly available in dataFlow
-              volume: flow.volume,
-              type: 'high-volume'
-            })
-          }
-        }
-        
-        // Find high-latency service chains
-        const highLatencyFlows = dataFlows
-          .filter(flow => flow.latency.p50 > 1000) // >1s latency
-          .sort((a, b) => b.latency.p50 - a.latency.p50)
-          .slice(0, 5)
-          
-        for (const flow of highLatencyFlows) {
-          paths.push({
-            name: `${flow.from} → ${flow.to} (slow)`,
-            services: [flow.from, flow.to],
-            avgLatencyMs: flow.latency.p50,
-            errorRate: 0, // Not directly available in dataFlow
-            volume: flow.volume,
-            type: 'high-latency'
-          })
-        }
-        
-        return paths
-      }
-
       // Create a mock implementation that works without full Effect runtime
       aiAnalyzer = {
         
         analyzeArchitecture: (request: Parameters<Context.Tag.Service<typeof AIAnalyzerService>['analyzeArchitecture']>[0]) => Effect.gen(function* (_) {
-          console.log('🤖 AI analysis starting for:', request.type)
+          console.log('🚀 ENHANCED MOCK - AI analysis starting for:', request.type)
+          console.log('🚀 ENHANCED MOCK - Request config:', JSON.stringify(request.config, null, 2))
+          
+          // Extract model selection from request config (this is the critical fix)
+          const selectedModel = request.config?.llm?.model || 'local-statistical-analyzer'
+          console.log(`🧠 ENHANCED MOCK - Using model: ${selectedModel}`)
           // Get service topology
           const topology = yield* _(Effect.promise(async () => await storage.queryWithResults(`
             SELECT 
@@ -1043,11 +1092,8 @@ app.listen(PORT, async () => {
             generatedAt: new Date()
           }
 
-          // Generate actual insights using the real logic
-          const insights = generateInsights(architecture, request.type)
-
-          // Determine which model was used for analysis
-          const selectedModel = request.config?.llm?.model || 'local-statistical-analyzer'
+          // Generate actual insights using the real logic with model selection
+          const insights = generateInsights(architecture, request.type, selectedModel)
           const modelUsed = selectedModel === 'local-statistical-analyzer' 
             ? 'local-statistical-analyzer' 
             : `${selectedModel}-via-llm-manager`
@@ -1116,7 +1162,7 @@ app.listen(PORT, async () => {
           }))
         }),
         
-        streamAnalysis: (request: Parameters<Context.Tag.Service<typeof AIAnalyzerService>['streamAnalysis']>[0]) => {
+        streamAnalysis: (_request: Parameters<Context.Tag.Service<typeof AIAnalyzerService>['streamAnalysis']>[0]) => {
           const words = ['Analyzing', 'telemetry', 'data...', 'Discovered', 'services', 'from', 'actual', 'traces.']
           return Stream.fromIterable(words).pipe(
             Stream.map(word => word + ' ')
@@ -1244,7 +1290,7 @@ app.get('/api/llm/live', (req, res) => {
       {
         type: 'request_start',
         entry: {
-          id: `int_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+          id: `int_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
           timestamp: Date.now(),
           model: ['gpt', 'claude', 'llama'][Math.floor(Math.random() * 3)],
           request: {
@@ -1257,7 +1303,7 @@ app.get('/api/llm/live', (req, res) => {
       {
         type: 'request_complete',
         entry: {
-          id: `int_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+          id: `int_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
           timestamp: Date.now(),
           model: ['gpt', 'claude', 'llama'][Math.floor(Math.random() * 3)],
           request: {
@@ -1288,7 +1334,7 @@ app.get('/api/llm/live', (req, res) => {
 })
 
 // Clear LLM logs endpoint
-app.delete('/api/llm/interactions', async (req, res) => {
+app.delete('/api/llm/interactions', async (_req, res) => {
   try {
     // Mock clearing logs
     res.json({

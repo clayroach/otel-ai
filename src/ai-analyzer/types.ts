@@ -105,7 +105,9 @@ export const AnalysisResultSchema = Schema.Struct({
     analyzedSpans: Schema.Number,
     analysisTimeMs: Schema.Number,
     llmTokensUsed: Schema.Number,
-    confidence: Schema.Number // 0-1 score
+    confidence: Schema.Number, // 0-1 score
+    selectedModel: Schema.optional(Schema.String),
+    llmModel: Schema.optional(Schema.String)
   })
 })
 

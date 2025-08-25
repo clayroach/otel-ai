@@ -13,18 +13,60 @@ test.describe('E2E Framework Validation', () => {
     // Check that essential elements are present
     await expect(page.getByTestId('ai-model-selector')).toBeVisible()
     await expect(page.getByTestId('analyze-button')).toBeVisible()
-    await expect(page.getByTestId('time-range-picker')).toBeVisible()
+    await expect(page.getByTestId('time-range-picker').first()).toBeVisible()
     
     // Verify page title contains expected text
     await expect(page.locator('h2')).toContainText('AI-Powered Architecture Analysis')
     
     // Verify model selector has expected options
     await page.getByTestId('ai-model-selector').click()
-    await expect(page.getByText('Statistical Analysis')).toBeVisible()
-    await expect(page.getByText('Claude')).toBeVisible()
-    await expect(page.getByText('GPT-4')).toBeVisible()
-    await expect(page.getByText('Llama')).toBeVisible()
+    await expect(page.getByTestId('model-option-statistical')).toBeVisible()
+    await expect(page.getByTestId('model-option-claude')).toBeVisible()
+    await expect(page.getByTestId('model-option-gpt')).toBeVisible()
+    await expect(page.getByTestId('model-option-llama')).toBeVisible()
     
-    console.log('✅ E2E framework setup validated successfully')
+    console.log('✅ AI Analyzer UI validated successfully')
+  })
+
+  test('should load Traces UI and basic elements', async ({ page }) => {
+    // Navigate to the traces page
+    await page.goto('/traces')
+    await page.waitForLoadState('networkidle')
+    
+    // Wait for the page to render
+    await page.waitForTimeout(2000)
+    
+    // Verify page title
+    await expect(page.getByTestId('traces-page-title')).toContainText('Trace Analysis - Unified Processing')
+    
+    // Verify run query button exists
+    await expect(page.getByTestId('traces-run-query-button')).toBeVisible()
+    
+    console.log('✅ Traces UI validated successfully')
+  })
+
+  test('should navigate between pages using proper test IDs', async ({ page }) => {
+    // Start at traces
+    await page.goto('/traces')
+    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(1000)
+    
+    // Navigate to insights using test ID  
+    await page.getByTestId('nav-insights').click()
+    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(1000)
+    
+    // Verify we're on insights page
+    await expect(page.locator('h2')).toContainText('AI-Powered Architecture Analysis')
+    
+    // Navigate back to traces
+    await page.getByTestId('nav-traces').click()
+    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(1000)
+    
+    // Verify we're back on traces
+    await expect(page.getByTestId('traces-page-title')).toContainText('Trace Analysis - Unified Processing')
+    
+    console.log('✅ Navigation between pages validated successfully')
   })
 })

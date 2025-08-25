@@ -125,7 +125,7 @@ export const TracesView: React.FC = () => {
       {/* Header */}
       <Row justify="space-between" align="middle" style={{ marginBottom: '16px', flexShrink: 0 }}>
         <Col>
-          <Title level={3} style={{ margin: 0 }}>
+          <Title level={3} style={{ margin: 0 }} data-testid="traces-page-title">
             Trace Analysis - Unified Processing
           </Title>
         </Col>
@@ -137,6 +137,7 @@ export const TracesView: React.FC = () => {
               icon={<PlayCircleOutlined />}
               onClick={handleRunQuery}
               loading={isRunning || isLoading}
+              data-testid="traces-run-query-button"
             >
               Run Query
             </Button>

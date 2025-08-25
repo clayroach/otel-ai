@@ -53,6 +53,7 @@ const AIAnalyzerView: React.FC = () => {
   const [streamingContent, setStreamingContent] = useState<string>('');
   const [useRealService, setUseRealService] = useState(true);
   const [serviceHealth, setServiceHealth] = useState<{ status: string; capabilities: string[] } | null>(null);
+  const [selectedModel, setSelectedModel] = useState<string>('claude');
 
   const aiAnalyzer = useAIAnalyzer();
 
@@ -87,26 +88,52 @@ const AIAnalyzerView: React.FC = () => {
     
     try {
       if (useRealService) {
-        // Use real AI analyzer service
+        // Use real AI analyzer service with model selection
+        const config = selectedModel !== 'local-statistical-analyzer' ? {
+          llm: {
+            model: selectedModel as 'gpt' | 'claude' | 'llama',
+            temperature: selectedModel === 'gpt' ? 0.5 : (selectedModel === 'llama' ? 0.8 : 0.7),
+            maxTokens: selectedModel === 'gpt' ? 1500 : (selectedModel === 'llama' ? 1800 : 2000)
+          },
+          analysis: {
+            timeWindowHours: 4,
+            minSpanCount: 100
+          },
+          output: {
+            format: 'markdown' as const,
+            includeDigrams: true,
+            detailLevel: 'comprehensive' as const
+          }
+        } : {
+          analysis: {
+            timeWindowHours: 4,
+            minSpanCount: 100
+          },
+          output: {
+            format: 'markdown' as const,
+            includeDigrams: true,
+            detailLevel: 'comprehensive' as const
+          }
+        };
+
         const result = await aiAnalyzer.analyzeArchitecture({
           type: analysisType,
           timeRange: {
             startTime: timeRange[0].toDate(),
             endTime: timeRange[1].toDate()
           },
-          filters: {
-            // Add any service filters if needed
-          }
+          filters: {},
+          config
         });
         
         setAnalysisResult(result);
-        message.success('🎯 Real topology analysis completed using multi-model LLM insights!');
+        message.success(`🎯 Real topology analysis completed using ${selectedModel === 'local-statistical-analyzer' ? 'statistical analysis' : selectedModel + ' model'}!`);
       } else {
-        // Fallback to mock data
+        // Fallback to mock data with model awareness
         await new Promise(resolve => setTimeout(resolve, 2000));
-        const result = generateMockData(analysisType);
+        const result = generateMockData(analysisType, selectedModel);
         setAnalysisResult(result);
-        message.success('🚀 Enhanced topology analysis completed with realistic scenarios!');
+        message.success(`🚀 Enhanced topology analysis completed with ${selectedModel === 'local-statistical-analyzer' ? 'statistical analysis' : selectedModel + ' model'}!`);
       }
     } catch (err) {
       console.error('Analysis failed:', err);
@@ -114,7 +141,7 @@ const AIAnalyzerView: React.FC = () => {
       message.error('Analysis failed - falling back to mock data');
       
       // Fallback to mock data on error
-      const result = generateMockData(analysisType);
+      const result = generateMockData(analysisType, selectedModel);
       setAnalysisResult(result);
     } finally {
       setLoading(false);
@@ -128,13 +155,14 @@ const AIAnalyzerView: React.FC = () => {
     
     try {
       if (useRealService) {
-        // Use real streaming service
+        // Use real streaming service with model selection
         const stream = aiAnalyzer.streamAnalysis({
           type: analysisType,
           timeRange: {
             startTime: timeRange[0].toDate(),
             endTime: timeRange[1].toDate()
-          }
+          },
+          model: selectedModel
         });
 
         let content = '';
@@ -143,8 +171,8 @@ const AIAnalyzerView: React.FC = () => {
           setStreamingContent(content);
         }
       } else {
-        // Mock streaming for demo
-        const fullText = generateMockData(analysisType).summary;
+        // Mock streaming for demo with model awareness
+        const fullText = generateMockData(analysisType, selectedModel).summary;
         const words = fullText.split(' ');
         
         for (let i = 0; i < words.length; i++) {
@@ -157,7 +185,7 @@ const AIAnalyzerView: React.FC = () => {
       setError(`Streaming failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
       
       // Fallback to mock streaming
-      const fullText = generateMockData(analysisType).summary;
+      const fullText = generateMockData(analysisType, selectedModel).summary;
       const words = fullText.split(' ');
       
       for (let i = 0; i < words.length; i++) {
@@ -217,13 +245,14 @@ const AIAnalyzerView: React.FC = () => {
       {/* Analysis Controls */}
       <Card title="Analysis Configuration" style={{ marginBottom: '24px' }}>
         <Row gutter={16} align="middle">
-          <Col span={5}>
+          <Col span={4}>
             <div>
               <Text strong>Analysis Type:</Text>
               <Select
                 value={analysisType}
                 onChange={setAnalysisType}
                 style={{ width: '100%', marginTop: 8 }}
+                data-testid="analysis-type-selector"
               >
                 <Select.Option value="architecture">🏗️ Architecture Overview</Select.Option>
                 <Select.Option value="dependencies">🔄 Service Dependencies</Select.Option>
@@ -232,7 +261,24 @@ const AIAnalyzerView: React.FC = () => {
               </Select>
             </div>
           </Col>
-          <Col span={7}>
+          <Col span={4}>
+            <div>
+              <Text strong>AI Model:</Text>
+              <Select
+                data-testid="ai-model-selector"
+                value={selectedModel}
+                onChange={setSelectedModel}
+                style={{ width: '100%', marginTop: 8 }}
+                placeholder="Select AI Model"
+              >
+                <Select.Option value="claude" data-testid="model-option-claude">🧠 Claude</Select.Option>
+                <Select.Option value="gpt" data-testid="model-option-gpt">🤖 GPT-4</Select.Option>
+                <Select.Option value="llama" data-testid="model-option-llama">🦙 Llama</Select.Option>
+                <Select.Option value="local-statistical-analyzer" data-testid="model-option-statistical">🔬 Statistical Analysis</Select.Option>
+              </Select>
+            </div>
+          </Col>
+          <Col span={6}>
             <div>
               <Text strong>Time Range:</Text>
               <RangePicker
@@ -240,6 +286,7 @@ const AIAnalyzerView: React.FC = () => {
                 onChange={(dates) => dates && setTimeRange([dates[0]!, dates[1]!])}
                 showTime
                 style={{ width: '100%', marginTop: 8 }}
+                data-testid="time-range-picker"
               />
             </div>
           </Col>
@@ -263,7 +310,7 @@ const AIAnalyzerView: React.FC = () => {
               )}
             </div>
           </Col>
-          <Col span={4}>
+          <Col span={3}>
             <Space direction="vertical" style={{ width: '100%' }}>
               <Button
                 type="primary"
@@ -272,12 +319,13 @@ const AIAnalyzerView: React.FC = () => {
                 loading={loading}
                 block
                 size="large"
+                data-testid="analyze-button"
               >
                 🔍 Analyze Topology
               </Button>
             </Space>
           </Col>
-          <Col span={4}>
+          <Col span={3}>
             <Space direction="vertical" style={{ width: '100%' }}>
               <Button
                 icon={<TrendingUpIcon />}
@@ -349,6 +397,7 @@ const AIAnalyzerView: React.FC = () => {
 
       {/* Analysis Results */}
       {analysisResult && (
+        <div data-testid="insights-results">
         <Tabs defaultActiveKey="overview" size="large">
           <TabPane tab="📊 Topology Overview" key="overview">
             <Row gutter={24}>
@@ -365,8 +414,8 @@ const AIAnalyzerView: React.FC = () => {
                       <Tag color="green">
                         ✅ Analysis Complete
                       </Tag>
-                      <Tag color="blue">
-                        🤖 Enhanced with Multi-Model LLM
+                      <Tag color="blue" data-testid="analysis-metadata">
+                        🤖 Model: {selectedModel === 'local-statistical-analyzer' ? 'Statistical' : selectedModel}
                       </Tag>
                     </Space>
                   }
@@ -706,11 +755,14 @@ const AIAnalyzerView: React.FC = () => {
             </TabPane>
           )}
 
-          <TabPane tab="💡 AI-Powered Insights" key="insights">
-            <div style={{ marginBottom: '16px' }}>
+          <TabPane 
+            tab={<span data-testid="insights-tab-button">💡 AI-Powered Insights</span>} 
+            key="insights"
+          >
+            <div style={{ marginBottom: '16px' }} data-testid="analysis-summary">
               <Alert
                 message="🤖 AI Analysis Complete"
-                description={`Generated ${analysisResult.insights.length} insights from ${analysisResult.metadata.analyzedSpans.toLocaleString()} spans using advanced topology analysis`}
+                description={`Generated ${analysisResult.insights.length} insights from ${analysisResult.metadata.analyzedSpans.toLocaleString()} spans using ${selectedModel === 'local-statistical-analyzer' ? 'statistical analysis' : selectedModel + ' model'}`}
                 type="success"
                 showIcon
                 style={{ marginBottom: '24px' }}
@@ -727,7 +779,7 @@ const AIAnalyzerView: React.FC = () => {
                           {insight.severity === 'critical' ? '🚨' : 
                            insight.severity === 'warning' ? '⚠️' : '💡'}
                         </span>
-                        <Text strong style={{ fontSize: '16px' }}>{insight.title}</Text>
+                        <Text strong style={{ fontSize: '16px' }} data-testid="insight-title">{insight.title}</Text>
                       </Space>
                     }
                     extra={
@@ -826,6 +878,7 @@ const AIAnalyzerView: React.FC = () => {
             </TabPane>
           )}
         </Tabs>
+        </div>
       )}
 
       {!analysisResult && !loading && (
