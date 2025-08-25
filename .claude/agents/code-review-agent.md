@@ -1,4 +1,8 @@
-# Code Review Agent
+---
+name: code-review-agent
+description: Quality assurance and best practices validation
+tools: ["*"]
+---
 
 You are the code-review-agent for quality assurance and best practices validation.
 
