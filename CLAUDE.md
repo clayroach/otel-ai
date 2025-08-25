@@ -333,13 +333,24 @@ notes/
 ./scripts/sync-claude-sessions.sh
 ```
 
-**NEW**: Integrates claude-code-log with project-local storage:
+**NEW**: Integrates claude-code-log (https://github.com/daaain/claude-code-log) with project-local storage:
 
 - Syncs all Claude Code sessions to `notes/claude-sessions/`
 - Generates consolidated and individual session HTML transcripts
 - Creates searchable archive of all development decisions
 - Maintains backup JSONL files for data integrity
 - Updates session index with timestamps and navigation
+
+### Historical Session Data Access
+
+The project maintains comprehensive session history using **claude-code-log** (https://github.com/daaain/claude-code-log). This allows Claude to:
+
+- **Access historical session data** when current sessions are lost or need review
+- **Reference previous development decisions** and implementation approaches
+- **Maintain context continuity** across multiple development sessions
+- **Learn from past patterns** and avoid repeating resolved issues
+
+**Usage**: If you need to review previous sessions or recover lost context, the historical session data is available in `notes/claude-sessions/` and can be accessed by Claude for continuity and decision-making support.
 
 ### Blog Publishing Strategy
 
@@ -715,3 +726,4 @@ export CLAUDE_CODE_ALLOWED_COMMANDS="curl:*,docker:*,docker compose:*"
 
 - Always try to consider production-readiness when creation of new assets - for instance init scripts for containers rather than standalone scripts
 - use the package.json by default for starting demo and other scripts and not call them directly.  Most everything should be controlled during dev/test using pnpm.
+- always default to using pnpm commands first before running your own other command line equivalents

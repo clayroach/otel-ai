@@ -53,14 +53,16 @@ export const LLMConfigSchema = Schema.Struct({
 
 export const LLMRequestSchema = Schema.Struct({
   prompt: Schema.String,
-  taskType: Schema.Literal('analysis', 'ui-generation', 'config-management', 'general'),
+  taskType: Schema.Literal('analysis', 'ui-generation', 'config-management', 'general', 'market-intelligence', 'architectural-insights', 'anomaly-detection'),
   context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
   preferences: Schema.optional(
     Schema.Struct({
       model: Schema.optional(Schema.Literal('gpt', 'claude', 'llama')),
       maxTokens: Schema.optional(Schema.Number),
       temperature: Schema.optional(Schema.Number),
-      priority: Schema.optional(Schema.Literal('low', 'medium', 'high'))
+      priority: Schema.optional(Schema.Literal('low', 'medium', 'high')),
+      useMultiModel: Schema.optional(Schema.Boolean),
+      requireStructuredOutput: Schema.optional(Schema.Boolean)
     })
   ),
   streaming: Schema.optional(Schema.Boolean)
@@ -79,7 +81,10 @@ export const LLMResponseSchema = Schema.Struct({
     latencyMs: Schema.Number,
     retryCount: Schema.Number,
     cached: Schema.Boolean,
-    confidence: Schema.optional(Schema.Number)
+    confidence: Schema.optional(Schema.Number),
+    modelChain: Schema.optional(Schema.Array(Schema.String)),
+    routingStrategy: Schema.optional(Schema.String),
+    fallbackUsed: Schema.optional(Schema.Boolean)
   })
 })
 
@@ -122,10 +127,11 @@ export type LLMError =
   | { _tag: 'ContextTooLarge'; model: string; tokenCount: number; maxTokens: number }
   | { _tag: 'ConfigurationError'; message: string }
   | { _tag: 'NetworkError'; model: string; message: string }
+  | { _tag: 'AllModelsUnavailable'; message: string }
 
 // Model type definitions
 export type ModelType = 'gpt' | 'claude' | 'llama'
-export type TaskType = 'analysis' | 'ui-generation' | 'config-management' | 'general'
+export type TaskType = 'analysis' | 'ui-generation' | 'config-management' | 'general' | 'market-intelligence' | 'architectural-insights' | 'anomaly-detection'
 export type RoutingStrategy = 'cost' | 'performance' | 'balanced'
 
 // Utility types for model clients

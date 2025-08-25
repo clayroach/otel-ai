@@ -13,10 +13,11 @@ export * from './prompts.js'
 
 // Main exports for easy consumption
 export { 
-  AIAnalyzerService,
   AIAnalyzerLayer,
   defaultAnalyzerConfig
 } from './service.js'
+
+export { AIAnalyzerService } from './types.js'
 
 export type { 
   AnalysisRequest,

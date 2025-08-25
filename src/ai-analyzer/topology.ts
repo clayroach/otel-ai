@@ -78,7 +78,7 @@ export const buildDependencyGraph = (
   
   dependencies.forEach(dep => {
     const serviceKey = dep.service_name
-    const existing = dependencyMap.get(serviceKey) || []
+    const existing = [...(dependencyMap.get(serviceKey) || [])]
     
     existing.push({
       service: dep.dependent_service,
@@ -107,10 +107,11 @@ export const discoverCriticalPaths = (traceFlows: TraceFlowRaw[]) => {
   
   // Group by trace and build service paths
   const traceGroups = traceFlows.reduce((acc, flow) => {
-    if (!acc[flow.trace_id]) {
-      acc[flow.trace_id] = []
+    const traceId = flow.trace_id
+    if (!acc[traceId]) {
+      acc[traceId] = []
     }
-    acc[flow.trace_id].push(flow)
+    acc[traceId]!.push(flow)
     return acc
   }, {} as Record<string, TraceFlowRaw[]>)
   
@@ -202,11 +203,17 @@ export const discoverApplicationTopology = (
         const existing = serviceMap.get(service.service)
         if (existing) {
           // Merge operations and update metadata
-          existing.operations = [...new Set([...existing.operations, ...service.operations])]
+          const mergedOperations = [...new Set([...existing.operations, ...service.operations])]
           // Keep the metadata from the service with more spans (more representative)
-          if ((service.metadata.totalSpans as number) > (existing.metadata.totalSpans as number)) {
-            existing.metadata = service.metadata
-          }
+          const metadata = (service.metadata.totalSpans as number) > (existing.metadata.totalSpans as number) 
+            ? service.metadata 
+            : existing.metadata
+          
+          serviceMap.set(service.service, {
+            ...existing,
+            operations: mergedOperations,
+            metadata
+          })
         } else {
           serviceMap.set(service.service, service)
         }
@@ -248,7 +255,10 @@ export const discoverApplicationTopology = (
 const inferApplicationName = (serviceNames: string[]): string => {
   // Try to find common prefixes
   const prefixes = serviceNames
-    .map(name => name.split('-')[0].split('_')[0].split('.')[0])
+    .map(name => {
+      const parts = name.split('-')[0]?.split('_')[0]?.split('.')[0]
+      return parts || ''
+    })
     .filter(prefix => prefix.length > 2)
   
   const prefixCounts = prefixes.reduce((acc, prefix) => {
@@ -256,10 +266,13 @@ const inferApplicationName = (serviceNames: string[]): string => {
     return acc
   }, {} as Record<string, number>)
   
-  const mostCommonPrefix = Object.entries(prefixCounts)
-    .sort(([,a], [,b]) => b - a)[0]?.[0]
+  const sortedPrefixes = Object.entries(prefixCounts)
+    .sort(([,a], [,b]) => b - a)
   
-  if (mostCommonPrefix && prefixCounts[mostCommonPrefix] > 1) {
+  const mostCommonPrefix = sortedPrefixes[0]?.[0]
+  const mostCommonCount = sortedPrefixes[0]?.[1] || 0
+  
+  if (mostCommonPrefix && mostCommonCount > 1) {
     return `${mostCommonPrefix.charAt(0).toUpperCase()}${mostCommonPrefix.slice(1)} Application`
   }
   

@@ -1,4 +1,8 @@
-# PR Creation Agent
+---
+name: pr-creation-agent
+description: PR creation with screenshot organization
+tools: ["*"]
+---
 
 You are the pr-creation-agent for comprehensive pull request creation with proper screenshot organization.
 

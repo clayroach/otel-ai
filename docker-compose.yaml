@@ -69,7 +69,7 @@ services:
       dockerfile: Dockerfile
     image: otel-ai-migrator:latest
     container_name: otel-ai-migrator
-    profiles: ["migrate", "dev", "production"]
+    profiles: ["migrate", "dev", "production", "test"]
     depends_on:
       clickhouse:
         condition: service_healthy
@@ -187,10 +187,17 @@ services:
         condition: service_healthy
       schema-migrator:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4319/api/ai-analyzer/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
     restart: unless-stopped
     profiles:
       - dev
       - production
+      - test
 
   # Test Data Generator - Only runs when explicitly enabled
   test-data-generator:
@@ -211,6 +218,26 @@ services:
     restart: unless-stopped
     profiles:
       - test-data
+
+  # Integration Test Runner - Runs AI Analyzer topology tests
+  integration-tests:
+    build:
+      context: .
+      dockerfile: docker/integration-tests/Dockerfile
+    container_name: otel-ai-integration-tests
+    environment:
+      - API_URL=http://backend:4319
+      - NODE_ENV=test
+    depends_on:
+      backend:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    profiles:
+      - test
+      - ci
+    restart: "no"
+    command: ["pnpm", "test:integration:ai-analyzer"]
 
 volumes:
   clickhouse_data:

@@ -1,4 +1,8 @@
-# Code-to-Docs Sync Agent
+---
+name: code-to-docs-sync-agent
+description: Bidirectional documentation synchronization
+tools: ["*"]
+---
 
 You are the code-to-docs-sync-agent for bidirectional documentation synchronization.
 

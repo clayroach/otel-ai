@@ -220,7 +220,87 @@ export class SimpleStorage {
     })
     
     const data = (await result.json()) as Record<string, unknown>[]
-    return { data }
+    
+    // First clean protobuf JSON strings, then convert BigInt values
+    const cleanedData = data.map(row => this.cleanProtobufStrings(row))
+    const convertedData = cleanedData.map(row => this.convertBigIntToNumber(row) as Record<string, unknown>)
+    
+    return { data: convertedData }
+  }
+
+  /**
+   * Clean protobuf JSON strings in query results
+   */
+  private cleanProtobufStrings(obj: unknown): unknown {
+    if (typeof obj === 'string') {
+      // Handle protobuf JSON strings for service names
+      if (obj.includes('$typeName') && obj.includes('opentelemetry.proto.common.v1.AnyValue')) {
+        console.log('🧹 Cleaning protobuf service name:', obj.substring(0, 50) + '...')
+        try {
+          const parsed = JSON.parse(obj)
+          if (parsed.value?.case === 'stringValue' && parsed.value?.value) {
+            console.log('✅ Extracted clean service name:', parsed.value.value)
+            return parsed.value.value
+          }
+        } catch (e) {
+          console.log('❌ Failed to parse protobuf JSON:', e)
+        }
+      }
+      
+      // Handle Buffer JSON strings for trace IDs
+      if (obj.includes('"type":"Buffer"') && obj.includes('"data"')) {
+        console.log('🧹 Cleaning Buffer trace ID:', obj.substring(0, 30) + '...')
+        try {
+          const parsed = JSON.parse(obj)
+          if (parsed.type === 'Buffer' && Array.isArray(parsed.data)) {
+            const hexId = parsed.data.map((b: number) => b.toString(16).padStart(2, '0')).join('')
+            console.log('✅ Extracted clean trace ID:', hexId.substring(0, 16) + '...')
+            return hexId
+          }
+        } catch (e) {
+          console.log('❌ Failed to parse Buffer JSON:', e)
+        }
+      }
+    }
+    
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.cleanProtobufStrings(item))
+    }
+    
+    if (obj !== null && typeof obj === 'object') {
+      const cleaned: Record<string, unknown> = {}
+      for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+        cleaned[key] = this.cleanProtobufStrings(value)
+      }
+      return cleaned
+    }
+    
+    return obj
+  }
+
+  /**
+   * Recursively convert BigInt values to numbers and clean up protobuf JSON strings
+   * This handles BigInt conversion and protobuf service name extraction
+   */
+  private convertBigIntToNumber(obj: unknown): unknown {
+    if (typeof obj === 'bigint') {
+      // Convert BigInt to number, handling potential precision loss for very large numbers
+      return obj > Number.MAX_SAFE_INTEGER ? parseInt(obj.toString()) : Number(obj)
+    }
+    
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.convertBigIntToNumber(item))
+    }
+    
+    if (obj !== null && typeof obj === 'object') {
+      const converted: Record<string, unknown> = {}
+      for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+        converted[key] = this.convertBigIntToNumber(value)
+      }
+      return converted
+    }
+    
+    return obj
   }
 
   async close(): Promise<void> {

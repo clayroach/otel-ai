@@ -125,13 +125,12 @@ export type AnalysisError =
   | { _tag: 'TimeoutError'; message: string; timeoutMs: number }
 
 // Service Interface
-export interface AIAnalyzerService {
+export interface AIAnalyzerServiceImpl {
   readonly analyzeArchitecture: (request: AnalysisRequest) => Effect.Effect<AnalysisResult, AnalysisError, never>
   readonly streamAnalysis: (request: AnalysisRequest) => Stream.Stream<string, AnalysisError, never>
-  readonly getServiceTopology: (timeRange: { startTime: Date; endTime: Date }) => Effect.Effect<ServiceTopology[], AnalysisError, never>
+  readonly getServiceTopology: (timeRange: { startTime: Date; endTime: Date }) => Effect.Effect<readonly ServiceTopology[], AnalysisError, never>
   readonly generateDocumentation: (architecture: ApplicationArchitecture) => Effect.Effect<string, AnalysisError, never>
 }
 
 // Context tags
-export interface AIAnalyzerService extends Context.Tag<'AIAnalyzerService', AIAnalyzerService> {}
-export const AIAnalyzerService = Context.GenericTag<AIAnalyzerService>('AIAnalyzerService')
+export class AIAnalyzerService extends Context.Tag('AIAnalyzerService')<AIAnalyzerService, AIAnalyzerServiceImpl>() {}

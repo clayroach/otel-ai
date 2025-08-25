@@ -24,26 +24,48 @@ import {
 } from './types.js'
 
 /**
- * Task-Based Routing Strategy
+ * Enhanced Task-Based Routing Strategy
  * 
- * Defines preferred models for different task types based on their strengths.
+ * Defines preferred models for different task types based on their strengths,
+ * including new AI-native tasks like market intelligence and architectural insights.
  */
-const TASK_ROUTING: Record<TaskType, { preferred: ModelType; fallback: ModelType[] }> = {
+const TASK_ROUTING: Record<TaskType, { preferred: ModelType; fallback: ModelType[]; multiModel?: boolean; reasoning?: string }> = {
   analysis: {
     preferred: 'claude', // Best for analytical tasks
-    fallback: ['gpt', 'llama']
+    fallback: ['gpt', 'llama'],
+    reasoning: 'Claude excels at structured analysis and reasoning'
   },
   'ui-generation': {
     preferred: 'gpt', // Best for code generation
-    fallback: ['claude', 'llama']
+    fallback: ['claude', 'llama'],
+    reasoning: 'GPT has superior code generation capabilities'
   },
   'config-management': {
     preferred: 'llama', // Cost-effective for structured tasks
-    fallback: ['gpt', 'claude']
+    fallback: ['gpt', 'claude'],
+    reasoning: 'Local model is cost-effective for structured configuration tasks'
+  },
+  'market-intelligence': {
+    preferred: 'gpt', // Best for business analysis and market insights
+    fallback: ['claude', 'llama'],
+    multiModel: true, // Can benefit from multiple perspectives
+    reasoning: 'GPT excels at business strategy and market analysis'
+  },
+  'architectural-insights': {
+    preferred: 'claude', // Best for technical architecture analysis
+    fallback: ['gpt', 'llama'],
+    multiModel: true, // Multiple technical perspectives valuable
+    reasoning: 'Claude provides superior architectural reasoning and system design insights'
+  },
+  'anomaly-detection': {
+    preferred: 'claude', // Best for pattern recognition and analysis
+    fallback: ['gpt', 'llama'],
+    reasoning: 'Claude excels at pattern recognition and anomaly explanation'
   },
   general: {
     preferred: 'llama', // Start with local model for cost efficiency
-    fallback: ['gpt', 'claude']
+    fallback: ['gpt', 'claude'],
+    reasoning: 'Local model provides cost-effective general purpose responses'
   }
 }
 

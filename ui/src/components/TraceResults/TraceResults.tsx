@@ -3,8 +3,10 @@ import { Table, Tag, Typography, Button, Space, Modal, Descriptions, Timeline } 
 import { EyeOutlined, ClockCircleOutlined, BugOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
+import { cleanServiceName } from '../../utils/protobuf-cleaner';
 
 const { Text, Title } = Typography;
+
 
 // Types for traces from simplified single-table schema
 interface UnifiedTrace {
@@ -69,7 +71,7 @@ export const TraceResults: React.FC<TraceResultsProps> = ({ data }) => {
       key: 'service_name',
       width: 150,
       render: (service: string) => (
-        <Tag color="geekblue">{service}</Tag>
+        <Tag color="geekblue">{cleanServiceName(service)}</Tag>
       ),
     },
     {
@@ -310,7 +312,7 @@ export const TraceResults: React.FC<TraceResultsProps> = ({ data }) => {
                 </Text>
               </Descriptions.Item>
               <Descriptions.Item label="Service">
-                {selectedTrace.service_name}
+                {cleanServiceName(selectedTrace.service_name)}
               </Descriptions.Item>
               <Descriptions.Item label="Operation">
                 {selectedTrace.operation_name}

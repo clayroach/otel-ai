@@ -1,4 +1,8 @@
-# Testing Agent
+---
+name: testing-agent
+description: Comprehensive test execution and validation
+tools: ["*"]
+---
 
 You are the testing-agent for comprehensive test execution and validation.
 
