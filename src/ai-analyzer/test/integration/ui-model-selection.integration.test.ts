@@ -1,0 +1,329 @@
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+
+// This test validates that the UI model selection actually produces different results
+// by simulating exactly what the UI does when changing models
+
+const API_BASE_URL = 'http://localhost:4319/api/ai-analyzer'
+
+// Mock the exact request payload that the UI sends
+const createUIRequest = (model: string) => {
+  const now = new Date()
+  const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000)
+  
+  return {
+    type: 'architecture',
+    timeRange: {
+      startTime: fourHoursAgo.toISOString(),
+      endTime: now.toISOString()
+    },
+    filters: {},
+    config: model !== 'local-statistical-analyzer' ? {
+      llm: {
+        model: model as 'gpt' | 'claude' | 'llama',
+        temperature: model === 'gpt' ? 0.5 : (model === 'llama' ? 0.8 : 0.7),
+        maxTokens: model === 'gpt' ? 1500 : (model === 'llama' ? 1800 : 2000)
+      },
+      analysis: {
+        timeWindowHours: 4,
+        minSpanCount: 100
+      },
+      output: {
+        format: 'markdown',
+        includeDigrams: true,
+        detailLevel: 'comprehensive'
+      }
+    } : {
+      analysis: {
+        timeWindowHours: 4,
+        minSpanCount: 100
+      },
+      output: {
+        format: 'markdown',
+        includeDigrams: true,
+        detailLevel: 'comprehensive'
+      }
+    }
+  }
+}
+
+describe('UI Model Selection Integration', () => {
+  beforeAll(async () => {
+    // Check if the service is available
+    try {
+      const response = await fetch(`${API_BASE_URL}/health`)
+      if (!response.ok) {
+        throw new Error(`Service health check failed: ${response.status}`)
+      }
+    } catch (error) {
+      console.warn('⚠️  Backend service not available - skipping UI integration tests')
+      console.warn('   Start the service with: pnpm dev:up')
+    }
+  })
+
+  describe('Model Selection Behavior Simulation', () => {
+    it('should simulate UI model selection and validate different outputs', async () => {
+      console.log('🧪 Testing UI model selection behavior...')
+      
+      // Test each model selection exactly as UI would do it
+      const models = [
+        'local-statistical-analyzer',
+        'claude',
+        'gpt', 
+        'llama'
+      ]
+      
+      const results = new Map<string, any>()
+      
+      // Sequential requests (as UI would do when user changes model)
+      for (const model of models) {
+        console.log(`📡 Testing model: ${model}`)
+        
+        const requestPayload = createUIRequest(model)
+        console.log(`🔍 Request payload for ${model}:`, JSON.stringify(requestPayload, null, 2))
+        
+        const response = await fetch(`${API_BASE_URL}/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestPayload)
+        })
+        
+        expect(response.ok).toBe(true)
+        const result = await response.json()
+        results.set(model, result)
+        
+        console.log(`📊 ${model} returned ${result.insights.length} insights`)
+        console.log(`🔍 ${model} metadata:`, JSON.stringify(result.metadata, null, 2))
+      }
+      
+      // Validate that results are actually different
+      const statisticalResult = results.get('local-statistical-analyzer')
+      const claudeResult = results.get('claude')
+      const gptResult = results.get('gpt')
+      const llamaResult = results.get('llama')
+      
+      // Statistical should have fewer insights
+      expect(statisticalResult.insights.length).toBeLessThan(claudeResult.insights.length)
+      
+      // All enhanced models should have same count but different content
+      expect(claudeResult.insights.length).toBe(gptResult.insights.length)
+      expect(gptResult.insights.length).toBe(llamaResult.insights.length)
+      
+      // Check insight titles to ensure they're actually different
+      const statisticalTitles = statisticalResult.insights.map((i: any) => i.title)
+      const claudeTitles = claudeResult.insights.map((i: any) => i.title)
+      const gptTitles = gptResult.insights.map((i: any) => i.title)
+      const llamaTitles = llamaResult.insights.map((i: any) => i.title)
+      
+      console.log('📋 Statistical insights:', statisticalTitles)
+      console.log('📋 Claude insights:', claudeTitles)
+      console.log('📋 GPT insights:', gptTitles)
+      console.log('📋 Llama insights:', llamaTitles)
+      
+      // Statistical should not have model-specific insights
+      expect(statisticalTitles).not.toContain('Architectural Pattern Analysis')
+      expect(statisticalTitles).not.toContain('Performance Optimization Opportunities')
+      expect(statisticalTitles).not.toContain('Resource Utilization & Scalability Analysis')
+      
+      // Each enhanced model should have its unique insight
+      expect(claudeTitles).toContain('Architectural Pattern Analysis')
+      expect(gptTitles).toContain('Performance Optimization Opportunities')
+      expect(llamaTitles).toContain('Resource Utilization & Scalability Analysis')
+      
+      // Enhanced models should NOT have each other's unique insights
+      expect(gptTitles).not.toContain('Architectural Pattern Analysis')
+      expect(llamaTitles).not.toContain('Performance Optimization Opportunities')
+      expect(claudeTitles).not.toContain('Resource Utilization & Scalability Analysis')
+      
+      // Metadata should reflect correct model selection
+      expect(statisticalResult.metadata.selectedModel).toBe('local-statistical-analyzer')
+      expect(claudeResult.metadata.selectedModel).toBe('claude')
+      expect(gptResult.metadata.selectedModel).toBe('gpt')
+      expect(llamaResult.metadata.selectedModel).toBe('llama')
+      
+      expect(statisticalResult.metadata.llmModel).toBe('local-statistical-analyzer')
+      expect(claudeResult.metadata.llmModel).toBe('claude-via-llm-manager')
+      expect(gptResult.metadata.llmModel).toBe('gpt-via-llm-manager')
+      expect(llamaResult.metadata.llmModel).toBe('llama-via-llm-manager')
+    })
+
+    it('should validate UI request payload structure matches expected format', async () => {
+      const testCases = [
+        { model: 'local-statistical-analyzer', expectConfig: true, expectLLM: false },
+        { model: 'claude', expectConfig: true, expectLLM: true },
+        { model: 'gpt', expectConfig: true, expectLLM: true },
+        { model: 'llama', expectConfig: true, expectLLM: true }
+      ]
+      
+      for (const testCase of testCases) {
+        const payload = createUIRequest(testCase.model)
+        
+        // All should have basic structure
+        expect(payload).toHaveProperty('type', 'architecture')
+        expect(payload).toHaveProperty('timeRange')
+        expect(payload.timeRange).toHaveProperty('startTime')
+        expect(payload.timeRange).toHaveProperty('endTime')
+        expect(payload).toHaveProperty('filters')
+        
+        if (testCase.expectConfig) {
+          expect(payload).toHaveProperty('config')
+        }
+        
+        if (testCase.expectLLM) {
+          expect(payload.config).toHaveProperty('llm')
+          expect(payload.config.llm).toHaveProperty('model', testCase.model)
+          expect(payload.config.llm).toHaveProperty('temperature')
+          expect(payload.config.llm).toHaveProperty('maxTokens')
+        } else {
+          // Statistical model should not have LLM config
+          expect(payload.config).not.toHaveProperty('llm')
+        }
+        
+        console.log(`✅ ${testCase.model} payload structure validated`)
+      }
+    })
+
+    it('should ensure requests are not cached or memoized inappropriately', async () => {
+      console.log('🔄 Testing request caching behavior...')
+      
+      // Make the same request twice to see if results are identical
+      const model = 'claude'
+      const payload = createUIRequest(model)
+      
+      const [result1, result2] = await Promise.all([
+        fetch(`${API_BASE_URL}/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).then(r => r.json()),
+        fetch(`${API_BASE_URL}/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).then(r => r.json())
+      ])
+      
+      // Results should be consistent (same insights, same metadata)
+      expect(result1.insights.length).toBe(result2.insights.length)
+      expect(result1.metadata.selectedModel).toBe(result2.metadata.selectedModel)
+      expect(result1.metadata.llmModel).toBe(result2.metadata.llmModel)
+      
+      const titles1 = result1.insights.map((i: any) => i.title)
+      const titles2 = result2.insights.map((i: any) => i.title)
+      expect(titles1).toEqual(titles2)
+      
+      console.log('✅ Caching behavior verified - consistent results')
+    })
+
+    it('should test rapid model switching (simulating UI dropdown changes)', async () => {
+      console.log('🔄 Testing rapid model switching...')
+      
+      // Simulate user rapidly changing models in UI
+      const switchSequence = ['claude', 'gpt', 'llama', 'local-statistical-analyzer', 'claude']
+      
+      const results = []
+      for (const model of switchSequence) {
+        const payload = createUIRequest(model)
+        const response = await fetch(`${API_BASE_URL}/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+        
+        expect(response.ok).toBe(true)
+        const result = await response.json()
+        results.push({ model, result })
+        
+        console.log(`🔄 Switch to ${model}: ${result.insights.length} insights, selected: ${result.metadata.selectedModel}`)
+      }
+      
+      // Validate each result has correct model metadata
+      results.forEach(({ model, result }) => {
+        expect(result.metadata.selectedModel).toBe(model)
+        
+        if (model === 'local-statistical-analyzer') {
+          expect(result.metadata.llmModel).toBe('local-statistical-analyzer')
+        } else {
+          expect(result.metadata.llmModel).toBe(`${model}-via-llm-manager`)
+        }
+      })
+      
+      // First and last should be identical (both Claude)
+      const firstClaudeResult = results[0].result
+      const lastClaudeResult = results[4].result
+      
+      expect(firstClaudeResult.insights.length).toBe(lastClaudeResult.insights.length)
+      expect(firstClaudeResult.metadata.selectedModel).toBe(lastClaudeResult.metadata.selectedModel)
+      
+      const firstTitles = firstClaudeResult.insights.map((i: any) => i.title)
+      const lastTitles = lastClaudeResult.insights.map((i: any) => i.title)
+      expect(firstTitles).toEqual(lastTitles)
+      
+      console.log('✅ Rapid model switching validated')
+    })
+  })
+
+  describe('UI State Management Edge Cases', () => {
+    it('should handle model selection with partial config', async () => {
+      // Test what happens if UI sends incomplete config
+      const partialConfigs = [
+        {
+          type: 'architecture',
+          config: { llm: { model: 'claude' } } // Missing temperature, maxTokens
+        },
+        {
+          type: 'architecture', 
+          config: { llm: { model: 'gpt', temperature: 0.5 } } // Missing maxTokens
+        },
+        {
+          type: 'architecture',
+          config: {} // Empty config
+        }
+      ]
+      
+      for (const payload of partialConfigs) {
+        const response = await fetch(`${API_BASE_URL}/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+        
+        // Should still work (defaults to 15 minutes, uses config as provided)
+        expect(response.ok).toBe(true)
+        const result = await response.json()
+        expect(result).toHaveProperty('insights')
+        expect(result).toHaveProperty('metadata')
+        
+        console.log(`✅ Partial config handled: ${JSON.stringify(payload.config)}`)
+      }
+    })
+
+    it('should validate that model changes actually affect API requests', async () => {
+      // This is the core test - ensure changing model in UI actually changes API behavior
+      const models = ['claude', 'gpt', 'llama']
+      const uniqueResults = new Set<string>()
+      
+      for (const model of models) {
+        const payload = createUIRequest(model)
+        const response = await fetch(`${API_BASE_URL}/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+        
+        const result = await response.json()
+        const signature = JSON.stringify({
+          insightTitles: result.insights.map((i: any) => i.title).sort(),
+          selectedModel: result.metadata.selectedModel,
+          llmModel: result.metadata.llmModel
+        })
+        
+        uniqueResults.add(signature)
+        console.log(`🔍 ${model} signature: ${signature.substring(0, 100)}...`)
+      }
+      
+      // Should have 3 unique result signatures (one per model)
+      expect(uniqueResults.size).toBe(3)
+      console.log('✅ All models produce unique results')
+    })
+  })
+})

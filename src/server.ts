@@ -1136,6 +1136,173 @@ app.listen(PORT, async () => {
   }, 10000) // Wait 10 seconds
 })
 
+// LLM Interaction Logging Endpoints
+app.get('/api/llm/interactions', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 50
+    const model = req.query.model as string | undefined
+    
+    // Mock response until we have the actual service integrated
+    const mockInteractions = Array.from({ length: Math.min(limit, 10) }, (_, i) => ({
+      id: `int_${Date.now()}_${i}`,
+      timestamp: Date.now() - (i * 60000),
+      model: model || ['gpt', 'claude', 'llama'][i % 3],
+      request: {
+        prompt: `Analyze the service topology and identify dependencies for service ${i}`,
+        taskType: 'analysis'
+      },
+      response: {
+        content: `Service ${i} has the following dependencies: database, cache, external-api`,
+        model: model || ['gpt', 'claude', 'llama'][i % 3],
+        usage: {
+          promptTokens: 50 + i * 5,
+          completionTokens: 100 + i * 10,
+          totalTokens: 150 + i * 15,
+          cost: (150 + i * 15) * 0.001
+        }
+      },
+      latencyMs: 500 + i * 100,
+      status: i % 7 === 0 ? 'error' : 'success'
+    }))
+    
+    res.json({
+      interactions: mockInteractions,
+      total: mockInteractions.length
+    })
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to fetch LLM interactions',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// LLM Model Comparison Endpoint
+app.get('/api/llm/comparison', async (req, res) => {
+  try {
+    const taskType = req.query.taskType as string | undefined
+    const timeWindowMs = parseInt(req.query.timeWindow as string) || 24 * 60 * 60 * 1000
+    
+    // Mock comparison data
+    const mockComparison = [
+      {
+        model: 'gpt',
+        interactions: [],
+        avgLatency: 750,
+        successRate: 0.95,
+        avgCost: 0.045
+      },
+      {
+        model: 'claude',
+        interactions: [],
+        avgLatency: 650,
+        successRate: 0.98,
+        avgCost: 0.032
+      },
+      {
+        model: 'llama',
+        interactions: [],
+        avgLatency: 450,
+        successRate: 0.92,
+        avgCost: 0.001
+      }
+    ]
+    
+    res.json({
+      comparison: mockComparison,
+      taskType: taskType || 'all',
+      timeWindowMs
+    })
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to fetch model comparison',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// LLM Live Feed (Server-Sent Events)
+app.get('/api/llm/live', (req, res) => {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Cache-Control'
+  })
+
+  // Send initial connection event
+  res.write(`data: ${JSON.stringify({
+    type: 'connected',
+    timestamp: Date.now(),
+    message: 'Connected to LLM interaction live feed'
+  })}\n\n`)
+
+  // Mock live events
+  const sendMockEvent = () => {
+    const events = [
+      {
+        type: 'request_start',
+        entry: {
+          id: `int_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+          timestamp: Date.now(),
+          model: ['gpt', 'claude', 'llama'][Math.floor(Math.random() * 3)],
+          request: {
+            prompt: 'Analyzing service dependencies...',
+            taskType: 'analysis'
+          },
+          status: 'pending'
+        }
+      },
+      {
+        type: 'request_complete',
+        entry: {
+          id: `int_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+          timestamp: Date.now(),
+          model: ['gpt', 'claude', 'llama'][Math.floor(Math.random() * 3)],
+          request: {
+            prompt: 'Generate dashboard for service X',
+            taskType: 'ui-generation'
+          },
+          response: {
+            content: 'Generated React component with visualization',
+            usage: { totalTokens: 250, cost: 0.025 }
+          },
+          status: 'success',
+          latencyMs: Math.floor(Math.random() * 1000) + 300
+        }
+      }
+    ]
+
+    const event = events[Math.floor(Math.random() * events.length)]
+    res.write(`data: ${JSON.stringify(event)}\n\n`)
+  }
+
+  // Send mock events every 5-15 seconds
+  const interval = setInterval(sendMockEvent, Math.random() * 10000 + 5000)
+
+  // Clean up on client disconnect
+  req.on('close', () => {
+    clearInterval(interval)
+  })
+})
+
+// Clear LLM logs endpoint
+app.delete('/api/llm/interactions', async (req, res) => {
+  try {
+    // Mock clearing logs
+    res.json({
+      message: 'LLM interaction logs cleared',
+      timestamp: Date.now()
+    })
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to clear logs',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('🛑 Received SIGTERM, shutting down gracefully...')

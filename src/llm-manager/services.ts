@@ -15,6 +15,7 @@ import type {
   ModelType,
   LLMConfig
 } from './types.js'
+import type { InteractionLogEntry, LiveInteractionEvent } from './interaction-logger.js'
 
 /**
  * Main LLM Manager Service
@@ -155,5 +156,66 @@ export class LLMMetricsService extends Context.Tag('LLMMetricsService')<
       totalCost: number
       requestsByModel: Record<ModelType, number>
     }, never, never>
+  }
+>() {}
+
+/**
+ * Interaction Logger Service
+ * 
+ * Comprehensive logging system for LLM interactions with real-time
+ * streaming interface for debugging and analysis.
+ */
+export class InteractionLoggerService extends Context.Tag('InteractionLoggerService')<
+  InteractionLoggerService,
+  {
+    readonly logRequest: (
+      model: ModelType,
+      request: LLMRequest,
+      debugInfo?: {
+        routingReason?: string
+        cacheHit?: boolean
+        retryCount?: number
+        fallbackUsed?: string
+      }
+    ) => Effect.Effect<string, never, never>
+
+    readonly logResponse: (
+      interactionId: string,
+      response: LLMResponse,
+      latencyMs: number
+    ) => Effect.Effect<void, never, never>
+
+    readonly logError: (
+      interactionId: string,
+      error: LLMError,
+      latencyMs: number
+    ) => Effect.Effect<void, never, never>
+
+    readonly logStreamChunk: (
+      interactionId: string,
+      chunk: string
+    ) => Effect.Effect<void, never, never>
+
+    readonly getLiveFeed: () => Stream.Stream<LiveInteractionEvent, never, never>
+
+    readonly getRecentInteractions: (
+      limit?: number,
+      model?: ModelType
+    ) => Effect.Effect<InteractionLogEntry[], never, never>
+
+    readonly getInteractionById: (id: string) => Effect.Effect<InteractionLogEntry | null, never, never>
+
+    readonly getModelComparison: (
+      taskType?: string,
+      timeWindowMs?: number
+    ) => Effect.Effect<{
+      model: ModelType
+      interactions: InteractionLogEntry[]
+      avgLatency: number
+      successRate: number
+      avgCost: number
+    }[], never, never>
+
+    readonly clearLogs: () => Effect.Effect<void, never, never>
   }
 >() {}

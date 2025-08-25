@@ -8,7 +8,8 @@ import {
   SettingOutlined,
   MoonOutlined,
   SunOutlined,
-  MenuOutlined
+  MenuOutlined,
+  RobotOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppStore } from '../../store/appStore';
@@ -45,6 +46,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       key: '/insights',
       icon: <BulbOutlined />,
       label: 'AI Insights',
+    },
+    {
+      key: '/llm-debug',
+      icon: <RobotOutlined />,
+      label: 'LLM Debug',
     },
   ];
 
