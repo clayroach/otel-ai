@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 
 // Mock data for testing model-specific outputs
 const mockArchitecture = {
@@ -73,22 +73,21 @@ async function generateModelSpecificInsights(
   architecture: typeof mockArchitecture, 
   analysisType: string, 
   selectedModel: string
-) {
+): Promise<TestInsight[]> {
   // Generate base statistical insights (same logic as generateInsights)
-  const baseInsights = []
+  const baseInsights: TestInsight[] = []
 
   // Performance insights for high latency services
   const slowServices = architecture.services.filter(s => (s.metadata.avgLatencyMs as number) > 1000)
   if (slowServices.length > 0) {
     baseInsights.push({
-      type: 'performance' as const,
-      severity: 'warning' as const,
+      type: 'performance',
+      severity: 'warning',
       title: 'High Latency Services Detected',
-      description: `${slowServices.length} services have average latency > 1000ms`,
       recommendation: 'Investigate performance bottlenecks in these services',
       evidence: slowServices.slice(0, 5).map(s => 
         `${s.service}: ${Math.round(s.metadata.avgLatencyMs as number)}ms avg latency (${s.metadata.totalSpans} spans)`
-      ),
+      ).join(', '),
       metadata: {}
     })
   }
@@ -97,14 +96,13 @@ async function generateModelSpecificInsights(
   const errorProneServices = architecture.services.filter(s => (s.metadata.errorRate as number) > 0.01)
   if (errorProneServices.length > 0) {
     baseInsights.push({
-      type: 'reliability' as const,
-      severity: 'critical' as const,
+      type: 'reliability',
+      severity: 'critical',
       title: 'High Error Rate Services',
-      description: `${errorProneServices.length} services have error rates > 1%`,
       recommendation: 'Review error handling and monitoring for these services',
       evidence: errorProneServices.slice(0, 5).map(s => 
         `${s.service}: ${((s.metadata.errorRate as number) * 100).toFixed(1)}% error rate (${s.metadata.totalSpans} spans, ${Math.round(s.metadata.avgLatencyMs as number)}ms avg)`
-      ),
+      ).join(', '),
       metadata: {}
     })
   }
@@ -113,14 +111,13 @@ async function generateModelSpecificInsights(
   const complexServices = architecture.services.filter(s => s.dependencies.length > 5)
   if (complexServices.length > 0) {
     baseInsights.push({
-      type: 'architecture' as const,
-      severity: 'info' as const,
+      type: 'architecture',
+      severity: 'info',
       title: 'Complex Service Dependencies',
-      description: `${complexServices.length} services have > 5 dependencies`,
       recommendation: 'Consider dependency injection or service consolidation',
       evidence: complexServices.slice(0, 3).map(s => 
         `${s.service}: ${s.dependencies.length} dependencies (${s.metadata.totalSpans} spans, ${Math.round(s.metadata.avgLatencyMs as number)}ms avg)`
-      ),
+      ).join(', '),
       metadata: {}
     })
   }
@@ -129,7 +126,11 @@ async function generateModelSpecificInsights(
   if (selectedModel === 'local-statistical-analyzer') {
     // Add statistical metadata to base insights
     return baseInsights.map(insight => ({
-      ...insight,
+      title: insight.title,
+      type: insight.type,
+      severity: insight.severity,
+      recommendation: insight.recommendation,
+      evidence: insight.evidence,
       metadata: {
         ...insight.metadata,
         generatedBy: 'statistical-analyzer',
@@ -142,7 +143,22 @@ async function generateModelSpecificInsights(
   return enhanceInsightsWithLLM(baseInsights, architecture, selectedModel)
 }
 
-async function enhanceInsightsWithLLM(baseInsights: any[], architecture: typeof mockArchitecture, model: string) {
+interface TestInsight {
+  title: string;
+  type: string;
+  severity: string;
+  description?: string;
+  recommendation: string;
+  evidence: string;
+  metadata: {
+    generatedBy?: string;
+    analysisMethod?: string;
+    enhancementLevel?: string;
+    [key: string]: unknown;
+  };
+}
+
+async function enhanceInsightsWithLLM(baseInsights: TestInsight[], architecture: typeof mockArchitecture, model: string) {
   const enhancedInsights = [...baseInsights]
 
   // Add model-specific insights based on the selected LLM
@@ -154,11 +170,7 @@ async function enhanceInsightsWithLLM(baseInsights: any[], architecture: typeof 
       title: 'Architectural Pattern Analysis',
       description: `Claude detected potential microservices anti-patterns in ${architecture.services.length} services`,
       recommendation: 'Consider implementing circuit breaker patterns for high-latency services and event-driven communication for loose coupling',
-      evidence: [
-        'Multiple services showing >10s latency suggest synchronous coupling',
-        'Error rates indicate missing fault tolerance patterns',
-        'Service dependency graph shows potential single points of failure'
-      ],
+      evidence: 'Multiple services showing >10s latency suggest synchronous coupling, Error rates indicate missing fault tolerance patterns, Service dependency graph shows potential single points of failure',
       metadata: {
         generatedBy: 'claude-via-llm-manager',
         analysisMethod: 'llm-enhanced-analysis',
@@ -173,11 +185,7 @@ async function enhanceInsightsWithLLM(baseInsights: any[], architecture: typeof 
       title: 'Performance Optimization Opportunities',
       description: `GPT-4 identified ${architecture.dataFlows.length} optimization opportunities in service communication patterns`,
       recommendation: 'Implement caching layers, connection pooling, and async processing for high-volume service interactions',
-      evidence: [
-        'High-volume service calls without apparent caching strategies',
-        'Synchronous processing patterns in high-throughput scenarios',
-        'Database connection patterns suggesting N+1 query issues'
-      ],
+      evidence: 'High-volume service calls without apparent caching strategies, Synchronous processing patterns in high-throughput scenarios, Database connection patterns suggesting N+1 query issues',
       metadata: {
         generatedBy: 'gpt-via-llm-manager',
         analysisMethod: 'llm-enhanced-analysis',
@@ -192,11 +200,7 @@ async function enhanceInsightsWithLLM(baseInsights: any[], architecture: typeof 
       title: 'Resource Utilization & Scalability Analysis',
       description: `Llama analyzed resource consumption patterns across ${architecture.services.length} services`,
       recommendation: 'Optimize resource allocation and implement horizontal scaling strategies for services showing resource contention',
-      evidence: [
-        'Services showing memory/CPU intensive operation patterns',
-        'Latency patterns indicating resource contention during peak loads',
-        'Service scaling patterns suggest manual rather than auto-scaling'
-      ],
+      evidence: 'Services showing memory/CPU intensive operation patterns, Latency patterns indicating resource contention during peak loads, Service scaling patterns suggest manual rather than auto-scaling',
       metadata: {
         generatedBy: 'llama-via-llm-manager',
         analysisMethod: 'llm-enhanced-analysis',
@@ -207,7 +211,11 @@ async function enhanceInsightsWithLLM(baseInsights: any[], architecture: typeof 
 
   // Enhance existing insights with model-specific details
   return enhancedInsights.map(insight => ({
-    ...insight,
+    title: insight.title,
+    type: insight.type,
+    severity: insight.severity,
+    recommendation: insight.recommendation,
+    evidence: insight.evidence,
     metadata: {
       ...insight.metadata,
       generatedBy: model === 'local-statistical-analyzer' ? 'statistical-analyzer' : `${model}-via-llm-manager`,
@@ -266,13 +274,13 @@ describe('Model-Specific Outputs', () => {
       // Validate Claude-specific insight details
       const claudeInsight = insights.find(i => i.title === 'Architectural Pattern Analysis')
       expect(claudeInsight).toBeDefined()
-      expect(claudeInsight!.type).toBe('architecture')
-      expect(claudeInsight!.severity).toBe('info')
-      expect(claudeInsight!.recommendation).toContain('circuit breaker patterns')
-      expect(claudeInsight!.recommendation).toContain('event-driven communication')
-      expect(claudeInsight!.evidence).toContain('Multiple services showing >10s latency suggest synchronous coupling')
-      expect(claudeInsight!.metadata.generatedBy).toBe('claude-via-llm-manager')
-      expect(claudeInsight!.metadata.analysisMethod).toBe('llm-enhanced-analysis')
+      expect(claudeInsight?.type).toBe('architecture')
+      expect(claudeInsight?.severity).toBe('info')
+      expect(claudeInsight?.recommendation).toContain('circuit breaker patterns')
+      expect(claudeInsight?.recommendation).toContain('event-driven communication')
+      expect(claudeInsight?.evidence).toContain('Multiple services showing >10s latency suggest synchronous coupling')
+      expect(claudeInsight?.metadata.generatedBy).toBe('claude-via-llm-manager')
+      expect(claudeInsight?.metadata.analysisMethod).toBe('llm-enhanced-analysis')
     })
   })
 
@@ -298,14 +306,14 @@ describe('Model-Specific Outputs', () => {
       // Validate GPT-specific insight details
       const gptInsight = insights.find(i => i.title === 'Performance Optimization Opportunities')
       expect(gptInsight).toBeDefined()
-      expect(gptInsight!.type).toBe('performance')
-      expect(gptInsight!.severity).toBe('warning')
-      expect(gptInsight!.recommendation).toContain('caching layers')
-      expect(gptInsight!.recommendation).toContain('connection pooling')
-      expect(gptInsight!.recommendation).toContain('async processing')
-      expect(gptInsight!.evidence).toContain('High-volume service calls without apparent caching strategies')
-      expect(gptInsight!.metadata.generatedBy).toBe('gpt-via-llm-manager')
-      expect(gptInsight!.metadata.analysisMethod).toBe('llm-enhanced-analysis')
+      expect(gptInsight?.type).toBe('performance')
+      expect(gptInsight?.severity).toBe('warning')
+      expect(gptInsight?.recommendation).toContain('caching layers')
+      expect(gptInsight?.recommendation).toContain('connection pooling')
+      expect(gptInsight?.recommendation).toContain('async processing')
+      expect(gptInsight?.evidence).toContain('High-volume service calls without apparent caching strategies')
+      expect(gptInsight?.metadata.generatedBy).toBe('gpt-via-llm-manager')
+      expect(gptInsight?.metadata.analysisMethod).toBe('llm-enhanced-analysis')
     })
   })
 
@@ -331,13 +339,13 @@ describe('Model-Specific Outputs', () => {
       // Validate Llama-specific insight details
       const llamaInsight = insights.find(i => i.title === 'Resource Utilization & Scalability Analysis')
       expect(llamaInsight).toBeDefined()
-      expect(llamaInsight!.type).toBe('reliability')
-      expect(llamaInsight!.severity).toBe('info')
-      expect(llamaInsight!.recommendation).toContain('resource allocation')
-      expect(llamaInsight!.recommendation).toContain('horizontal scaling')
-      expect(llamaInsight!.evidence).toContain('Services showing memory/CPU intensive operation patterns')
-      expect(llamaInsight!.metadata.generatedBy).toBe('llama-via-llm-manager')
-      expect(llamaInsight!.metadata.analysisMethod).toBe('llm-enhanced-analysis')
+      expect(llamaInsight?.type).toBe('reliability')
+      expect(llamaInsight?.severity).toBe('info')
+      expect(llamaInsight?.recommendation).toContain('resource allocation')
+      expect(llamaInsight?.recommendation).toContain('horizontal scaling')
+      expect(llamaInsight?.evidence).toContain('Services showing memory/CPU intensive operation patterns')
+      expect(llamaInsight?.metadata.generatedBy).toBe('llama-via-llm-manager')
+      expect(llamaInsight?.metadata.analysisMethod).toBe('llm-enhanced-analysis')
     })
   })
 
@@ -431,7 +439,7 @@ describe('Model-Specific Outputs', () => {
 
   describe('Edge Cases', () => {
     it('should handle unknown model by falling back to statistical analysis', async () => {
-      const insights = await generateModelSpecificInsights(mockArchitecture, 'architecture', 'unknown-model' as any)
+      const insights = await generateModelSpecificInsights(mockArchitecture, 'architecture', 'unknown-model')
       
       // Should fall back to base insights only (no enhancement)
       expect(insights).toHaveLength(3)
@@ -467,14 +475,14 @@ describe('Model-Specific Outputs', () => {
       
       // Should still generate Claude-specific insight even with no base insights
       expect(insights).toHaveLength(1)
-      expect(insights[0].title).toBe('Architectural Pattern Analysis')
+      expect(insights[0]?.title).toBe('Architectural Pattern Analysis')
     })
 
     it('should work with different analysis types', async () => {
       const analysisTypes = ['architecture', 'dataflow', 'dependencies', 'insights']
       
       for (const analysisType of analysisTypes) {
-        const insights = await generateModelSpecificInsights(mockArchitecture, analysisType as any, 'claude')
+        const insights = await generateModelSpecificInsights(mockArchitecture, analysisType, 'claude')
         
         // Should always include Claude-specific insight regardless of analysis type
         expect(insights.length).toBeGreaterThanOrEqual(1)

@@ -2,8 +2,8 @@ import { useQuery, UseQueryOptions } from 'react-query';
 import axios from 'axios';
 import { useAppStore } from '../store/appStore';
 
-interface ClickhouseQueryResult {
-  data: any[];
+interface ClickhouseQueryResult<T = unknown> {
+  data: T[];
   rows: number;
   statistics: {
     elapsed: number;
@@ -21,11 +21,11 @@ interface ClickhouseError {
   code?: number;
 }
 
-const executeClickhouseQuery = async (
+const executeClickhouseQuery = async <T = unknown>(
   query: string,
   url: string,
   auth: { username: string; password: string }
-): Promise<ClickhouseQueryResult> => {
+): Promise<ClickhouseQueryResult<T>> => {
   try {
     // For proxy URLs, don't send auth headers as the proxy handles authentication
     const isProxyUrl = url.includes('/api/clickhouse');
@@ -91,15 +91,15 @@ const executeClickhouseQuery = async (
   }
 };
 
-export const useClickhouseQuery = (
+export const useClickhouseQuery = <T = unknown>(
   query: string,
-  options?: Omit<UseQueryOptions<ClickhouseQueryResult, ClickhouseError>, 'queryKey' | 'queryFn'>
+  options?: Omit<UseQueryOptions<ClickhouseQueryResult<T>, ClickhouseError>, 'queryKey' | 'queryFn'>
 ) => {
   const { clickhouseUrl, clickhouseAuth } = useAppStore();
 
-  return useQuery<ClickhouseQueryResult, ClickhouseError>({
+  return useQuery<ClickhouseQueryResult<T>, ClickhouseError>({
     queryKey: ['clickhouse-query', query, clickhouseUrl, clickhouseAuth],
-    queryFn: () => executeClickhouseQuery(query, clickhouseUrl, clickhouseAuth),
+    queryFn: () => executeClickhouseQuery<T>(query, clickhouseUrl, clickhouseAuth),
     enabled: Boolean(query.trim()) && Boolean(clickhouseUrl),
     retry: (failureCount, error) => {
       // Don't retry on syntax errors or connection issues

@@ -75,7 +75,7 @@ export class SimpleStorage {
   constructor(config: SimpleStorageConfig) {
     this.config = config
     this.client = createClient({
-      host: `http://${config.clickhouse.host}:${config.clickhouse.port}`,
+      url: `http://${config.clickhouse.host}:${config.clickhouse.port}`,
       database: config.clickhouse.database,
       username: config.clickhouse.username,
       password: config.clickhouse.password

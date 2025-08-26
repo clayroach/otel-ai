@@ -1,3 +1,11 @@
+---
+name: claude-review-session-agent
+description: Review and analyze historical Claude Code session logs to provide contextual information about past work, decisions, and implementations for better development continuity
+author: Claude Code
+version: 1.0
+tags: [session-analysis, context-recovery, development-continuity, historical-analysis]
+---
+
 # Claude Review Session Agent
 
 **Purpose**: Review and analyze historical Claude Code session logs to provide contextual information about past work, decisions, and implementations for better development continuity.

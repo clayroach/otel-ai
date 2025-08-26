@@ -56,7 +56,7 @@ describe('UI Data Validation Integration', () => {
       })
       
       expect(response.ok).toBe(true)
-      const analysis = await response.json()
+      const analysis = await response.json() as any
       
       console.log('🔍 Full analysis response for UI validation:')
       console.log(JSON.stringify(analysis, null, 2))
@@ -93,7 +93,7 @@ describe('UI Data Validation Integration', () => {
       })
       
       expect(response.ok).toBe(true)
-      const analysis = await response.json()
+      const analysis = await response.json() as any
       
       // Check analyzedSpans field that UI displays with "spans" suffix
       const analyzedSpans = analysis.metadata.analyzedSpans
@@ -151,7 +151,7 @@ describe('UI Data Validation Integration', () => {
       })
       
       expect(response.ok).toBe(true)
-      const analysis = await response.json()
+      const analysis = await response.json() as any
       
       const servicesCount = analysis.architecture.services.length
       const dataFlowsCount = analysis.architecture.dataFlows.length
@@ -204,7 +204,7 @@ describe('UI Data Validation Integration', () => {
       })
       
       expect(response.ok).toBe(true)
-      const analysis = await response.json()
+      const analysis = await response.json() as any
       
       // Check each service's metadata for UI display
       for (const [index, service] of analysis.architecture.services.entries()) {
@@ -255,7 +255,7 @@ describe('UI Data Validation Integration', () => {
       })
       
       expect(response.ok).toBe(true)
-      const topology = await response.json()
+      const topology = await response.json() as any
       
       console.log(`🗂️ Topology data for UI service list (${topology.length} services):`)
       

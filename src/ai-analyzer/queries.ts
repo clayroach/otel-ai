@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import type { ClickHouseClient } from '@clickhouse/client'
 import type { AnalysisError } from './types.js'
 
 // Raw query result types
@@ -247,7 +248,7 @@ export const ArchitectureQueries = {
  */
 export const executeAnalysisQuery = <T>(
   query: string,
-  connection: any // TODO: Replace with proper ClickHouse client type
+  connection: ClickHouseClient
 ): Effect.Effect<T[], AnalysisError, never> =>
   Effect.tryPromise({
     try: async () => {

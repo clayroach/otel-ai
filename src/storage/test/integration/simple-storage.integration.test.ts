@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { ClickHouseContainer, type StartedClickHouseContainer } from '@testcontainers/clickhouse'
-import { SimpleStorage, type SimpleStorageConfig, type SimpleOTLPData } from '../../simple-storage.js'
+import { SimpleStorage, type SimpleStorageConfig, type SimpleOTLPData, type DatabaseTraceRecord, type DetailedTraceData } from '../../simple-storage.js'
 
 describe('SimpleStorage Integration Tests', () => {
   let storage: SimpleStorage
@@ -126,16 +126,11 @@ describe('SimpleStorage Integration Tests', () => {
         {
           traceId: 'integration-trace-123',
           spanId: 'integration-span-123',
-          parentSpanId: '',
           operationName: 'integration-test-operation',
           startTime: now,
-          endTime: now + 1000000, // 1ms later
           serviceName: 'integration-test-service',
           statusCode: 'STATUS_CODE_OK',
-          statusMessage: 'OK',
-          spanKind: 'SPAN_KIND_SERVER',
-          attributes: { 'test.environment': 'integration', 'test.type': 'container' },
-          resourceAttributes: { 'service.name': 'integration-test-service' }
+          attributes: { 'test.environment': 'integration', 'test.type': 'container' }
         }
       ],
       timestamp: Date.now()
@@ -176,7 +171,7 @@ describe('SimpleStorage Integration Tests', () => {
           return {
             traceId: `bulk-trace-${index}`,
             spanId: `bulk-span-${index}`,
-            parentSpanId: index > 0 ? `bulk-span-${index - 1}` : '',
+            parent_span_id: index > 0 ? `bulk-span-${index - 1}` : '',
             operationName: `bulk-operation-${index}`,
             startTime: startTime,
             endTime: startTime + (100 + index) * 1000000, // Variable duration
@@ -239,16 +234,11 @@ describe('SimpleStorage Integration Tests', () => {
           {
             traceId: 'json-trace-test-123',
             spanId: 'json-span-test-123',
-            parentSpanId: '',
             operationName: 'json-test-operation',
             startTime: now,
-            endTime: now + 2000000, // 2ms later
             serviceName: 'json-test-service',
             statusCode: 'STATUS_CODE_OK',
-            statusMessage: 'OK',
-            spanKind: 'SPAN_KIND_CLIENT',
-            attributes: { 'test.format': 'json', 'test.environment': 'integration' },
-            resourceAttributes: { 'service.name': 'json-test-service', 'encoding.format': 'json' }
+            attributes: { 'test.format': 'json', 'test.environment': 'integration' }
           }
         ],
         timestamp: Date.now()
@@ -275,7 +265,8 @@ describe('SimpleStorage Integration Tests', () => {
       const result = await storage.queryWithResults(query)
       expect(result.data).toHaveLength(1)
       
-      const trace = result.data[0]
+      const trace = result.data[0] as unknown as DatabaseTraceRecord
+      expect(trace).toBeDefined()
       expect(trace.trace_id).toBe('json-trace-test-123')
       expect(trace.service_name).toBe('json-test-service')
       expect(trace.operation_name).toBe('json-test-operation')
@@ -290,16 +281,11 @@ describe('SimpleStorage Integration Tests', () => {
         traces: [{
           traceId: 'format-test-json-456',
           spanId: 'format-test-json-span',
-          parentSpanId: '',
           operationName: 'format-comparison-test',
           startTime: now,
-          endTime: now + 1000000,
           serviceName: 'format-test-service-json',
           statusCode: 'STATUS_CODE_OK',
-          statusMessage: 'OK',
-          spanKind: 'SPAN_KIND_INTERNAL',
-          attributes: {},
-          resourceAttributes: { 'service.name': 'format-test-service-json' }
+          attributes: {}
         }],
         timestamp: Date.now()
       }

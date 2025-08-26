@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { generateInsights, generateRequestId } from '../../service.js'
 
 // Mock architecture data for testing
@@ -86,7 +86,7 @@ describe('Model Selection and Insights Generation', () => {
       expect(parts).toHaveLength(4) // ai, analysis, timestamp, random
       expect(parts[0]).toBe('ai')
       expect(parts[1]).toBe('analysis')
-      expect(parseInt(parts[2])).toBeGreaterThan(0)
+      expect(parseInt(parts[2] || '0')).toBeGreaterThan(0)
       expect(parts[3]).toMatch(/^[a-z0-9]+$/)
     })
   })
@@ -99,7 +99,7 @@ describe('Model Selection and Insights Generation', () => {
       expect(performanceInsight).toBeDefined()
       expect(performanceInsight?.title).toBe('High Latency Services Detected')
       expect(performanceInsight?.severity).toBe('warning')
-      expect(performanceInsight?.evidence).toContain('high-latency-service: 5000ms avg latency (1000 spans)')
+      expect(performanceInsight?.evidence.data.services).toContain('high-latency-service: 5000ms avg latency (1000 spans)')
     })
 
     it('should generate reliability insights for high error rate services', () => {
@@ -109,7 +109,7 @@ describe('Model Selection and Insights Generation', () => {
       expect(reliabilityInsight).toBeDefined()
       expect(reliabilityInsight?.title).toBe('High Error Rate Services')
       expect(reliabilityInsight?.severity).toBe('critical')
-      expect(reliabilityInsight?.evidence).toContain('error-prone-service: 5.0% error rate (800 spans, 500ms avg)')
+      expect(reliabilityInsight?.evidence.data.services).toContain('error-prone-service: 5.0% error rate (800 spans, 500ms avg)')
     })
 
     it('should generate architecture insights for complex dependencies', () => {
@@ -119,7 +119,7 @@ describe('Model Selection and Insights Generation', () => {
       expect(architectureInsight).toBeDefined()
       expect(architectureInsight?.title).toBe('Complex Service Dependencies')
       expect(architectureInsight?.severity).toBe('info')
-      expect(architectureInsight?.evidence).toContain('complex-service: 6 dependencies (1200 spans, 800ms avg)')
+      expect(architectureInsight?.evidence.data.services).toContain('complex-service: 6 dependencies (1200 spans, 800ms avg)')
     })
 
     it('should not generate insights when thresholds are not met', () => {
@@ -142,14 +142,16 @@ describe('Model Selection and Insights Generation', () => {
       const insights = generateInsights(mockArchitecture, 'architecture')
       
       const performanceInsight = insights.find(i => i.type === 'performance')
-      const evidence = performanceInsight?.evidence as string[]
+      const services = performanceInsight?.evidence.data.services
       
-      // First service should have highest latency
-      expect(evidence[0]).toContain('high-latency-service: 5000ms')
-      // Should be sorted by latency descending
-      const latencies = evidence.map(e => parseInt(e.match(/(\d+)ms/)?.[1] || '0'))
-      for (let i = 1; i < latencies.length; i++) {
-        expect(latencies[i-1]).toBeGreaterThanOrEqual(latencies[i])
+      if (services && services.length > 0) {
+        // First service should have highest latency
+        expect(services[0]).toContain('high-latency-service: 5000ms')
+        // Should be sorted by latency descending
+        const latencies = services.map(e => parseInt(e.match(/(\d+)ms/)?.[1] || '0'))
+        for (let i = 1; i < latencies.length; i++) {
+          expect(latencies[i-1] || 0).toBeGreaterThanOrEqual(latencies[i] || 0)
+        }
       }
     })
   })
@@ -159,7 +161,7 @@ describe('Model Selection and Insights Generation', () => {
       const insights = generateInsights(mockArchitecture, 'architecture')
       const performanceInsight = insights.find(i => i.type === 'performance')
       
-      expect(performanceInsight?.evidence).toEqual([
+      expect(performanceInsight?.evidence.data.services).toEqual([
         'high-latency-service: 5000ms avg latency (1000 spans)'
       ])
     })
@@ -168,7 +170,7 @@ describe('Model Selection and Insights Generation', () => {
       const insights = generateInsights(mockArchitecture, 'architecture')
       const reliabilityInsight = insights.find(i => i.type === 'reliability')
       
-      expect(reliabilityInsight?.evidence).toEqual([
+      expect(reliabilityInsight?.evidence.data.services).toEqual([
         'error-prone-service: 5.0% error rate (800 spans, 500ms avg)',
         'high-latency-service: 2.0% error rate (1000 spans, 5000ms avg)'
       ])
@@ -178,7 +180,7 @@ describe('Model Selection and Insights Generation', () => {
       const insights = generateInsights(mockArchitecture, 'architecture')
       const architectureInsight = insights.find(i => i.type === 'architecture')
       
-      expect(architectureInsight?.evidence).toEqual([
+      expect(architectureInsight?.evidence.data.services).toEqual([
         'complex-service: 6 dependencies (1200 spans, 800ms avg)'
       ])
     })
@@ -209,8 +211,8 @@ describe('Model Selection and Insights Generation', () => {
       const insights = generateInsights(borderlineArchitecture, 'architecture')
       const performanceInsight = insights.find(i => i.type === 'performance')
       
-      expect(performanceInsight?.evidence).toHaveLength(1)
-      expect(performanceInsight?.evidence[0]).toContain('slow-service: 1001ms')
+      expect(performanceInsight?.evidence.data.services).toHaveLength(1)
+      expect(performanceInsight?.evidence.data.services[0]).toContain('slow-service: 1001ms')
     })
 
     it('should use 1% threshold for reliability insights', () => {
@@ -237,8 +239,8 @@ describe('Model Selection and Insights Generation', () => {
       const insights = generateInsights(borderlineArchitecture, 'architecture')
       const reliabilityInsight = insights.find(i => i.type === 'reliability')
       
-      expect(reliabilityInsight?.evidence).toHaveLength(1)
-      expect(reliabilityInsight?.evidence[0]).toContain('high-error-service: 1.1%')
+      expect(reliabilityInsight?.evidence.data.services).toHaveLength(1)
+      expect(reliabilityInsight?.evidence.data.services[0]).toContain('high-error-service: 1.1%')
     })
 
     it('should use 5 dependencies threshold for architecture insights', () => {
@@ -269,8 +271,8 @@ describe('Model Selection and Insights Generation', () => {
       const insights = generateInsights(architectureWithDependencies, 'architecture')
       const architectureInsight = insights.find(i => i.type === 'architecture')
       
-      expect(architectureInsight?.evidence).toHaveLength(1)
-      expect(architectureInsight?.evidence[0]).toContain('complex-service: 6 dependencies')
+      expect(architectureInsight?.evidence.data.services).toHaveLength(1)
+      expect(architectureInsight?.evidence.data.services[0]).toContain('complex-service: 6 dependencies')
     })
   })
 
@@ -281,9 +283,21 @@ describe('Model Selection and Insights Generation', () => {
       const insightsDeps = generateInsights(mockArchitecture, 'dependencies')
       const insightsInsights = generateInsights(mockArchitecture, 'insights')
 
-      expect(insightsArch).toEqual(insightsDataflow)
-      expect(insightsArch).toEqual(insightsDeps)
-      expect(insightsArch).toEqual(insightsInsights)
+      // Compare insights without timing-sensitive metadata
+      const normalizeInsights = (insights: any[]) => insights.map(insight => ({
+        ...insight,
+        evidence: {
+          ...insight.evidence,
+          metadata: {
+            ...insight.evidence.metadata,
+            processingTime: expect.any(Number) // Ignore timing variations
+          }
+        }
+      }))
+      
+      expect(normalizeInsights(insightsArch)).toEqual(normalizeInsights(insightsDataflow))
+      expect(normalizeInsights(insightsArch)).toEqual(normalizeInsights(insightsDeps))
+      expect(normalizeInsights(insightsArch)).toEqual(normalizeInsights(insightsInsights))
     })
   })
 
@@ -322,7 +336,7 @@ describe('Model Selection and Insights Generation', () => {
           type: 'backend' as const,
           operations: ['op'],
           dependencies: [],
-          metadata: { avgLatencyMs: null as any, errorRate: undefined as any, totalSpans: 1000 }
+          metadata: { avgLatencyMs: null as unknown, errorRate: undefined as unknown, totalSpans: 1000 }
         }]
       }
 
@@ -346,7 +360,7 @@ describe('Model Selection and Insights Generation', () => {
       const insights = generateInsights(manyServicesArchitecture, 'architecture')
       const performanceInsight = insights.find(i => i.type === 'performance')
       
-      expect(performanceInsight?.evidence).toHaveLength(5)
+      expect(performanceInsight?.evidence.data.services).toHaveLength(5)
     })
 
     it('should limit evidence to 3 items for architecture insights', () => {
@@ -366,7 +380,7 @@ describe('Model Selection and Insights Generation', () => {
       const insights = generateInsights(manyComplexServicesArchitecture, 'architecture')
       const architectureInsight = insights.find(i => i.type === 'architecture')
       
-      expect(architectureInsight?.evidence).toHaveLength(3)
+      expect(architectureInsight?.evidence.data.services).toHaveLength(3)
     })
   })
 })

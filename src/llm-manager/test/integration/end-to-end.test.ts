@@ -7,10 +7,10 @@
 
 import { describe, it, expect, beforeAll } from 'vitest'
 import { Effect, Stream } from 'effect'
-import { createSimpleLLMManager } from '../simple-manager.js'
-import { LLMManagerContext, LLMManagerEssentials } from '../layers.js'
-import { LLMManagerService } from '../services.js'
-import type { LLMRequest, LLMConfig } from '../types.js'
+import { createSimpleLLMManager } from '../../simple-manager.js'
+import { LLMManagerContext, LLMManagerEssentials } from '../../layers.js'
+import { LLMManagerService } from '../../services.js'
+import type { LLMRequest, LLMConfig } from '../../types.js'
 
 describe('End-to-End LLM Manager Tests', () => {
   describe('Simple Manager Integration', () => {
@@ -100,19 +100,17 @@ describe('End-to-End LLM Manager Tests', () => {
 
   describe('Service Layer Integration', () => {
     it('should work with minimal service layer', async () => {
-      const testEffect = Effect.gen(function* (_) {
-        const manager = yield* _(LLMManagerService)
-        
-        // Test basic service functionality
-        const models = yield* _(manager.getAvailableModels())
-        expect(Array.isArray(models)).toBe(true)
-        
-        return models
-      })
-
       try {
-        const result = await Effect.runPromise(
-          testEffect.pipe(Effect.provide(LLMManagerEssentials))
+        const result: any = await Effect.runPromise(
+          Effect.gen(function* (_) {
+            const manager = yield* _(LLMManagerService)
+            
+            // Test basic service functionality
+            const models = yield* _(manager.getAvailableModels())
+            expect(Array.isArray(models)).toBe(true)
+            
+            return models
+          }).pipe(Effect.provide(LLMManagerContext)) as any
         )
         
         expect(result).toBeDefined()
@@ -212,7 +210,7 @@ describe('End-to-End LLM Manager Tests', () => {
       }
 
       // Test OpenAI client directly since simple manager only supports local models
-      const { makeOpenAIClient, defaultOpenAIConfig } = await import('../clients/openai-client.js')
+      const { makeOpenAIClient, defaultOpenAIConfig } = await import('../../clients/openai-client.js')
       
       const openaiClient = makeOpenAIClient({
         ...defaultOpenAIConfig,
@@ -232,7 +230,7 @@ describe('End-to-End LLM Manager Tests', () => {
       }
 
       try {
-        const response = await Effect.runPromise(openaiClient.generate(request))
+        const response = await Effect.runPromise(openaiClient.generate(request)) as any
         
         expect(response.content).toContain('4')
         expect(response.model).toContain('gpt')

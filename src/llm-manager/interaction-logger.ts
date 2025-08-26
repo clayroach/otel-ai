@@ -62,7 +62,7 @@ export type LiveInteractionEvent = Schema.Schema.Type<typeof LiveInteractionEven
 /**
  * Interaction Logger Service Interface
  */
-export interface InteractionLoggerService {
+export interface InteractionLoggerInterface {
   readonly logRequest: (
     model: ModelType,
     request: LLMRequest,
@@ -117,7 +117,7 @@ export interface InteractionLoggerService {
 /**
  * Interaction Logger Service Tag
  */
-export const InteractionLoggerService = Effect.Service<InteractionLoggerService>()
+export const InteractionLoggerService = Effect.Service<InteractionLoggerInterface>()
 
 /**
  * Generate Unique Interaction ID
@@ -131,7 +131,7 @@ const generateInteractionId = (): string => {
 /**
  * In-Memory Interaction Logger Implementation
  */
-export const makeInteractionLogger = () =>
+export const makeInteractionLogger = (): Effect.Effect<InteractionLoggerInterface, never, never> =>
   Effect.gen(function* (_) {
     // In-memory storage for interactions
     const interactionsRef = yield* _(Ref.make(new Map<string, InteractionLogEntry>()))
@@ -184,10 +184,10 @@ export const makeInteractionLogger = () =>
             },
             status: 'pending',
             debugInfo: {
-              routingReason: (debugInfo as any).routingReason || 'Unknown',
-              cacheHit: (debugInfo as any).cacheHit || false,
-              retryCount: (debugInfo as any).retryCount || 0,
-              fallbackUsed: (debugInfo as any).fallbackUsed
+              routingReason: (debugInfo && typeof debugInfo === 'object' && 'routingReason' in debugInfo) ? debugInfo.routingReason as string : 'Unknown',
+              cacheHit: (debugInfo && typeof debugInfo === 'object' && 'cacheHit' in debugInfo) ? debugInfo.cacheHit as boolean : false,
+              retryCount: (debugInfo && typeof debugInfo === 'object' && 'retryCount' in debugInfo) ? debugInfo.retryCount as number : 0,
+              fallbackUsed: (debugInfo && typeof debugInfo === 'object' && 'fallbackUsed' in debugInfo) ? debugInfo.fallbackUsed as string : undefined
             }
           }
 
@@ -207,7 +207,7 @@ export const makeInteractionLogger = () =>
           yield* _(Effect.log(
             `🔹 LLM Request [${id}] → ${model} (${request.taskType})\n` +
             `   Prompt: ${request.prompt.substring(0, 100)}${request.prompt.length > 100 ? '...' : ''}\n` +
-            `   Routing: ${(debugInfo as any).routingReason || 'Unknown'}`
+            `   Routing: ${(debugInfo && typeof debugInfo === 'object' && 'routingReason' in debugInfo) ? debugInfo.routingReason : 'Unknown'}`
           ))
 
           return id
@@ -255,7 +255,7 @@ export const makeInteractionLogger = () =>
             if (existing) {
               const updated: InteractionLogEntry = {
                 ...existing,
-                error: error as any,
+                error: error as { readonly [x: string]: unknown },
                 latencyMs,
                 status: 'error'
               }
@@ -273,7 +273,7 @@ export const makeInteractionLogger = () =>
           // Log to console
           yield* _(Effect.log(
             `❌ LLM Error [${interactionId}] (${latencyMs}ms)\n` +
-            `   Error: ${error._tag} - ${(error as any).message || 'Unknown error'}`
+            `   Error: ${error._tag} - ${('message' in error) ? error.message as string : 'Unknown error'}`
           ))
         }),
 
@@ -402,9 +402,45 @@ export const makeInteractionLogger = () =>
  * Interaction Logger Layer
  */
 export const InteractionLoggerLayer = Layer.effect(
-  InteractionLoggerService as any,
+  InteractionLoggerService,
   makeInteractionLogger()
 )
+
+/**
+ * Type guard for LLM Error objects
+ */
+function isLLMError(error: unknown): error is LLMError {
+  return (
+    error !== null &&
+    typeof error === 'object' &&
+    '_tag' in error &&
+    typeof error._tag === 'string'
+  )
+}
+
+/**
+ * Extract error message from LLMError union type
+ */
+function getLLMErrorMessage(error: LLMError): string {
+  switch (error._tag) {
+    case 'ModelUnavailable':
+    case 'AuthenticationFailed':
+    case 'NetworkError':
+      return error.message
+    case 'InvalidRequest':
+    case 'ConfigurationError':
+    case 'AllModelsUnavailable':
+      return error.message
+    case 'RateLimitExceeded':
+      return `Rate limit exceeded, retry after ${error.retryAfter}s`
+    case 'TimeoutError':
+      return `Request timeout after ${error.timeoutMs}ms`
+    case 'ContextTooLarge':
+      return `Context too large: ${error.tokenCount} tokens (max: ${error.maxTokens})`
+    default:
+      return 'Unknown error'
+  }
+}
 
 /**
  * Console Helper for Pretty-Printing Interactions
@@ -425,7 +461,11 @@ export const formatInteractionForConsole = (entry: InteractionLogEntry): string 
   }
   
   if (entry.error) {
-    output += `   Error: ${(entry.error as any)._tag} - ${(entry.error as any).message || 'Unknown'}\n`
+    if (isLLMError(entry.error)) {
+      output += `   Error: ${entry.error._tag} - ${getLLMErrorMessage(entry.error)}\n`
+    } else {
+      output += `   Error: ${String(entry.error)}\n`
+    }
   }
   
   if (entry.latencyMs) {

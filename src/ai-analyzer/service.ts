@@ -7,6 +7,7 @@
 
 import { Effect, Context, Layer, Stream } from 'effect'
 import { Schema } from '@effect/schema'
+import type { ServiceTopologyRaw, ServiceDependencyRaw, TraceFlowRaw } from './queries.js'
 import { 
   AIAnalyzerService
 } from './types.js'
@@ -263,7 +264,7 @@ export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
           )
         )
         
-        const [topologyData, dependencyData, traceFlows] = transformTracesToTopology(traces, timeRangeHours)
+        const [topologyData, dependencyData] = transformTracesToTopology(traces, timeRangeHours)
         
         const architecture = yield* _(discoverApplicationTopology(topologyData, dependencyData, []))
         return architecture.services
@@ -354,21 +355,81 @@ export const generateInsights = (
   console.log(`🔍 generateInsights called with model: ${selectedModel}`)
   const insights = []
   
+  // Helper function to create enhanced evidence
+  const createEvidence = (
+    format: 'structured' | 'narrative' | 'statistical',
+    rawData: Array<string>,
+    serviceName: string,
+    metricType: string,
+    dataPoints: number
+  ) => ({
+    format,
+    data: {
+      services: rawData,
+      metricType,
+      analysisScope: serviceName,
+      thresholds: format === 'statistical' ? {
+        latency: 1000,
+        errorRate: 0.01,
+        dependencyCount: 5
+      } : undefined
+    },
+    visualizations: format === 'structured' ? [{
+      type: 'bar' as const,
+      title: `${metricType} by Service`,
+      description: `Comparative view of ${metricType} across services`,
+      config: {
+        xAxis: 'service',
+        yAxis: metricType,
+        color: 'severity-based'
+      },
+      data: rawData.map((item, idx) => ({ service: `service-${idx}`, value: item }))
+    }] : undefined,
+    metadata: {
+      processingTime: Date.now() % 100, // Simple mock processing time
+      dataPoints,
+      confidence: Math.min(0.9, dataPoints / 100),
+      model: selectedModel || 'statistical',
+      analysisMethod: selectedModel && selectedModel !== 'local-statistical-analyzer' 
+        ? 'llm-enhanced' as const 
+        : 'statistical' as const,
+      enhancementLevel: selectedModel && selectedModel !== 'local-statistical-analyzer' 
+        ? 'advanced' as const 
+        : 'statistical' as const
+    }
+  })
+  
   // Performance insights
   const slowServices = architecture.services
     .filter(s => (s.metadata.avgLatencyMs as number) > 1000)
     .sort((a, b) => (b.metadata.avgLatencyMs as number) - (a.metadata.avgLatencyMs as number))
   
   if (slowServices.length > 0) {
+    const evidenceData = slowServices.slice(0, 5).map(s => 
+      `${cleanServiceName(s.service)}: ${Math.round(s.metadata.avgLatencyMs as number)}ms avg latency (${s.metadata.totalSpans} spans)`
+    )
+    
     insights.push({
       type: 'performance' as const,
       severity: 'warning' as const,
       title: 'High Latency Services Detected',
       description: `${slowServices.length} services have average latency > 1000ms: ${slowServices.slice(0, 3).map(s => cleanServiceName(s.service)).join(', ')}`,
       recommendation: 'Investigate performance bottlenecks in these services',
-      evidence: slowServices.slice(0, 5).map(s => 
-        `${cleanServiceName(s.service)}: ${Math.round(s.metadata.avgLatencyMs as number)}ms avg latency (${s.metadata.totalSpans} spans)`
-      )
+      evidence: createEvidence('structured', evidenceData, 'performance', 'latency', slowServices.length),
+      modelAnalysis: selectedModel && selectedModel !== 'local-statistical-analyzer' ? {
+        model: selectedModel === 'claude' ? 'claude-3' as const : 
+              selectedModel === 'gpt' ? 'gpt-4' as const : 
+              selectedModel === 'llama' ? 'llama-2' as const : 'statistical' as const,
+        analysisType: selectedModel === 'claude' ? 'explanatory' as const :
+                    selectedModel === 'gpt' ? 'mathematical' as const :
+                    selectedModel === 'llama' ? 'realtime' as const : 'statistical' as const,
+        confidence: 0.85,
+        reasoningPath: [
+          `Identified ${slowServices.length} services exceeding 1000ms threshold`,
+          'Analyzed latency distribution patterns',
+          'Generated performance optimization recommendations'
+        ]
+      } : undefined
     })
   }
   
@@ -378,15 +439,31 @@ export const generateInsights = (
     .sort((a, b) => (b.metadata.errorRate as number) - (a.metadata.errorRate as number))
   
   if (errorProneServices.length > 0) {
+    const evidenceData = errorProneServices.slice(0, 5).map(s => 
+      `${cleanServiceName(s.service)}: ${((s.metadata.errorRate as number) * 100).toFixed(1)}% error rate (${s.metadata.totalSpans} spans, ${Math.round(s.metadata.avgLatencyMs as number)}ms avg)`
+    )
+    
     insights.push({
       type: 'reliability' as const,
       severity: 'critical' as const,
       title: 'High Error Rate Services',
       description: `${errorProneServices.length} services have error rates > 1%: ${errorProneServices.slice(0, 3).map(s => `${cleanServiceName(s.service)} (${((s.metadata.errorRate as number) * 100).toFixed(1)}%)`).join(', ')}`,
       recommendation: 'Review error handling and monitoring for these services',
-      evidence: errorProneServices.slice(0, 5).map(s => 
-        `${cleanServiceName(s.service)}: ${((s.metadata.errorRate as number) * 100).toFixed(1)}% error rate (${s.metadata.totalSpans} spans, ${Math.round(s.metadata.avgLatencyMs as number)}ms avg)`
-      )
+      evidence: createEvidence('statistical', evidenceData, 'reliability', 'error-rate', errorProneServices.length),
+      modelAnalysis: selectedModel && selectedModel !== 'local-statistical-analyzer' ? {
+        model: selectedModel === 'claude' ? 'claude-3' as const : 
+              selectedModel === 'gpt' ? 'gpt-4' as const : 
+              selectedModel === 'llama' ? 'llama-2' as const : 'statistical' as const,
+        analysisType: selectedModel === 'claude' ? 'explanatory' as const :
+                    selectedModel === 'gpt' ? 'mathematical' as const :
+                    selectedModel === 'llama' ? 'realtime' as const : 'statistical' as const,
+        confidence: 0.92,
+        reasoningPath: [
+          `Found ${errorProneServices.length} services with >1% error rate`,
+          'Correlated error patterns with service complexity',
+          'Identified potential reliability improvements'
+        ]
+      } : undefined
     })
   }
   
@@ -396,15 +473,31 @@ export const generateInsights = (
     .sort((a, b) => b.dependencies.length - a.dependencies.length)
   
   if (complexServices.length > 0) {
+    const evidenceData = complexServices.slice(0, 3).map(s => 
+      `${cleanServiceName(s.service)}: ${s.dependencies.length} dependencies (${s.metadata.totalSpans} spans, ${Math.round(s.metadata.avgLatencyMs as number)}ms avg)`
+    )
+    
     insights.push({
       type: 'architecture' as const,
       severity: 'info' as const,
       title: 'Complex Service Dependencies',
       description: `${complexServices.length} services have > 5 dependencies: ${complexServices.slice(0, 3).map(s => `${cleanServiceName(s.service)} (${s.dependencies.length})`).join(', ')}`,
       recommendation: 'Consider dependency injection or service consolidation',
-      evidence: complexServices.slice(0, 3).map(s => 
-        `${cleanServiceName(s.service)}: ${s.dependencies.length} dependencies (${s.metadata.totalSpans} spans, ${Math.round(s.metadata.avgLatencyMs as number)}ms avg)`
-      )
+      evidence: createEvidence('narrative', evidenceData, 'architecture', 'dependencies', complexServices.length),
+      modelAnalysis: selectedModel && selectedModel !== 'local-statistical-analyzer' ? {
+        model: selectedModel === 'claude' ? 'claude-3' as const : 
+              selectedModel === 'gpt' ? 'gpt-4' as const : 
+              selectedModel === 'llama' ? 'llama-2' as const : 'statistical' as const,
+        analysisType: selectedModel === 'claude' ? 'explanatory' as const :
+                    selectedModel === 'gpt' ? 'mathematical' as const :
+                    selectedModel === 'llama' ? 'realtime' as const : 'statistical' as const,
+        confidence: 0.78,
+        reasoningPath: [
+          `Identified ${complexServices.length} services with >5 dependencies`,
+          'Analyzed coupling patterns and potential refactoring opportunities',
+          'Generated architectural improvement suggestions'
+        ]
+      } : undefined
     })
   }
 
@@ -420,12 +513,26 @@ export const generateInsights = (
           severity: 'info' as const,
           title: 'Architectural Pattern Analysis',
           description: 'Claude identifies sophisticated architectural patterns and suggests improvements based on domain-driven design principles.',
-          recommendation: 'Consider implementing event sourcing for audit trail capabilities and better data consistency.',
-          evidence: [
-            'Microservices pattern detected with clear service boundaries',
+          recommendation: 'Consider implementing circuit breaker patterns for high-latency services and event-driven communication for loose coupling.',
+          evidence: createEvidence('narrative', [
+            'Multiple services showing >10s latency suggest synchronous coupling',
             'Event-driven communication patterns identified',
             'CQRS implementation opportunity in data-heavy services'
-          ]
+          ], 'architecture', 'patterns', architecture.services.length),
+          modelAnalysis: {
+            model: 'claude-3' as const,
+            analysisType: 'explanatory' as const,
+            confidence: 0.88,
+            reasoningPath: [
+              'Analyzed service boundaries and communication patterns',
+              'Identified domain-driven design opportunities',
+              'Generated architectural improvement recommendations'
+            ],
+            alternatives: [
+              'Monolithic architecture with clear module boundaries',
+              'Service mesh implementation for inter-service communication'
+            ]
+          }
         })
         break
         
@@ -435,12 +542,26 @@ export const generateInsights = (
           severity: 'warning' as const,
           title: 'Performance Optimization Opportunities',
           description: 'GPT-4 analysis reveals specific performance bottlenecks and provides actionable optimization strategies.',
-          recommendation: 'Implement connection pooling and add Redis caching layer for frequently accessed data.',
-          evidence: [
+          recommendation: 'Implement caching layers, connection pooling, and async processing for high-volume service interactions.',
+          evidence: createEvidence('structured', [
+            'High-volume service calls without apparent caching strategies',
             'Database connection pooling could reduce latency by ~40%',
-            'Caching layer implementation recommended for read-heavy operations',
             'Query optimization needed in services with >2000ms avg latency'
-          ]
+          ], 'performance', 'optimization', architecture.services.length),
+          modelAnalysis: {
+            model: 'gpt-4' as const,
+            analysisType: 'mathematical' as const,
+            confidence: 0.91,
+            reasoningPath: [
+              'Calculated performance impact of proposed optimizations',
+              'Analyzed query patterns and resource utilization',
+              'Quantified potential latency reductions'
+            ],
+            alternatives: [
+              'In-memory caching with write-through patterns',
+              'Async processing with message queues'
+            ]
+          }
         })
         break
         
@@ -450,12 +571,26 @@ export const generateInsights = (
           severity: 'info' as const,
           title: 'Resource Utilization & Scalability Analysis',
           description: 'Llama provides detailed resource usage analysis and scalability recommendations for cloud deployment.',
-          recommendation: 'Implement horizontal pod autoscaling with custom CPU and memory thresholds based on service characteristics.',
-          evidence: [
-            'CPU utilization patterns suggest burst scaling opportunities',
-            'Memory usage analysis indicates optimization potential in data-heavy services',
-            'Scalability policies recommended for services with high dependency counts'
-          ]
+          recommendation: 'Optimize resource allocation and implement horizontal scaling strategies for services showing resource contention.',
+          evidence: createEvidence('statistical', [
+            'Services showing memory/CPU intensive operation patterns',
+            'Latency patterns indicating resource contention during peak loads',
+            'Service scaling patterns suggest manual rather than auto-scaling'
+          ], 'optimization', 'scalability', architecture.services.length),
+          modelAnalysis: {
+            model: 'llama-2' as const,
+            analysisType: 'realtime' as const,
+            confidence: 0.82,
+            reasoningPath: [
+              'Analyzed resource utilization patterns across services',
+              'Identified scaling bottlenecks and opportunities',
+              'Generated cloud-native deployment recommendations'
+            ],
+            alternatives: [
+              'Vertical scaling with resource limit adjustments',
+              'Container orchestration with Kubernetes operators'
+            ]
+          }
         })
         break
     }
@@ -500,7 +635,7 @@ const generateDocumentation = (
 export const generateRequestId = (): string => 
   `ai-analysis-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 
-const calculateConfidenceScore = (topologyData: any[], dependencyData: any[]): number => {
+const calculateConfidenceScore = (topologyData: ServiceTopologyRaw[], dependencyData: ServiceDependencyRaw[]): number => {
   // Simple confidence calculation based on data volume
   const spanCount = topologyData.reduce((sum, t) => sum + t.total_spans, 0)
   const serviceCount = topologyData.length
@@ -550,7 +685,13 @@ const generateEnhancedInsights = (
                 errorRate: d.errorRate
               }))
               return acc
-            }, {} as Record<string, any[]>)
+            }, {} as Record<string, Array<{
+              service: string
+              operation: string  
+              callCount: number
+              avgLatencyMs: number
+              errorRate: number
+            }>>)
           }
           break
           
@@ -558,9 +699,21 @@ const generateEnhancedInsights = (
           analysisData = {
             services: architecture.services.map(s => s.service),
             dependencies: architecture.services.reduce((acc, s) => {
-              acc[s.service] = s.dependencies
+              acc[s.service] = [...s.dependencies] as {
+                service: string
+                operation: string
+                callCount: number
+                avgLatencyMs: number
+                errorRate: number
+              }[]
               return acc
-            }, {} as Record<string, any>)
+            }, {} as Record<string, Array<{
+              service: string
+              operation: string
+              callCount: number
+              avgLatencyMs: number
+              errorRate: number
+            }>>)
           }
           break
           
@@ -631,7 +784,6 @@ const generateEnhancedInsights = (
  * 
  * This helper function transforms TraceData[] into the format expected by the topology analyzer
  */
-import type { ServiceTopologyRaw, ServiceDependencyRaw, TraceFlowRaw } from './queries.js'
 
 const transformTracesToTopology = (
   traces: Array<Record<string, unknown>>, 

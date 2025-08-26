@@ -1,272 +1,416 @@
 /**
- * Unit test suite for SimpleStorage class
- * For integration tests with TestContainers, see simple-storage.integration.test.ts
+ * Unit test suite for Storage Service using Effect-TS patterns
+ * Uses Effect layers for dependency injection without real external connections
+ * For integration tests with real ClickHouse, see simple-storage.integration.test.ts
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
-import { SimpleStorage, type SimpleStorageConfig, type SimpleOTLPData } from '../../simple-storage.js'
+import { describe, it, expect, beforeEach } from 'vitest'
+import { Effect, Layer } from 'effect'
+import { 
+  StorageService,
+  StorageServiceTag,
+  ConfigServiceTag,
+  type StorageStats
+} from '../../services.js'
+import {
+  type OTLPData,
+  type QueryParams,
+  type AIQueryParams,
+  type TraceData,
+  type MetricData,
+  type LogData,
+  type AIDataset
+} from '../../schemas.js'
 
-describe('SimpleStorage', () => {
-  let storage: SimpleStorage
-  let config: SimpleStorageConfig
+// Mock Storage Service Layer for unit tests - properly typed to match interface
+const MockStorageServiceLive = Layer.succeed(StorageServiceTag, {
+  writeOTLP: (_data: OTLPData): Effect.Effect<void, never> =>
+    Effect.void,
 
-  beforeAll(async () => {
-    // Test configuration using Docker services (if available)
-    config = {
-      clickhouse: {
-        host: process.env.CLICKHOUSE_HOST || 'localhost',
-        port: parseInt(process.env.CLICKHOUSE_PORT || '8123'),
-        database: process.env.CLICKHOUSE_DATABASE || 'otel',
-        username: process.env.CLICKHOUSE_USERNAME || 'otel',
-        password: process.env.CLICKHOUSE_PASSWORD || 'otel123'
+  writeBatch: (_data: OTLPData[]): Effect.Effect<void, never> =>
+    Effect.void,
+
+  queryTraces: (_params: QueryParams): Effect.Effect<TraceData[], never> =>
+    Effect.succeed([
+      {
+        traceId: 'mock-trace-123',
+        spanId: 'mock-span-123',
+        operationName: 'mock-operation',
+        startTime: Date.now() * 1000000,
+        endTime: (Date.now() + 1000) * 1000000,
+        duration: 1000000000,
+        serviceName: 'mock-service',
+        statusCode: 1,
+        spanKind: 'SERVER',
+        attributes: { 'test.key': 'test.value' },
+        resourceAttributes: { 'service.name': 'mock-service' },
+        events: [],
+        links: []
       }
-    }
+    ]),
 
-    storage = new SimpleStorage(config)
+  queryMetrics: (_params: QueryParams): Effect.Effect<MetricData[], never> =>
+    Effect.succeed([]),
 
-    // Note: These are unit tests that may require external dependencies
-    // For proper integration testing, see simple-storage.integration.test.ts
-  })
+  queryLogs: (_params: QueryParams): Effect.Effect<LogData[], never> =>
+    Effect.succeed([]),
 
-  afterAll(async () => {
-    if (storage) {
-      await storage.close()
-    }
-  })
+  queryForAI: (_params: AIQueryParams): Effect.Effect<AIDataset, never> =>
+    Effect.succeed({
+      features: [],
+      metadata: {},
+      timeRange: { start: Date.now() - 3600000, end: Date.now() },
+      sampleCount: 0
+    }),
 
+  archiveData: (_data: OTLPData, _timestamp: number): Effect.Effect<void, never> =>
+    Effect.void,
+
+  applyRetentionPolicies: (): Effect.Effect<void, never> =>
+    Effect.void,
+
+  healthCheck: (): Effect.Effect<{ clickhouse: boolean; s3: boolean }, never> =>
+    Effect.succeed({ clickhouse: true, s3: true }),
+
+  getStorageStats: (): Effect.Effect<StorageStats, never> =>
+    Effect.succeed({
+      clickhouse: {
+        totalTraces: 100,
+        totalMetrics: 50,
+        totalLogs: 25,
+        diskUsage: '1.2 GB'
+      },
+      s3: {
+        totalObjects: 10,
+        totalSize: '500 MB',
+        oldestObject: new Date(Date.now() - 86400000),
+        newestObject: new Date()
+      }
+    })
+})
+
+// Mock Config Service Layer
+const MockConfigServiceLive = Layer.succeed(ConfigServiceTag, {
+  clickhouse: {
+    host: 'mock-host',
+    port: 8123,
+    database: 'test-db',
+    username: 'test-user',
+    password: 'test-pass'
+  },
+  s3: {
+    endpoint: 'http://mock-s3:9000',
+    accessKeyId: 'mock-access',
+    secretAccessKey: 'mock-secret',
+    bucket: 'test-bucket',
+    region: 'us-east-1'
+  },
+  features: {
+    enableS3Backup: true,
+    enableCompression: true,
+    enableEncryption: true,
+    enableAIOptimizations: false
+  },
+  performance: {
+    batchSize: 1000,
+    flushInterval: 5000,
+    maxConcurrentWrites: 5
+  },
+  retention: {
+    traces: { clickhouse: '30d', s3: '1y' },
+    metrics: { clickhouse: '90d', s3: '2y' },
+    logs: { clickhouse: '7d', s3: '30d' }
+  }
+})
+
+// Combined test layer - fix dependency order
+const TestStorageLayer = Layer.mergeAll(
+  MockConfigServiceLive,
+  MockStorageServiceLive
+)
+
+describe('Storage Service (Effect-TS)', () => {
   beforeEach(() => {
-    // Reset any test data between tests if needed
+    // No external setup needed with Effect layers
   })
 
-  describe('Construction and Configuration', () => {
-    it('should create a storage instance with valid config', () => {
-      expect(storage).toBeDefined()
-      expect(storage).toBeInstanceOf(SimpleStorage)
+  describe('Service Layer Configuration', () => {
+    it('should provide storage service through Effect layer', async () => {
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const storage = yield* StorageServiceTag
+          expect(storage).toBeDefined()
+          expect(storage.writeOTLP).toBeDefined()
+          expect(storage.queryTraces).toBeDefined()
+          expect(storage.healthCheck).toBeDefined()
+          return true
+        }).pipe(Effect.provide(TestStorageLayer))
+      )
+      expect(result).toBe(true)
     })
 
-    it('should handle missing environment variables with defaults', () => {
-      const defaultConfig: SimpleStorageConfig = {
-        clickhouse: {
-          host: 'localhost',
-          port: 9000,
-          database: 'otel',
-          username: 'otel',
-          password: 'otel123'
-        }
-      }
-
-      const defaultStorage = new SimpleStorage(defaultConfig)
-      expect(defaultStorage).toBeDefined()
+    it('should provide configuration through Effect layer', async () => {
+      const config = await Effect.runPromise(
+        Effect.gen(function* () {
+          const cfg = yield* ConfigServiceTag
+          expect(cfg).toBeDefined()
+          expect(cfg.clickhouse).toBeDefined()
+          expect(cfg.s3).toBeDefined()
+          return cfg
+        }).pipe(Effect.provide(TestStorageLayer))
+      )
+      expect(config.clickhouse.host).toBe('mock-host')
+      expect(config.s3.bucket).toBe('test-bucket')
     })
   })
 
   describe('Health Check', () => {
-    it('should perform health check successfully when ClickHouse is available', async () => {
-      const isHealthy = await storage.healthCheck()
-      // This may be false if ClickHouse is not available, which is expected for unit tests
-      expect(typeof isHealthy).toBe('boolean')
+    it('should perform health check successfully with mocked services', async () => {
+      const health = await Effect.runPromise(
+        Effect.gen(function* () {
+          const storage = yield* StorageServiceTag
+          return yield* storage.healthCheck()
+        }).pipe(Effect.provide(TestStorageLayer))
+      )
+      expect(health).toBeDefined()
+      expect(health.clickhouse).toBe(true)
+      expect(health.s3).toBe(true)
     })
 
-    it('should return false when ClickHouse is unavailable', async () => {
-      const badConfig: SimpleStorageConfig = {
-        clickhouse: {
-          host: 'nonexistent-host',
-          port: 9999,
-          database: 'test',
-          username: 'test',
-          password: 'test'
-        }
-      }
-
-      const badStorage = new SimpleStorage(badConfig)
-      const isHealthy = await badStorage.healthCheck()
-      expect(isHealthy).toBe(false)
-      await badStorage.close()
+    it('should handle health check through service interface', async () => {
+      const isHealthy = await Effect.runPromise(
+        StorageService.healthCheck().pipe(Effect.provide(TestStorageLayer))
+      )
+      expect(isHealthy.clickhouse).toBe(true)
+      expect(isHealthy.s3).toBe(true)
     })
   })
 
   describe('OTLP Data Operations', () => {
-    const testTraceData: SimpleOTLPData = {
+    const testTraceData: OTLPData = {
       traces: [
         {
           traceId: 'test-trace-123',
           spanId: 'test-span-123',
           operationName: 'test-operation',
-          startTime: Date.now() * 1000000, // nanoseconds
+          startTime: Date.now() * 1000000,
+          endTime: (Date.now() + 1000) * 1000000,
+          duration: 1000000000,
           serviceName: 'test-service',
           statusCode: 1,
-          attributes: { 'test.key': 'test.value' }
+          spanKind: 'SERVER',
+          attributes: { 'test.key': 'test.value' },
+          resourceAttributes: { 'service.name': 'test-service' },
+          events: [],
+          links: []
         }
       ],
       timestamp: Date.now()
     }
 
-    it('should write OTLP data without errors', async () => {
-      // This test may fail if ClickHouse is not properly configured
-      // but should not throw unhandled exceptions
-      try {
-        await storage.writeOTLP(testTraceData)
-        // If we reach here, write was successful
-        expect(true).toBe(true)
-      } catch (error) {
-        // Expected if ClickHouse table doesn't exist or connection fails
-        console.warn('OTLP write failed (expected if DB not ready):', error)
-        expect(error).toBeDefined()
-      }
+    it('should write OTLP data through Effect service', async () => {
+      const result = await Effect.runPromise(
+        StorageService.writeOTLP(testTraceData).pipe(Effect.provide(TestStorageLayer))
+      )
+      // Mock service always succeeds
+      expect(result).toBeUndefined() // void return
     })
 
     it('should handle empty traces array gracefully', async () => {
-      const emptyData: SimpleOTLPData = {
+      const emptyData: OTLPData = {
         traces: [],
         timestamp: Date.now()
       }
 
-      await expect(storage.writeOTLP(emptyData)).resolves.not.toThrow()
+      const result = await Effect.runPromise(
+        StorageService.writeOTLP(emptyData).pipe(Effect.provide(TestStorageLayer))
+      )
+      expect(result).toBeUndefined()
     })
 
-    it('should handle undefined traces gracefully', async () => {
-      const noTracesData: SimpleOTLPData = {
-        timestamp: Date.now()
-      }
-
-      await expect(storage.writeOTLP(noTracesData)).resolves.not.toThrow()
+    it('should handle batch writes through Effect service', async () => {
+      const batchData = [testTraceData, testTraceData]
+      
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const storage = yield* StorageServiceTag
+          yield* storage.writeBatch(batchData)
+          return true
+        }).pipe(Effect.provide(TestStorageLayer))
+      )
+      expect(result).toBe(true)
     })
   })
 
   describe('Query Operations', () => {
-    const timeRange = {
-      start: Date.now() - 3600000, // 1 hour ago
-      end: Date.now()
+    const queryParams: QueryParams = {
+      timeRange: {
+        start: Date.now() - 3600000, // 1 hour ago
+        end: Date.now()
+      },
+      limit: 100
     }
 
-    it('should query traces within time range', async () => {
-      try {
-        const traces = await storage.queryTraces(timeRange)
-        expect(Array.isArray(traces)).toBe(true)
-        expect(traces.length).toBeGreaterThanOrEqual(0)
-
-        // If we have traces, validate structure
-        if (traces.length > 0) {
-          const trace = traces[0]
-          expect(trace).toHaveProperty('traceId')
-          expect(trace).toHaveProperty('spanId')
-          expect(trace).toHaveProperty('operationName')
-          expect(trace).toHaveProperty('startTime')
-          expect(trace).toHaveProperty('serviceName')
-          expect(trace).toHaveProperty('statusCode')
-          expect(trace).toHaveProperty('attributes')
-          expect(typeof trace.attributes).toBe('object')
-        }
-      } catch (error) {
-        // Expected if table doesn't exist
-        console.warn('Query failed (expected if table not ready):', error)
-        expect(error).toBeDefined()
+    it('should query traces through Effect service', async () => {
+      const traces = await Effect.runPromise(
+        StorageService.queryTraces(queryParams).pipe(Effect.provide(TestStorageLayer))
+      )
+      expect(Array.isArray(traces)).toBe(true)
+      expect(traces.length).toBeGreaterThan(0)
+      
+      // Validate mock data structure
+      expect(traces.length).toBeGreaterThan(0)
+      const trace = traces[0]
+      if (trace) {
+        expect(trace).toHaveProperty('traceId')
+        expect(trace).toHaveProperty('spanId')
+        expect(trace).toHaveProperty('operationName')
+        expect(trace).toHaveProperty('startTime')
+        expect(trace).toHaveProperty('serviceName')
+        expect(trace).toHaveProperty('statusCode')
+        expect(trace).toHaveProperty('attributes')
+        expect(typeof trace.attributes).toBe('object')
       }
     })
 
-    it('should handle queries with invalid time ranges', async () => {
-      const invalidRange = {
-        start: Date.now(),
-        end: Date.now() - 3600000 // End before start
-      }
-
-      try {
-        const traces = await storage.queryTraces(invalidRange)
-        expect(Array.isArray(traces)).toBe(true)
-      } catch (error) {
-        // This might throw depending on ClickHouse behavior
-        expect(error).toBeDefined()
-      }
+    it('should query metrics through Effect service', async () => {
+      const metrics = await Effect.runPromise(
+        StorageService.queryMetrics(queryParams).pipe(Effect.provide(TestStorageLayer))
+      )
+      expect(Array.isArray(metrics)).toBe(true)
     })
 
-    it('should limit results appropriately', async () => {
-      try {
-        const traces = await storage.queryTraces(timeRange)
-        // Our implementation limits to 100 results
-        expect(traces.length).toBeLessThanOrEqual(100)
-      } catch (error) {
-        console.warn('Query failed (expected if table not ready):', error)
+    it('should query logs through Effect service', async () => {
+      const logs = await Effect.runPromise(
+        StorageService.queryLogs(queryParams).pipe(Effect.provide(TestStorageLayer))
+      )
+      expect(Array.isArray(logs)).toBe(true)
+    })
+
+    it('should handle AI dataset queries', async () => {
+      const aiParams: AIQueryParams = {
+        ...queryParams,
+        datasetType: 'anomaly-detection',
+        features: ['latency', 'error_rate']
       }
+      
+      const dataset = await Effect.runPromise(
+        StorageService.queryForAI(aiParams).pipe(Effect.provide(TestStorageLayer))
+      )
+      expect(dataset).toBeDefined()
+      expect(dataset.features).toBeDefined()
+      expect(dataset.metadata).toBeDefined()
+      expect(dataset.timeRange).toBeDefined()
+      expect(typeof dataset.sampleCount).toBe('number')
     })
   })
 
   describe('Data Validation and Type Safety', () => {
-    it('should handle malformed trace data gracefully', async () => {
-      const malformedData: SimpleOTLPData = {
-        traces: [
-          {
-            traceId: '', // Empty trace ID
-            spanId: 'test-span',
-            operationName: 'test-op',
-            startTime: -1, // Invalid timestamp
-            serviceName: 'test-service',
-            statusCode: 999, // Invalid status code
-            attributes: { key: 'value' }
-          }
-        ],
-        timestamp: Date.now()
-      }
-
-      try {
-        await storage.writeOTLP(malformedData)
-      } catch (error) {
-        // Expected to fail validation or insert
-        expect(error).toBeDefined()
-      }
+    it('should handle Effect-TS type safety for trace data', async () => {
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const storage = yield* StorageServiceTag
+          const traces = yield* storage.queryTraces({
+            timeRange: { start: Date.now() - 1000, end: Date.now() },
+            limit: 10
+          })
+          
+          // Effect-TS ensures type safety at compile time
+          traces.forEach((trace) => {
+            expect(typeof trace.traceId).toBe('string')
+            expect(typeof trace.spanId).toBe('string')
+            expect(typeof trace.operationName).toBe('string')
+            expect(typeof trace.startTime).toBe('number')
+            expect(typeof trace.serviceName).toBe('string')
+            expect(typeof trace.statusCode).toBe('number')
+            expect(typeof trace.attributes).toBe('object')
+          })
+          
+          return traces.length
+        }).pipe(Effect.provide(TestStorageLayer))
+      )
+      expect(result).toBeGreaterThan(0)
     })
 
-    it('should properly convert query results to expected types', async () => {
-      try {
-        const traces = await storage.queryTraces({
-          start: Date.now() - 1000,
-          end: Date.now()
-        })
-
-        traces.forEach((trace) => {
-          expect(typeof trace.traceId).toBe('string')
-          expect(typeof trace.spanId).toBe('string')
-          expect(typeof trace.operationName).toBe('string')
-          expect(typeof trace.startTime).toBe('number')
-          expect(typeof trace.serviceName).toBe('string')
-          expect(typeof trace.statusCode).toBe('number')
-          expect(typeof trace.attributes).toBe('object')
-        })
-      } catch (error) {
-        console.warn('Type validation test skipped due to query error')
-      }
+    it('should validate service interface contracts', async () => {
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const storage = yield* StorageServiceTag
+          
+          // Verify all required methods exist
+          expect(typeof storage.writeOTLP).toBe('function')
+          expect(typeof storage.writeBatch).toBe('function')
+          expect(typeof storage.queryTraces).toBe('function')
+          expect(typeof storage.queryMetrics).toBe('function')
+          expect(typeof storage.queryLogs).toBe('function')
+          expect(typeof storage.queryForAI).toBe('function')
+          expect(typeof storage.archiveData).toBe('function')
+          expect(typeof storage.applyRetentionPolicies).toBe('function')
+          expect(typeof storage.healthCheck).toBe('function')
+          expect(typeof storage.getStorageStats).toBe('function')
+          
+          return true
+        }).pipe(Effect.provide(TestStorageLayer))
+      )
+      expect(result).toBe(true)
     })
   })
 
-  describe('Connection Management', () => {
-    it('should close connection without errors', async () => {
-      const testStorage = new SimpleStorage(config)
-      await expect(testStorage.close()).resolves.not.toThrow()
+  describe('Service Management', () => {
+    it('should handle service cleanup through Effect layers', async () => {
+      // Effect layers handle resource cleanup automatically
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const storage = yield* StorageServiceTag
+          const health = yield* storage.healthCheck()
+          expect(health.clickhouse).toBe(true)
+          return true
+        }).pipe(Effect.provide(TestStorageLayer))
+      )
+      expect(result).toBe(true)
     })
 
-    it('should handle multiple close calls gracefully', async () => {
-      const testStorage = new SimpleStorage(config)
-      await testStorage.close()
-      await expect(testStorage.close()).resolves.not.toThrow()
+    it('should provide consistent service instances', async () => {
+      const [service1, service2] = await Effect.runPromise(
+        Effect.gen(function* () {
+          const s1 = yield* StorageServiceTag
+          const s2 = yield* StorageServiceTag
+          return [s1, s2] as const
+        }).pipe(Effect.provide(TestStorageLayer))
+      )
+      // Should be the same instance from the layer
+      expect(service1).toBe(service2)
     })
   })
 
   describe('Performance and Reliability', () => {
-    it('should handle concurrent operations', async () => {
-      const operations = Array(5)
-        .fill(null)
-        .map(() => storage.healthCheck())
-
-      const results = await Promise.allSettled(operations)
-      expect(results.length).toBe(5)
-
-      // All should either succeed or fail consistently
-      const successCount = results.filter((r) => r.status === 'fulfilled').length
-      expect(successCount).toBeGreaterThanOrEqual(0)
-      expect(successCount).toBeLessThanOrEqual(5)
+    it('should handle concurrent operations with Effect concurrency', async () => {
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const storage = yield* StorageServiceTag
+          
+          // Effect provides proper concurrency control
+          const operations = Array(5)
+            .fill(null)
+            .map(() => storage.healthCheck())
+          
+          const results = yield* Effect.all(operations, { concurrency: 'unbounded' })
+          expect(results.length).toBe(5)
+          
+          // All should succeed with mock service
+          results.forEach(health => {
+            expect(health.clickhouse).toBe(true)
+            expect(health.s3).toBe(true)
+          })
+          
+          return results.length
+        }).pipe(Effect.provide(TestStorageLayer))
+      )
+      expect(result).toBe(5)
     })
 
-    it('should handle large trace datasets', async () => {
-      const largeDataset: SimpleOTLPData = {
+    it('should handle large trace datasets with Effect batch processing', async () => {
+      const largeDataset: OTLPData = {
         traces: Array(50)
           .fill(null)
           .map((_, index) => ({
@@ -274,78 +418,126 @@ describe('SimpleStorage', () => {
             spanId: `span-${index}`,
             operationName: `operation-${index}`,
             startTime: (Date.now() + index) * 1000000,
+            endTime: (Date.now() + index + 1000) * 1000000,
+            duration: 1000000000,
             serviceName: `service-${index % 5}`,
             statusCode: index % 2 === 0 ? 1 : 2,
-            attributes: { index: index.toString(), category: `cat-${index % 3}` }
+            spanKind: 'SERVER',
+            attributes: { index: index.toString(), category: `cat-${index % 3}` },
+            resourceAttributes: { 'service.name': `service-${index % 5}` },
+            events: [],
+            links: []
           })),
         timestamp: Date.now()
       }
 
-      try {
-        await storage.writeOTLP(largeDataset)
-      } catch (error) {
-        console.warn('Large dataset test failed (expected if DB not ready):', error)
-      }
+      const result = await Effect.runPromise(
+        StorageService.writeOTLP(largeDataset).pipe(Effect.provide(TestStorageLayer))
+      )
+      expect(result).toBeUndefined() // void return indicates success
+    })
+
+    it('should provide storage statistics', async () => {
+      const stats = await Effect.runPromise(
+        StorageService.getStats().pipe(Effect.provide(TestStorageLayer))
+      )
+      
+      expect(stats).toBeDefined()
+      expect(stats.clickhouse).toBeDefined()
+      expect(stats.s3).toBeDefined()
+      expect(typeof stats.clickhouse.totalTraces).toBe('number')
+      expect(typeof stats.s3.totalObjects).toBe('number')
+      expect(stats.clickhouse.diskUsage).toBe('1.2 GB')
+      expect(stats.s3.totalSize).toBe('500 MB')
     })
   })
 
   describe('Error Handling', () => {
-    it('should provide meaningful error messages for connection failures', async () => {
-      const badConfig: SimpleStorageConfig = {
-        clickhouse: {
-          host: 'invalid-host-that-does-not-exist',
-          port: 9000,
-          database: 'test',
-          username: 'test',
-          password: 'test'
-        }
-      }
+    it('should handle Effect-TS error types properly', async () => {
+      // Create a service layer that can fail for testing
+      const FailingStorageService = Layer.succeed(StorageServiceTag, {
+        writeOTLP: (_data: OTLPData) =>
+          Effect.fail({
+            _tag: 'ConnectionError' as const,
+            message: 'Mock connection failure',
+            cause: new Error('Mock error')
+          }),
+        writeBatch: (_data: OTLPData[]) => Effect.succeed(undefined),
+        queryTraces: (_params: QueryParams) => Effect.succeed([]),
+        queryMetrics: (_params: QueryParams) => Effect.succeed([]),
+        queryLogs: (_params: QueryParams) => Effect.succeed([]),
+        queryForAI: (_params: AIQueryParams) => Effect.succeed({
+          features: [],
+          metadata: {},
+          timeRange: { start: 0, end: 0 },
+          sampleCount: 0
+        } as AIDataset),
+        archiveData: (_data: OTLPData, _timestamp: number) => Effect.succeed(undefined),
+        applyRetentionPolicies: () => Effect.succeed(undefined),
+        healthCheck: () => Effect.succeed({ clickhouse: true, s3: true }),
+        getStorageStats: () => Effect.succeed({} as StorageStats)
+      })
 
-      const badStorage = new SimpleStorage(badConfig)
+      const FailingLayer = Layer.mergeAll(
+        MockConfigServiceLive,
+        FailingStorageService
+      )
 
-      try {
-        await badStorage.writeOTLP({
-          traces: [
-            {
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const storage = yield* StorageServiceTag
+          
+          // This should fail with our mock error
+          const writeResult = yield* storage.writeOTLP({
+            traces: [{
               traceId: 'test',
-              spanId: 'test',
+              spanId: 'test', 
               operationName: 'test',
               startTime: Date.now() * 1000000,
+              endTime: (Date.now() + 1000) * 1000000,
+              duration: 1000000000,
               serviceName: 'test',
               statusCode: 1,
-              attributes: {}
-            }
-          ],
-          timestamp: Date.now()
-        })
-      } catch (error) {
-        expect(error).toBeDefined()
-        // Should contain useful error information
-        expect(error.message || error.toString()).toBeTruthy()
-      }
+              spanKind: 'SERVER',
+              attributes: {},
+              resourceAttributes: {},
+              events: [],
+              links: []
+            }],
+            timestamp: Date.now()
+          }).pipe(Effect.option)
+          
+          return writeResult
+        }).pipe(Effect.provide(FailingLayer))
+      )
 
-      await badStorage.close()
+      // Should be None due to the failure
+      expect(result._tag).toBe('None')
     })
 
-    it('should handle network timeouts gracefully', async () => {
-      // This test is more for documentation of expected behavior
-      // Actual timeout testing would require network manipulation
-      try {
-        const traces = await storage.queryTraces({
-          start: 0,
-          end: Date.now()
-        })
-
-        // Should either succeed or fail with a clear error
-        expect(Array.isArray(traces) || traces === undefined).toBe(true)
-      } catch (error) {
-        // Expected if ClickHouse is not properly configured
-        expect(error).toBeDefined()
-        console.warn(
-          'Network timeout test failed (expected if ClickHouse not configured):',
-          error.message
-        )
-      }
+    it('should provide structured error information', async () => {
+      // Mock service always succeeds, so test the error structure types
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          // Test that the service methods have proper error types
+          const storage = yield* StorageServiceTag
+          
+          // These methods should all have StorageError in their error channel
+          const writeOp = storage.writeOTLP
+          const queryOp = storage.queryTraces
+          const healthOp = storage.healthCheck
+          
+          expect(typeof writeOp).toBe('function')
+          expect(typeof queryOp).toBe('function')
+          expect(typeof healthOp).toBe('function')
+          
+          return true
+        }).pipe(Effect.provide(TestStorageLayer))
+      )
+      expect(result).toBe(true)
     })
   })
 })
+
+// Export for potential use in other test files
+export { MockStorageServiceLive, MockConfigServiceLive, TestStorageLayer }

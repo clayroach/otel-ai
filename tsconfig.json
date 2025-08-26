@@ -39,12 +39,19 @@
       "@/config-manager/*": ["./src/config-manager/*"]
     }
   },
-  "include": ["src/**/*", "scripts/**/*"],
+  "include": [
+    "src/**/*", 
+    "scripts/**/*",
+    "ui/src/**/*",
+    "ui/test/**/*",
+    "playwright.config.ts",
+    "vitest.config.ts",
+    "vitest.integration.config.ts",
+    "ui/vite.config.ts"
+  ],
   "exclude": [
     "node_modules",
     "dist",
-    "**/*.test.ts",
-    "**/*.spec.ts",
     "src/ui/dist/**/*"
   ],
   "ts-node": {

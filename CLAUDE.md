@@ -705,14 +705,17 @@ This project requires the following commands to be allowed without user approval
 - `docker compose` - For service orchestration
 - `docker exec` - For running commands in containers
 - `docker logs` - For debugging services
+- `mkdir` - For creating test directory structures
+- `mv` - For reorganizing test files
+- `rm` - For cleaning up old/incorrect test files
 
 To configure in Claude Code CLI, use the `--allow` flag or set in your environment:
 ```bash
 # Example: Allow specific commands
-claude-code --allow "curl:*" --allow "docker:*"
+claude-code --allow "curl:*" --allow "docker:*" --allow "mkdir:*" --allow "mv:*" --allow "rm:*"
 
-# Or set environment variable
-export CLAUDE_CODE_ALLOWED_COMMANDS="curl:*,docker:*,docker compose:*"
+# Or set environment variable (recommended)
+export CLAUDE_CODE_ALLOWED_COMMANDS="curl:*,docker:*,docker compose:*,docker exec:*,docker logs:*,mkdir:*,mv:*,rm:*"
 ```
 
 - Always try to consider production-readiness when creation of new assets - for instance init scripts for containers rather than standalone scripts

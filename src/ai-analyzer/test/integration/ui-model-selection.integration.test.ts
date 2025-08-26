@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll } from 'vitest'
 
 // This test validates that the UI model selection actually produces different results
 // by simulating exactly what the UI does when changing models
@@ -88,7 +88,7 @@ describe('UI Model Selection Integration', () => {
         })
         
         expect(response.ok).toBe(true)
-        const result = await response.json()
+        const result = await response.json() as any
         results.set(model, result)
         
         console.log(`📊 ${model} returned ${result.insights.length} insights`)
@@ -101,8 +101,8 @@ describe('UI Model Selection Integration', () => {
       const gptResult = results.get('gpt')
       const llamaResult = results.get('llama')
       
-      // Statistical should have fewer insights
-      expect(statisticalResult.insights.length).toBeLessThan(claudeResult.insights.length)
+      // Enhanced models should have more insights than statistical (they add model-specific insights)
+      expect(claudeResult.insights.length).toBeGreaterThan(statisticalResult.insights.length)
       
       // All enhanced models should have same count but different content
       expect(claudeResult.insights.length).toBe(gptResult.insights.length)
@@ -194,12 +194,12 @@ describe('UI Model Selection Integration', () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
-        }).then(r => r.json()),
+        }).then(r => r.json() as any),
         fetch(`${API_BASE_URL}/analyze`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
-        }).then(r => r.json())
+        }).then(r => r.json() as any)
       ])
       
       // Results should be consistent (same insights, same metadata)
@@ -230,7 +230,7 @@ describe('UI Model Selection Integration', () => {
         })
         
         expect(response.ok).toBe(true)
-        const result = await response.json()
+        const result = await response.json() as any
         results.push({ model, result })
         
         console.log(`🔄 Switch to ${model}: ${result.insights.length} insights, selected: ${result.metadata.selectedModel}`)
@@ -248,8 +248,12 @@ describe('UI Model Selection Integration', () => {
       })
       
       // First and last should be identical (both Claude)
-      const firstClaudeResult = results[0].result
-      const lastClaudeResult = results[4].result
+      const firstClaudeResult = results[0]?.result
+      const lastClaudeResult = results[4]?.result
+      
+      if (!firstClaudeResult || !lastClaudeResult) {
+        throw new Error('Missing Claude results')
+      }
       
       expect(firstClaudeResult.insights.length).toBe(lastClaudeResult.insights.length)
       expect(firstClaudeResult.metadata.selectedModel).toBe(lastClaudeResult.metadata.selectedModel)
@@ -265,17 +269,27 @@ describe('UI Model Selection Integration', () => {
   describe('UI State Management Edge Cases', () => {
     it('should handle model selection with partial config', async () => {
       // Test what happens if UI sends incomplete config
+      const now = new Date()
+      const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000)
+      const timeRange = {
+        startTime: fourHoursAgo.toISOString(),
+        endTime: now.toISOString()
+      }
+      
       const partialConfigs = [
         {
           type: 'architecture',
+          timeRange,
           config: { llm: { model: 'claude' } } // Missing temperature, maxTokens
         },
         {
-          type: 'architecture', 
+          type: 'architecture',
+          timeRange,
           config: { llm: { model: 'gpt', temperature: 0.5 } } // Missing maxTokens
         },
         {
           type: 'architecture',
+          timeRange,
           config: {} // Empty config
         }
       ]
@@ -289,7 +303,7 @@ describe('UI Model Selection Integration', () => {
         
         // Should still work (defaults to 15 minutes, uses config as provided)
         expect(response.ok).toBe(true)
-        const result = await response.json()
+        const result = await response.json() as any
         expect(result).toHaveProperty('insights')
         expect(result).toHaveProperty('metadata')
         
@@ -310,7 +324,7 @@ describe('UI Model Selection Integration', () => {
           body: JSON.stringify(payload)
         })
         
-        const result = await response.json()
+        const result = await response.json() as any
         const signature = JSON.stringify({
           insightTitles: result.insights.map((i: any) => i.title).sort(),
           selectedModel: result.metadata.selectedModel,

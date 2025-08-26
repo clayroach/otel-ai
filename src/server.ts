@@ -36,6 +36,40 @@ interface ProtobufKvListValue {
   values: Array<{ key: string; value: unknown }>
 }
 
+// Type guards for protobuf value structures
+interface ProtobufStringValue {
+  stringValue: string
+}
+
+interface ProtobufIntValue {
+  intValue: number | string
+}
+
+interface ProtobufBoolValue {
+  boolValue: boolean
+}
+
+interface ProtobufDoubleValue {
+  doubleValue: number
+}
+
+// Type guard functions
+function isProtobufStringValue(obj: any): obj is ProtobufStringValue {
+  return obj && typeof obj === 'object' && 'stringValue' in obj
+}
+
+function isProtobufIntValue(obj: any): obj is ProtobufIntValue {
+  return obj && typeof obj === 'object' && 'intValue' in obj
+}
+
+function isProtobufBoolValue(obj: any): obj is ProtobufBoolValue {
+  return obj && typeof obj === 'object' && 'boolValue' in obj
+}
+
+function isProtobufDoubleValue(obj: any): obj is ProtobufDoubleValue {
+  return obj && typeof obj === 'object' && 'doubleValue' in obj
+}
+
 /**
  * Parse OTLP data from raw protobuf buffer by detecting patterns
  * This is a fallback when protobufjs is not available
@@ -810,26 +844,26 @@ app.post('/v1/traces', async (req, res) => {
             // Use the recursive extraction function
             let value = extractProtobufValue(attr.value)
             
-            // Enhanced fallback for simple JSON protobuf format
+            // Enhanced fallback for simple JSON protobuf format using type guards
             if (value === null || value === undefined) {
               // Handle simple JSON protobuf format: {stringValue: "value"}
-              if (attr.value && typeof attr.value === 'object' && 'stringValue' in attr.value) {
-                value = (attr.value as any).stringValue
-              } else if (attr.value && typeof attr.value === 'object' && 'intValue' in attr.value) {
-                value = (attr.value as any).intValue
-              } else if (attr.value && typeof attr.value === 'object' && 'boolValue' in attr.value) {
-                value = (attr.value as any).boolValue
-              } else if (attr.value && typeof attr.value === 'object' && 'doubleValue' in attr.value) {
-                value = (attr.value as any).doubleValue
+              if (isProtobufStringValue(attr.value)) {
+                value = attr.value.stringValue
+              } else if (isProtobufIntValue(attr.value)) {
+                value = attr.value.intValue
+              } else if (isProtobufBoolValue(attr.value)) {
+                value = attr.value.boolValue
+              } else if (isProtobufDoubleValue(attr.value)) {
+                value = attr.value.doubleValue
               } else {
-                // Original fallback
+                // Original fallback with type safety
                 value = attr.value?.stringValue || attr.value?.intValue || attr.value?.boolValue || attr.value?.doubleValue || attr.value
               }
             }
             
             // Additional safety check - if we still have an object with stringValue, extract it
-            if (value && typeof value === 'object' && 'stringValue' in value) {
-              value = (value as any).stringValue
+            if (isProtobufStringValue(value)) {
+              value = value.stringValue
             }
             
             // Debug the final extracted value

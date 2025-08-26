@@ -5,7 +5,7 @@
  * Handles intelligent routing, caching, conversation management, and fallback strategies.
  */
 
-import { Effect, Layer, Stream, Option, Duration, Schedule } from 'effect'
+import { Effect, Layer, Stream, Option, Duration, Schedule, Cause } from 'effect'
 import { Schema } from '@effect/schema'
 import {
   LLMManagerService,
@@ -28,6 +28,18 @@ import {
   LLMRequestSchema,
   ConversationContextSchema
 } from './types.js'
+
+/**
+ * Type guard for Effect timeout errors
+ */
+function isTimeoutError(error: unknown): boolean {
+  return (
+    error !== null &&
+    typeof error === 'object' &&
+    '_tag' in error &&
+    error._tag === 'TimeoutException'
+  )
+}
 
 /**
  * Generate Cache Key
@@ -140,7 +152,7 @@ export const makeLLMManager = (config: LLMConfig) =>
               ),
               Effect.timeout(Duration.millis(config.routing.timeoutMs)),
               Effect.mapError((error): LLMError => {
-                if ((error as any)?._tag === 'TimeoutException') {
+                if (isTimeoutError(error)) {
                   return {
                     _tag: 'TimeoutError',
                     model: selectedModel,

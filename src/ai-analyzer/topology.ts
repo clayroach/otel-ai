@@ -5,7 +5,7 @@
  * and build a comprehensive understanding of application architecture.
  */
 
-import { Effect, Array as EffectArray } from 'effect'
+import { Effect } from 'effect'
 import type { 
   ServiceTopology, 
   ApplicationArchitecture, 

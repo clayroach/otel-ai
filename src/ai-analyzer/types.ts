@@ -80,19 +80,49 @@ export const ApplicationArchitectureSchema = Schema.Struct({
   generatedAt: Schema.Date
 })
 
+// Enhanced evidence formatting schemas for model differentiation
+export const ModelSpecificEvidenceSchema = Schema.Struct({
+  format: Schema.Literal('structured', 'narrative', 'statistical'),
+  data: Schema.Record(Schema.String, Schema.Unknown),
+  visualizations: Schema.optional(Schema.Array(Schema.Struct({
+    type: Schema.Literal('timeseries', 'heatmap', 'network', 'distribution', 'scatter', 'bar'),
+    title: Schema.String,
+    description: Schema.String,
+    config: Schema.Record(Schema.String, Schema.Unknown),
+    data: Schema.Array(Schema.Unknown)
+  }))),
+  metadata: Schema.Struct({
+    processingTime: Schema.Number,
+    dataPoints: Schema.Number,
+    confidence: Schema.Number,
+    model: Schema.String,
+    analysisMethod: Schema.Literal('statistical', 'llm-enhanced', 'multi-model'),
+    enhancementLevel: Schema.Literal('basic', 'statistical', 'advanced', 'expert')
+  })
+})
+
+export const EnhancedInsightSchema = Schema.Struct({
+  type: Schema.Literal('performance', 'reliability', 'architecture', 'optimization'),
+  severity: Schema.Literal('info', 'warning', 'critical'),
+  title: Schema.String,
+  description: Schema.String,
+  recommendation: Schema.optional(Schema.String),
+  evidence: ModelSpecificEvidenceSchema,
+  modelAnalysis: Schema.optional(Schema.Struct({
+    model: Schema.Literal('gpt-4', 'claude-3', 'llama-2', 'statistical'),
+    analysisType: Schema.Literal('mathematical', 'explanatory', 'realtime', 'statistical'),
+    confidence: Schema.Number,
+    reasoningPath: Schema.optional(Schema.Array(Schema.String)),
+    alternatives: Schema.optional(Schema.Array(Schema.String))
+  }))
+})
+
 export const AnalysisResultSchema = Schema.Struct({
   requestId: Schema.String,
   type: Schema.Literal('architecture', 'dataflow', 'dependencies', 'insights'),
   summary: Schema.String,
   architecture: Schema.optional(ApplicationArchitectureSchema),
-  insights: Schema.Array(Schema.Struct({
-    type: Schema.Literal('performance', 'reliability', 'architecture', 'optimization'),
-    severity: Schema.Literal('info', 'warning', 'critical'),
-    title: Schema.String,
-    description: Schema.String,
-    recommendation: Schema.optional(Schema.String),
-    evidence: Schema.Array(Schema.Unknown) // Supporting data/spans
-  })),
+  insights: Schema.Array(EnhancedInsightSchema),
   documentation: Schema.optional(Schema.Struct({
     markdown: Schema.String,
     diagrams: Schema.optional(Schema.Array(Schema.Struct({
