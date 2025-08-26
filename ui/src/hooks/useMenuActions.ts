@@ -65,7 +65,7 @@ export const useMenuActions = () => {
 
       // Cleanup
       return () => {
-        window.electronAPI.removeAllListeners();
+        window.electronAPI?.removeAllListeners?.('menu-action');
       };
     }
   }, [navigate, setActiveQuery]);

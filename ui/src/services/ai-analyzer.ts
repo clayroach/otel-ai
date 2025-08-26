@@ -6,7 +6,6 @@
 
 import axios from 'axios';
 import type {
-  AnalysisRequest,
   AnalysisResult,
   ServiceTopology,
   ApplicationArchitecture

@@ -60,7 +60,7 @@ interface ModelComparison {
 
 export const LLMDebugView: React.FC = () => {
   const [interactions, setInteractions] = useState<LLMInteraction[]>([])
-  const [liveEvents, setLiveEvents] = useState<LiveEvent[]>([])
+  const [_liveEvents, setLiveEvents] = useState<LiveEvent[]>([])
   const [modelComparison, setModelComparison] = useState<ModelComparison[]>([])
   const [selectedModel, setSelectedModel] = useState<string>('')
   const [autoScroll, setAutoScroll] = useState(true)
@@ -112,7 +112,7 @@ export const LLMDebugView: React.FC = () => {
     eventSource.onmessage = (event) => {
       try {
         const liveEvent: LiveEvent = JSON.parse(event.data)
-        setLiveEvents(prev => [...prev.slice(-49), liveEvent])
+        setLiveEvents((prev: LiveEvent[]) => [...prev.slice(-49), liveEvent])
 
         // Update interactions if it's a complete event
         if (liveEvent.type === 'request_complete' || liveEvent.type === 'request_error') {

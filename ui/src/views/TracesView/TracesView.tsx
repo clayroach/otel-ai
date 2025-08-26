@@ -1,21 +1,21 @@
-import React, { useState, useCallback } from 'react';
-import { Card, Row, Col, Button, Space, Typography, Spin, Dropdown, Tooltip } from 'antd';
-import { 
-  PlayCircleOutlined, 
-  SaveOutlined, 
-  FormatPainterOutlined, 
+import {
   ClearOutlined,
   CopyOutlined,
+  DownOutlined,
+  FormatPainterOutlined,
   HistoryOutlined,
-  DownOutlined
+  PlayCircleOutlined,
+  SaveOutlined
 } from '@ant-design/icons';
-import { format } from 'sql-formatter';
+import { Button, Card, Col, Dropdown, Row, Space, Spin, Tooltip, Typography } from 'antd';
+import React, { useCallback, useState } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
+import { format } from 'sql-formatter';
 import { MonacoQueryEditor } from '../../components/MonacoEditor/MonacoQueryEditor';
-import { TraceResults } from '../../components/TraceResults/TraceResults';
 import { TimeRangeSelector } from '../../components/TimeRangeSelector/TimeRangeSelector';
-import { useAppStore } from '../../store/appStore';
+import { TraceResults } from '../../components/TraceResults/TraceResults';
 import { useClickhouseQuery } from '../../hooks/useClickhouseQuery';
+import { useAppStore } from '../../store/appStore';
 
 const { Title } = Typography;
 
@@ -69,7 +69,7 @@ export const TracesView: React.FC = () => {
   const handleFormatQuery = useCallback(() => {
     try {
       // First fix common function name issues
-      let fixedQuery = query
+      const fixedQuery = query
         .replace(/subtracthours/gi, 'subtractHours') // Fix case-sensitive function
         .replace(/substracthours/gi, 'subtractHours') // Fix common typo
         .replace(/now\(\s*\)/gi, 'now()'); // Fix spacing in now()
@@ -320,7 +320,7 @@ export const TracesView: React.FC = () => {
                 Query Error: {error.message}
               </div>
             ) : queryResults ? (
-              <TraceResults data={queryResults} />
+              <TraceResults data={queryResults as any} />
             ) : (
               <div style={{ 
                 display: 'flex', 

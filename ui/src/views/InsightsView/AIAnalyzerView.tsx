@@ -32,7 +32,7 @@ import {
   type AnalysisResult,
   generateMockData
 } from './mockData';
-import { AIAnalyzerService, useAIAnalyzer } from '../../services/ai-analyzer';
+import { useAIAnalyzer } from '../../services/ai-analyzer';
 import { cleanServiceName } from '../../utils/protobuf-cleaner';
 
 const { Title, Paragraph, Text } = Typography;
@@ -162,7 +162,22 @@ const AIAnalyzerView: React.FC = () => {
             startTime: timeRange[0].toDate(),
             endTime: timeRange[1].toDate()
           },
-          model: selectedModel
+          config: {
+            llm: {
+              model: selectedModel as 'gpt' | 'claude' | 'llama',
+              temperature: 0.7,
+              maxTokens: 4000
+            },
+            analysis: {
+              timeWindowHours: 4,
+              minSpanCount: 100
+            },
+            output: {
+              format: 'markdown' as const,
+              includeDigrams: true,
+              detailLevel: 'comprehensive' as const
+            }
+          }
         });
 
         let content = '';
