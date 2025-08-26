@@ -95,6 +95,11 @@ services:
       timeout: 3s
       retries: 3
 
+  # Fix load-generator port mapping - ensure it's available on localhost:8089
+  load-generator:
+    ports:
+      - "8089:8089"
+
   # Fix shipping service health check - distroless containers don't have shell utilities  
   # Use a simple approach: disable the problematic shell-based health check
   shipping:
