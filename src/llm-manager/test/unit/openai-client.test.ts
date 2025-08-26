@@ -46,7 +46,7 @@ const MockOpenAIConfigLive = Layer.succeed(LLMConfigService, {
     }
   } as LLMConfig),
 
-  updateConfig: (config: LLMConfig) => Effect.succeed(undefined),
+  updateConfig: (_config: LLMConfig) => Effect.succeed(undefined),
   validateConfig: (config: unknown) => Effect.succeed(config as LLMConfig)
 })
 
@@ -93,22 +93,25 @@ const MockOpenAIClientLive = Layer.succeed(ModelClientService, {
 
 // Mock services with GPT-specific metrics
 const MockMetricsLive = Layer.succeed(LLMMetricsService, {
-  recordRequest: (model: ModelType, request: LLMRequest) => Effect.succeed(undefined),
-  recordResponse: (model: ModelType, response: LLMResponse) => Effect.succeed(undefined),
-  recordError: (model: ModelType, error: LLMError) => Effect.succeed(undefined),
+  recordRequest: (_model: ModelType, _request: LLMRequest) => Effect.succeed(undefined),
+  recordResponse: (_model: ModelType, _response: LLMResponse) => Effect.succeed(undefined),
+  recordError: (_model: ModelType, _error: LLMError) => Effect.succeed(undefined),
   getMetrics: () => Effect.succeed({
     totalRequests: 150,
     totalErrors: 8,
     averageLatency: 600,
     totalCost: 0.45,
-    requestsByModel: { gpt: 150, claude: 0, llama: 0 } as Record<ModelType, number>
+    requestsByModel: (() => {
+      const modelCounts: Record<ModelType, number> = { gpt: 150, claude: 0, llama: 0 }
+      return modelCounts
+    })()
   })
 })
 
 const MockCacheLive = Layer.succeed(CacheService, {
-  get: (key: string) => Effect.succeed(undefined),
-  set: (key: string, value: LLMResponse, ttlSeconds: number) => Effect.succeed(undefined),
-  invalidate: (key: string) => Effect.succeed(undefined),
+  get: (_key: string) => Effect.succeed(undefined),
+  set: (_key: string, _value: LLMResponse, _ttlSeconds: number) => Effect.succeed(undefined),
+  invalidate: (_key: string) => Effect.succeed(undefined),
   clear: () => Effect.succeed(undefined),
   size: () => Effect.succeed(0)
 })
@@ -122,9 +125,7 @@ const TestOpenAILayer = Layer.mergeAll(
 )
 
 describe('OpenAI Client (Effect-TS)', () => {
-  // Helper to run effects with test layer
-  const runTest = <A, E>(effect: Effect.Effect<A, E, never>) =>
-    Effect.runPromise(effect.pipe(Effect.provide(TestOpenAILayer)))
+  // Direct Effect.runPromise with explicit layer provision - no helper needed
 
   beforeEach(() => {
     // No external setup needed with Effect layers
@@ -132,7 +133,7 @@ describe('OpenAI Client (Effect-TS)', () => {
 
   describe('Service Layer Configuration', () => {
     it('should provide OpenAI client service through Effect layer', async () => {
-      const result = await runTest(
+      const result = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
           expect(client).toBeDefined()
@@ -140,17 +141,17 @@ describe('OpenAI Client (Effect-TS)', () => {
           expect(client.claude).toBeUndefined() // Not enabled in mock
           expect(client.llama).toBeUndefined() // Not enabled in mock
           return true
-        })
+        }).pipe(Effect.provide(TestOpenAILayer))
       )
       expect(result).toBe(true)
     })
 
     it('should provide configuration with OpenAI settings', async () => {
-      const config = await runTest(
+      const config = await Effect.runPromise(
         Effect.gen(function* (_) {
           const configService = yield* _(LLMConfigService)
           return yield* _(configService.getConfig())
-        })
+        }).pipe(Effect.provide(TestOpenAILayer))
       )
       // Type guard for config structure
       if (!config || typeof config !== 'object' || !('models' in config)) {
@@ -174,11 +175,11 @@ describe('OpenAI Client (Effect-TS)', () => {
     }
 
     it('should handle basic generation request through Effect service', async () => {
-      const response = await runTest(
+      const response = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
           return yield* _(client.gpt!.generate(testRequest))
-        })
+        }).pipe(Effect.provide(TestOpenAILayer))
       )
       
       expect(response).toHaveProperty('content')
@@ -207,11 +208,11 @@ describe('OpenAI Client (Effect-TS)', () => {
         }
       }
 
-      const response = await runTest(
+      const response = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
           return yield* _(client.gpt!.generate(codeRequest))
-        })
+        }).pipe(Effect.provide(TestOpenAILayer))
       )
       
       expect(response.content).toContain('TypeScript interface')
@@ -229,7 +230,7 @@ describe('OpenAI Client (Effect-TS)', () => {
         streaming: true
       }
 
-      const chunks = await runTest(
+      const chunks = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
           const stream = client.gpt!.generateStream!(request)
@@ -238,7 +239,7 @@ describe('OpenAI Client (Effect-TS)', () => {
             Stream.runCollect,
             Effect.map(chunks => Array.from(chunks))
           ))
-        })
+        }).pipe(Effect.provide(TestOpenAILayer))
       )
       
       expect(chunks.length).toBeGreaterThan(0)
@@ -250,21 +251,21 @@ describe('OpenAI Client (Effect-TS)', () => {
 
   describe('Health and Performance', () => {
     it('should report healthy status', async () => {
-      const isHealthy = await runTest(
+      const isHealthy = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
           return yield* _(client.gpt!.isHealthy())
-        })
+        }).pipe(Effect.provide(TestOpenAILayer))
       )
       expect(isHealthy).toBe(true)
     })
 
     it('should integrate with metrics for cost tracking', async () => {
-      const metrics = await runTest(
+      const metrics = await Effect.runPromise(
         Effect.gen(function* (_) {
           const metricsService = yield* _(LLMMetricsService)
           return yield* _(metricsService.getMetrics())
-        })
+        }).pipe(Effect.provide(TestOpenAILayer))
       )
       
       expect(metrics).toBeDefined()
@@ -281,13 +282,13 @@ describe('OpenAI Client (Effect-TS)', () => {
         claude: undefined,
         llama: undefined,
         gpt: {
-          generate: (request: LLMRequest) =>
+          generate: (_request: LLMRequest) =>
             Effect.fail({
               _tag: 'NetworkError' as const,
               message: 'Mock OpenAI API quota exceeded',
               model: 'gpt'
             }),
-          generateStream: (request: LLMRequest) => Stream.empty,
+          generateStream: (_request: LLMRequest) => Stream.empty,
           isHealthy: () => Effect.succeed(false)
         }
       })

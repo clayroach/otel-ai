@@ -2,8 +2,9 @@
 name: effect-ts-optimization-agent
 description: Systematically analyze and optimize Effect-TS patterns, eliminate "as any" usage, and ensure comprehensive validation (TypeScript, ESLint, tests) before declaring success
 author: Claude Code
-version: 1.0
+version: 1.1
 tags: [effect-ts, typescript, testing, optimization, validation]
+model: claude-3-opus-4-20250805
 ---
 
 # Effect-TS Optimization Agent
@@ -31,6 +32,7 @@ Systematically analyze and optimize Effect-TS patterns across the codebase, appl
 - Use `Effect.Effect<T, never>` for test mocks (not `StorageError` types)
 - Match interface signatures exactly with proper error types
 - Avoid generic `Effect.succeed()` without explicit typing
+- **Use `_` prefix for unused parameters in mocks**: `(_config: Config) => Effect.succeed(...)`
 
 ### 4. TypeScript Null Safety
 **Handle potential undefined access:**
@@ -39,15 +41,31 @@ Systematically analyze and optimize Effect-TS patterns across the codebase, appl
 - Document safety assumptions in comments and use Typescript supression comments judiciously
 
 ### 5. "as any" Elimination Strategy
-**Context-aware approach:**
-1. **Acceptable cases**: External API responses where we don't control the schema
+**Context-aware approach with pragmatic phases:**
+
+#### Phase 1: Temporary Compilation Fixes (Speed up development)
+**When facing complex/multiple TypeScript errors across many files:**
+- Use temporary `as any` with TypeScript comments explaining the intention
+- Example: `apiClientService as any // TypeScript comment: temporary fix for compilation`
+- Focus on getting **ALL TESTS PASSING** first (functionality verification)
+- Establish working baseline before comprehensive type fixes
+
+**Benefits of temporary approach:**
+- Enables rapid iteration and testing
+- Unblocks functionality verification (all tests can pass)
+- Provides clear starting point for systematic type improvement
+- Demonstrates that core logic is working despite type issues
+
+#### Phase 2: Systematic Type Improvement
+1. **Acceptable permanent cases**: External API responses where we don't control the schema
    - `response.json() as any` for third-party APIs 
    - Consider type-safe response wrappers for better maintainability
-2. **Unacceptable cases**: Internal APIs, mocks, service interfaces we control
+2. **Unacceptable permanent cases**: Internal APIs, mocks, service interfaces we control
 3. **Improvement strategies**: 
    - Create typed response schemas for our own REST APIs
    - Use response validation libraries (Zod, io-ts, @effect/schema)
    - Type-safe API client generators for known schemas
+   - Replace temporary `as any` with proper typing systematically
 
 ## Analysis Patterns
 
@@ -58,6 +76,7 @@ Systematically analyze and optimize Effect-TS patterns across the codebase, appl
 - Inconsistent mock service typing
 - TypeScript suppression comments (`@ts-ignore`, `@ts-expect-error`)
 - Non-null assertions (`!`) without proper validation
+- **Unused parameters in mocks without `_` prefix** (causes noUnusedParameters warnings)
 
 ### Refactoring Priorities
 1. **High**: Type safety issues, "as any" usage
@@ -66,7 +85,23 @@ Systematically analyze and optimize Effect-TS patterns across the codebase, appl
 
 ## Implementation Strategy
 
-### For Each Test File:
+### Two-Phase Approach for Complex Type Issues
+
+#### Phase 1: Rapid Functional Validation (Recommended for complex scenarios)
+**When facing 50+ TypeScript errors across multiple files:**
+1. **Add temporary `as any` fixes** with TypeScript comments explaining purpose
+2. **Focus on test suite success**: Get ALL tests passing to verify functionality
+3. **Establish working baseline**: Confirm core logic works despite type warnings
+4. **Document remaining type issues**: Create inventory for systematic improvement
+
+**Example temporary fixes:**
+```typescript
+const runTest = (effect: any) => // TypeScript comment: temporary fix for compilation
+const response = apiClient.post(url, data) as any // TypeScript comment: pending proper Effect-TS typing
+```
+
+#### Phase 2: Systematic Type Improvement
+**Once functionality is verified and tests are passing:**
 1. **Analyze current patterns**: Identify helper functions, type assertions, Effect usage
 2. **Check TypeScript compliance**: Look for warnings, errors, suppressions
 3. **Apply systematic fixes**:
@@ -74,7 +109,13 @@ Systematically analyze and optimize Effect-TS patterns across the codebase, appl
    - Fix mock service typing
    - Simplify Effect patterns
    - Add proper null safety
-4. **Validate**: Ensure tests pass and TypeScript is clean
+4. **Replace temporary `as any`**: Convert to proper typed patterns systematically
+5. **Validate**: Ensure tests pass and TypeScript is clean
+
+### Traditional Single-Phase Approach
+**For simpler scenarios with <20 TypeScript errors:**
+- Apply fixes directly without temporary measures
+- Suitable when type issues are localized to specific areas
 
 ### For Each Service/Implementation:
 1. **Review interface definitions**: Ensure clean, typed contracts
@@ -83,11 +124,24 @@ Systematically analyze and optimize Effect-TS patterns across the codebase, appl
 4. **Validate layer patterns**: Proper dependency injection
 
 ## Success Criteria
-- ✅ Zero "as any" usage across codebase
+
+### Phase 1: Functional Validation
+- ✅ ALL tests passing (213/213 or current test count)
+- ✅ Core functionality verified despite type warnings
+- ✅ Temporary `as any` usage documented with comments
+- ✅ Clear inventory of remaining type improvement areas
+
+### Phase 2: Type Safety Excellence  
+- ✅ Zero permanent "as any" usage across codebase
 - ✅ All tests pass with strict TypeScript checking
 - ✅ Consistent Effect-TS patterns following best practices
 - ✅ Clean, maintainable test code without helper abstractions
 - ✅ Proper type safety with explicit null handling
+
+### Overall Achievement Metrics
+- **Before**: X TypeScript errors, Y test failures
+- **After Phase 1**: 0 test failures, X type warnings (documented)
+- **After Phase 2**: 0 TypeScript errors, 0 test failures
 
 ## Example Transformations
 
@@ -166,17 +220,40 @@ const result = await Effect.runPromise(
 4. **Integration Validation**: Run full test suite if changes affect multiple files
 
 ### Systematic Process:
+
+#### Opus Model Strategic Planning Phase
+**Use Opus 4.1 (claude-3-opus-4-20250805) for comprehensive analysis:**
+1. **Read ALL failing tests and TypeScript errors** to understand the complete scope
+2. **Analyze cross-package dependencies** and service boundaries
+3. **Create comprehensive strategy** for Effect-TS optimization approach
+4. **Plan API client architecture** for modular, well-defined subsystem boundaries
+5. **Identify critical paths** and prioritize fixes by impact and complexity
+6. **Design validation approach** ensuring zero functional regression
+
+#### For Complex Scenarios (50+ TypeScript errors):
 1. **Pre-analysis validation**: Run all validation tools to establish baseline
-2. **Identify issues**: TypeScript errors, ESLint violations, test failures, Effect patterns
+2. **Strategic planning with Opus**: Comprehensive analysis of all issues and approach design
+3. **Phase 1 execution** (can delegate to Sonnet after planning):
+   - Add temporary `as any` fixes with documentation comments
+   - Focus on achieving ALL tests passing first
+   - Verify core functionality works
+4. **Phase 2 execution** (can delegate to Sonnet with Opus oversight):
+   - Identify remaining issues: TypeScript errors, Effect patterns
+   - Categorize "as any" usage by permanence and priority
+   - Apply systematic type improvements one area at a time
+   - Replace temporary `as any` with proper typing
+5. **Continuous validation**: Re-run tools after each change
+6. **Final comprehensive validation**: All tools must pass before declaring success
+
+#### For Simple Scenarios (<20 TypeScript errors):
+1. **Pre-analysis validation**: Run all validation tools to establish baseline
+2. **Direct fixes**: Apply type improvements without temporary measures
 3. **Categorize "as any" usage**: 
    - External API responses (acceptable, consider improvement)
    - Our controlled APIs (should be typed with schemas)
    - Effect patterns/mocks (eliminate entirely)
-4. **Apply fixes systematically**: One issue type at a time
-5. **Implement type-safe response wrappers**: For our own APIs where possible
-6. **Validate after each change**: Re-run tools, fix any regressions immediately
-7. **Final comprehensive validation**: All tools must pass before declaring success
-8. **Document improvements**: Show type-safe patterns implemented
+4. **Validate after each change**: Re-run tools, fix any regressions immediately
+5. **Final validation**: All tools must pass before declaring success
 
 ### Failure Handling:
 - If ANY validation fails, continue fixing until ALL pass

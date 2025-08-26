@@ -31,8 +31,8 @@ export const AnalysisConfigSchema = Schema.Struct({
 export const AnalysisRequestSchema = Schema.Struct({
   type: Schema.Literal('architecture', 'dataflow', 'dependencies', 'insights'),
   timeRange: Schema.Struct({
-    startTime: Schema.Date,
-    endTime: Schema.Date
+    startTime: Schema.Union(Schema.Date, Schema.DateFromString),
+    endTime: Schema.Union(Schema.Date, Schema.DateFromString)
   }),
   filters: Schema.optional(Schema.Struct({
     services: Schema.optional(Schema.Array(Schema.String)),
@@ -53,7 +53,15 @@ export const ServiceTopologySchema = Schema.Struct({
     avgLatencyMs: Schema.Number,
     errorRate: Schema.Number
   })),
-  metadata: Schema.Record(Schema.String, Schema.Unknown)
+  metadata: Schema.Struct({
+    avgLatencyMs: Schema.optional(Schema.Number),
+    p95LatencyMs: Schema.optional(Schema.Number),
+    errorRate: Schema.optional(Schema.Number),
+    totalSpans: Schema.optional(Schema.Union(Schema.Number, Schema.String)), // Handle BigInt conversion
+    throughput: Schema.optional(Schema.Number),
+    dependencies: Schema.optional(Schema.Number),
+    rootSpans: Schema.optional(Schema.Number)
+  })
 })
 
 export const ApplicationArchitectureSchema = Schema.Struct({
@@ -77,7 +85,7 @@ export const ApplicationArchitectureSchema = Schema.Struct({
     avgLatencyMs: Schema.Number,
     errorRate: Schema.Number
   })),
-  generatedAt: Schema.Date
+  generatedAt: Schema.Union(Schema.Date, Schema.DateFromString)
 })
 
 // Enhanced evidence formatting schemas for model differentiation
@@ -132,7 +140,35 @@ export const AnalysisResultSchema = Schema.Struct({
     })))
   })),
   metadata: Schema.Struct({
-    analyzedSpans: Schema.Number,
+    analyzedSpans: Schema.Union(Schema.Number, Schema.String), // Handle both number and string
+    analysisTimeMs: Schema.Number,
+    llmTokensUsed: Schema.Number,
+    confidence: Schema.Number, // 0-1 score
+    selectedModel: Schema.optional(Schema.String),
+    llmModel: Schema.optional(Schema.String)
+  })
+})
+
+// Additional API Response Schemas for Integration Tests
+export const HealthCheckResponseSchema = Schema.Struct({
+  status: Schema.Literal('healthy', 'unhealthy'),
+  capabilities: Schema.Array(Schema.String),
+  message: Schema.String
+})
+
+// Type-safe topology response array
+export const TopologyResponseSchema = Schema.Array(ServiceTopologySchema)
+
+// Type-safe analysis response with proper metadata types (more flexible for JSON responses)
+export const AnalysisResponseSchema = Schema.Struct({
+  requestId: Schema.String,
+  type: Schema.Literal('architecture', 'dataflow', 'dependencies', 'insights'),
+  summary: Schema.String,
+  architecture: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)), // Flexible architecture object
+  insights: Schema.Array(Schema.Record(Schema.String, Schema.Unknown)), // Flexible insights
+  documentation: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)), // Flexible documentation
+  metadata: Schema.Struct({
+    analyzedSpans: Schema.Union(Schema.Number, Schema.String), // Handle both number and string
     analysisTimeMs: Schema.Number,
     llmTokensUsed: Schema.Number,
     confidence: Schema.Number, // 0-1 score
@@ -147,6 +183,9 @@ export type AnalysisRequest = Schema.Schema.Type<typeof AnalysisRequestSchema>
 export type ServiceTopology = Schema.Schema.Type<typeof ServiceTopologySchema>
 export type ApplicationArchitecture = Schema.Schema.Type<typeof ApplicationArchitectureSchema>
 export type AnalysisResult = Schema.Schema.Type<typeof AnalysisResultSchema>
+export type HealthCheckResponse = Schema.Schema.Type<typeof HealthCheckResponseSchema>
+export type TopologyResponse = Schema.Schema.Type<typeof TopologyResponseSchema>
+export type AnalysisResponse = Schema.Schema.Type<typeof AnalysisResponseSchema>
 
 // Error ADT
 export type AnalysisError =

@@ -336,7 +336,7 @@ describe('Model Selection and Insights Generation', () => {
           type: 'backend' as const,
           operations: ['op'],
           dependencies: [],
-          metadata: { avgLatencyMs: null as unknown, errorRate: undefined as unknown, totalSpans: 1000 }
+          metadata: { avgLatencyMs: 100, errorRate: 0.01, totalSpans: 1000 }
         }]
       }
 

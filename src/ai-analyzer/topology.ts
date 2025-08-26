@@ -286,7 +286,7 @@ export const identifyEntryPoints = (services: ServiceTopology[]): ServiceTopolog
   return services.filter(service => 
     service.type === 'frontend' || 
     service.type === 'api' ||
-    (service.metadata.rootSpans as number) > 0
+    (service.metadata.rootSpans as number || 0) > 0
   )
 }
 

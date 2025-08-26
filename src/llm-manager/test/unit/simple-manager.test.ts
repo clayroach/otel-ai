@@ -20,48 +20,41 @@ import type {
   LLMError,
   ModelType,
   LLMConfig,
-  ModelHealthStatus
+  ModelHealthStatus,
+  ConversationContext
 } from '../../types.js'
 
 // Mock LLM Config Service
 const MockSimpleConfigLive = Layer.succeed(LLMConfigService, {
   getConfig: () => Effect.succeed({
-    providers: {
-      openai: { enabled: false, apiKey: '', baseUrl: '', models: [] },
-      anthropic: { enabled: false, apiKey: '', baseUrl: '', models: [] },
-      local: {
-        enabled: true,
-        endpoint: 'http://mock-lm-studio:1234/v1',
-        model: 'simple-llama-model',
-        maxTokens: 2048,
-        temperature: 0.7,
+    models: {
+      llama: {
+        modelPath: 'simple-llama-model',
         contextLength: 4096,
-        timeout: 30000
+        threads: 4,
+        endpoint: 'http://mock-lm-studio:1234/v1'
       }
     },
     routing: {
-      defaultModel: 'llama',
-      fallbackChain: ['llama'],
-      taskModelMapping: {
-        'general': 'llama',
-        'analysis': 'llama',
-        'code-generation': 'llama'
-      }
+      strategy: 'balanced' as const,
+      fallbackOrder: ['llama'],
+      maxRetries: 3,
+      timeoutMs: 30000
     },
-    features: {
-      enableCaching: false, // Simple manager doesn't use cache
-      enableMetrics: true,
-      enableConversations: false
+    cache: {
+      enabled: false,
+      ttlSeconds: 1800,
+      maxSize: 100
     }
-  } as LLMConfig),
+  } satisfies LLMConfig),
 
-  updateConfig: (config: LLMConfig) => Effect.succeed(undefined),
-  validateConfig: (config: unknown) => Effect.succeed(config as LLMConfig)
+  updateConfig: (_config: LLMConfig) => Effect.succeed(undefined),
+  validateConfig: (_config: unknown) => Effect.succeed(_config as LLMConfig)
 })
 
 // Mock Model Router Service
 const MockRouterLive = Layer.succeed(ModelRouterService, {
-  selectModel: (request: LLMRequest) => 
+  selectModel: (_request: LLMRequest) => 
     Effect.succeed('llama' as ModelType),
   
   routeRequest: (request: LLMRequest) =>
@@ -81,18 +74,19 @@ const MockRouterLive = Layer.succeed(ModelRouterService, {
         metadata: {
           cached: false,
           latencyMs: 300,
-          model: 'simple-llama-model',
-          provider: 'local',
-          timestamp: Date.now(),
-          requestId: `simple-${Math.random().toString(36)}`
+          retryCount: 0,
+          confidence: 0.9,
+          modelChain: ['llama'],
+          routingStrategy: 'simple',
+          fallbackUsed: false
         }
-      } as LLMResponse
+      } satisfies LLMResponse
     }),
 
-  getFallbackChain: (failedModel: ModelType) => 
+  getFallbackChain: (_failedModel: ModelType) => 
     Effect.succeed([]), // No fallbacks in simple manager
 
-  updateModelPerformance: (model: ModelType, latencyMs: number, success: boolean) => 
+  updateModelPerformance: (_model: ModelType, _latencyMs: number, _success: boolean) => 
     Effect.succeed(undefined)
 })
 
@@ -112,14 +106,15 @@ const MockLLMManagerLive = Layer.succeed(LLMManagerService, {
           cost: 0
         },
         metadata: {
-          cached: false,
           latencyMs: 400,
-          model: 'simple-llama-model',
-          provider: 'local',
-          timestamp: Date.now(),
-          requestId: `mgr-${Math.random().toString(36)}`
+          retryCount: 0,
+          cached: false,
+          confidence: 0.8,
+          modelChain: ['llama'],
+          routingStrategy: 'balanced',
+          fallbackUsed: false
         }
-      } as LLMResponse
+      } satisfies LLMResponse
     }),
 
   generateStream: (request: LLMRequest) =>
@@ -129,7 +124,7 @@ const MockLLMManagerLive = Layer.succeed(LLMManagerService, {
         Stream.tap(() => Effect.sleep(15))
       ),
 
-  startConversation: (systemPrompt?: string) =>
+  startConversation: (_systemPrompt?: string) =>
     Effect.succeed(`conv-${Math.random().toString(36)}`),
 
   continueConversation: (conversationId: string, message: string) =>
@@ -138,12 +133,13 @@ const MockLLMManagerLive = Layer.succeed(LLMManagerService, {
       model: 'llama',
       usage: { promptTokens: 10, completionTokens: 15, totalTokens: 25, cost: 0 },
       metadata: {
-        cached: false,
         latencyMs: 350,
-        model: 'simple-llama-model',
-        provider: 'local',
-        timestamp: Date.now(),
-        requestId: `conv-${conversationId}`
+        retryCount: 0,
+        cached: false,
+        confidence: 0.85,
+        modelChain: ['llama'],
+        routingStrategy: 'balanced',
+        fallbackUsed: false
       }
     } satisfies LLMResponse),
 
@@ -151,9 +147,10 @@ const MockLLMManagerLive = Layer.succeed(LLMManagerService, {
     Effect.succeed({
       id: conversationId,
       messages: [],
-      createdAt: new Date(),
-      updatedAt: new Date()
-    }),
+      metadata: {},
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    } satisfies ConversationContext),
 
   getAvailableModels: () =>
     Effect.succeed(['llama'] as ModelType[]),
@@ -161,11 +158,11 @@ const MockLLMManagerLive = Layer.succeed(LLMManagerService, {
   getModelHealth: () =>
     Effect.succeed([{
       model: 'llama',
-      healthy: true,
-      latency: 400,
-      lastChecked: new Date(),
-      provider: 'local'
-    }] as ModelHealthStatus[]),
+      status: 'healthy' as const,
+      latencyMs: 400,
+      errorRate: 0.0,
+      lastChecked: Date.now()
+    }] satisfies ModelHealthStatus[]),
 
   warmupModels: () =>
     Effect.succeed(undefined)
@@ -181,7 +178,7 @@ const MockMetricsLive = Layer.succeed(LLMMetricsService, {
     totalErrors: 3,
     averageLatency: 400,
     totalCost: 0, // Local models are free
-    requestsByModel: { llama: 42 }
+    requestsByModel: { gpt: 0, claude: 0, llama: 42 }
   })
 })
 
@@ -203,9 +200,7 @@ const TestSimpleManagerLayer = Layer.mergeAll(
 )
 
 describe('Simple LLM Manager (Effect-TS)', () => {
-  // Helper to run effects with test layer
-  const runTest = <A, E>(effect: Effect.Effect<A, E>) =>
-    Effect.runPromise(effect.pipe(Effect.provide(TestSimpleManagerLayer)))
+  // Use direct Effect.runPromise with layer provision for type safety
 
   beforeEach(() => {
     // No external setup needed with Effect layers
@@ -213,7 +208,7 @@ describe('Simple LLM Manager (Effect-TS)', () => {
 
   describe('Service Layer Configuration', () => {
     it('should provide LLM manager service through Effect layer', async () => {
-      const result = await runTest(
+      const result = await Effect.runPromise(
         Effect.gen(function* (_) {
           const manager = yield* _(LLMManagerService)
           expect(manager).toBeDefined()
@@ -222,22 +217,21 @@ describe('Simple LLM Manager (Effect-TS)', () => {
           expect(manager.getAvailableModels).toBeDefined()
           expect(manager.getModelHealth).toBeDefined()
           return true
-        })
+        }).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       expect(result).toBe(true)
     })
 
     it('should provide simple configuration settings', async () => {
-      const config = await runTest(
+      const config = await Effect.runPromise(
         Effect.gen(function* (_) {
           const configService = yield* _(LLMConfigService)
           return yield* _(configService.getConfig())
-        })
+        }).pipe(Effect.provide(TestSimpleManagerLayer))
       )
-      expect(config.providers.local.enabled).toBe(true)
-      expect(config.routing.defaultModel).toBe('llama')
-      expect(config.features.enableCaching).toBe(false)
-      expect(config.features.enableConversations).toBe(false)
+      expect(config.models.llama).toBeDefined()
+      expect(config.routing.strategy).toBe('balanced')
+      expect(config.cache.enabled).toBe(false)
     })
   })
 
@@ -252,11 +246,11 @@ describe('Simple LLM Manager (Effect-TS)', () => {
         }
       }
 
-      const response = await runTest(
+      const response = await Effect.runPromise(
         Effect.gen(function* (_) {
           const manager = yield* _(LLMManagerService)
           return yield* _(manager.generate(request))
-        })
+        }).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       
       expect(response).toHaveProperty('content')
@@ -268,8 +262,9 @@ describe('Simple LLM Manager (Effect-TS)', () => {
       expect(response.content).toContain('Hello, world!')
       expect(response.model).toBe('llama')
       expect(response.usage.cost).toBe(0) // Local models have zero cost
-      expect(response.metadata.provider).toBe('local')
-      expect(response.metadata.model).toBe('simple-llama-model')
+      expect(response.metadata.latencyMs).toBeGreaterThan(0)
+      expect(response.metadata.retryCount).toBe(0)
+      expect(response.metadata.cached).toBe(false)
     })
 
     it('should handle different task types', async () => {
@@ -282,11 +277,11 @@ describe('Simple LLM Manager (Effect-TS)', () => {
         }
       }
 
-      const response = await runTest(
+      const response = await Effect.runPromise(
         Effect.gen(function* (_) {
           const manager = yield* _(LLMManagerService)
           return yield* _(manager.generate(analysisRequest))
-        })
+        }).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       
       expect(response.content).toContain('Analyze this system architecture')
@@ -297,11 +292,11 @@ describe('Simple LLM Manager (Effect-TS)', () => {
 
   describe('Model Management', () => {
     it('should return available models', async () => {
-      const models = await runTest(
+      const models = await Effect.runPromise(
         Effect.gen(function* (_) {
           const manager = yield* _(LLMManagerService)
           return yield* _(manager.getAvailableModels())
-        })
+        }).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       
       expect(Array.isArray(models)).toBe(true)
@@ -310,30 +305,30 @@ describe('Simple LLM Manager (Effect-TS)', () => {
     })
 
     it('should check model health status', async () => {
-      const health = await runTest(
+      const health = await Effect.runPromise(
         Effect.gen(function* (_) {
           const manager = yield* _(LLMManagerService)
           return yield* _(manager.getModelHealth())
-        })
+        }).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       
       expect(Array.isArray(health)).toBe(true)
       expect(health.length).toBe(1)
       expect(health[0]).toHaveProperty('model')
-      expect(health[0]).toHaveProperty('healthy')
-      expect(health[0]).toHaveProperty('latency')
-      expect(health[0].model).toBe('llama')
-      expect(health[0].healthy).toBe(true)
-      expect(health[0].provider).toBe('local')
+      expect(health[0]).toHaveProperty('status')
+      expect(health[0]).toHaveProperty('latencyMs')
+      expect(health[0]?.model).toBe('llama')
+      expect(health[0]?.status).toBe('healthy')
+      expect(health[0]?.latencyMs).toBe(400)
     })
 
     it('should handle model warmup', async () => {
-      const result = await runTest(
+      const result = await Effect.runPromise(
         Effect.gen(function* (_) {
           const manager = yield* _(LLMManagerService)
           yield* _(manager.warmupModels())
           return true
-        })
+        }).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       expect(result).toBe(true)
     })
@@ -347,7 +342,7 @@ describe('Simple LLM Manager (Effect-TS)', () => {
         streaming: true
       }
 
-      const chunks = await runTest(
+      const chunks = await Effect.runPromise(
         Effect.gen(function* (_) {
           const manager = yield* _(LLMManagerService)
           const stream = manager.generateStream(request)
@@ -356,7 +351,7 @@ describe('Simple LLM Manager (Effect-TS)', () => {
             Stream.runCollect,
             Effect.map(chunks => Array.from(chunks))
           ))
-        })
+        }).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       
       expect(chunks.length).toBeGreaterThan(0)
@@ -368,11 +363,11 @@ describe('Simple LLM Manager (Effect-TS)', () => {
 
   describe('Conversation Management', () => {
     it('should start new conversations', async () => {
-      const conversationId = await runTest(
+      const conversationId = await Effect.runPromise(
         Effect.gen(function* (_) {
           const manager = yield* _(LLMManagerService)
           return yield* _(manager.startConversation('You are a helpful assistant'))
-        })
+        }).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       
       expect(typeof conversationId).toBe('string')
@@ -382,25 +377,25 @@ describe('Simple LLM Manager (Effect-TS)', () => {
     it('should continue conversations', async () => {
       const conversationId = 'test-conversation'
       
-      const response = await runTest(
+      const response = await Effect.runPromise(
         Effect.gen(function* (_) {
           const manager = yield* _(LLMManagerService)
           return yield* _(manager.continueConversation(conversationId, 'Hello there'))
-        })
+        }).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       
       expect(response.content).toContain('Hello there')
-      expect(response.metadata.requestId).toContain('conv-')
+      expect(response.metadata.routingStrategy).toBe('balanced')
     })
 
     it('should retrieve conversation context', async () => {
       const conversationId = 'test-conversation'
       
-      const conversation = await runTest(
+      const conversation = await Effect.runPromise(
         Effect.gen(function* (_) {
           const manager = yield* _(LLMManagerService)
           return yield* _(manager.getConversation(conversationId))
-        })
+        }).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       
       expect(conversation).toHaveProperty('id')
@@ -413,11 +408,11 @@ describe('Simple LLM Manager (Effect-TS)', () => {
 
   describe('Performance and Metrics', () => {
     it('should integrate with metrics service', async () => {
-      const metrics = await runTest(
+      const metrics = await Effect.runPromise(
         Effect.gen(function* (_) {
           const metricsService = yield* _(LLMMetricsService)
           return yield* _(metricsService.getMetrics())
-        })
+        }).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       
       expect(metrics).toBeDefined()
@@ -433,7 +428,7 @@ describe('Simple LLM Manager (Effect-TS)', () => {
         taskType: 'general' as const
       }))
 
-      const responses = await runTest(
+      const responses = await Effect.runPromise(
         Effect.gen(function* (_) {
           const manager = yield* _(LLMManagerService)
           
@@ -441,7 +436,7 @@ describe('Simple LLM Manager (Effect-TS)', () => {
             requests.map(request => manager.generate(request)),
             { concurrency: 'unbounded' }
           ))
-        })
+        }).pipe(Effect.provide(TestSimpleManagerLayer))
       )
 
       expect(responses).toHaveLength(3)
@@ -449,7 +444,7 @@ describe('Simple LLM Manager (Effect-TS)', () => {
         expect(response.content).toContain(`Request ${i + 1}`)
         expect(response.model).toBe('llama')
         expect(response.usage.cost).toBe(0)
-        expect(response.metadata.provider).toBe('local')
+        expect(response.metadata.retryCount).toBe(0)
       })
     })
   })
@@ -461,11 +456,11 @@ describe('Simple LLM Manager (Effect-TS)', () => {
         taskType: 'general'
       }
 
-      const model = await runTest(
+      const model = await Effect.runPromise(
         Effect.gen(function* (_) {
           const router = yield* _(ModelRouterService)
           return yield* _(router.selectModel(request))
-        })
+        }).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       
       expect(model).toBe('llama')
@@ -477,16 +472,16 @@ describe('Simple LLM Manager (Effect-TS)', () => {
         taskType: 'analysis'
       }
 
-      const response = await runTest(
+      const response = await Effect.runPromise(
         Effect.gen(function* (_) {
           const router = yield* _(ModelRouterService)
           return yield* _(router.routeRequest(request))
-        })
+        }).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       
       expect(response.content).toContain('Route this request')
       expect(response.model).toBe('llama')
-      expect(response.metadata.provider).toBe('local')
+      expect(response.metadata.retryCount).toBe(0)
     })
   })
 })

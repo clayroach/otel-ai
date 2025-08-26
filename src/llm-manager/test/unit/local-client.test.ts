@@ -46,30 +46,33 @@ const MockLLMConfigLive = Layer.succeed(LLMConfigService, {
     }
   } as LLMConfig),
 
-  updateConfig: (config: LLMConfig) => Effect.succeed(undefined),
+  updateConfig: (_config: LLMConfig) => Effect.succeed(undefined),
   validateConfig: (config: unknown) => Effect.succeed(config as LLMConfig)
 })
 
 // Mock Cache Service Layer
 const MockCacheLive = Layer.succeed(CacheService, {
-  get: (key: string) => Effect.succeed(undefined),
-  set: (key: string, value: LLMResponse, ttlSeconds: number) => Effect.succeed(undefined),
-  invalidate: (key: string) => Effect.succeed(undefined),
+  get: (_key: string) => Effect.succeed(undefined),
+  set: (_key: string, _value: LLMResponse, _ttlSeconds: number) => Effect.succeed(undefined),
+  invalidate: (_key: string) => Effect.succeed(undefined),
   clear: () => Effect.succeed(undefined),
   size: () => Effect.succeed(0)
 })
 
 // Mock Metrics Service Layer
 const MockMetricsLive = Layer.succeed(LLMMetricsService, {
-  recordRequest: (model: ModelType, request: LLMRequest) => Effect.succeed(undefined),
-  recordResponse: (model: ModelType, response: LLMResponse) => Effect.succeed(undefined),
-  recordError: (model: ModelType, error: LLMError) => Effect.succeed(undefined),
+  recordRequest: (_model: ModelType, _request: LLMRequest) => Effect.succeed(undefined),
+  recordResponse: (_model: ModelType, _response: LLMResponse) => Effect.succeed(undefined),
+  recordError: (_model: ModelType, _error: LLMError) => Effect.succeed(undefined),
   getMetrics: () => Effect.succeed({
     totalRequests: 10,
     totalErrors: 1,
     averageLatency: 250,
     totalCost: 0,
-    requestsByModel: { llama: 10, gpt: 0, claude: 0 } as Record<ModelType, number>
+    requestsByModel: (() => {
+      const modelCounts: Record<ModelType, number> = { llama: 10, gpt: 0, claude: 0 }
+      return modelCounts
+    })()
   })
 })
 
@@ -124,9 +127,7 @@ const TestLLMLayer = Layer.mergeAll(
 )
 
 describe('Local Model Client (Effect-TS)', () => {
-  // Helper to run effects with test layer
-  const runTest = <A, E>(effect: Effect.Effect<A, E, never>) =>
-    Effect.runPromise(effect.pipe(Effect.provide(TestLLMLayer)))
+  // Direct effect execution with layer provision
 
   beforeEach(() => {
     // No external setup needed with Effect layers
@@ -134,7 +135,7 @@ describe('Local Model Client (Effect-TS)', () => {
 
   describe('Service Layer Configuration', () => {
     it('should provide model client service through Effect layer', async () => {
-      const result = await runTest(
+      const result = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
           expect(client).toBeDefined()
@@ -142,17 +143,17 @@ describe('Local Model Client (Effect-TS)', () => {
           expect(client.gpt).toBeUndefined() // Not enabled in mock
           expect(client.claude).toBeUndefined() // Not enabled in mock
           return true
-        })
+        }).pipe(Effect.provide(TestLLMLayer))
       )
       expect(result).toBe(true)
     })
 
     it('should provide configuration through Effect layer', async () => {
-      const config = await runTest(
+      const config = await Effect.runPromise(
         Effect.gen(function* (_) {
           const configService = yield* _(LLMConfigService)
           return yield* _(configService.getConfig())
-        })
+        }).pipe(Effect.provide(TestLLMLayer))
       )
       // Type guard for config structure
       if (!config || typeof config !== 'object' || !('models' in config)) {
@@ -167,24 +168,24 @@ describe('Local Model Client (Effect-TS)', () => {
 
   describe('Health Check', () => {
     it('should check local model health through service layer', async () => {
-      const isHealthy = await runTest(
+      const isHealthy = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
           return yield* _(client.llama!.isHealthy())
-        })
+        }).pipe(Effect.provide(TestLLMLayer))
       )
       expect(isHealthy).toBe(true)
     })
 
     it('should handle health check for unavailable models', async () => {
-      const result = await runTest(
+      const result = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
           // GPT and Claude are not available in our mock
           expect(client.gpt).toBeUndefined()
           expect(client.claude).toBeUndefined()
           return true
-        })
+        }).pipe(Effect.provide(TestLLMLayer))
       )
       expect(result).toBe(true)
     })
@@ -201,11 +202,11 @@ describe('Local Model Client (Effect-TS)', () => {
     }
 
     it('should handle basic generation request through Effect service', async () => {
-      const response = await runTest(
+      const response = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
           return yield* _(client.llama!.generate(testRequest))
-        })
+        }).pipe(Effect.provide(TestLLMLayer))
       )
       
       expect(response).toHaveProperty('content')
@@ -235,11 +236,11 @@ describe('Local Model Client (Effect-TS)', () => {
         }
       }
 
-      const response = await runTest(
+      const response = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
           return yield* _(client.llama!.generate(customRequest))
-        })
+        }).pipe(Effect.provide(TestLLMLayer))
       )
       
       expect(response.content.length).toBeGreaterThan(0)
@@ -257,7 +258,7 @@ describe('Local Model Client (Effect-TS)', () => {
         }
       }))
 
-      const responses = await runTest(
+      const responses = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
           
@@ -265,7 +266,7 @@ describe('Local Model Client (Effect-TS)', () => {
             requests.map(request => client.llama!.generate(request)),
             { concurrency: 'unbounded' }
           ))
-        })
+        }).pipe(Effect.provide(TestLLMLayer))
       )
 
       expect(responses).toHaveLength(3)
@@ -285,7 +286,7 @@ describe('Local Model Client (Effect-TS)', () => {
         streaming: true
       }
 
-      const chunks = await runTest(
+      const chunks = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
           const stream = client.llama!.generateStream!(request)
@@ -294,7 +295,7 @@ describe('Local Model Client (Effect-TS)', () => {
             Stream.runCollect,
             Effect.map(chunks => Array.from(chunks))
           ))
-        })
+        }).pipe(Effect.provide(TestLLMLayer))
       )
       
       expect(chunks.length).toBeGreaterThan(0)
@@ -349,11 +350,11 @@ describe('Local Model Client (Effect-TS)', () => {
 
   describe('Integration with Other Services', () => {
     it('should integrate with metrics service', async () => {
-      const metrics = await runTest(
+      const metrics = await Effect.runPromise(
         Effect.gen(function* (_) {
           const metricsService = yield* _(LLMMetricsService)
           return yield* _(metricsService.getMetrics())
-        })
+        }).pipe(Effect.provide(TestLLMLayer))
       )
       
       expect(metrics).toBeDefined()
@@ -367,7 +368,7 @@ describe('Local Model Client (Effect-TS)', () => {
     })
 
     it('should integrate with cache service', async () => {
-      const result = await runTest(
+      const result = await Effect.runPromise(
         Effect.gen(function* (_) {
           const cache = yield* _(CacheService)
           
@@ -383,7 +384,7 @@ describe('Local Model Client (Effect-TS)', () => {
           const size = yield* _(cache.size())
           
           return { cached, size }
-        })
+        }).pipe(Effect.provide(TestLLMLayer))
       )
       
       // Type guards for result structure
@@ -397,7 +398,7 @@ describe('Local Model Client (Effect-TS)', () => {
 
   describe('Error Handling and Type Safety', () => {
     it('should provide structured error types with Effect-TS', async () => {
-      const result = await runTest(
+      const result = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
           
@@ -407,13 +408,13 @@ describe('Local Model Client (Effect-TS)', () => {
           expect(typeof client.llama!.isHealthy).toBe('function')
           
           return true
-        })
+        }).pipe(Effect.provide(TestLLMLayer))
       )
       expect(result).toBe(true)
     })
 
     it('should handle service unavailability gracefully', async () => {
-      const result = await runTest(
+      const result = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
           
@@ -425,7 +426,7 @@ describe('Local Model Client (Effect-TS)', () => {
           expect(client.llama).toBeDefined()
           
           return true
-        })
+        }).pipe(Effect.provide(TestLLMLayer))
       )
       expect(result).toBe(true)
     })

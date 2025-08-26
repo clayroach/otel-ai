@@ -117,10 +117,10 @@ ${[...architecture.services]
   .slice(0, 10)
   .map(service => `
 **${service.service}** (${service.type})
-- Avg Latency: ${(service.metadata.avgLatencyMs as number).toFixed(0)}ms
-- P95 Latency: ${(service.metadata.p95LatencyMs as number).toFixed(0)}ms  
-- Error Rate: ${((service.metadata.errorRate as number) * 100).toFixed(2)}%
-- Volume: ${service.metadata.totalSpans} spans analyzed
+- Avg Latency: ${(service.metadata.avgLatencyMs as number || 0).toFixed(0)}ms
+- P95 Latency: ${(service.metadata.p95LatencyMs as number || 0).toFixed(0)}ms  
+- Error Rate: ${((service.metadata.errorRate as number || 0) * 100).toFixed(2)}%
+- Volume: ${service.metadata.totalSpans || 0} spans analyzed
 `).join('\n')}
 
 ### High-Volume Data Flows
@@ -284,10 +284,10 @@ export const PromptUtils = {
 **${service.service}** (${service.type})
 - Operations: ${service.operations.join(', ')}
 - Dependencies: ${service.dependencies.length}
-- Error Rate: ${((service.metadata.errorRate as number) * 100).toFixed(2)}%
-- Avg Latency: ${(service.metadata.avgLatencyMs as number).toFixed(0)}ms
-- P95 Latency: ${(service.metadata.p95LatencyMs as number).toFixed(0)}ms
-- Volume: ${service.metadata.totalSpans} spans
+- Error Rate: ${((service.metadata.errorRate as number || 0) * 100).toFixed(2)}%
+- Avg Latency: ${(service.metadata.avgLatencyMs as number || 0).toFixed(0)}ms
+- P95 Latency: ${(service.metadata.p95LatencyMs as number || 0).toFixed(0)}ms
+- Volume: ${service.metadata.totalSpans || 0} spans
 `
   }
 }

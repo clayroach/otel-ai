@@ -1,12 +1,13 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Node",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "allowJs": true,
+    "jsx": "react-jsx",
     "outDir": "./dist",
     "strict": true,
     "noImplicitAny": true,
@@ -51,8 +52,7 @@
   ],
   "exclude": [
     "node_modules",
-    "dist",
-    "src/ui/dist/**/*"
+    "dist"
   ],
   "ts-node": {
     "esm": true,

@@ -79,29 +79,27 @@ const MockClaudeClientLive = Layer.succeed(ModelClientService, {
   llama: undefined, // Llama not enabled in mock config
   
   claude: {
-    generate: (request: LLMRequest) =>
-      Effect.gen(function* (_) {
-        // Simulate API call latency
-        yield* _(Effect.sleep(100))
-        
-        const mockResponse: LLMResponse = {
-          content: `Claude's thoughtful response to: "${request.prompt}". This response demonstrates Claude's analytical capabilities and detailed reasoning.`,
-          model: 'claude',
-          usage: {
-            promptTokens: request.prompt.split(' ').length,
-            completionTokens: 45,
-            totalTokens: request.prompt.split(' ').length + 45,
-            cost: 0.002 // Claude pricing simulation
-          },
-          metadata: {
-            cached: false,
-            latencyMs: 750,
-            retryCount: 0
+    generate: (request: LLMRequest) => 
+      Effect.sleep(100).pipe(
+        Effect.map(() => {
+          const mockResponse: LLMResponse = {
+            content: `Claude's thoughtful response to: "${request.prompt}". This response demonstrates Claude's analytical capabilities and detailed reasoning.`,
+            model: 'claude',
+            usage: {
+              promptTokens: request.prompt.split(' ').length,
+              completionTokens: 45,
+              totalTokens: request.prompt.split(' ').length + 45,
+              cost: 0.002 // Claude pricing simulation
+            },
+            metadata: {
+              cached: false,
+              latencyMs: 750,
+              retryCount: 0
+            }
           }
-        }
-        
-        return mockResponse
-      }),
+          return mockResponse
+        })
+      ),
 
     generateStream: (request: LLMRequest) =>
       Stream.fromIterable(`Claude's streaming response to: "${request.prompt}". This demonstrates streaming capabilities with thoughtful analysis.`.split(' '))
@@ -123,9 +121,7 @@ const TestClaudeLayer = Layer.mergeAll(
 )
 
 describe('Claude Client (Effect-TS)', () => {
-  // Helper to run effects with test layer
-  const runTest = <A, E>(effect: Effect.Effect<A, E, never>) =>
-    Effect.runPromise(effect.pipe(Effect.provide(TestClaudeLayer)))
+  // Direct effect execution with layer provision
 
   beforeEach(() => {
     // No external setup needed with Effect layers
@@ -133,7 +129,7 @@ describe('Claude Client (Effect-TS)', () => {
 
   describe('Service Layer Configuration', () => {
     it('should provide Claude client service through Effect layer', async () => {
-      const result = await runTest(
+      const result = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
           expect(client).toBeDefined()
@@ -141,17 +137,17 @@ describe('Claude Client (Effect-TS)', () => {
           expect(client.gpt).toBeUndefined() // Not enabled in mock
           expect(client.llama).toBeUndefined() // Not enabled in mock
           return true
-        })
+        }).pipe(Effect.provide(TestClaudeLayer))
       )
       expect(result).toBe(true)
     })
 
     it('should provide configuration with Claude settings', async () => {
-      const config = await runTest(
+      const config = await Effect.runPromise(
         Effect.gen(function* (_) {
           const configService = yield* _(LLMConfigService)
           return yield* _(configService.getConfig())
-        })
+        }).pipe(Effect.provide(TestClaudeLayer))
       )
       // Type guard for config structure
       if (!config || typeof config !== 'object' || !('models' in config)) {
@@ -166,24 +162,24 @@ describe('Claude Client (Effect-TS)', () => {
 
   describe('Health Check', () => {
     it('should check Claude health through service layer', async () => {
-      const isHealthy = await runTest(
+      const isHealthy = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
           return client.claude ? yield* _(client.claude.isHealthy()) : false
-        })
+        }).pipe(Effect.provide(TestClaudeLayer))
       )
       expect(isHealthy).toBe(true)
     })
 
     it('should handle health check for unavailable models', async () => {
-      const result = await runTest(
+      const result = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
           // GPT and Llama are not available in our mock
           expect(client.gpt).toBeUndefined()
           expect(client.llama).toBeUndefined()
           return true
-        })
+        }).pipe(Effect.provide(TestClaudeLayer))
       )
       expect(result).toBe(true)
     })
@@ -200,12 +196,12 @@ describe('Claude Client (Effect-TS)', () => {
     }
 
     it('should handle basic generation request through Effect service', async () => {
-      const response = await runTest(
+      const response = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
           if (!client.claude) throw new Error('Claude client not available')
           return yield* _(client.claude.generate(testRequest))
-        })
+        }).pipe(Effect.provide(TestClaudeLayer))
       )
       
       expect(response).toHaveProperty('content')
@@ -233,12 +229,12 @@ describe('Claude Client (Effect-TS)', () => {
         }
       }
 
-      const response = await runTest(
+      const response = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
           if (!client.claude) throw new Error('Claude client not available')
           return yield* _(client.claude.generate(customRequest))
-        })
+        }).pipe(Effect.provide(TestClaudeLayer))
       )
       
       expect(response.content.length).toBeGreaterThan(0)
@@ -257,7 +253,7 @@ describe('Claude Client (Effect-TS)', () => {
         }
       }))
 
-      const responses = await runTest(
+      const responses = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
           
@@ -266,7 +262,7 @@ describe('Claude Client (Effect-TS)', () => {
             requests.map(request => client.claude!.generate(request)),
             { concurrency: 'unbounded' }
           ))
-        })
+        }).pipe(Effect.provide(TestClaudeLayer))
       )
 
       expect(responses).toHaveLength(3)
@@ -287,7 +283,7 @@ describe('Claude Client (Effect-TS)', () => {
         streaming: true
       }
 
-      const chunks = await runTest(
+      const chunks = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
           const stream = client.claude!.generateStream!(request)
@@ -296,7 +292,7 @@ describe('Claude Client (Effect-TS)', () => {
             Stream.runCollect,
             Effect.map(chunks => Array.from(chunks))
           ))
-        })
+        }).pipe(Effect.provide(TestClaudeLayer))
       )
       
       expect(chunks.length).toBeGreaterThan(0)
@@ -351,11 +347,11 @@ describe('Claude Client (Effect-TS)', () => {
 
   describe('Integration with Other Services', () => {
     it('should integrate with metrics service', async () => {
-      const metrics = await runTest(
+      const metrics = await Effect.runPromise(
         Effect.gen(function* (_) {
           const metricsService = yield* _(LLMMetricsService)
           return yield* _(metricsService.getMetrics())
-        })
+        }).pipe(Effect.provide(TestClaudeLayer))
       )
       
       expect(metrics).toBeDefined()
@@ -368,7 +364,7 @@ describe('Claude Client (Effect-TS)', () => {
     })
 
     it('should integrate with cache service', async () => {
-      const result = await runTest(
+      const result = await Effect.runPromise(
         Effect.gen(function* (_) {
           const cache = yield* _(CacheService)
           
@@ -384,7 +380,7 @@ describe('Claude Client (Effect-TS)', () => {
           const size = yield* _(cache.size())
           
           return { cached, size }
-        })
+        }).pipe(Effect.provide(TestClaudeLayer))
       )
       
       expect(result.cached).toBeUndefined() // Mock always returns undefined
@@ -394,7 +390,7 @@ describe('Claude Client (Effect-TS)', () => {
 
   describe('Error Handling and Type Safety', () => {
     it('should provide structured error types with Effect-TS', async () => {
-      const result = await runTest(
+      const result = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
           
@@ -404,13 +400,13 @@ describe('Claude Client (Effect-TS)', () => {
           expect(typeof client.claude!.isHealthy).toBe('function')
           
           return true
-        })
+        }).pipe(Effect.provide(TestClaudeLayer))
       )
       expect(result).toBe(true)
     })
 
     it('should handle service configuration gracefully', async () => {
-      const result = await runTest(
+      const result = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
           
@@ -422,7 +418,7 @@ describe('Claude Client (Effect-TS)', () => {
           expect(client.llama).toBeUndefined()
           
           return true
-        })
+        }).pipe(Effect.provide(TestClaudeLayer))
       )
       expect(result).toBe(true)
     })

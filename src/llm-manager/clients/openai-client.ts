@@ -96,8 +96,14 @@ const mapHttpErrorToLLMError = (status: number, message: string, model: string):
       return { _tag: 'AuthenticationFailed', model, message: 'Invalid API key' }
     case 429:
       return { _tag: 'RateLimitExceeded', model, retryAfter: 60000 }
-    case 400:
-      return { _tag: 'InvalidRequest', message, request: {} as LLMRequest }
+    case 400: {
+      const emptyRequest: LLMRequest = {
+        prompt: '',
+        taskType: 'general' as const,
+        streaming: false
+      }
+      return { _tag: 'InvalidRequest', message, request: emptyRequest }
+    }
     default:
       return { _tag: 'NetworkError', model, message: `HTTP ${status}: ${message}` }
   }

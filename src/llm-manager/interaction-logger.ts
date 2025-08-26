@@ -8,7 +8,7 @@
  * - Query analysis for understanding model differences
  */
 
-import { Effect, Layer, Stream, Ref } from 'effect'
+import { Effect, Layer, Stream, Ref, Context } from 'effect'
 import { Schema } from '@effect/schema'
 import { LLMRequest, LLMResponse, LLMError, ModelType } from './types.js'
 
@@ -117,7 +117,7 @@ export interface InteractionLoggerInterface {
 /**
  * Interaction Logger Service Tag
  */
-export const InteractionLoggerService = Effect.Service<InteractionLoggerInterface>()
+export const InteractionLoggerService = Context.GenericTag<InteractionLoggerInterface>('InteractionLoggerService')
 
 /**
  * Generate Unique Interaction ID
@@ -131,7 +131,7 @@ const generateInteractionId = (): string => {
 /**
  * In-Memory Interaction Logger Implementation
  */
-export const makeInteractionLogger = (): Effect.Effect<InteractionLoggerInterface, never, never> =>
+export const makeInteractionLogger = () =>
   Effect.gen(function* (_) {
     // In-memory storage for interactions
     const interactionsRef = yield* _(Ref.make(new Map<string, InteractionLogEntry>()))
