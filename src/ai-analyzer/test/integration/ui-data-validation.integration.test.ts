@@ -8,6 +8,68 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 
 const API_BASE_URL = process.env.API_URL || 'http://localhost:4319'
+
+// Helper function to wait for sufficient data for architecture analysis
+async function waitForUIAnalysisData(minSpans = 50, maxWaitMs = 15000): Promise<any> {
+  const startWait = Date.now()
+  
+  while (Date.now() - startWait < maxWaitMs) {
+    try {
+      const endTime = new Date()
+      const startTime = new Date(endTime.getTime() - 2 * 60 * 60 * 1000)
+      
+      const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'architecture',
+          timeRange: {
+            startTime: startTime.toISOString(),
+            endTime: endTime.toISOString()
+          }
+        })
+      })
+      
+      if (response.ok) {
+        const analysis = await response.json()
+        if (analysis.metadata?.analyzedSpans >= minSpans && 
+            analysis.architecture?.services?.length > 0) {
+          console.log(`✅ UI Analysis: Found ${analysis.metadata.analyzedSpans} spans and ${analysis.architecture.services.length} services`)
+          return analysis
+        }
+      }
+      
+      // Wait 2 seconds before retry
+      await new Promise(resolve => setTimeout(resolve, 2000))
+    } catch (error) {
+      await new Promise(resolve => setTimeout(resolve, 2000))
+    }
+  }
+  
+  // Final attempt with extended time range
+  const endTime = new Date()
+  const startTime = new Date(endTime.getTime() - 4 * 60 * 60 * 1000)
+  
+  const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/analyze`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'architecture',
+      timeRange: {
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString()
+      }
+    })
+  })
+  
+  if (response.ok) {
+    const analysis = await response.json()
+    console.log(`⚠️ UI Final attempt: ${analysis.metadata?.analyzedSpans || 0} spans, ${analysis.architecture?.services?.length || 0} services`)
+    return analysis
+  }
+  
+  throw new Error(`Failed to get UI analysis data after ${maxWaitMs}ms`)
+}
 const TEST_TIMEOUT = 30000
 
 describe('UI Data Validation Integration', () => {
@@ -77,23 +139,8 @@ describe('UI Data Validation Integration', () => {
     }, TEST_TIMEOUT)
 
     it('should return properly formatted span counts for UI display', async () => {
-      const endTime = new Date()
-      const startTime = new Date(endTime.getTime() - 60 * 60 * 1000)
-      
-      const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/analyze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'architecture',
-          timeRange: {
-            startTime: startTime.toISOString(),
-            endTime: endTime.toISOString()
-          }
-        })
-      })
-      
-      expect(response.ok).toBe(true)
-      const analysis = await response.json() as any
+      // Wait for sufficient telemetry data before testing UI display
+      const analysis = await waitForUIAnalysisData(30, 15000) // Wait for at least 30 spans
       
       // Check analyzedSpans field that UI displays with "spans" suffix
       const analyzedSpans = analysis.metadata.analyzedSpans
@@ -135,23 +182,8 @@ describe('UI Data Validation Integration', () => {
     }, TEST_TIMEOUT)
 
     it('should match UI expectation for service discovery summary', async () => {
-      const endTime = new Date()
-      const startTime = new Date(endTime.getTime() - 60 * 60 * 1000)
-      
-      const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/analyze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'architecture',
-          timeRange: {
-            startTime: startTime.toISOString(),
-            endTime: endTime.toISOString()
-          }
-        })
-      })
-      
-      expect(response.ok).toBe(true)
-      const analysis = await response.json() as any
+      // Wait for sufficient telemetry data before testing service discovery
+      const analysis = await waitForUIAnalysisData(50, 15000) // Wait for at least 50 spans
       
       const servicesCount = analysis.architecture.services.length
       const dataFlowsCount = analysis.architecture.dataFlows.length

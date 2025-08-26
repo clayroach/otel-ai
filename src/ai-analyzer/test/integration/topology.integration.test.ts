@@ -12,6 +12,128 @@ import { ServiceTopologySchema } from '../../types.js'
 const API_BASE_URL = process.env.API_URL || 'http://localhost:4319'
 const TEST_TIMEOUT = 30000 // 30 seconds for Docker operations
 
+// Helper function to wait for sufficient telemetry data
+async function waitForTelemetryData(minServices = 5, maxWaitMs = 20000): Promise<any[]> {
+  const startWait = Date.now()
+  
+  while (Date.now() - startWait < maxWaitMs) {
+    try {
+      const endTime = new Date()
+      const startTime = new Date(endTime.getTime() - 2 * 60 * 60 * 1000)
+      
+      const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/topology`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          timeRange: {
+            startTime: startTime.toISOString(),
+            endTime: endTime.toISOString()
+          }
+        })
+      })
+      
+      if (response.ok) {
+        const topology = await response.json()
+        if (Array.isArray(topology) && topology.length >= minServices) {
+          console.log(`✅ Found ${topology.length} services - sufficient data available`)
+          return topology
+        }
+      }
+      
+      // Wait 2 seconds before retry
+      await new Promise(resolve => setTimeout(resolve, 2000))
+    } catch (error) {
+      // Continue waiting on errors
+      await new Promise(resolve => setTimeout(resolve, 2000))
+    }
+  }
+  
+  // Final attempt - return whatever data we have
+  const endTime = new Date()
+  const startTime = new Date(endTime.getTime() - 4 * 60 * 60 * 1000) // Expand to 4 hours
+  
+  const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/topology`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      timeRange: {
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString()
+      }
+    })
+  })
+  
+  if (response.ok) {
+    const topology = await response.json()
+    console.log(`⚠️ Final attempt: Found ${topology.length} services after ${maxWaitMs}ms wait`)
+    return topology
+  }
+  
+  throw new Error(`Failed to get topology data after ${maxWaitMs}ms`)
+}
+
+// Helper function to wait for sufficient data for architecture analysis
+async function waitForArchitectureData(minSpans = 50, maxWaitMs = 15000): Promise<any> {
+  const startWait = Date.now()
+  
+  while (Date.now() - startWait < maxWaitMs) {
+    try {
+      const endTime = new Date()
+      const startTime = new Date(endTime.getTime() - 2 * 60 * 60 * 1000)
+      
+      const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'architecture',
+          timeRange: {
+            startTime: startTime.toISOString(),
+            endTime: endTime.toISOString()
+          }
+        })
+      })
+      
+      if (response.ok) {
+        const analysis = await response.json()
+        if (analysis.metadata?.analyzedSpans >= minSpans && 
+            analysis.architecture?.services?.length > 0) {
+          console.log(`✅ Found ${analysis.metadata.analyzedSpans} spans and ${analysis.architecture.services.length} services`)
+          return analysis
+        }
+      }
+      
+      // Wait 2 seconds before retry
+      await new Promise(resolve => setTimeout(resolve, 2000))
+    } catch (error) {
+      await new Promise(resolve => setTimeout(resolve, 2000))
+    }
+  }
+  
+  // Final attempt with extended time range
+  const endTime = new Date()
+  const startTime = new Date(endTime.getTime() - 4 * 60 * 60 * 1000)
+  
+  const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/analyze`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'architecture',
+      timeRange: {
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString()
+      }
+    })
+  })
+  
+  if (response.ok) {
+    const analysis = await response.json()
+    console.log(`⚠️ Final attempt: ${analysis.metadata?.analyzedSpans || 0} spans, ${analysis.architecture?.services?.length || 0} services`)
+    return analysis
+  }
+  
+  throw new Error(`Failed to get architecture data after ${maxWaitMs}ms`)
+}
+
 describe('AI Analyzer Topology Integration', () => {
   
   beforeAll(async () => {
@@ -46,25 +168,8 @@ describe('AI Analyzer Topology Integration', () => {
 
   describe('Topology Discovery', () => {
     it('should discover services from real telemetry data', async () => {
-      // Set time range for last 2 hours
-      const endTime = new Date()
-      const startTime = new Date(endTime.getTime() - 2 * 60 * 60 * 1000)
-      
-      const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/topology`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          timeRange: {
-            startTime: startTime.toISOString(),
-            endTime: endTime.toISOString()
-          }
-        })
-      })
-      
-      expect(response.ok).toBe(true)
-      const topology = await response.json() as any
+      // Wait for sufficient telemetry data before testing
+      const topology = await waitForTelemetryData(3, 15000) // Wait for at least 3 services, max 15s
       
       // Validate response structure
       expect(Array.isArray(topology)).toBe(true)
@@ -227,26 +332,8 @@ describe('AI Analyzer Topology Integration', () => {
 
   describe('Architecture Analysis', () => {
     it('should perform architecture analysis on real data', async () => {
-      // Set time range for last hour
-      const endTime = new Date()
-      const startTime = new Date(endTime.getTime() - 60 * 60 * 1000)
-      
-      const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/analyze`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          type: 'architecture',
-          timeRange: {
-            startTime: startTime.toISOString(),
-            endTime: endTime.toISOString()
-          }
-        })
-      })
-      
-      expect(response.ok).toBe(true)
-      const analysis = await response.json() as any
+      // Wait for sufficient telemetry data before analysis
+      const analysis = await waitForArchitectureData(30, 15000) // Wait for at least 30 spans
       
       // Validate analysis structure
       expect(analysis.requestId).toBeTruthy()
@@ -272,26 +359,8 @@ describe('AI Analyzer Topology Integration', () => {
     }, TEST_TIMEOUT)
 
     it('should return analyzedSpans as a proper number, not BigInt concatenation', async () => {
-      // Set time range for last hour
-      const endTime = new Date()
-      const startTime = new Date(endTime.getTime() - 60 * 60 * 1000)
-      
-      const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/analyze`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          type: 'architecture',
-          timeRange: {
-            startTime: startTime.toISOString(),
-            endTime: endTime.toISOString()
-          }
-        })
-      })
-      
-      expect(response.ok).toBe(true)
-      const analysis = await response.json() as any
+      // Wait for sufficient telemetry data before analysis
+      const analysis = await waitForArchitectureData(20, 15000) // Wait for at least 20 spans
       
       // Validate analyzedSpans is a proper number, not a BigInt concatenation
       const analyzedSpans = analysis.metadata.analyzedSpans
