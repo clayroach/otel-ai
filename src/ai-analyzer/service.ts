@@ -399,6 +399,36 @@ export const generateInsights = (
     }
   })
   
+  // Helper function to create model analysis object
+  const createModelAnalysis = (
+    selectedModel: string | undefined, 
+    confidence: number, 
+    reasoningPath: string[]
+  ) => {
+    if (!selectedModel || selectedModel === 'local-statistical-analyzer') {
+      return undefined;
+    }
+    
+    const modelMap = {
+      claude: 'claude-3' as const,
+      gpt: 'gpt-4' as const, 
+      llama: 'llama-2' as const
+    };
+    
+    const analysisTypeMap = {
+      claude: 'explanatory' as const,
+      gpt: 'mathematical' as const,
+      llama: 'realtime' as const
+    };
+    
+    return {
+      model: modelMap[selectedModel as keyof typeof modelMap] || 'statistical' as const,
+      analysisType: analysisTypeMap[selectedModel as keyof typeof analysisTypeMap] || 'statistical' as const,
+      confidence,
+      reasoningPath
+    };
+  };
+  
   // Performance insights
   const slowServices = architecture.services
     .filter(s => (s.metadata.avgLatencyMs as number) > 1000)
@@ -416,20 +446,11 @@ export const generateInsights = (
       description: `${slowServices.length} services have average latency > 1000ms: ${slowServices.slice(0, 3).map(s => cleanServiceName(s.service)).join(', ')}`,
       recommendation: 'Investigate performance bottlenecks in these services',
       evidence: createEvidence('structured', evidenceData, 'performance', 'latency', slowServices.length),
-      modelAnalysis: selectedModel && selectedModel !== 'local-statistical-analyzer' ? {
-        model: selectedModel === 'claude' ? 'claude-3' as const : 
-              selectedModel === 'gpt' ? 'gpt-4' as const : 
-              selectedModel === 'llama' ? 'llama-2' as const : 'statistical' as const,
-        analysisType: selectedModel === 'claude' ? 'explanatory' as const :
-                    selectedModel === 'gpt' ? 'mathematical' as const :
-                    selectedModel === 'llama' ? 'realtime' as const : 'statistical' as const,
-        confidence: 0.85,
-        reasoningPath: [
-          `Identified ${slowServices.length} services exceeding 1000ms threshold`,
-          'Analyzed latency distribution patterns',
-          'Generated performance optimization recommendations'
-        ]
-      } : undefined
+      modelAnalysis: createModelAnalysis(selectedModel, 0.85, [
+        `Identified ${slowServices.length} services exceeding 1000ms threshold`,
+        'Analyzed latency distribution patterns',
+        'Generated performance optimization recommendations'
+      ])
     })
   }
   
@@ -450,20 +471,11 @@ export const generateInsights = (
       description: `${errorProneServices.length} services have error rates > 1%: ${errorProneServices.slice(0, 3).map(s => `${cleanServiceName(s.service)} (${((s.metadata.errorRate as number) * 100).toFixed(1)}%)`).join(', ')}`,
       recommendation: 'Review error handling and monitoring for these services',
       evidence: createEvidence('statistical', evidenceData, 'reliability', 'error-rate', errorProneServices.length),
-      modelAnalysis: selectedModel && selectedModel !== 'local-statistical-analyzer' ? {
-        model: selectedModel === 'claude' ? 'claude-3' as const : 
-              selectedModel === 'gpt' ? 'gpt-4' as const : 
-              selectedModel === 'llama' ? 'llama-2' as const : 'statistical' as const,
-        analysisType: selectedModel === 'claude' ? 'explanatory' as const :
-                    selectedModel === 'gpt' ? 'mathematical' as const :
-                    selectedModel === 'llama' ? 'realtime' as const : 'statistical' as const,
-        confidence: 0.92,
-        reasoningPath: [
-          `Found ${errorProneServices.length} services with >1% error rate`,
-          'Correlated error patterns with service complexity',
-          'Identified potential reliability improvements'
-        ]
-      } : undefined
+      modelAnalysis: createModelAnalysis(selectedModel, 0.92, [
+        `Found ${errorProneServices.length} services with >1% error rate`,
+        'Correlated error patterns with service complexity',
+        'Identified potential reliability improvements'
+      ])
     })
   }
   
@@ -484,20 +496,11 @@ export const generateInsights = (
       description: `${complexServices.length} services have > 5 dependencies: ${complexServices.slice(0, 3).map(s => `${cleanServiceName(s.service)} (${s.dependencies.length})`).join(', ')}`,
       recommendation: 'Consider dependency injection or service consolidation',
       evidence: createEvidence('narrative', evidenceData, 'architecture', 'dependencies', complexServices.length),
-      modelAnalysis: selectedModel && selectedModel !== 'local-statistical-analyzer' ? {
-        model: selectedModel === 'claude' ? 'claude-3' as const : 
-              selectedModel === 'gpt' ? 'gpt-4' as const : 
-              selectedModel === 'llama' ? 'llama-2' as const : 'statistical' as const,
-        analysisType: selectedModel === 'claude' ? 'explanatory' as const :
-                    selectedModel === 'gpt' ? 'mathematical' as const :
-                    selectedModel === 'llama' ? 'realtime' as const : 'statistical' as const,
-        confidence: 0.78,
-        reasoningPath: [
-          `Identified ${complexServices.length} services with >5 dependencies`,
-          'Analyzed coupling patterns and potential refactoring opportunities',
-          'Generated architectural improvement suggestions'
-        ]
-      } : undefined
+      modelAnalysis: createModelAnalysis(selectedModel, 0.78, [
+        `Identified ${complexServices.length} services with >5 dependencies`,
+        'Analyzed coupling patterns and potential refactoring opportunities',
+        'Generated architectural improvement suggestions'
+      ])
     })
   }
 
@@ -633,7 +636,7 @@ const generateDocumentation = (
   })
 
 export const generateRequestId = (): string => 
-  `ai-analysis-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+  `ai-analysis-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`
 
 const calculateConfidenceScore = (topologyData: ServiceTopologyRaw[], dependencyData: ServiceDependencyRaw[]): number => {
   // Simple confidence calculation based on data volume
