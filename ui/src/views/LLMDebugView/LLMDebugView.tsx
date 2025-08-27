@@ -15,7 +15,7 @@ interface LLMInteraction {
   request: {
     prompt: string
     taskType: string
-    preferences?: Record<string, any>
+    preferences?: Record<string, unknown>
   }
   response?: {
     content: string
@@ -26,7 +26,7 @@ interface LLMInteraction {
       totalTokens: number
       cost?: number
     }
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   }
   error?: {
     _tag: string
@@ -60,7 +60,7 @@ interface ModelComparison {
 
 export const LLMDebugView: React.FC = () => {
   const [interactions, setInteractions] = useState<LLMInteraction[]>([])
-  const [_liveEvents, setLiveEvents] = useState<LiveEvent[]>([])
+  const [, setLiveEvents] = useState<LiveEvent[]>([])
   const [modelComparison, setModelComparison] = useState<ModelComparison[]>([])
   const [selectedModel, setSelectedModel] = useState<string>('')
   const [autoScroll, setAutoScroll] = useState(true)

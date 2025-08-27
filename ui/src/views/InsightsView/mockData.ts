@@ -31,7 +31,7 @@ export interface ServiceTopology {
   type: 'frontend' | 'api' | 'backend' | 'database' | 'queue' | 'cache' | 'external';
   operations: string[];
   dependencies: ServiceDependency[];
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface ServiceDependency {
@@ -67,7 +67,7 @@ export interface AnalysisInsight {
   title: string;
   description: string;
   recommendation?: string;
-  evidence: any[];
+  evidence: string[];
 }
 
 export const mockAnalysisResult: AnalysisResult = {

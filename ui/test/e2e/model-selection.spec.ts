@@ -1,4 +1,12 @@
-import { test, expect, Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+
+// Types for network request tracking
+interface NetworkRequest {
+  url: string;
+  method: string;
+  postData: string | null;
+  headers: Record<string, string>;
+}
 
 // Test the exact UI behavior the user is experiencing
 test.describe('AI Analyzer Model Selection E2E', () => {
@@ -140,8 +148,12 @@ test.describe('AI Analyzer Model Selection E2E', () => {
     
     for (const model of switchSequence) {
       // Quick switch using proper test IDs
+      const testId = testIdMap[model]
+      if (!testId) {
+        throw new Error(`Unknown model in test: ${model}`)
+      }
       await page.getByTestId('ai-model-selector').click()
-      await page.getByTestId(testIdMap[model]).click()
+      await page.getByTestId(testId).click()
       
       // Brief pause to let UI update
       await page.waitForTimeout(500)
@@ -158,7 +170,7 @@ test.describe('AI Analyzer Model Selection E2E', () => {
   
   test('should debug network requests for model selection', async ({ page }) => {
     // Capture network requests to debug API calls
-    const requests: any[] = []
+    const requests: NetworkRequest[] = []
     
     page.on('request', request => {
       if (request.url().includes('/api/ai-analyzer/analyze')) {
@@ -180,7 +192,10 @@ test.describe('AI Analyzer Model Selection E2E', () => {
     
     // Validate request was made with correct model
     expect(requests).toHaveLength(1)
-    const requestBody = JSON.parse(requests[0].postData)
-    expect(requestBody.config?.llm?.model).toBe('claude')
+    const postData = requests[0]?.postData
+    if (postData) {
+      const requestBody = JSON.parse(postData)
+      expect(requestBody.config?.llm?.model).toBe('claude')
+    }
   })
 })

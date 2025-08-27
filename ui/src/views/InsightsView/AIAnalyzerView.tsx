@@ -641,7 +641,7 @@ const AIAnalyzerView: React.FC = () => {
                                   <Text strong>📊 Total Spans:</Text> 
                                   <Text>{(service.metadata.totalSpans as number).toLocaleString()}</Text>
                                 </div>
-                                {service.metadata.p95LatencyMs && (
+                                {typeof service.metadata.p95LatencyMs === 'number' && (
                                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                     <Text strong>🎯 P95 Latency:</Text> 
                                     <Text type="secondary">

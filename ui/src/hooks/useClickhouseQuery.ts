@@ -2,7 +2,7 @@ import { useQuery, UseQueryOptions } from 'react-query';
 import axios from 'axios';
 import { useAppStore } from '../store/appStore';
 
-interface ClickhouseQueryResult<T = unknown> {
+export interface ClickhouseQueryResult<T = unknown> {
   data: T[];
   rows: number;
   statistics: {

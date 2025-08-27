@@ -18,7 +18,7 @@ export const MonacoQueryEditor: React.FC<MonacoQueryEditorProps> = ({
   language = 'sql',
 }) => {
   const { darkMode } = useAppStore();
-  const editorRef = useRef<any>(null);
+  const editorRef = useRef<unknown>(null);
 
   const handleEditorDidMount: OnMount = useCallback((editor, monaco) => {
     editorRef.current = editor;

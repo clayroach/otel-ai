@@ -14,8 +14,27 @@ import { format } from 'sql-formatter';
 import { MonacoQueryEditor } from '../../components/MonacoEditor/MonacoQueryEditor';
 import { TimeRangeSelector } from '../../components/TimeRangeSelector/TimeRangeSelector';
 import { TraceResults } from '../../components/TraceResults/TraceResults';
-import { useClickhouseQuery } from '../../hooks/useClickhouseQuery';
+import { useClickhouseQuery, type ClickhouseQueryResult } from '../../hooks/useClickhouseQuery';
 import { useAppStore } from '../../store/appStore';
+
+// Interface for trace data from ClickHouse matching what TraceResults expects
+interface TraceRow {
+  trace_id: string;
+  service_name: string;
+  operation_name: string;
+  duration_ms: number;
+  timestamp: string;
+  status_code: string;
+  is_error: number;
+  span_kind?: string;
+  span_id?: string;
+  parent_span_id?: string;
+  is_root?: number;
+  encoding_type?: 'json' | 'protobuf';
+  attributes?: Record<string, unknown>;
+  resource_attributes?: Record<string, unknown>;
+}
+
 
 const { Title } = Typography;
 
@@ -320,7 +339,7 @@ export const TracesView: React.FC = () => {
                 Query Error: {error.message}
               </div>
             ) : queryResults ? (
-              <TraceResults data={queryResults as any} />
+              <TraceResults data={queryResults as ClickhouseQueryResult<TraceRow>} />
             ) : (
               <div style={{ 
                 display: 'flex', 

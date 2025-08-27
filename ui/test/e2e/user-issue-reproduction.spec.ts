@@ -1,4 +1,23 @@
-import { test, expect, Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+
+// Types for API request/response tracking
+interface APIRequest {
+  url: string;
+  method: string;
+  postData: string | null;
+  timestamp: string;
+}
+
+interface APIResponseBody {
+  insights?: unknown[];
+  metadata?: unknown;
+}
+
+interface APIResponse {
+  status: number;
+  body: APIResponseBody;
+  timestamp: string;
+}
 
 // Reproduction test for user's exact issue:
 // "the only thing that changes is the span counts, same number (4) insights"
@@ -19,7 +38,7 @@ test.describe('User Issue Reproduction: Model Selection Not Working', () => {
     console.log('🔍 Reproducing user issue: model selection not changing insights')
     
     // Capture network requests for debugging
-    const apiRequests: any[] = []
+    const apiRequests: APIRequest[] = []
     page.on('request', request => {
       if (request.url().includes('/api/ai-analyzer/analyze')) {
         apiRequests.push({
@@ -31,11 +50,11 @@ test.describe('User Issue Reproduction: Model Selection Not Working', () => {
       }
     })
     
-    const apiResponses: any[] = []
+    const apiResponses: APIResponse[] = []
     page.on('response', async response => {
       if (response.url().includes('/api/ai-analyzer/analyze')) {
         try {
-          const responseBody = await response.json()
+          const responseBody = await response.json() as APIResponseBody
           apiResponses.push({
             status: response.status(),
             body: responseBody,
@@ -249,8 +268,12 @@ test.describe('User Issue Reproduction: Model Selection Not Working', () => {
       console.log(`🔄 Switching to ${model.value}...`)
       
       // Select model using proper test ID
+      const testId = testIdMap[model.value]
+      if (!testId) {
+        throw new Error(`Unknown model in test: ${model.value}`)
+      }
       await page.getByTestId('ai-model-selector').click()
-      await page.getByTestId(testIdMap[model.value]).click()
+      await page.getByTestId(testId).click()
       
       // Verify the selector shows the correct value
       const selectedValue = await page.getByTestId('ai-model-selector').textContent()
