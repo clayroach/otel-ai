@@ -114,6 +114,7 @@ Each package includes comprehensive documentation following our **Option C patte
 | [llm-manager](src/llm-manager/) | [📖 README](src/llm-manager/README.md) | [📚 Full Docs](notes/packages/llm-manager/package.md) |
 | [ui-generator](src/ui-generator/) | [📖 README](src/ui-generator/README.md) | [📚 Full Docs](notes/packages/ui-generator/package.md) |
 | [config-manager](src/config-manager/) | [📖 README](src/config-manager/README.md) | [📚 Full Docs](notes/packages/config-manager/package.md) |
+| [build](src/build/) | [📖 README](src/build/README.md) | [📚 Full Docs](notes/packages/build/package.md) |
 | [deployment](src/deployment/) | [📖 README](src/deployment/README.md) | [📚 Full Docs](notes/packages/deployment/package.md) |
 
 ### Development Commands
