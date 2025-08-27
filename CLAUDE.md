@@ -183,6 +183,32 @@ Use the claude-review-session-agent to understand recent development context and
 
 The subagents handle routine workflow tasks, allowing focus on high-value creative development work while maintaining consistency and quality.
 
+### **CRITICAL: Agent Tool Execution Verification**
+
+**Problem**: Agents often report completion without actually executing required tools (e.g., claiming to create files without using Write tool).
+
+**Verification Pattern**:
+1. **After any agent that claims to create files**:
+   - Use Read tool to verify file actually exists
+   - If file missing, use Write tool directly to create it
+   - Never trust agent completion reports without verification
+
+2. **Explicit Tool Requirements in Agent Prompts**:
+   - "CRITICAL: You MUST actually use the Write tool to create the file"
+   - "Do not just report creation - EXECUTE the Write tool"
+   - "Verify tool execution was successful before reporting completion"
+
+3. **Direct Tool Usage for File Operations**:
+   - **File Creation**: Use Write tool directly instead of Task agent
+   - **File Reading**: Use Read tool directly instead of relying on agent reports
+   - **File Modification**: Use Edit tool directly for critical changes
+
+**Agent Reliability Checklist**:
+- ✅ Agent reports completion → Verify with appropriate tool
+- ✅ File creation claimed → Use Read tool to confirm existence  
+- ✅ Code changes claimed → Use Read tool to verify actual changes
+- ✅ Multiple operations → Verify each step individually
+
 ### Agent-Based Workflow (No Scripts Needed)
 
 All daily workflow, documentation sync, and session management is handled by specialized Claude Code agents:

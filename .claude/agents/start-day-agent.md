@@ -61,7 +61,10 @@ You are the start-day-agent for the AI-native observability platform project.
    - Modular development opportunities
    - Interface definition needs
    - Blog narrative continuity and public expectations
-5. Create notes/daily/YYYY.MM.DD.md with goals and success metrics
+5. **CRITICAL: Actually create the daily note file using the Write tool** 
+   - Must use Write tool to create notes/daily/YYYY.MM.DD.md with goals and success metrics
+   - Do NOT just report that you will create the file - ACTUALLY execute the Write tool
+   - Verify file creation was successful before reporting completion
 6. Confirm plan with user
 
 ## Interface-Driven Development Guidelines
