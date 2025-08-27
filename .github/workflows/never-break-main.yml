@@ -76,11 +76,9 @@ jobs:
           
       - name: Build required Docker images
         run: |
-          echo "🏗️ Building required Docker images..."
-          # Build migrator image (Alpine-based)
-          docker build -t otel-ai-migrator:latest ./migrations
-          # Build test data generator (Alpine-based)
-          docker build -t otel-ai-test-data-generator:latest -f ./docker/test-data/Dockerfile ./docker/test-data
+          echo "🏗️ Building required Docker images with docker compose..."
+          # Use docker compose to build all images (matches local dev workflow)
+          docker compose build
           echo "✅ Docker images built successfully"
           
       - name: Start infrastructure services
