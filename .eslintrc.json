@@ -32,13 +32,23 @@
     "node_modules/**/*",
     "src/opentelemetry/**/*",
     "vitest.config.ts",
-    "demo/**/*"
+    "demo/**/*",
+    "ui/**/*",
+    "scripts/**/*"
   ],
   "overrides": [
     {
       "files": ["src/server.ts", "src/llm-manager/interaction-logger.ts"],
       "rules": {
         "@typescript-eslint/no-explicit-any": "warn"
+      }
+    },
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx", "scripts/**/*", "**/test/**/*"],
+      "rules": {
+        "@typescript-eslint/no-explicit-any": "warn",
+        "no-unused-vars": "off",
+        "@typescript-eslint/no-unused-vars": "off"
       }
     }
   ]
