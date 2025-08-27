@@ -68,27 +68,18 @@ jobs:
         with:
           version: ${{ env.PNPM_VERSION }}
           
-      - name: Get pnpm store directory
-        shell: bash
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-        
-      - name: Setup pnpm cache
-        uses: actions/cache@v3
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-            
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-        
+        run: |
+          echo "📦 Installing dependencies (skipping optional native compilation)..."
+          # Skip post-install scripts to avoid node-gyp issues - TestContainers works fine without ssh2 native bindings
+          pnpm install --frozen-lockfile --ignore-scripts
+          
       - name: Build required Docker images
         run: |
           echo "🏗️ Building required Docker images..."
-          # Build migrator image
+          # Build migrator image (Alpine-based)
           docker build -t otel-ai-migrator:latest ./migrations
-          # Build test data generator (using docker/test-data as context)
+          # Build test data generator (Alpine-based)
           docker build -t otel-ai-test-data-generator:latest -f ./docker/test-data/Dockerfile ./docker/test-data
           echo "✅ Docker images built successfully"
           
@@ -211,8 +202,10 @@ jobs:
           version: ${{ env.PNPM_VERSION }}
           
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-        
+        run: |
+          echo "📦 Installing dependencies (skipping optional native compilation)..."
+          pnpm install --frozen-lockfile --ignore-scripts
+          
       - name: Generate protobuf definitions
         run: pnpm proto:generate
         
