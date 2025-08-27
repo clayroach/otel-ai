@@ -10,8 +10,8 @@ WORKDIR /app
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile
+# Install dependencies (use --ignore-scripts to avoid node-gyp issues)
+RUN pnpm install --ignore-scripts
 
 # Copy source code and protobuf definitions
 COPY src/ ./src/
@@ -34,8 +34,8 @@ WORKDIR /app
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
 
-# Install production dependencies only (skip prepare scripts)
-RUN pnpm install --frozen-lockfile --prod --ignore-scripts
+# Install production dependencies only (skip prepare scripts and avoid node-gyp issues)
+RUN pnpm install --prod --ignore-scripts
 
 # Copy built application and protobuf definitions
 COPY --from=builder /app/dist ./dist

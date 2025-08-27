@@ -10,8 +10,8 @@ WORKDIR /app
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile
+# Install dependencies (avoid frozen-lockfile due to electron version mismatch)
+RUN pnpm install
 
 # Copy source code
 COPY . .
@@ -37,8 +37,8 @@ CMD ["nginx", "-g", "daemon off;"]
 # Development stage (for docker-compose)
 FROM base AS development
 
-# Install development dependencies
-RUN pnpm install --frozen-lockfile
+# Install development dependencies (avoid frozen-lockfile due to electron version mismatch)
+RUN pnpm install
 
 # Expose Vite dev server port
 EXPOSE 5173
