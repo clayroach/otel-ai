@@ -111,6 +111,14 @@ jobs:
           echo "🧪 Running unit tests with established pnpm commands..."
           pnpm test:coverage
           
+      - name: Coverage Report
+        uses: davelosert/vitest-coverage-report-action@v2
+        if: always()
+        with:
+          json-summary-path: './target/coverage/coverage-summary.json'
+          json-final-path: './target/coverage/coverage-final.json'
+          vite-config-path: './vitest.config.ts'
+          
       - name: Integration tests
         run: |
           echo "🔗 Running integration tests with established pnpm commands..."

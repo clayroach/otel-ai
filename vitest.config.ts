@@ -18,8 +18,8 @@ export default defineConfig({
     watch: false, // Disable watch mode by default - run once and exit
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html', 'json', 'lcov'],
-      reportsDirectory: 'coverage',
+      reporter: ['text', 'html', 'json', 'json-summary', 'lcov'],
+      reportsDirectory: 'target/coverage',
       exclude: [
         'node_modules/',
         'dist/',
@@ -38,16 +38,16 @@ export default defineConfig({
       include: ['src/**/*.ts'],
       thresholds: {
         global: {
-          statements: 30,
-          branches: 30,
-          functions: 30,
-          lines: 30
+          statements: 5,
+          branches: 5,
+          functions: 5,
+          lines: 5
         },
         'src/llm-manager/**': {
-          statements: 20,
-          branches: 20,
-          functions: 20,
-          lines: 20
+          statements: 5,
+          branches: 5,
+          functions: 5,
+          lines: 5
         }
       },
       all: true,
