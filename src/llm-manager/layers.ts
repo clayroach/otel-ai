@@ -12,6 +12,7 @@ import { MetricsLayer } from './metrics.js'
 import { ModelClientLayer } from './model-clients.js'
 import { ModelRouterLayer } from './router.js'
 import { LLMManagerLayer } from './manager.js'
+// import { InteractionLoggerLayer } from './interaction-logger.js' // TODO: Enable when interaction logging is needed
 
 /**
  * Complete LLM Manager Context
@@ -26,6 +27,7 @@ export const LLMManagerContext = Layer.mergeAll(
   ModelClientLayer,
   ModelRouterLayer,
   LLMManagerLayer
+  // InteractionLoggerLayer // TODO: Enable when interaction logging is needed
 )
 
 /**

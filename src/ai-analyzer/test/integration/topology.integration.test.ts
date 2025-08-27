@@ -72,8 +72,25 @@ async function waitForTelemetryData(minServices = 5, maxWaitMs = 20000): Promise
   throw new Error(`Failed to get topology data after ${maxWaitMs}ms`)
 }
 
+// Interface for architecture analysis result
+interface ArchitectureAnalysis {
+  requestId: string
+  type: string
+  summary: string
+  architecture: {
+    applicationName: string
+    services: Array<{ name: string; [key: string]: unknown }>
+    [key: string]: unknown
+  }
+  metadata: {
+    analyzedSpans: number
+    [key: string]: unknown
+  }
+  [key: string]: unknown
+}
+
 // Helper function to wait for sufficient data for architecture analysis
-async function waitForArchitectureData(minSpans = 50, maxWaitMs = 15000): Promise<unknown> {
+async function waitForArchitectureData(minSpans = 50, maxWaitMs = 15000): Promise<ArchitectureAnalysis> {
   const startWait = Date.now()
   
   while (Date.now() - startWait < maxWaitMs) {
@@ -94,7 +111,7 @@ async function waitForArchitectureData(minSpans = 50, maxWaitMs = 15000): Promis
       })
       
       if (response.ok) {
-        const analysis = await response.json()
+        const analysis = await response.json() as ArchitectureAnalysis
         if (analysis.metadata?.analyzedSpans >= minSpans && 
             analysis.architecture?.services?.length > 0) {
           console.log(`✅ Found ${analysis.metadata.analyzedSpans} spans and ${analysis.architecture.services.length} services`)
