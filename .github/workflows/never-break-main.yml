@@ -44,7 +44,7 @@ jobs:
         run: pnpm format:check
         
       - name: Quick unit tests
-        run: pnpm test --run
+        run: pnpm test
 
   # Comprehensive testing with real services
   full-validation:
