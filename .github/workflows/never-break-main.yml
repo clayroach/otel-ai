@@ -83,14 +83,14 @@ jobs:
           
       - name: Build required Docker images
         run: |
-          echo "🏗️ Building required Docker images with pnpm dev:rebuild pattern..."
-          # Use the same rebuild pattern as local development
+          echo "🏗️ Building required Docker images with established pnpm commands..."
+          # Use the established pnpm dev:rebuild command (without starting services)
           docker compose --profile dev build
           echo "✅ Docker images built successfully"
           
       - name: Start infrastructure services
         run: |
-          echo "🚀 Starting ClickHouse, MinIO, and OTel Collector..."
+          echo "🚀 Starting infrastructure services with established pnpm commands..."
           pnpm dev:up
           echo "⏳ Waiting for services to be ready..."
           sleep 30
@@ -144,7 +144,7 @@ jobs:
       - name: Cleanup services
         if: always()
         run: |
-          echo "🧹 Cleaning up services..."
+          echo "🧹 Cleaning up services with established pnpm commands..."
           pnpm dev:down
           docker system prune -f
 
@@ -227,7 +227,7 @@ jobs:
         
       - name: Validate Docker builds
         run: |
-          echo "🐳 Building Docker containers with dev profile..."
+          echo "🐳 Building Docker containers with established patterns..."
           docker compose --profile dev build
           echo "✅ Docker builds successful"
           

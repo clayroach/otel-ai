@@ -13,8 +13,8 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 # Copy UI package files
 COPY ui/package.json ui/pnpm-lock.yaml ./ui/
 
-# Install dependencies with workspace context (fix lockfile mismatch)
-RUN pnpm install --no-frozen-lockfile
+# Install dependencies with workspace context (fix lockfile mismatch, skip optional native compilation)
+RUN pnpm install --no-frozen-lockfile --ignore-scripts
 
 # Set working directory to ui and copy source code
 WORKDIR /workspace/ui
