@@ -68,6 +68,13 @@ jobs:
         with:
           version: ${{ env.PNPM_VERSION }}
           
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_API_KEY }}
+        continue-on-error: true
+          
       - name: Install dependencies
         run: |
           echo "📦 Installing dependencies (skipping optional native compilation)..."
@@ -76,9 +83,9 @@ jobs:
           
       - name: Build required Docker images
         run: |
-          echo "🏗️ Building required Docker images with docker compose..."
-          # Use docker compose to build all images (matches local dev workflow)
-          docker compose build
+          echo "🏗️ Building required Docker images with pnpm dev:rebuild pattern..."
+          # Use the same rebuild pattern as local development
+          docker compose --profile dev build
           echo "✅ Docker images built successfully"
           
       - name: Start infrastructure services
@@ -199,6 +206,13 @@ jobs:
         with:
           version: ${{ env.PNPM_VERSION }}
           
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_API_KEY }}
+        continue-on-error: true
+          
       - name: Install dependencies
         run: |
           echo "📦 Installing dependencies (skipping optional native compilation)..."
@@ -213,8 +227,8 @@ jobs:
         
       - name: Validate Docker builds
         run: |
-          echo "🐳 Building Docker containers..."
-          docker compose build
+          echo "🐳 Building Docker containers with dev profile..."
+          docker compose --profile dev build
           echo "✅ Docker builds successful"
           
       - name: Test production deployment
