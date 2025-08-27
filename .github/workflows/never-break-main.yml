@@ -83,6 +83,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
         
+      - name: Build required Docker images
+        run: |
+          echo "🏗️ Building required Docker images..."
+          # Build migrator image
+          docker build -t otel-ai-migrator:latest ./migrations
+          # Build test data generator
+          docker build -t otel-ai-test-data-generator:latest ./docker/test-data
+          echo "✅ Docker images built successfully"
+          
       - name: Start infrastructure services
         run: |
           echo "🚀 Starting ClickHouse, MinIO, and OTel Collector..."
