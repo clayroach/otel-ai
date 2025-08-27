@@ -1,21 +1,40 @@
-import React, { useState, useCallback } from 'react';
-import { Card, Row, Col, Button, Space, Typography, Spin, Dropdown, Tooltip } from 'antd';
-import { 
-  PlayCircleOutlined, 
-  SaveOutlined, 
-  FormatPainterOutlined, 
+import {
   ClearOutlined,
   CopyOutlined,
+  DownOutlined,
+  FormatPainterOutlined,
   HistoryOutlined,
-  DownOutlined
+  PlayCircleOutlined,
+  SaveOutlined
 } from '@ant-design/icons';
-import { format } from 'sql-formatter';
+import { Button, Card, Col, Dropdown, Row, Space, Spin, Tooltip, Typography } from 'antd';
+import React, { useCallback, useState } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
+import { format } from 'sql-formatter';
 import { MonacoQueryEditor } from '../../components/MonacoEditor/MonacoQueryEditor';
-import { TraceResults } from '../../components/TraceResults/TraceResults';
 import { TimeRangeSelector } from '../../components/TimeRangeSelector/TimeRangeSelector';
+import { TraceResults } from '../../components/TraceResults/TraceResults';
+import { useClickhouseQuery, type ClickhouseQueryResult } from '../../hooks/useClickhouseQuery';
 import { useAppStore } from '../../store/appStore';
-import { useClickhouseQuery } from '../../hooks/useClickhouseQuery';
+
+// Interface for trace data from ClickHouse matching what TraceResults expects
+interface TraceRow {
+  trace_id: string;
+  service_name: string;
+  operation_name: string;
+  duration_ms: number;
+  timestamp: string;
+  status_code: string;
+  is_error: number;
+  span_kind?: string;
+  span_id?: string;
+  parent_span_id?: string;
+  is_root?: number;
+  encoding_type?: 'json' | 'protobuf';
+  attributes?: Record<string, unknown>;
+  resource_attributes?: Record<string, unknown>;
+}
+
 
 const { Title } = Typography;
 
@@ -69,7 +88,7 @@ export const TracesView: React.FC = () => {
   const handleFormatQuery = useCallback(() => {
     try {
       // First fix common function name issues
-      let fixedQuery = query
+      const fixedQuery = query
         .replace(/subtracthours/gi, 'subtractHours') // Fix case-sensitive function
         .replace(/substracthours/gi, 'subtractHours') // Fix common typo
         .replace(/now\(\s*\)/gi, 'now()'); // Fix spacing in now()
@@ -125,7 +144,7 @@ export const TracesView: React.FC = () => {
       {/* Header */}
       <Row justify="space-between" align="middle" style={{ marginBottom: '16px', flexShrink: 0 }}>
         <Col>
-          <Title level={3} style={{ margin: 0 }}>
+          <Title level={3} style={{ margin: 0 }} data-testid="traces-page-title">
             Trace Analysis - Unified Processing
           </Title>
         </Col>
@@ -137,6 +156,7 @@ export const TracesView: React.FC = () => {
               icon={<PlayCircleOutlined />}
               onClick={handleRunQuery}
               loading={isRunning || isLoading}
+              data-testid="traces-run-query-button"
             >
               Run Query
             </Button>
@@ -319,7 +339,7 @@ export const TracesView: React.FC = () => {
                 Query Error: {error.message}
               </div>
             ) : queryResults ? (
-              <TraceResults data={queryResults} />
+              <TraceResults data={queryResults as ClickhouseQueryResult<TraceRow>} />
             ) : (
               <div style={{ 
                 display: 'flex', 

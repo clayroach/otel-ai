@@ -7,11 +7,11 @@
 
 import { describe, it, expect } from 'vitest'
 import { Effect, Stream } from 'effect'
-import { createSimpleLLMManager } from '../simple-manager.js'
-import { makeLocalModelClient, defaultLocalConfig } from '../clients/local-client.js'
-import { makeOpenAIClient, defaultOpenAIConfig } from '../clients/openai-client.js'
-import { makeClaudeClient, defaultClaudeConfig } from '../clients/claude-client.js'
-import type { LLMRequest, LLMConfig } from '../types.js'
+import { createSimpleLLMManager } from '../../simple-manager.js'
+import { makeLocalModelClient, defaultLocalConfig } from '../../clients/local-client.js'
+import { makeOpenAIClient, defaultOpenAIConfig } from '../../clients/openai-client.js'
+import { makeClaudeClient, defaultClaudeConfig } from '../../clients/claude-client.js'
+import type { LLMRequest, LLMConfig } from '../../types.js'
 
 describe('Multi-Model Integration Tests', () => {
   describe('Individual Model Validation', () => {
@@ -155,7 +155,7 @@ describe('Multi-Model Integration Tests', () => {
       expect(status.models).toContain('llama')
       expect(status.config).toBeDefined()
       
-      const availableModels = []
+      const availableModels: string[] = []
       if (config.models?.llama) availableModels.push('Local (LM Studio)')
       if (config.models?.gpt) availableModels.push('OpenAI GPT')
       if (config.models?.claude) availableModels.push('Claude')

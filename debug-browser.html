@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Analyzer Debug</title>
+</head>
+<body>
+    <h1>AI Analyzer Model Testing</h1>
+    <button onclick="testStatistical()">Test Statistical</button>
+    <button onclick="testClaude()">Test Claude</button>
+    <button onclick="testGPT()">Test GPT</button>
+    <button onclick="testLlama()">Test Llama</button>
+    <pre id="output"></pre>
+
+    <script>
+        const output = document.getElementById('output');
+
+        function log(message) {
+            output.textContent += message + '\n';
+        }
+
+        async function testModel(modelConfig, name) {
+            log(`\n🔍 Testing ${name}...`);
+            
+            const payload = {
+                type: "architecture",
+                timeRange: {
+                    startTime: "2025-08-24T00:00:00.000Z",
+                    endTime: "2025-08-24T04:00:00.000Z"
+                },
+                filters: {},
+                config: modelConfig
+            };
+
+            log(`📤 Payload: ${JSON.stringify(payload, null, 2)}`);
+
+            try {
+                const response = await fetch('http://localhost:4319/api/ai-analyzer/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+                log(`📥 Response model: ${data.metadata?.selectedModel}`);
+                log(`📥 Insights: ${data.insights?.map(i => i.title).join(', ')}`);
+                
+                return data;
+            } catch (error) {
+                log(`❌ Error: ${error.message}`);
+            }
+        }
+
+        function testStatistical() {
+            testModel({}, 'Statistical Analysis');
+        }
+
+        function testClaude() {
+            testModel({
+                llm: {
+                    model: 'claude',
+                    temperature: 0.7,
+                    maxTokens: 2000
+                }
+            }, 'Claude');
+        }
+
+        function testGPT() {
+            testModel({
+                llm: {
+                    model: 'gpt',
+                    temperature: 0.7,
+                    maxTokens: 2000
+                }
+            }, 'GPT');
+        }
+
+        function testLlama() {
+            testModel({
+                llm: {
+                    model: 'llama',
+                    temperature: 0.7,
+                    maxTokens: 2000
+                }
+            }, 'Llama');
+        }
+    </script>
+</body>
+</html>

@@ -5,7 +5,7 @@
  * and build a comprehensive understanding of application architecture.
  */
 
-import { Effect, Array as EffectArray } from 'effect'
+import { Effect } from 'effect'
 import type { 
   ServiceTopology, 
   ApplicationArchitecture, 
@@ -286,7 +286,7 @@ export const identifyEntryPoints = (services: ServiceTopology[]): ServiceTopolog
   return services.filter(service => 
     service.type === 'frontend' || 
     service.type === 'api' ||
-    (service.metadata.rootSpans as number) > 0
+    (service.metadata.rootSpans as number || 0) > 0
   )
 }
 

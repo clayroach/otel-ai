@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider, theme } from 'antd';
 import { QueryClient, QueryClientProvider } from 'react-query';
@@ -7,6 +7,7 @@ import { TracesView } from './views/TracesView/TracesView';
 import { MetricsView } from './views/MetricsView/MetricsView';
 import { LogsView } from './views/LogsView/LogsView';
 import { InsightsView } from './views/InsightsView/InsightsView';
+import { LLMDebugView } from './views/LLMDebugView';
 import { useMenuActions } from './hooks/useMenuActions';
 import { useAppStore } from './store/appStore';
 
@@ -34,6 +35,7 @@ const AppContent: React.FC = () => {
         <Route path="/metrics" element={<MetricsView />} />
         <Route path="/logs" element={<LogsView />} />
         <Route path="/insights" element={<InsightsView />} />
+        <Route path="/llm-debug" element={<LLMDebugView />} />
       </Routes>
     </Layout>
   );

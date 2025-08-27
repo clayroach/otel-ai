@@ -53,3 +53,8 @@ ui/proxy.log
 # Test coverage reports
 coverage/
 .nyc_output/
+
+# Generated assets - centralized target directory
+target/
+test-results/
+playwright-report/

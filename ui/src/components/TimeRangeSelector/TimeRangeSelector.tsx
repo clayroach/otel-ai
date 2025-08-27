@@ -60,7 +60,7 @@ export const TimeRangeSelector: React.FC<TimeRangeSelectorProps> = ({ onChange }
         placeholder="Quick ranges"
         style={{ width: 140 }}
         suffixIcon={<ClockCircleOutlined />}
-        onSelect={(minutes: number) => handleQuickRangeChange(minutes)}
+        onSelect={(minutes: number | undefined) => minutes && handleQuickRangeChange(minutes)}
         options={quickRanges.map(range => ({
           label: range.label,
           value: range.value,
@@ -68,7 +68,11 @@ export const TimeRangeSelector: React.FC<TimeRangeSelectorProps> = ({ onChange }
       />
       <RangePicker
         value={getCurrentRange()}
-        onChange={handleDateRangeChange}
+        onChange={(dates: [dayjs.Dayjs | null, dayjs.Dayjs | null] | null) => {
+          if (dates && dates[0] && dates[1]) {
+            handleDateRangeChange([dates[0], dates[1]]);
+          }
+        }}
         showTime={{ 
           format: 'HH:mm:ss',
           defaultValue: [dayjs().startOf('hour'), dayjs().endOf('hour')]

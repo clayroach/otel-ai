@@ -8,7 +8,8 @@ import {
   SettingOutlined,
   MoonOutlined,
   SunOutlined,
-  MenuOutlined
+  MenuOutlined,
+  RobotOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppStore } from '../../store/appStore';
@@ -30,21 +31,31 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       key: '/traces',
       icon: <BugOutlined />,
       label: 'Traces',
+      'data-testid': 'nav-traces'
     },
     {
       key: '/metrics',
       icon: <BarChartOutlined />,
       label: 'Metrics',
+      'data-testid': 'nav-metrics'
     },
     {
       key: '/logs',
       icon: <FileTextOutlined />,
       label: 'Logs',
+      'data-testid': 'nav-logs'
     },
     {
       key: '/insights',
       icon: <BulbOutlined />,
       label: 'AI Insights',
+      'data-testid': 'nav-insights'
+    },
+    {
+      key: '/llm-debug',
+      icon: <RobotOutlined />,
+      label: 'LLM Debug',
+      'data-testid': 'nav-llm-debug'
     },
   ];
 

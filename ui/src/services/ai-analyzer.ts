@@ -6,7 +6,6 @@
 
 import axios from 'axios';
 import type {
-  AnalysisRequest,
   AnalysisResult,
   ServiceTopology,
   ApplicationArchitecture
@@ -47,6 +46,8 @@ export class AIAnalyzerService {
    * Perform a complete AI analysis
    */
   static async analyzeArchitecture(request: AnalysisRequestParams): Promise<AnalysisResult> {
+    console.log('🔍 AI Analyzer Service called with config:', request.config);
+    
     const response = await apiClient.post('/ai-analyzer/analyze', {
       type: request.type,
       timeRange: {
@@ -54,18 +55,13 @@ export class AIAnalyzerService {
         endTime: request.timeRange.endTime.toISOString()
       },
       filters: request.filters,
-      config: {
-        llm: {
-          model: 'claude',
-          temperature: 0.1,
-          maxTokens: 4000
-        },
+      config: request.config || {
+        // Fallback config if none provided
         analysis: {
           timeWindowHours: Math.abs(
             request.timeRange.endTime.getTime() - request.timeRange.startTime.getTime()
           ) / (1000 * 60 * 60),
-          minSpanCount: 100,
-          serviceFilterPattern: request.filters?.services?.join('|')
+          minSpanCount: 100
         },
         output: {
           format: 'markdown',
@@ -213,6 +209,23 @@ export interface AnalysisRequestParams {
     services?: string[];
     operations?: string[];
     traceIds?: string[];
+  };
+  config?: {
+    llm?: {
+      model: 'gpt' | 'claude' | 'llama';
+      temperature: number;
+      maxTokens: number;
+    };
+    analysis: {
+      timeWindowHours: number;
+      minSpanCount: number;
+      serviceFilterPattern?: string;
+    };
+    output: {
+      format: 'text' | 'markdown' | 'json';
+      includeDigrams: boolean;
+      detailLevel: 'summary' | 'detailed' | 'comprehensive';
+    };
   };
 }
 

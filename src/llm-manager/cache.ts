@@ -23,7 +23,7 @@ export const makeCacheService = () =>
 
     return {
       get: (key: string) =>
-        Effect.gen(function* () {
+        Effect.sync(() => {
           const entry = cache.get(key)
           
           if (!entry) {
@@ -41,7 +41,7 @@ export const makeCacheService = () =>
         }),
 
       set: (key: string, value: LLMResponse, ttlSeconds: number) =>
-        Effect.gen(function* () {
+        Effect.sync(() => {
           cache.set(key, {
             value,
             timestamp: Date.now(),
@@ -50,12 +50,12 @@ export const makeCacheService = () =>
         }),
 
       invalidate: (key: string) =>
-        Effect.gen(function* () {
+        Effect.sync(() => {
           cache.delete(key)
         }),
 
       clear: () =>
-        Effect.gen(function* () {
+        Effect.sync(() => {
           cache.clear()
         }),
 

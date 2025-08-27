@@ -18,7 +18,7 @@ export const MonacoQueryEditor: React.FC<MonacoQueryEditorProps> = ({
   language = 'sql',
 }) => {
   const { darkMode } = useAppStore();
-  const editorRef = useRef<any>(null);
+  const editorRef = useRef<unknown>(null);
 
   const handleEditorDidMount: OnMount = useCallback((editor, monaco) => {
     editorRef.current = editor;
@@ -139,7 +139,15 @@ export const MonacoQueryEditor: React.FC<MonacoQueryEditorProps> = ({
 
     // Register completion provider for ClickHouse tables and columns
     monaco.languages.registerCompletionItemProvider('sql', {
-      provideCompletionItems: (model, position) => {
+      provideCompletionItems: (_model, _position) => {
+        const word = _model.getWordUntilPosition(_position);
+        const range = {
+          startLineNumber: _position.lineNumber,
+          endLineNumber: _position.lineNumber,
+          startColumn: word.startColumn,
+          endColumn: word.endColumn,
+        };
+
         const suggestions = [
           // Tables
           {
@@ -147,42 +155,50 @@ export const MonacoQueryEditor: React.FC<MonacoQueryEditorProps> = ({
             kind: monaco.languages.CompletionItemKind.Class,
             insertText: 'otel.traces',
             documentation: 'Main traces table with all telemetry data from unified ingestion',
+            range,
           },
           // Common columns from unified view
           {
             label: 'trace_id',
             kind: monaco.languages.CompletionItemKind.Field,
             insertText: 'trace_id',
+            range,
           },
           {
             label: 'service_name',
             kind: monaco.languages.CompletionItemKind.Field,
             insertText: 'service_name',
+            range,
           },
           {
             label: 'operation_name',
             kind: monaco.languages.CompletionItemKind.Field,
             insertText: 'operation_name',
+            range,
           },
           {
             label: 'duration_ms',
             kind: monaco.languages.CompletionItemKind.Field,
             insertText: 'duration_ms',
+            range,
           },
           {
             label: 'ingestion_path',
             kind: monaco.languages.CompletionItemKind.Field,
             insertText: 'ingestion_path',
+            range,
           },
           {
             label: 'schema_version',
             kind: monaco.languages.CompletionItemKind.Field,
             insertText: 'schema_version',
+            range,
           },
           {
             label: 'is_error',
             kind: monaco.languages.CompletionItemKind.Field,
             insertText: 'is_error',
+            range,
           },
           // Query templates
           {
@@ -202,6 +218,7 @@ export const MonacoQueryEditor: React.FC<MonacoQueryEditorProps> = ({
               'LIMIT 100'
             ].join('\n'),
             documentation: 'Template for querying unified traces',
+            range,
           },
         ];
 

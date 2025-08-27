@@ -9,8 +9,8 @@ services:
     image: clickhouse/clickhouse-server:25.7
     container_name: otel-ai-clickhouse
     ports:
-      - '8123:8123' # HTTP interface
-      - '9000:9000' # Native interface
+      - '8124:8123' # HTTP interface (using 8124 to avoid conflicts)
+      - '9001:9000' # Native interface (using 9001 to avoid conflicts)
     environment:
       CLICKHOUSE_DB: otel
       CLICKHOUSE_USER: otel

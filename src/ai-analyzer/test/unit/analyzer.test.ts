@@ -9,10 +9,10 @@ import { Schema } from '@effect/schema'
 import { 
   AnalysisRequestSchema,
   ServiceTopologySchema
-} from '../types.js'
-import { classifyServiceType, buildDependencyGraph } from '../topology.js'
-import { ArchitectureQueries } from '../queries.js'
-import { PromptTemplates } from '../prompts.js'
+} from '../../types.js'
+import { classifyServiceType, buildDependencyGraph } from '../../topology.js'
+import { ArchitectureQueries } from '../../queries.js'
+import { PromptTemplates } from '../../prompts.js'
 
 describe('AI Analyzer', () => {
   
@@ -157,10 +157,13 @@ describe('AI Analyzer', () => {
       const dependencyGraph = buildDependencyGraph(dependencies)
       
       expect(dependencyGraph.has('user-service')).toBe(true)
-      const userServiceDeps = dependencyGraph.get('user-service')!
+      const userServiceDeps = dependencyGraph.get('user-service')
+      expect(userServiceDeps).toBeDefined()
       expect(userServiceDeps).toHaveLength(2)
-      expect(userServiceDeps[0].service).toBe('database')
-      expect(userServiceDeps[1].service).toBe('cache')
+      if (userServiceDeps) {
+        expect(userServiceDeps[0]?.service).toBe('database')
+        expect(userServiceDeps[1]?.service).toBe('cache')
+      }
     })
   })
 
@@ -383,9 +386,9 @@ describe('AI Analyzer', () => {
       const errorProneServices = performanceData.filter(s => s.error_spans / s.total_spans > 0.1)
       
       expect(slowServices).toHaveLength(1)
-      expect(slowServices[0].service_name).toBe('slow-service')
+      expect(slowServices[0]?.service_name).toBe('slow-service')
       expect(errorProneServices).toHaveLength(1)
-      expect(errorProneServices[0].service_name).toBe('slow-service')
+      expect(errorProneServices[0]?.service_name).toBe('slow-service')
     })
   })
 })

@@ -17,7 +17,7 @@ export const makeConversationStorageService = () =>
 
     return {
       save: (context: ConversationContext) =>
-        Effect.gen(function* (_) {
+        Effect.sync(() => {
           conversations.set(context.id, context)
         }),
 
@@ -34,12 +34,12 @@ export const makeConversationStorageService = () =>
         }),
 
       delete: (conversationId: string) =>
-        Effect.gen(function* (_) {
+        Effect.sync(() => {
           conversations.delete(conversationId)
         }),
 
       list: (limit?: number) =>
-        Effect.gen(function* (_) {
+        Effect.sync(() => {
           const contexts = Array.from(conversations.values())
           return limit ? contexts.slice(0, limit) : contexts
         })

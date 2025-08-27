@@ -8,7 +8,7 @@
 import { Effect, Layer } from 'effect'
 import { Schema } from '@effect/schema'
 import { LLMConfigService } from './services.js'
-import { LLMConfig, LLMConfigSchema, LLMError } from './types.js'
+import { LLMConfig, LLMConfigSchema, LLMError, RoutingStrategy } from './types.js'
 
 /**
  * Default LLM Configuration
@@ -46,6 +46,8 @@ export const defaultLLMConfig: LLMConfig = {
  */
 const loadConfigFromEnv = (): Effect.Effect<LLMConfig, LLMError, never> =>
   Effect.gen(function* (_) {
+    // Create a mutable configuration object
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Mutable config construction
     const baseConfig: any = { 
       ...defaultLLMConfig,
       models: { ...defaultLLMConfig.models },
@@ -101,7 +103,7 @@ const loadConfigFromEnv = (): Effect.Effect<LLMConfig, LLMError, never> =>
     if (routingStrategy && ['cost', 'performance', 'balanced'].includes(routingStrategy)) {
       baseConfig.routing = {
         ...baseConfig.routing,
-        strategy: routingStrategy as any
+        strategy: routingStrategy as RoutingStrategy
       }
     }
 

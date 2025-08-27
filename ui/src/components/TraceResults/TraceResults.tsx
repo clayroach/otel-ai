@@ -22,8 +22,8 @@ interface UnifiedTrace {
   parent_span_id?: string;
   is_root?: number;
   encoding_type?: 'json' | 'protobuf';
-  attributes?: Record<string, any>;
-  resource_attributes?: Record<string, any>;
+  attributes?: Record<string, unknown>;
+  resource_attributes?: Record<string, unknown>;
 }
 
 interface QueryResult {

@@ -19,27 +19,20 @@ export interface SimpleStorageConfig {
 export interface SimpleTraceData {
   traceId: string
   spanId: string
-  operationName: string
-  startTime: number
-  serviceName: string
-  statusCode: number | string
-  attributes: Record<string, string>
-}
-
-export interface DetailedTraceData {
-  traceId: string
-  spanId: string
   parentSpanId?: string
   operationName: string
-  startTime: number | bigint
-  endTime: number | bigint
+  startTime: number
+  endTime?: number
   serviceName: string
-  statusCode: string
+  statusCode: number | string
   statusMessage?: string
   spanKind?: string
   attributes?: Record<string, unknown>
   resourceAttributes?: Record<string, unknown>
 }
+
+// Legacy alias for backward compatibility
+export type DetailedTraceData = SimpleTraceData
 
 export interface DatabaseTraceRecord {
   trace_id: string
@@ -75,7 +68,7 @@ export class SimpleStorage {
   constructor(config: SimpleStorageConfig) {
     this.config = config
     this.client = createClient({
-      host: `http://${config.clickhouse.host}:${config.clickhouse.port}`,
+      url: `http://${config.clickhouse.host}:${config.clickhouse.port}`,
       database: config.clickhouse.database,
       username: config.clickhouse.username,
       password: config.clickhouse.password

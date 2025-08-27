@@ -5,7 +5,7 @@
  * Handles intelligent routing, caching, conversation management, and fallback strategies.
  */
 
-import { Effect, Layer, Stream, Option, Duration, Schedule } from 'effect'
+import { Effect, Layer, Stream, Option, Duration, Schedule, Cause } from 'effect'
 import { Schema } from '@effect/schema'
 import {
   LLMManagerService,
@@ -14,7 +14,8 @@ import {
   ConversationStorageService,
   CacheService,
   LLMConfigService,
-  LLMMetricsService
+  LLMMetricsService,
+  InteractionLoggerService
 } from './services.js'
 import {
   LLMConfig,
@@ -27,6 +28,18 @@ import {
   LLMRequestSchema,
   ConversationContextSchema
 } from './types.js'
+
+/**
+ * Type guard for Effect timeout errors
+ */
+function isTimeoutError(error: unknown): boolean {
+  return (
+    error !== null &&
+    typeof error === 'object' &&
+    '_tag' in error &&
+    error._tag === 'TimeoutException'
+  )
+}
 
 /**
  * Generate Cache Key
@@ -81,6 +94,7 @@ export const makeLLMManager = (config: LLMConfig) =>
     const cache = yield* _(CacheService)
     const conversationStorage = yield* _(ConversationStorageService)
     const metrics = yield* _(LLMMetricsService)
+    const logger = yield* _(InteractionLoggerService)
 
     return {
       generate: (request: LLMRequest): Effect.Effect<LLMResponse, LLMError, never> =>
@@ -99,16 +113,34 @@ export const makeLLMManager = (config: LLMConfig) =>
             )
           )
 
+          // Pre-select model for logging
+          const selectedModel = yield* _(router.selectModel(validatedRequest))
+          
+          // Log the request with routing information
+          const interactionId = yield* _(
+            logger.logRequest(selectedModel, validatedRequest, {
+              routingReason: `Task-based routing for ${validatedRequest.taskType}`,
+              cacheHit: false,
+              retryCount: 0
+            })
+          )
+
           // Check cache first if enabled
           if (config.cache.enabled) {
             const cacheKey = generateCacheKey(validatedRequest)
             const cached = yield* _(cache.get(cacheKey))
             
             if (cached) {
-              // Note: cached response, no model-specific recording needed
+              // Update interaction log for cache hit
+              yield* _(logger.logResponse(interactionId, 
+                { ...cached, metadata: { ...cached.metadata, cached: true } }, 
+                0 // Cache hits are essentially instant
+              ))
               return { ...cached, metadata: { ...cached.metadata, cached: true } }
             }
           }
+
+          const startTime = Date.now()
 
           // Route to appropriate model with fallback and retry
           const response: LLMResponse = yield* _(
@@ -120,10 +152,10 @@ export const makeLLMManager = (config: LLMConfig) =>
               ),
               Effect.timeout(Duration.millis(config.routing.timeoutMs)),
               Effect.mapError((error): LLMError => {
-                if ((error as any)?._tag === 'TimeoutException') {
+                if (isTimeoutError(error)) {
                   return {
                     _tag: 'TimeoutError',
-                    model: 'unknown',
+                    model: selectedModel,
                     timeoutMs: config.routing.timeoutMs
                   }
                 }
@@ -131,12 +163,15 @@ export const makeLLMManager = (config: LLMConfig) =>
               }),
               Effect.tapError((error) =>
                 Effect.gen(function* (_) {
-                  // Note: error occurred during routing, no specific model to record
+                  const latency = Date.now() - startTime
+                  yield* _(logger.logError(interactionId, error, latency))
                   yield* _(Effect.log(`LLM request failed: ${JSON.stringify(error)}`))
                 })
               )
             )
           )
+
+          const latency = Date.now() - startTime
 
           // Cache successful response
           if (config.cache.enabled && !response.metadata.cached) {
@@ -144,8 +179,11 @@ export const makeLLMManager = (config: LLMConfig) =>
             yield* _(cache.set(cacheKey, response, config.cache.ttlSeconds))
           }
 
+          // Log successful response
+          yield* _(logger.logResponse(interactionId, response, latency))
+
           // Record successful response metrics
-          yield* _(metrics.recordResponse('llama', response))
+          yield* _(metrics.recordResponse(selectedModel, response))
           
           return response
         }),
