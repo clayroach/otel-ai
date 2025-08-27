@@ -97,42 +97,34 @@ jobs:
           
       - name: Validate infrastructure health
         run: |
-          echo "🏥 Health checking all services..."
-          # Check ClickHouse
-          docker exec otel-ai-clickhouse clickhouse-client --query "SELECT 1" || exit 1
-          
-          # Check MinIO
-          curl -f http://localhost:9000/minio/health/live || exit 1
-          
-          # Check OTel Collector
-          curl -f http://localhost:13133/ || exit 1
-          
-          echo "✅ All infrastructure services healthy"
+          echo "🏥 Validating infrastructure with established pnpm commands..."
+          pnpm dev:validate
+          echo "✅ Infrastructure validation completed"
           
       - name: Run database migrations
         run: |
-          echo "🗄️ Running database migrations..."
+          echo "🗄️ Running database migrations with established pnpm commands..."
           pnpm db:migrate
           echo "✅ Database migrations completed"
           
       - name: Unit tests with coverage
         run: |
-          echo "🧪 Running unit tests with coverage..."
+          echo "🧪 Running unit tests with established pnpm commands..."
           pnpm test:coverage
           
       - name: Integration tests
         run: |
-          echo "🔗 Running integration tests..."
+          echo "🔗 Running integration tests with established pnpm commands..."
           pnpm test:integration
           
       - name: E2E tests with Playwright
         run: |
-          echo "🎭 Running E2E tests..."
+          echo "🎭 Running E2E tests with established pnpm commands..."
           pnpm test:e2e
           
       - name: Demo integration validation
         run: |
-          echo "🎬 Validating OpenTelemetry demo integration..."
+          echo "🎬 Validating OpenTelemetry demo integration with established pnpm commands..."
           pnpm demo:validate
           
       - name: Performance baseline check
