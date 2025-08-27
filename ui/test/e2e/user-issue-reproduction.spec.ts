@@ -93,10 +93,19 @@ test.describe('User Issue Reproduction: Model Selection Not Working', () => {
     console.log(`🔢 Claude span count: ${claudeSpanCount}`)
     console.log(`🎯 Claude metadata: ${claudeMetadata}`)
     
-    // Screenshot for comparison
+    // Screenshot for comparison - focus on model selector and insights
+    await page.locator('[data-testid="ai-model-selector"]').first().scrollIntoViewIfNeeded()
+    await page.waitForTimeout(1000)
+    
     await page.screenshot({ 
-      path: 'src/ai-analyzer/test/e2e/screenshots/claude-reproduction.png',
-      fullPage: true 
+      path: 'target/screenshots/claude-reproduction.png',
+      fullPage: false,
+      clip: {
+        x: 0,
+        y: 0,
+        width: 1200,
+        height: 800
+      }
     })
     
     // Test GPT model
@@ -121,10 +130,19 @@ test.describe('User Issue Reproduction: Model Selection Not Working', () => {
     console.log(`🔢 GPT span count: ${gptSpanCount}`)
     console.log(`🎯 GPT metadata: ${gptMetadata}`)
     
-    // Screenshot for comparison
+    // Screenshot for comparison - focus on model selector and insights
+    await page.locator('[data-testid="ai-model-selector"]').first().scrollIntoViewIfNeeded()
+    await page.waitForTimeout(1000)
+    
     await page.screenshot({ 
-      path: 'src/ai-analyzer/test/e2e/screenshots/gpt-reproduction.png',
-      fullPage: true 
+      path: 'target/screenshots/gpt-reproduction.png',
+      fullPage: false,
+      clip: {
+        x: 0,
+        y: 0,
+        width: 1200,
+        height: 800
+      }
     })
     
     // Test Llama model
@@ -149,10 +167,19 @@ test.describe('User Issue Reproduction: Model Selection Not Working', () => {
     console.log(`🔢 Llama span count: ${llamaSpanCount}`)
     console.log(`🎯 Llama metadata: ${llamaMetadata}`)
     
-    // Screenshot for comparison
+    // Screenshot for comparison - focus on model selector and insights
+    await page.locator('[data-testid="ai-model-selector"]').first().scrollIntoViewIfNeeded()
+    await page.waitForTimeout(1000)
+    
     await page.screenshot({ 
-      path: 'src/ai-analyzer/test/e2e/screenshots/llama-reproduction.png',
-      fullPage: true 
+      path: 'target/screenshots/llama-reproduction.png',
+      fullPage: false,
+      clip: {
+        x: 0,
+        y: 0,
+        width: 1200,
+        height: 800
+      }
     })
     
     // Debug API requests
