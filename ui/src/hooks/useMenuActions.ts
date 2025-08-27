@@ -68,5 +68,7 @@ export const useMenuActions = () => {
         window.electronAPI?.removeAllListeners?.('menu-action');
       };
     }
+    // Return undefined explicitly when not in Electron
+    return undefined;
   }, [navigate, setActiveQuery]);
 };
