@@ -92,6 +92,11 @@ jobs:
   # Claude Code integration for PR review and assistance  
   claude-assistant:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write  # Required for OIDC authentication
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request' && github.event.action == 'opened') ||
@@ -105,7 +110,7 @@ jobs:
           fetch-depth: 0
           
       - name: Claude Code Review (on PR open)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && secrets.ANTHROPIC_API_KEY != ''
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -121,8 +126,31 @@ jobs:
             Use the code-review-agent patterns when available.
           claude_args: "--max-turns 3 --timeout 300"
           
+      - name: Claude Code Not Available
+        if: github.event_name == 'pull_request' && secrets.ANTHROPIC_API_KEY == ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🤖 Claude Code Integration
+              
+              Claude Code automated review is not available (ANTHROPIC_API_KEY not configured).
+              
+              **Manual Review Checklist:**
+              - [ ] Code quality and adherence to project standards in CLAUDE.md
+              - [ ] Testing coverage and quality
+              - [ ] Documentation updates (README.md files match implementation)
+              - [ ] AI-native development patterns and Effect-TS usage
+              - [ ] Security considerations and best practices
+              
+              To enable Claude Code integration, add \`ANTHROPIC_API_KEY\` to repository secrets.`
+            })
+          
       - name: Claude Code Comment Response
-        if: github.event_name == 'issue_comment'
+        if: github.event_name == 'issue_comment' && secrets.ANTHROPIC_API_KEY != ''
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
