@@ -77,19 +77,19 @@ test.describe('AI Analyzer Model Selection E2E', () => {
       console.log(`📊 ${model}: ${insights.length} insights, ${spanCount} spans`)
       console.log(`📋 Insights: ${insights.join(', ')}`)
       
-      // Take screenshot focusing on results area and model selector
-      // First, ensure the model selector and results are visible
-      await page.locator('[data-testid="ai-model-selector"]').first().scrollIntoViewIfNeeded()
+      // Take screenshot focusing on AI Powered Insights section to show differentiation
+      // Scroll to ensure AI insights section is fully visible
+      await page.locator('[data-testid="insights-results"]').first().scrollIntoViewIfNeeded()
       await page.waitForTimeout(1000) // Allow UI to settle
       
       await page.screenshot({ 
-        path: `target/screenshots/${model}-results.png`,
-        fullPage: false,  // Focus on viewport
+        path: `screenshots-dropbox/${model}-results.png`,
+        fullPage: false,  // Focus on viewport that shows insights
         clip: {
           x: 0,
-          y: 0, 
-          width: 1200,
-          height: 800
+          y: 100,  // Skip top nav, focus on content
+          width: 1400,
+          height: 900  // Taller to capture full insights section
         }
       })
     }
