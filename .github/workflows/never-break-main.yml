@@ -217,6 +217,8 @@ jobs:
       - name: Test production deployment
         run: |
           echo "🚀 Testing production deployment..."
+          # Build images first before deploying
+          docker compose --profile production build
           docker compose --profile production up -d
           sleep 20
           
