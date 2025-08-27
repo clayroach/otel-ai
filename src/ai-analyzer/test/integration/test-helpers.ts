@@ -6,12 +6,12 @@
 export const waitForTelemetryData = async (minServices = 5, maxWaitMs = 20000): Promise<any[]> => {
   const startWait = Date.now()
   const API_BASE_URL = process.env.API_URL || 'http://localhost:4319'
-  
+
   while (Date.now() - startWait < maxWaitMs) {
     try {
       const endTime = new Date()
       const startTime = new Date(endTime.getTime() - 2 * 60 * 60 * 1000)
-      
+
       const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/topology`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -22,27 +22,27 @@ export const waitForTelemetryData = async (minServices = 5, maxWaitMs = 20000): 
           }
         })
       })
-      
+
       if (response.ok) {
-        const topology = await response.json() as any[]
+        const topology = (await response.json()) as any[]
         if (Array.isArray(topology) && topology.length >= minServices) {
           console.log(`✅ Found ${topology.length} services - sufficient data available`)
           return topology
         }
       }
-      
+
       // Wait 2 seconds before retry
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      await new Promise((resolve) => setTimeout(resolve, 2000))
     } catch (error) {
       // Continue waiting on errors
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      await new Promise((resolve) => setTimeout(resolve, 2000))
     }
   }
-  
+
   // Final attempt - return whatever data we have
   const endTime = new Date()
   const startTime = new Date(endTime.getTime() - 4 * 60 * 60 * 1000) // Expand to 4 hours
-  
+
   const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/topology`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -53,25 +53,25 @@ export const waitForTelemetryData = async (minServices = 5, maxWaitMs = 20000): 
       }
     })
   })
-  
+
   if (response.ok) {
-    const topology = await response.json() as any[]
+    const topology = (await response.json()) as any[]
     console.log(`⚠️ Final attempt: Found ${topology.length} services after ${maxWaitMs}ms wait`)
     return topology
   }
-  
+
   throw new Error(`Failed to get topology data after ${maxWaitMs}ms`)
 }
 
 export const waitForArchitectureData = async (minSpans = 50, maxWaitMs = 15000): Promise<any> => {
   const startWait = Date.now()
   const API_BASE_URL = process.env.API_URL || 'http://localhost:4319'
-  
+
   while (Date.now() - startWait < maxWaitMs) {
     try {
       const endTime = new Date()
       const startTime = new Date(endTime.getTime() - 2 * 60 * 60 * 1000)
-      
+
       const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -83,31 +83,36 @@ export const waitForArchitectureData = async (minSpans = 50, maxWaitMs = 15000):
           }
         })
       })
-      
+
       if (response.ok) {
-        const analysis = await response.json() as {architecture: {services: any[]}, metadata: {analyzedSpans: string | number}}
+        const analysis = (await response.json()) as {
+          architecture: { services: any[] }
+          metadata: { analyzedSpans: string | number }
+        }
         // TypeScript comment: analysis could have undefined or null properties
-        const spanCount = typeof analysis?.metadata?.analyzedSpans === 'string' 
-          ? parseInt(analysis.metadata.analyzedSpans, 10) 
-          : analysis?.metadata?.analyzedSpans || 0
-        if (spanCount >= minSpans && 
-            analysis?.architecture?.services?.length > 0) {
-          console.log(`✅ Found ${analysis.metadata.analyzedSpans} spans and ${analysis.architecture.services.length} services`)
+        const spanCount =
+          typeof analysis?.metadata?.analyzedSpans === 'string'
+            ? parseInt(analysis.metadata.analyzedSpans, 10)
+            : analysis?.metadata?.analyzedSpans || 0
+        if (spanCount >= minSpans && analysis?.architecture?.services?.length > 0) {
+          console.log(
+            `✅ Found ${analysis.metadata.analyzedSpans} spans and ${analysis.architecture.services.length} services`
+          )
           return analysis
         }
       }
-      
+
       // Wait 2 seconds before retry
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      await new Promise((resolve) => setTimeout(resolve, 2000))
     } catch (error) {
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      await new Promise((resolve) => setTimeout(resolve, 2000))
     }
   }
-  
+
   // Final attempt with extended time range
   const endTime = new Date()
   const startTime = new Date(endTime.getTime() - 4 * 60 * 60 * 1000)
-  
+
   const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -119,22 +124,27 @@ export const waitForArchitectureData = async (minSpans = 50, maxWaitMs = 15000):
       }
     })
   })
-  
+
   if (response.ok) {
-    const analysis = await response.json() as {architecture: {services: any[]}, metadata: {analyzedSpans: string | number}}
+    const analysis = (await response.json()) as {
+      architecture: { services: any[] }
+      metadata: { analyzedSpans: string | number }
+    }
     // TypeScript comment: using structured type instead of any
-    console.log(`⚠️ Final attempt: ${analysis?.metadata?.analyzedSpans || 0} spans, ${analysis?.architecture?.services?.length || 0} services`)
+    console.log(
+      `⚠️ Final attempt: ${analysis?.metadata?.analyzedSpans || 0} spans, ${analysis?.architecture?.services?.length || 0} services`
+    )
     return analysis
   }
-  
+
   throw new Error(`Failed to get architecture data after ${maxWaitMs}ms`)
 }
 
 export const isValidServiceMetadata = (metadata: any): boolean => {
   // TypeScript comment: metadata could be null or undefined
-  return metadata && 
-         typeof metadata.avgLatencyMs === 'number' &&
-         typeof metadata.errorRate === 'number'
+  return (
+    metadata && typeof metadata.avgLatencyMs === 'number' && typeof metadata.errorRate === 'number'
+  )
 }
 
 export const parseSpanCount = (spanCount: string | number): number => {

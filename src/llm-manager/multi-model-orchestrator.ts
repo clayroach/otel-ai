@@ -1,6 +1,6 @@
 /**
  * Multi-Model Orchestrator
- * 
+ *
  * Advanced orchestration capabilities for running multiple LLM models in parallel,
  * generating consensus responses, and providing enhanced AI-native capabilities
  * for market intelligence and architectural insights.
@@ -12,7 +12,7 @@ import { ModelClient } from './types.js'
 
 /**
  * Multi-Model Response
- * 
+ *
  * Contains responses from multiple models and a consensus result.
  */
 export interface MultiModelResponse {
@@ -30,7 +30,7 @@ export interface MultiModelResponse {
 
 /**
  * Market Intelligence Prompt Templates
- * 
+ *
  * Specialized prompts for market analysis and competitive intelligence.
  */
 const MARKET_INTELLIGENCE_TEMPLATES = {
@@ -81,7 +81,7 @@ Provide strategic recommendations with specific next steps.
 
 /**
  * Architectural Insights Prompt Templates
- * 
+ *
  * Specialized prompts for technical architecture analysis and recommendations.
  */
 const ARCHITECTURAL_TEMPLATES = {
@@ -136,7 +136,7 @@ Include specific dollar impact estimates where possible.
 
 /**
  * Multi-Model Orchestrator Implementation
- * 
+ *
  * Coordinates multiple LLM models for complex analysis tasks.
  */
 export const makeMultiModelOrchestrator = (clients: {
@@ -144,10 +144,9 @@ export const makeMultiModelOrchestrator = (clients: {
   claude?: ModelClient
   llama?: ModelClient
 }) => ({
-
   /**
    * Generate Market Intelligence
-   * 
+   *
    * Uses multiple models to analyze market data and provide business insights.
    */
   generateMarketIntelligence: (
@@ -156,7 +155,7 @@ export const makeMultiModelOrchestrator = (clients: {
   ): Effect.Effect<MultiModelResponse, LLMError, never> =>
     Effect.gen(function* (_) {
       let prompt: string
-      
+
       switch (analysisType) {
         case 'competitor':
           prompt = MARKET_INTELLIGENCE_TEMPLATES.competitorAnalysis(
@@ -195,7 +194,7 @@ export const makeMultiModelOrchestrator = (clients: {
 
   /**
    * Generate Architectural Insights
-   * 
+   *
    * Uses multiple models to analyze system architecture and provide technical recommendations.
    */
   generateArchitecturalInsights: (
@@ -204,7 +203,7 @@ export const makeMultiModelOrchestrator = (clients: {
   ): Effect.Effect<MultiModelResponse, LLMError, never> =>
     Effect.gen(function* (_) {
       let prompt: string
-      
+
       switch (analysisType) {
         case 'system-analysis':
           prompt = ARCHITECTURAL_TEMPLATES.systemAnalysis(
@@ -219,10 +218,7 @@ export const makeMultiModelOrchestrator = (clients: {
           )
           break
         case 'cost-optimization':
-          prompt = ARCHITECTURAL_TEMPLATES.costOptimization(
-            data.costs || {},
-            data.usage || {}
-          )
+          prompt = ARCHITECTURAL_TEMPLATES.costOptimization(data.costs || {}, data.usage || {})
           break
         default:
           prompt = `Analyze the provided architectural data: ${JSON.stringify(data, null, 2)}`
@@ -243,20 +239,22 @@ export const makeMultiModelOrchestrator = (clients: {
 
   /**
    * Generate Consensus Analysis
-   * 
+   *
    * Runs the same analysis across multiple models and generates a consensus response.
    */
-  generateConsensusAnalysis: (request: LLMRequest): Effect.Effect<MultiModelResponse, LLMError, never> =>
+  generateConsensusAnalysis: (
+    request: LLMRequest
+  ): Effect.Effect<MultiModelResponse, LLMError, never> =>
     executeMultiModelRequest(request, clients),
 
   /**
    * Get Model Capabilities
-   * 
+   *
    * Returns information about available models and their strengths.
    */
   getModelCapabilities: () =>
     Effect.succeed({
-      availableModels: Object.keys(clients).filter(key => clients[key as keyof typeof clients]),
+      availableModels: Object.keys(clients).filter((key) => clients[key as keyof typeof clients]),
       capabilities: {
         'market-intelligence': {
           recommended: ['gpt', 'claude'],
@@ -276,7 +274,7 @@ export const makeMultiModelOrchestrator = (clients: {
 
 /**
  * Execute Multi-Model Request
- * 
+ *
  * Coordinates execution across multiple models and generates consensus.
  */
 const executeMultiModelRequest = (
@@ -286,14 +284,16 @@ const executeMultiModelRequest = (
   Effect.gen(function* (_) {
     // Determine which models to use based on task type
     const modelPriority = getModelPriorityForTask(request.taskType)
-    const availableModels = modelPriority.filter(model => clients[model as keyof typeof clients])
-    
+    const availableModels = modelPriority.filter((model) => clients[model as keyof typeof clients])
+
     if (availableModels.length === 0) {
-      return yield* _(Effect.fail({
-        _tag: 'ModelUnavailable' as const,
-        model: 'all',
-        message: 'No models available for multi-model request'
-      }))
+      return yield* _(
+        Effect.fail({
+          _tag: 'ModelUnavailable' as const,
+          model: 'all',
+          message: 'No models available for multi-model request'
+        })
+      )
     }
 
     // Execute with top 2 models if available
@@ -301,20 +301,27 @@ const executeMultiModelRequest = (
     const secondaryModel = (availableModels[1] || null) as keyof typeof clients | null
 
     const [primaryResponse, secondaryResponse] = yield* _(
-      Effect.all([
-        executeWithModelSafe(request, primaryModel, clients),
-        secondaryModel ? executeWithModelSafe(request, secondaryModel, clients) : Effect.succeed(null)
-      ], { concurrency: 2 })
+      Effect.all(
+        [
+          executeWithModelSafe(request, primaryModel, clients),
+          secondaryModel
+            ? executeWithModelSafe(request, secondaryModel, clients)
+            : Effect.succeed(null)
+        ],
+        { concurrency: 2 }
+      )
     )
 
     // Generate consensus (for now, prefer Claude for analytical tasks, GPT for others)
     const consensus = selectBestResponse(primaryResponse, secondaryResponse, request.taskType)
-    
+
     if (!consensus) {
-      return yield* _(Effect.fail({
-        _tag: 'AllModelsUnavailable' as const,
-        message: 'All models failed for multi-model request'
-      }))
+      return yield* _(
+        Effect.fail({
+          _tag: 'AllModelsUnavailable' as const,
+          message: 'All models failed for multi-model request'
+        })
+      )
     }
 
     // Calculate agreement and confidence
@@ -328,7 +335,9 @@ const executeMultiModelRequest = (
         ...consensus,
         metadata: {
           ...consensus.metadata,
-          modelChain: [primaryResponse?.model, secondaryResponse?.model].filter(Boolean) as string[],
+          modelChain: [primaryResponse?.model, secondaryResponse?.model].filter(
+            Boolean
+          ) as string[],
           fallbackUsed: primaryResponse === null || secondaryResponse === null
         }
       },
@@ -344,7 +353,7 @@ const executeMultiModelRequest = (
 
 /**
  * Get Model Priority for Task
- * 
+ *
  * Returns models in priority order for different task types.
  */
 const getModelPriorityForTask = (taskType: TaskType): ('gpt' | 'claude' | 'llama')[] => {
@@ -364,7 +373,7 @@ const getModelPriorityForTask = (taskType: TaskType): ('gpt' | 'claude' | 'llama
 
 /**
  * Execute with Model (Safe)
- * 
+ *
  * Safely executes a request with a model, returning null on failure.
  */
 const executeWithModelSafe = (
@@ -390,7 +399,7 @@ const executeWithModelSafe = (
 
 /**
  * Select Best Response
- * 
+ *
  * Selects the best response based on task type and model strengths.
  */
 const selectBestResponse = (
@@ -404,12 +413,20 @@ const selectBestResponse = (
 
   // For analytical tasks, prefer Claude responses
   if (['analysis', 'architectural-insights', 'anomaly-detection'].includes(taskType)) {
-    return primary.model.includes('claude') ? primary : secondary.model.includes('claude') ? secondary : primary
+    return primary.model.includes('claude')
+      ? primary
+      : secondary.model.includes('claude')
+        ? secondary
+        : primary
   }
 
   // For business tasks, prefer GPT responses
   if (['market-intelligence'].includes(taskType)) {
-    return primary.model.includes('gpt') ? primary : secondary.model.includes('gpt') ? secondary : primary
+    return primary.model.includes('gpt')
+      ? primary
+      : secondary.model.includes('gpt')
+        ? secondary
+        : primary
   }
 
   // Default to primary
@@ -418,7 +435,7 @@ const selectBestResponse = (
 
 /**
  * Calculate Model Agreement
- * 
+ *
  * Calculates a simple agreement score between two responses.
  */
 const calculateModelAgreement = (
@@ -428,17 +445,19 @@ const calculateModelAgreement = (
   if (!primary || !secondary) return 0.5 // Partial agreement if only one response
 
   // Simple heuristic: compare response lengths and assume longer responses are more detailed
-  const lengthSimilarity = 1 - Math.abs(primary.content.length - secondary.content.length) / 
-                              Math.max(primary.content.length, secondary.content.length)
-  
-  // For now, assume reasonable agreement - in a real implementation, 
+  const lengthSimilarity =
+    1 -
+    Math.abs(primary.content.length - secondary.content.length) /
+      Math.max(primary.content.length, secondary.content.length)
+
+  // For now, assume reasonable agreement - in a real implementation,
   // this would use semantic similarity or other NLP techniques
   return Math.max(lengthSimilarity, 0.6) // Minimum 60% agreement
 }
 
 /**
  * Calculate Quality Scores
- * 
+ *
  * Provides quality scores for each response.
  */
 const calculateQualityScores = (
@@ -465,7 +484,7 @@ const calculateQualityScores = (
 
 /**
  * Generate Agreement Reasoning
- * 
+ *
  * Provides human-readable reasoning about model agreement.
  */
 const generateAgreementReasoning = (
@@ -476,7 +495,7 @@ const generateAgreementReasoning = (
   if (!primary && !secondary) {
     return 'No responses available from any model'
   }
-  
+
   if (!primary || !secondary) {
     return `Single model response from ${primary?.model || secondary?.model}. Consider as baseline analysis.`
   }

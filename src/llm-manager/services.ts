@@ -1,6 +1,6 @@
 /**
  * LLM Manager Service Definitions
- * 
+ *
  * Effect-TS service definitions for multi-model LLM orchestration.
  * Provides clean dependency injection and testable interfaces.
  */
@@ -19,7 +19,7 @@ import type { InteractionLogEntry, LiveInteractionEvent } from './interaction-lo
 
 /**
  * Main LLM Manager Service
- * 
+ *
  * Orchestrates multiple LLM models with intelligent routing, caching,
  * and conversation management.
  */
@@ -36,7 +36,9 @@ export class LLMManagerService extends Context.Tag('LLMManagerService')<
       conversationId: string,
       message: string
     ) => Effect.Effect<LLMResponse, LLMError, never>
-    readonly getConversation: (conversationId: string) => Effect.Effect<ConversationContext, LLMError, never>
+    readonly getConversation: (
+      conversationId: string
+    ) => Effect.Effect<ConversationContext, LLMError, never>
 
     // Model management
     readonly getAvailableModels: () => Effect.Effect<ModelType[], LLMError, never>
@@ -47,7 +49,7 @@ export class LLMManagerService extends Context.Tag('LLMManagerService')<
 
 /**
  * Model Router Service
- * 
+ *
  * Handles intelligent routing of requests to optimal models based on
  * task type, performance, cost, and availability.
  */
@@ -57,42 +59,52 @@ export class ModelRouterService extends Context.Tag('ModelRouterService')<
     readonly selectModel: (request: LLMRequest) => Effect.Effect<ModelType, LLMError, never>
     readonly routeRequest: (request: LLMRequest) => Effect.Effect<LLMResponse, LLMError, never>
     readonly getFallbackChain: (failedModel: ModelType) => Effect.Effect<ModelType[], never, never>
-    readonly updateModelPerformance: (model: ModelType, latencyMs: number, success: boolean) => Effect.Effect<void, never, never>
+    readonly updateModelPerformance: (
+      model: ModelType,
+      latencyMs: number,
+      success: boolean
+    ) => Effect.Effect<void, never, never>
   }
 >() {}
 
 /**
  * Model Client Service
- * 
+ *
  * Abstract interface for individual model clients (GPT, Claude, Llama).
  * Allows for consistent interaction patterns across different models.
  */
 export class ModelClientService extends Context.Tag('ModelClientService')<
   ModelClientService,
   {
-    readonly gpt: {
-      readonly generate: (request: LLMRequest) => Effect.Effect<LLMResponse, LLMError, never>
-      readonly generateStream: (request: LLMRequest) => Stream.Stream<string, LLMError, never>
-      readonly isHealthy: () => Effect.Effect<boolean, LLMError, never>
-    } | undefined
-    
-    readonly claude: {
-      readonly generate: (request: LLMRequest) => Effect.Effect<LLMResponse, LLMError, never>
-      readonly generateStream: (request: LLMRequest) => Stream.Stream<string, LLMError, never>
-      readonly isHealthy: () => Effect.Effect<boolean, LLMError, never>
-    } | undefined
-    
-    readonly llama: {
-      readonly generate: (request: LLMRequest) => Effect.Effect<LLMResponse, LLMError, never>
-      readonly generateStream: (request: LLMRequest) => Stream.Stream<string, LLMError, never>
-      readonly isHealthy: () => Effect.Effect<boolean, LLMError, never>
-    } | undefined
+    readonly gpt:
+      | {
+          readonly generate: (request: LLMRequest) => Effect.Effect<LLMResponse, LLMError, never>
+          readonly generateStream: (request: LLMRequest) => Stream.Stream<string, LLMError, never>
+          readonly isHealthy: () => Effect.Effect<boolean, LLMError, never>
+        }
+      | undefined
+
+    readonly claude:
+      | {
+          readonly generate: (request: LLMRequest) => Effect.Effect<LLMResponse, LLMError, never>
+          readonly generateStream: (request: LLMRequest) => Stream.Stream<string, LLMError, never>
+          readonly isHealthy: () => Effect.Effect<boolean, LLMError, never>
+        }
+      | undefined
+
+    readonly llama:
+      | {
+          readonly generate: (request: LLMRequest) => Effect.Effect<LLMResponse, LLMError, never>
+          readonly generateStream: (request: LLMRequest) => Stream.Stream<string, LLMError, never>
+          readonly isHealthy: () => Effect.Effect<boolean, LLMError, never>
+        }
+      | undefined
   }
 >() {}
 
 /**
  * Conversation Storage Service
- * 
+ *
  * Handles persistence and retrieval of conversation contexts.
  * Integrates with the storage package for data persistence.
  */
@@ -108,7 +120,7 @@ export class ConversationStorageService extends Context.Tag('ConversationStorage
 
 /**
  * Cache Service
- * 
+ *
  * Provides response caching with TTL and size limits to improve
  * performance and reduce API costs.
  */
@@ -116,7 +128,11 @@ export class CacheService extends Context.Tag('CacheService')<
   CacheService,
   {
     readonly get: (key: string) => Effect.Effect<LLMResponse | undefined, LLMError, never>
-    readonly set: (key: string, value: LLMResponse, ttlSeconds: number) => Effect.Effect<void, LLMError, never>
+    readonly set: (
+      key: string,
+      value: LLMResponse,
+      ttlSeconds: number
+    ) => Effect.Effect<void, LLMError, never>
     readonly invalidate: (key: string) => Effect.Effect<void, never, never>
     readonly clear: () => Effect.Effect<void, never, never>
     readonly size: () => Effect.Effect<number, never, never>
@@ -125,7 +141,7 @@ export class CacheService extends Context.Tag('CacheService')<
 
 /**
  * Configuration Service
- * 
+ *
  * Manages LLM configuration with validation and hot-reloading support.
  */
 export class LLMConfigService extends Context.Tag('LLMConfigService')<
@@ -139,29 +155,39 @@ export class LLMConfigService extends Context.Tag('LLMConfigService')<
 
 /**
  * Metrics Service
- * 
+ *
  * Collects and reports metrics for LLM operations, performance,
  * and cost tracking.
  */
 export class LLMMetricsService extends Context.Tag('LLMMetricsService')<
   LLMMetricsService,
   {
-    readonly recordRequest: (model: ModelType, request: LLMRequest) => Effect.Effect<void, never, never>
-    readonly recordResponse: (model: ModelType, response: LLMResponse) => Effect.Effect<void, never, never>
+    readonly recordRequest: (
+      model: ModelType,
+      request: LLMRequest
+    ) => Effect.Effect<void, never, never>
+    readonly recordResponse: (
+      model: ModelType,
+      response: LLMResponse
+    ) => Effect.Effect<void, never, never>
     readonly recordError: (model: ModelType, error: LLMError) => Effect.Effect<void, never, never>
-    readonly getMetrics: () => Effect.Effect<{
-      totalRequests: number
-      totalErrors: number
-      averageLatency: number
-      totalCost: number
-      requestsByModel: Record<ModelType, number>
-    }, never, never>
+    readonly getMetrics: () => Effect.Effect<
+      {
+        totalRequests: number
+        totalErrors: number
+        averageLatency: number
+        totalCost: number
+        requestsByModel: Record<ModelType, number>
+      },
+      never,
+      never
+    >
   }
 >() {}
 
 /**
  * Interaction Logger Service
- * 
+ *
  * Comprehensive logging system for LLM interactions with real-time
  * streaming interface for debugging and analysis.
  */
@@ -203,18 +229,24 @@ export class InteractionLoggerService extends Context.Tag('InteractionLoggerServ
       model?: ModelType
     ) => Effect.Effect<InteractionLogEntry[], never, never>
 
-    readonly getInteractionById: (id: string) => Effect.Effect<InteractionLogEntry | null, never, never>
+    readonly getInteractionById: (
+      id: string
+    ) => Effect.Effect<InteractionLogEntry | null, never, never>
 
     readonly getModelComparison: (
       taskType?: string,
       timeWindowMs?: number
-    ) => Effect.Effect<{
-      model: ModelType
-      interactions: InteractionLogEntry[]
-      avgLatency: number
-      successRate: number
-      avgCost: number
-    }[], never, never>
+    ) => Effect.Effect<
+      {
+        model: ModelType
+        interactions: InteractionLogEntry[]
+        avgLatency: number
+        successRate: number
+        avgCost: number
+      }[],
+      never,
+      never
+    >
 
     readonly clearLogs: () => Effect.Effect<void, never, never>
   }

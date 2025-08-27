@@ -78,12 +78,18 @@ export class SimpleStorage {
   async writeOTLP(data: SimpleOTLPData): Promise<void> {
     if (data.traces && data.traces.length > 0) {
       // Convert SimpleTraceData to DatabaseTraceRecord for unified schema
-      const databaseRecords: DatabaseTraceRecord[] = data.traces.map(trace => ({
+      const databaseRecords: DatabaseTraceRecord[] = data.traces.map((trace) => ({
         trace_id: trace.traceId,
         span_id: trace.spanId,
         parent_span_id: '',
-        start_time: new Date(trace.startTime / 1000000).toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '.000000000'), // Convert to ClickHouse DateTime64 format
-        end_time: new Date((trace.startTime + 1000000000) / 1000000).toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '.000000000'), // Assume 1 second duration
+        start_time: new Date(trace.startTime / 1000000)
+          .toISOString()
+          .replace('T', ' ')
+          .replace(/\.\d{3}Z$/, '.000000000'), // Convert to ClickHouse DateTime64 format
+        end_time: new Date((trace.startTime + 1000000000) / 1000000)
+          .toISOString()
+          .replace('T', ' ')
+          .replace(/\.\d{3}Z$/, '.000000000'), // Assume 1 second duration
         duration_ns: 1000000000,
         service_name: trace.serviceName,
         operation_name: trace.operationName,
@@ -102,7 +108,6 @@ export class SimpleStorage {
       await this.writeTracesToSimplifiedSchema(databaseRecords)
     }
   }
-
 
   // New method for simplified schema (single table)
   async writeTracesToSimplifiedSchema(traces: DatabaseTraceRecord[]): Promise<void> {
@@ -166,7 +171,7 @@ export class SimpleStorage {
     // Convert milliseconds to nanoseconds for the query
     const startNano = timeRange.start * 1000000
     const endNano = timeRange.end * 1000000
-    
+
     const query = `
       SELECT 
         trace_id as traceId,
@@ -211,13 +216,15 @@ export class SimpleStorage {
       query: sql,
       format: 'JSONEachRow'
     })
-    
+
     const data = (await result.json()) as Record<string, unknown>[]
-    
+
     // First clean protobuf JSON strings, then convert BigInt values
-    const cleanedData = data.map(row => this.cleanProtobufStrings(row))
-    const convertedData = cleanedData.map(row => this.convertBigIntToNumber(row) as Record<string, unknown>)
-    
+    const cleanedData = data.map((row) => this.cleanProtobufStrings(row))
+    const convertedData = cleanedData.map(
+      (row) => this.convertBigIntToNumber(row) as Record<string, unknown>
+    )
+
     return { data: convertedData }
   }
 
@@ -239,7 +246,7 @@ export class SimpleStorage {
           console.log('❌ Failed to parse protobuf JSON:', e)
         }
       }
-      
+
       // Handle Buffer JSON strings for trace IDs
       if (obj.includes('"type":"Buffer"') && obj.includes('"data"')) {
         console.log('🧹 Cleaning Buffer trace ID:', obj.substring(0, 30) + '...')
@@ -255,11 +262,11 @@ export class SimpleStorage {
         }
       }
     }
-    
+
     if (Array.isArray(obj)) {
-      return obj.map(item => this.cleanProtobufStrings(item))
+      return obj.map((item) => this.cleanProtobufStrings(item))
     }
-    
+
     if (obj !== null && typeof obj === 'object') {
       const cleaned: Record<string, unknown> = {}
       for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
@@ -267,7 +274,7 @@ export class SimpleStorage {
       }
       return cleaned
     }
-    
+
     return obj
   }
 
@@ -280,11 +287,11 @@ export class SimpleStorage {
       // Convert BigInt to number, handling potential precision loss for very large numbers
       return obj > Number.MAX_SAFE_INTEGER ? parseInt(obj.toString()) : Number(obj)
     }
-    
+
     if (Array.isArray(obj)) {
-      return obj.map(item => this.convertBigIntToNumber(item))
+      return obj.map((item) => this.convertBigIntToNumber(item))
     }
-    
+
     if (obj !== null && typeof obj === 'object') {
       const converted: Record<string, unknown> = {}
       for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
@@ -292,7 +299,7 @@ export class SimpleStorage {
       }
       return converted
     }
-    
+
     return obj
   }
 

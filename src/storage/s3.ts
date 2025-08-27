@@ -75,7 +75,7 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
           }).pipe(
             Effect.retry(
               Schedule.exponential('100 millis').pipe(Schedule.compose(Schedule.recurs(3)))
-            ),
+            )
           )
         )
       })
@@ -102,7 +102,9 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
 
         if (!response.Body) {
           return yield* _(
-            Effect.fail(StorageErrorConstructors.QueryError(`No data found at key ${key}`, `GET ${key}`))
+            Effect.fail(
+              StorageErrorConstructors.QueryError(`No data found at key ${key}`, `GET ${key}`)
+            )
           )
         }
 
@@ -111,10 +113,14 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
           Effect.tryPromise({
             try: () => response.Body!.transformToByteArray(),
             catch: (error) =>
-              StorageErrorConstructors.QueryError(`Failed to read response body: ${error}`, `READ ${key}`, error)
+              StorageErrorConstructors.QueryError(
+                `Failed to read response body: ${error}`,
+                `READ ${key}`,
+                error
+              )
           })
         )
-        
+
         return new Uint8Array(bodyBytes)
       })
 

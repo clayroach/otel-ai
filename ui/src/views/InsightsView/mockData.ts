@@ -1,73 +1,73 @@
 // Mock data for AI Analyzer demonstration
 
 export interface AnalysisResult {
-  requestId: string;
-  type: 'architecture' | 'dataflow' | 'dependencies' | 'insights';
-  summary: string;
-  architecture?: ApplicationArchitecture;
-  insights: AnalysisInsight[];
-  documentation?: { markdown: string };
+  requestId: string
+  type: 'architecture' | 'dataflow' | 'dependencies' | 'insights'
+  summary: string
+  architecture?: ApplicationArchitecture
+  insights: AnalysisInsight[]
+  documentation?: { markdown: string }
   metadata: {
-    analyzedSpans: number;
-    analysisTimeMs: number;
-    llmTokensUsed: number;
-    confidence: number;
-    selectedModel?: string;
-    llmModel?: string;
-  };
+    analyzedSpans: number
+    analysisTimeMs: number
+    llmTokensUsed: number
+    confidence: number
+    selectedModel?: string
+    llmModel?: string
+  }
 }
 
 export interface ApplicationArchitecture {
-  applicationName: string;
-  description: string;
-  services: ServiceTopology[];
-  dataFlows: DataFlow[];
-  criticalPaths: CriticalPath[];
-  generatedAt: Date;
+  applicationName: string
+  description: string
+  services: ServiceTopology[]
+  dataFlows: DataFlow[]
+  criticalPaths: CriticalPath[]
+  generatedAt: Date
 }
 
 export interface ServiceTopology {
-  service: string;
-  type: 'frontend' | 'api' | 'backend' | 'database' | 'queue' | 'cache' | 'external';
-  operations: string[];
-  dependencies: ServiceDependency[];
-  metadata: Record<string, unknown>;
+  service: string
+  type: 'frontend' | 'api' | 'backend' | 'database' | 'queue' | 'cache' | 'external'
+  operations: string[]
+  dependencies: ServiceDependency[]
+  metadata: Record<string, unknown>
 }
 
 export interface ServiceDependency {
-  service: string;
-  operation: string;
-  callCount: number;
-  avgLatencyMs: number;
-  errorRate: number;
+  service: string
+  operation: string
+  callCount: number
+  avgLatencyMs: number
+  errorRate: number
 }
 
 export interface DataFlow {
-  from: string;
-  to: string;
-  operation: string;
-  volume: number;
+  from: string
+  to: string
+  operation: string
+  volume: number
   latency: {
-    p50: number;
-    p95: number;
-    p99: number;
-  };
+    p50: number
+    p95: number
+    p99: number
+  }
 }
 
 export interface CriticalPath {
-  name: string;
-  services: string[];
-  avgLatencyMs: number;
-  errorRate: number;
+  name: string
+  services: string[]
+  avgLatencyMs: number
+  errorRate: number
 }
 
 export interface AnalysisInsight {
-  type: 'performance' | 'reliability' | 'architecture' | 'optimization';
-  severity: 'info' | 'warning' | 'critical';
-  title: string;
-  description: string;
-  recommendation?: string;
-  evidence: string[];
+  type: 'performance' | 'reliability' | 'architecture' | 'optimization'
+  severity: 'info' | 'warning' | 'critical'
+  title: string
+  description: string
+  recommendation?: string
+  evidence: string[]
 }
 
 export const mockAnalysisResult: AnalysisResult = {
@@ -90,14 +90,21 @@ This distributed application follows a microservices pattern with 8 core service
 - Cache hit rate: 78% significantly reducing database load`,
   architecture: {
     applicationName: 'E-Commerce Platform',
-    description: 'Modern microservices-based e-commerce platform with React frontend, Kong API gateway, and distributed backend services',
+    description:
+      'Modern microservices-based e-commerce platform with React frontend, Kong API gateway, and distributed backend services',
     services: [
       {
         service: 'frontend-web',
         type: 'frontend',
         operations: ['page-load', 'api-call', 'user-interaction'],
         dependencies: [
-          { service: 'api-gateway', operation: 'api-request', callCount: 15000, avgLatencyMs: 45, errorRate: 0.002 }
+          {
+            service: 'api-gateway',
+            operation: 'api-request',
+            callCount: 15000,
+            avgLatencyMs: 45,
+            errorRate: 0.002
+          }
         ],
         metadata: {
           avgLatencyMs: 120,
@@ -112,8 +119,20 @@ This distributed application follows a microservices pattern with 8 core service
         type: 'api',
         operations: ['route', 'auth', 'rate-limit'],
         dependencies: [
-          { service: 'user-service', operation: 'get-user', callCount: 8000, avgLatencyMs: 85, errorRate: 0.003 },
-          { service: 'order-service', operation: 'create-order', callCount: 3000, avgLatencyMs: 150, errorRate: 0.005 }
+          {
+            service: 'user-service',
+            operation: 'get-user',
+            callCount: 8000,
+            avgLatencyMs: 85,
+            errorRate: 0.003
+          },
+          {
+            service: 'order-service',
+            operation: 'create-order',
+            callCount: 3000,
+            avgLatencyMs: 150,
+            errorRate: 0.005
+          }
         ],
         metadata: {
           avgLatencyMs: 50,
@@ -128,8 +147,20 @@ This distributed application follows a microservices pattern with 8 core service
         type: 'backend',
         operations: ['get-user', 'create-user', 'update-profile'],
         dependencies: [
-          { service: 'postgres-db', operation: 'query', callCount: 8500, avgLatencyMs: 25, errorRate: 0.001 },
-          { service: 'redis-cache', operation: 'get', callCount: 6000, avgLatencyMs: 3, errorRate: 0.0001 }
+          {
+            service: 'postgres-db',
+            operation: 'query',
+            callCount: 8500,
+            avgLatencyMs: 25,
+            errorRate: 0.001
+          },
+          {
+            service: 'redis-cache',
+            operation: 'get',
+            callCount: 6000,
+            avgLatencyMs: 3,
+            errorRate: 0.0001
+          }
         ],
         metadata: {
           avgLatencyMs: 95,
@@ -144,8 +175,20 @@ This distributed application follows a microservices pattern with 8 core service
         type: 'backend',
         operations: ['create-order', 'get-orders', 'cancel-order'],
         dependencies: [
-          { service: 'postgres-db', operation: 'transaction', callCount: 3200, avgLatencyMs: 45, errorRate: 0.002 },
-          { service: 'payment-service', operation: 'process-payment', callCount: 2800, avgLatencyMs: 250, errorRate: 0.008 }
+          {
+            service: 'postgres-db',
+            operation: 'transaction',
+            callCount: 3200,
+            avgLatencyMs: 45,
+            errorRate: 0.002
+          },
+          {
+            service: 'payment-service',
+            operation: 'process-payment',
+            callCount: 2800,
+            avgLatencyMs: 250,
+            errorRate: 0.008
+          }
         ],
         metadata: {
           avgLatencyMs: 180,
@@ -160,8 +203,20 @@ This distributed application follows a microservices pattern with 8 core service
         type: 'backend',
         operations: ['process-payment', 'refund', 'validate-card'],
         dependencies: [
-          { service: 'stripe-api', operation: 'charge', callCount: 2800, avgLatencyMs: 180, errorRate: 0.01 },
-          { service: 'postgres-db', operation: 'insert', callCount: 2900, avgLatencyMs: 20, errorRate: 0.001 }
+          {
+            service: 'stripe-api',
+            operation: 'charge',
+            callCount: 2800,
+            avgLatencyMs: 180,
+            errorRate: 0.01
+          },
+          {
+            service: 'postgres-db',
+            operation: 'insert',
+            callCount: 2900,
+            avgLatencyMs: 20,
+            errorRate: 0.001
+          }
         ],
         metadata: {
           avgLatencyMs: 220,
@@ -212,13 +267,55 @@ This distributed application follows a microservices pattern with 8 core service
       }
     ],
     dataFlows: [
-      { from: 'frontend-web', to: 'api-gateway', operation: 'api-request', volume: 15000, latency: { p50: 45, p95: 120, p99: 200 } },
-      { from: 'api-gateway', to: 'user-service', operation: 'get-user', volume: 8000, latency: { p50: 85, p95: 180, p99: 300 } },
-      { from: 'api-gateway', to: 'order-service', operation: 'create-order', volume: 3000, latency: { p50: 150, p95: 350, p99: 500 } },
-      { from: 'user-service', to: 'postgres-db', operation: 'query', volume: 8500, latency: { p50: 25, p95: 60, p99: 120 } },
-      { from: 'user-service', to: 'redis-cache', operation: 'get', volume: 6000, latency: { p50: 3, p95: 8, p99: 15 } },
-      { from: 'order-service', to: 'payment-service', operation: 'process-payment', volume: 2800, latency: { p50: 250, p95: 500, p99: 800 } },
-      { from: 'payment-service', to: 'stripe-api', operation: 'charge', volume: 2800, latency: { p50: 180, p95: 400, p99: 600 } }
+      {
+        from: 'frontend-web',
+        to: 'api-gateway',
+        operation: 'api-request',
+        volume: 15000,
+        latency: { p50: 45, p95: 120, p99: 200 }
+      },
+      {
+        from: 'api-gateway',
+        to: 'user-service',
+        operation: 'get-user',
+        volume: 8000,
+        latency: { p50: 85, p95: 180, p99: 300 }
+      },
+      {
+        from: 'api-gateway',
+        to: 'order-service',
+        operation: 'create-order',
+        volume: 3000,
+        latency: { p50: 150, p95: 350, p99: 500 }
+      },
+      {
+        from: 'user-service',
+        to: 'postgres-db',
+        operation: 'query',
+        volume: 8500,
+        latency: { p50: 25, p95: 60, p99: 120 }
+      },
+      {
+        from: 'user-service',
+        to: 'redis-cache',
+        operation: 'get',
+        volume: 6000,
+        latency: { p50: 3, p95: 8, p99: 15 }
+      },
+      {
+        from: 'order-service',
+        to: 'payment-service',
+        operation: 'process-payment',
+        volume: 2800,
+        latency: { p50: 250, p95: 500, p99: 800 }
+      },
+      {
+        from: 'payment-service',
+        to: 'stripe-api',
+        operation: 'charge',
+        volume: 2800,
+        latency: { p50: 180, p95: 400, p99: 600 }
+      }
     ],
     criticalPaths: [
       {
@@ -247,23 +344,28 @@ This distributed application follows a microservices pattern with 8 core service
       type: 'performance',
       severity: 'warning',
       title: 'Payment Service Latency Spike',
-      description: 'Payment service shows 250ms average latency, which is 40% higher than recommended for checkout flows',
-      recommendation: 'Consider implementing circuit breaker pattern and async payment processing for non-critical validations',
+      description:
+        'Payment service shows 250ms average latency, which is 40% higher than recommended for checkout flows',
+      recommendation:
+        'Consider implementing circuit breaker pattern and async payment processing for non-critical validations',
       evidence: []
     },
     {
       type: 'reliability',
-      severity: 'critical', 
+      severity: 'critical',
       title: 'External API Dependency Risk',
-      description: 'Stripe API has 1% error rate affecting order completion. No fallback mechanism detected',
-      recommendation: 'Implement retry logic with exponential backoff and consider alternative payment providers for redundancy',
+      description:
+        'Stripe API has 1% error rate affecting order completion. No fallback mechanism detected',
+      recommendation:
+        'Implement retry logic with exponential backoff and consider alternative payment providers for redundancy',
       evidence: []
     },
     {
       type: 'architecture',
       severity: 'info',
       title: 'Excellent Cache Utilization',
-      description: 'Redis cache shows 78% hit rate with sub-5ms response times, significantly reducing database load',
+      description:
+        'Redis cache shows 78% hit rate with sub-5ms response times, significantly reducing database load',
       recommendation: 'Consider expanding cache coverage to order summary and product catalog data',
       evidence: []
     },
@@ -271,8 +373,10 @@ This distributed application follows a microservices pattern with 8 core service
       type: 'optimization',
       severity: 'warning',
       title: 'Database Query Optimization Opportunity',
-      description: 'User service generates 8500 database queries with some showing >60ms P95 latency',
-      recommendation: 'Review N+1 query patterns and consider database connection pooling optimization',
+      description:
+        'User service generates 8500 database queries with some showing >60ms P95 latency',
+      recommendation:
+        'Review N+1 query patterns and consider database connection pooling optimization',
       evidence: []
     }
   ],
@@ -282,76 +386,96 @@ This distributed application follows a microservices pattern with 8 core service
     llmTokensUsed: 3850,
     confidence: 0.94
   }
-};
+}
 
 // Model-specific insights for demonstration
 const getModelSpecificInsights = (model: string): AnalysisInsight[] => {
-  const baseInsights = mockAnalysisResult.insights;
-  
+  const baseInsights = mockAnalysisResult.insights
+
   if (model === 'local-statistical-analyzer') {
     // Statistical model returns fewer, basic insights
-    return baseInsights.slice(0, 2).map(insight => ({
+    return baseInsights.slice(0, 2).map((insight) => ({
       ...insight,
       type: 'performance',
       severity: 'info' as const
-    }));
+    }))
   }
-  
+
   // Enhanced models have unique insights
   const modelInsights: Record<string, AnalysisInsight> = {
     claude: {
       title: 'Architectural Pattern Analysis',
-      description: 'Claude identifies sophisticated architectural patterns and suggests improvements based on domain-driven design principles.',
+      description:
+        'Claude identifies sophisticated architectural patterns and suggests improvements based on domain-driven design principles.',
       type: 'architecture',
       severity: 'info',
-      evidence: ['Microservices pattern detected', 'Event-driven communication', 'CQRS implementation opportunity'],
+      evidence: [
+        'Microservices pattern detected',
+        'Event-driven communication',
+        'CQRS implementation opportunity'
+      ],
       recommendation: 'Consider implementing event sourcing for audit trail capabilities.'
     },
     gpt: {
       title: 'Performance Optimization Opportunities',
-      description: 'GPT-4 analysis reveals specific performance bottlenecks and provides actionable optimization strategies.',
-      type: 'performance', 
+      description:
+        'GPT-4 analysis reveals specific performance bottlenecks and provides actionable optimization strategies.',
+      type: 'performance',
       severity: 'warning',
-      evidence: ['Database connection pooling inefficient', 'Caching layer underutilized', 'Query optimization needed'],
-      recommendation: 'Implement connection pooling and add Redis caching layer for frequently accessed data.'
+      evidence: [
+        'Database connection pooling inefficient',
+        'Caching layer underutilized',
+        'Query optimization needed'
+      ],
+      recommendation:
+        'Implement connection pooling and add Redis caching layer for frequently accessed data.'
     },
     llama: {
       title: 'Resource Utilization & Scalability Analysis',
-      description: 'Llama provides detailed resource usage analysis and scalability recommendations for cloud deployment.',
+      description:
+        'Llama provides detailed resource usage analysis and scalability recommendations for cloud deployment.',
       type: 'optimization',
-      severity: 'info', 
-      evidence: ['CPU utilization spikes detected', 'Memory usage patterns analyzed', 'Scaling policies recommended'],
+      severity: 'info',
+      evidence: [
+        'CPU utilization spikes detected',
+        'Memory usage patterns analyzed',
+        'Scaling policies recommended'
+      ],
       recommendation: 'Implement horizontal pod autoscaling with custom CPU and memory thresholds.'
     }
-  };
-  
-  const modelSpecificInsight = modelInsights[model];
-  if (modelSpecificInsight) {
-    return [modelSpecificInsight, ...baseInsights];
   }
-  
-  return baseInsights;
-};
+
+  const modelSpecificInsight = modelInsights[model]
+  if (modelSpecificInsight) {
+    return [modelSpecificInsight, ...baseInsights]
+  }
+
+  return baseInsights
+}
 
 export const generateMockData = (
-  analysisType: 'architecture' | 'dataflow' | 'dependencies' | 'insights', 
+  analysisType: 'architecture' | 'dataflow' | 'dependencies' | 'insights',
   model: string = 'claude'
 ): AnalysisResult => {
   return {
     ...mockAnalysisResult,
     type: analysisType,
     insights: getModelSpecificInsights(model),
-    summary: analysisType === 'dependencies' 
-      ? `Dependency analysis using ${model === 'local-statistical-analyzer' ? 'statistical analysis' : model + ' model'} shows well-structured service relationships with minimal circular dependencies`
-      : analysisType === 'dataflow'
-      ? `Data flow analysis using ${model === 'local-statistical-analyzer' ? 'statistical analysis' : model + ' model'} reveals efficient request patterns with optimal cache utilization`
-      : analysisType === 'insights'
-      ? `Performance insights using ${model === 'local-statistical-analyzer' ? 'statistical analysis' : model + ' model'} indicate overall healthy system with specific optimization opportunities`
-      : `Architecture analysis using ${model === 'local-statistical-analyzer' ? 'statistical analysis' : model + ' model'}: ${mockAnalysisResult.summary}`,
+    summary:
+      analysisType === 'dependencies'
+        ? `Dependency analysis using ${model === 'local-statistical-analyzer' ? 'statistical analysis' : model + ' model'} shows well-structured service relationships with minimal circular dependencies`
+        : analysisType === 'dataflow'
+          ? `Data flow analysis using ${model === 'local-statistical-analyzer' ? 'statistical analysis' : model + ' model'} reveals efficient request patterns with optimal cache utilization`
+          : analysisType === 'insights'
+            ? `Performance insights using ${model === 'local-statistical-analyzer' ? 'statistical analysis' : model + ' model'} indicate overall healthy system with specific optimization opportunities`
+            : `Architecture analysis using ${model === 'local-statistical-analyzer' ? 'statistical analysis' : model + ' model'}: ${mockAnalysisResult.summary}`,
     metadata: {
       ...mockAnalysisResult.metadata,
       selectedModel: model,
-      llmModel: model === 'local-statistical-analyzer' ? 'local-statistical-analyzer' : `${model}-via-llm-manager`
+      llmModel:
+        model === 'local-statistical-analyzer'
+          ? 'local-statistical-analyzer'
+          : `${model}-via-llm-manager`
     }
-  };
-};
+  }
+}

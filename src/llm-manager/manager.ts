@@ -1,6 +1,6 @@
 /**
  * LLM Manager Implementation
- * 
+ *
  * Main orchestration service for multi-model LLM management.
  * Handles intelligent routing, caching, conversation management, and fallback strategies.
  */
@@ -25,7 +25,7 @@ import {
   ConversationContext,
   ModelHealthStatus,
   ModelType,
-  LLMRequestSchema,
+  LLMRequestSchema
 } from './types.js'
 
 /**
@@ -42,7 +42,7 @@ function isTimeoutError(error: unknown): boolean {
 
 /**
  * Generate Cache Key
- * 
+ *
  * Creates a deterministic cache key from an LLM request for response caching.
  */
 const generateCacheKey = (request: LLMRequest): string => {
@@ -57,7 +57,7 @@ const generateCacheKey = (request: LLMRequest): string => {
 
 /**
  * Generate Conversation ID
- * 
+ *
  * Creates a unique identifier for conversation contexts.
  */
 const generateConversationId = (): Effect.Effect<string, never, never> =>
@@ -65,25 +65,25 @@ const generateConversationId = (): Effect.Effect<string, never, never> =>
 
 /**
  * Build Contextual Prompt
- * 
+ *
  * Constructs a prompt that includes conversation history for context-aware responses.
  */
 const buildContextualPrompt = (context: ConversationContext): string => {
   if (context.messages.length === 0) {
     return ''
   }
-  
+
   // Build conversation history
   const conversationHistory = context.messages
-    .map(msg => `${msg.role.toUpperCase()}: ${msg.content}`)
+    .map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`)
     .join('\n\n')
-    
+
   return conversationHistory
 }
 
 /**
  * Main LLM Manager Implementation
- * 
+ *
  * Orchestrates multi-model LLM operations with caching, routing, and conversation management.
  */
 export const makeLLMManager = (config: LLMConfig) =>
@@ -100,7 +100,7 @@ export const makeLLMManager = (config: LLMConfig) =>
         Effect.gen(function* (_) {
           // Record request metrics
           yield* _(metrics.recordRequest('llama', request)) // Default to llama for local-first
-          
+
           // Validate request
           const validatedRequest = yield* _(
             Schema.decodeUnknown(LLMRequestSchema)(request).pipe(
@@ -114,7 +114,7 @@ export const makeLLMManager = (config: LLMConfig) =>
 
           // Pre-select model for logging
           const selectedModel = yield* _(router.selectModel(validatedRequest))
-          
+
           // Log the request with routing information
           const interactionId = yield* _(
             logger.logRequest(selectedModel, validatedRequest, {
@@ -128,13 +128,16 @@ export const makeLLMManager = (config: LLMConfig) =>
           if (config.cache.enabled) {
             const cacheKey = generateCacheKey(validatedRequest)
             const cached = yield* _(cache.get(cacheKey))
-            
+
             if (cached) {
               // Update interaction log for cache hit
-              yield* _(logger.logResponse(interactionId, 
-                { ...cached, metadata: { ...cached.metadata, cached: true } }, 
-                0 // Cache hits are essentially instant
-              ))
+              yield* _(
+                logger.logResponse(
+                  interactionId,
+                  { ...cached, metadata: { ...cached.metadata, cached: true } },
+                  0 // Cache hits are essentially instant
+                )
+              )
               return { ...cached, metadata: { ...cached.metadata, cached: true } }
             }
           }
@@ -183,7 +186,7 @@ export const makeLLMManager = (config: LLMConfig) =>
 
           // Record successful response metrics
           yield* _(metrics.recordResponse(selectedModel, response))
-          
+
           return response
         }),
 
@@ -203,14 +206,17 @@ export const makeLLMManager = (config: LLMConfig) =>
 
             // Select model for streaming (cache doesn't apply to streaming)
             const selectedModel = yield* _(router.selectModel(validatedRequest))
-            
+
             // Record request metrics
             yield* _(metrics.recordRequest(selectedModel, validatedRequest))
 
             // Get appropriate client
-            const modelClient = selectedModel === 'gpt' ? clients.gpt :
-                              selectedModel === 'claude' ? clients.claude :
-                              clients.llama
+            const modelClient =
+              selectedModel === 'gpt'
+                ? clients.gpt
+                : selectedModel === 'claude'
+                  ? clients.claude
+                  : clients.llama
 
             if (!modelClient) {
               return Stream.fail({
@@ -232,9 +238,7 @@ export const makeLLMManager = (config: LLMConfig) =>
               Stream.tap((chunk) =>
                 Effect.log(`Streaming chunk from ${selectedModel}: ${chunk.length} chars`)
               ),
-              Stream.tapError((error) =>
-                metrics.recordError(selectedModel, error)
-              )
+              Stream.tapError((error) => metrics.recordError(selectedModel, error))
             )
           })
         ),
@@ -242,7 +246,7 @@ export const makeLLMManager = (config: LLMConfig) =>
       startConversation: (systemPrompt?: string) =>
         Effect.gen(function* (_) {
           const conversationId = yield* _(generateConversationId())
-          
+
           const context: ConversationContext = {
             id: conversationId,
             messages: systemPrompt
@@ -299,8 +303,10 @@ export const makeLLMManager = (config: LLMConfig) =>
             ],
             metadata: {
               ...updatedContext.metadata,
-              totalTokens: (updatedContext.metadata.totalTokens as number || 0) + response.usage.totalTokens,
-              totalCost: (updatedContext.metadata.totalCost as number || 0) + (response.usage.cost || 0)
+              totalTokens:
+                ((updatedContext.metadata.totalTokens as number) || 0) + response.usage.totalTokens,
+              totalCost:
+                ((updatedContext.metadata.totalCost as number) || 0) + (response.usage.cost || 0)
             },
             updatedAt: Date.now()
           }
@@ -309,18 +315,17 @@ export const makeLLMManager = (config: LLMConfig) =>
           return response
         }),
 
-      getConversation: (conversationId: string) =>
-        conversationStorage.load(conversationId),
+      getConversation: (conversationId: string) => conversationStorage.load(conversationId),
 
       getAvailableModels: () =>
         Effect.gen(function* (_) {
           const models: ModelType[] = []
-          
+
           // Check which models are configured
           if (config.models.gpt && clients.gpt) models.push('gpt')
-          if (config.models.claude && clients.claude) models.push('claude') 
+          if (config.models.claude && clients.claude) models.push('claude')
           if (config.models.llama && clients.llama) models.push('llama')
-          
+
           return models
         }),
 
@@ -331,9 +336,9 @@ export const makeLLMManager = (config: LLMConfig) =>
 
           // Check GPT health
           if (clients.gpt) {
-            const healthy = yield* _(clients.gpt.isHealthy().pipe(
-              Effect.orElse(() => Effect.succeed(false))
-            ))
+            const healthy = yield* _(
+              clients.gpt.isHealthy().pipe(Effect.orElse(() => Effect.succeed(false)))
+            )
             healthStatuses.push({
               model: 'gpt',
               status: healthy ? 'healthy' : 'unavailable',
@@ -343,11 +348,11 @@ export const makeLLMManager = (config: LLMConfig) =>
             })
           }
 
-          // Check Claude health  
+          // Check Claude health
           if (clients.claude) {
-            const healthy = yield* _(clients.claude.isHealthy().pipe(
-              Effect.orElse(() => Effect.succeed(false))
-            ))
+            const healthy = yield* _(
+              clients.claude.isHealthy().pipe(Effect.orElse(() => Effect.succeed(false)))
+            )
             healthStatuses.push({
               model: 'claude',
               status: healthy ? 'healthy' : 'unavailable',
@@ -359,9 +364,9 @@ export const makeLLMManager = (config: LLMConfig) =>
 
           // Check Llama health
           if (clients.llama) {
-            const healthy = yield* _(clients.llama.isHealthy().pipe(
-              Effect.orElse(() => Effect.succeed(false))
-            ))
+            const healthy = yield* _(
+              clients.llama.isHealthy().pipe(Effect.orElse(() => Effect.succeed(false)))
+            )
             healthStatuses.push({
               model: 'llama',
               status: healthy ? 'healthy' : 'unavailable',
@@ -384,25 +389,28 @@ export const makeLLMManager = (config: LLMConfig) =>
 
           // Attempt to warm up all available models
           const models = yield* _(Effect.succeed(['gpt', 'claude', 'llama'] as ModelType[]))
-          
-          yield* _(
-            Effect.forEach(models, (model) =>
-              Effect.gen(function* (_) {
-                const client = model === 'gpt' ? clients.gpt :
-                             model === 'claude' ? clients.claude :
-                             clients.llama
 
-                if (client) {
-                  yield* _(
-                    client.generate(warmupRequest).pipe(
-                      Effect.tap(() => Effect.log(`Warmed up ${model} model`)),
-                      Effect.orElse(() => 
-                        Effect.log(`Failed to warm up ${model} model`)
+          yield* _(
+            Effect.forEach(
+              models,
+              (model) =>
+                Effect.gen(function* (_) {
+                  const client =
+                    model === 'gpt'
+                      ? clients.gpt
+                      : model === 'claude'
+                        ? clients.claude
+                        : clients.llama
+
+                  if (client) {
+                    yield* _(
+                      client.generate(warmupRequest).pipe(
+                        Effect.tap(() => Effect.log(`Warmed up ${model} model`)),
+                        Effect.orElse(() => Effect.log(`Failed to warm up ${model} model`))
                       )
                     )
-                  )
-                }
-              }),
+                  }
+                }),
               { concurrency: 3 }
             )
           )
@@ -412,7 +420,7 @@ export const makeLLMManager = (config: LLMConfig) =>
 
 /**
  * LLM Manager Layer
- * 
+ *
  * Effect-TS Layer for dependency injection of the LLM Manager service.
  */
 export const LLMManagerLayer = Layer.effect(

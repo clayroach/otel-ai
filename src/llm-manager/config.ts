@@ -1,6 +1,6 @@
 /**
  * LLM Configuration Service
- * 
+ *
  * Manages LLM configuration with validation, defaults, and environment variable support.
  * Provides type-safe configuration for all LLM models and routing strategies.
  */
@@ -12,7 +12,7 @@ import { LLMConfig, LLMConfigSchema, LLMError, RoutingStrategy } from './types.j
 
 /**
  * Default LLM Configuration
- * 
+ *
  * Provides sensible defaults for local-first development with LM Studio.
  */
 export const defaultLLMConfig: LLMConfig = {
@@ -23,7 +23,7 @@ export const defaultLLMConfig: LLMConfig = {
       threads: 4,
       gpuLayers: 0,
       endpoint: 'http://localhost:1234/v1' // LM Studio default
-    },
+    }
     // GPT and Claude are optional - will be configured via environment variables
   },
   routing: {
@@ -41,14 +41,14 @@ export const defaultLLMConfig: LLMConfig = {
 
 /**
  * Load Configuration from Environment
- * 
+ *
  * Loads and validates LLM configuration from environment variables and defaults.
  */
 const loadConfigFromEnv = (): Effect.Effect<LLMConfig, LLMError, never> =>
   Effect.gen(function* (_) {
     // Create a mutable configuration object
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Mutable config construction
-    const baseConfig: any = { 
+    const baseConfig: any = {
       ...defaultLLMConfig,
       models: { ...defaultLLMConfig.models },
       routing: { ...defaultLLMConfig.routing },
@@ -67,7 +67,7 @@ const loadConfigFromEnv = (): Effect.Effect<LLMConfig, LLMError, never> =>
       }
     }
 
-    // Load Claude configuration if API key is provided  
+    // Load Claude configuration if API key is provided
     const claudeApiKey = process.env.CLAUDE_API_KEY
     if (claudeApiKey) {
       baseConfig.models.claude = {
@@ -135,14 +135,14 @@ const loadConfigFromEnv = (): Effect.Effect<LLMConfig, LLMError, never> =>
 
 /**
  * Create Configuration Service
- * 
+ *
  * Creates the LLM configuration service with environment-based loading and validation.
  */
 export const makeLLMConfigService = () =>
   Effect.gen(function* (_) {
     // Load initial configuration
     const config = yield* _(loadConfigFromEnv())
-    
+
     return {
       getConfig: () => Effect.succeed(config),
 
@@ -175,17 +175,14 @@ export const makeLLMConfigService = () =>
 
 /**
  * LLM Configuration Layer
- * 
+ *
  * Effect-TS Layer for dependency injection of the configuration service.
  */
-export const LLMConfigLayer = Layer.effect(
-  LLMConfigService,
-  makeLLMConfigService()
-)
+export const LLMConfigLayer = Layer.effect(LLMConfigService, makeLLMConfigService())
 
 /**
  * Environment Variables Documentation
- * 
+ *
  * Documents all environment variables used for LLM configuration.
  */
 export const ENV_DOCS = {
@@ -209,7 +206,7 @@ export const ENV_DOCS = {
 
   // Routing Configuration
   LLM_ROUTING_STRATEGY: 'Routing strategy: cost, performance, or balanced',
-  
+
   // Cache Configuration
   LLM_CACHE_ENABLED: 'Enable response caching (default: true)',
   LLM_CACHE_TTL_SECONDS: 'Cache TTL in seconds (default: 3600)'
@@ -217,29 +214,29 @@ export const ENV_DOCS = {
 
 /**
  * Print Configuration Status
- * 
+ *
  * Utility function to print current configuration status for debugging.
  */
 export const printConfigStatus = () =>
   Effect.gen(function* (_) {
     const config = yield* _(loadConfigFromEnv())
-    
+
     yield* _(Effect.log('=== LLM Configuration Status ==='))
-    
+
     // Available models
     const availableModels: string[] = []
     if (config.models.gpt) availableModels.push('GPT')
     if (config.models.claude) availableModels.push('Claude')
     if (config.models.llama) availableModels.push('Llama (Local)')
-    
+
     yield* _(Effect.log(`Available models: ${availableModels.join(', ')}`))
     yield* _(Effect.log(`Routing strategy: ${config.routing.strategy}`))
     yield* _(Effect.log(`Cache enabled: ${config.cache.enabled}`))
-    
+
     if (config.models.llama) {
       yield* _(Effect.log(`Local model endpoint: ${config.models.llama.endpoint}`))
       yield* _(Effect.log(`Local model path: ${config.models.llama.modelPath}`))
     }
-    
+
     yield* _(Effect.log('================================'))
   })

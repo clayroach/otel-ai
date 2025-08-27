@@ -1,6 +1,6 @@
 /**
  * Cache Service Implementation
- * 
+ *
  * Simple in-memory cache for LLM responses with TTL support.
  */
 
@@ -25,18 +25,18 @@ export const makeCacheService = () =>
       get: (key: string) =>
         Effect.sync(() => {
           const entry = cache.get(key)
-          
+
           if (!entry) {
             return undefined
           }
-          
+
           // Check if entry has expired
           const now = Date.now()
-          if (now > entry.timestamp + (entry.ttl * 1000)) {
+          if (now > entry.timestamp + entry.ttl * 1000) {
             cache.delete(key)
             return undefined
           }
-          
+
           return entry.value
         }),
 
@@ -59,15 +59,11 @@ export const makeCacheService = () =>
           cache.clear()
         }),
 
-      size: () =>
-        Effect.succeed(cache.size)
+      size: () => Effect.succeed(cache.size)
     }
   })
 
 /**
  * Cache Service Layer
  */
-export const CacheLayer = Layer.effect(
-  CacheService,
-  makeCacheService()
-)
+export const CacheLayer = Layer.effect(CacheService, makeCacheService())

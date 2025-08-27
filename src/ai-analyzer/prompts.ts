@@ -1,6 +1,6 @@
 /**
  * LLM Prompt Templates for Architecture Analysis
- * 
+ *
  * Specialized prompts for analyzing application architecture from trace data
  * and generating comprehensive documentation and insights.
  */
@@ -11,7 +11,6 @@ import type { ApplicationArchitecture, ServiceTopology } from './types.js'
  * Core prompt templates for different analysis types
  */
 export const PromptTemplates = {
-  
   /**
    * Generate application architecture overview
    */
@@ -25,26 +24,40 @@ You are an expert software architect analyzing a distributed application based o
 **Analysis Date:** ${architecture.generatedAt.toISOString()}
 
 ## Services Discovered
-${architecture.services.map(service => `
+${architecture.services
+  .map(
+    (service) => `
 **${service.service}** (${service.type})
 - Operations: ${service.operations.join(', ')}
 - Dependencies: ${service.dependencies.length} services
 - Error Rate: ${((service.metadata.errorRate as number) * 100).toFixed(2)}%
 - Avg Latency: ${(service.metadata.avgLatencyMs as number).toFixed(0)}ms
 - Total Spans: ${service.metadata.totalSpans}
-`).join('\n')}
+`
+  )
+  .join('\n')}
 
 ## Data Flows
-${architecture.dataFlows.slice(0, 10).map(flow => `
+${architecture.dataFlows
+  .slice(0, 10)
+  .map(
+    (flow) => `
 - ${flow.from} → ${flow.to} (${flow.operation})
   Volume: ${flow.volume} calls, Latency: ${flow.latency.p50.toFixed(0)}ms avg
-`).join('\n')}
+`
+  )
+  .join('\n')}
 
 ## Critical Paths
-${architecture.criticalPaths.slice(0, 5).map(path => `
+${architecture.criticalPaths
+  .slice(0, 5)
+  .map(
+    (path) => `
 - **${path.name}**: ${path.avgLatencyMs.toFixed(0)}ms avg, ${(path.errorRate * 100).toFixed(2)}% errors
   Path: ${path.services.join(' → ')}
-`).join('\n')}
+`
+  )
+  .join('\n')}
 
 ## Task
 Based on this trace data analysis, provide a comprehensive architecture overview including:
@@ -67,21 +80,33 @@ You are a system architect analyzing service dependencies in a distributed appli
 
 ## Service Dependencies Analysis
 
-${architecture.services.map(service => `
+${architecture.services
+  .map(
+    (service) => `
 ### ${service.service} (${service.type})
 **Depends on:**
-${service.dependencies.length > 0 ? service.dependencies.map(dep => `
+${
+  service.dependencies.length > 0
+    ? service.dependencies
+        .map(
+          (dep) => `
 - ${dep.service}.${dep.operation}
   - Calls: ${dep.callCount}
   - Avg Latency: ${dep.avgLatencyMs.toFixed(0)}ms
   - Error Rate: ${(dep.errorRate * 100).toFixed(2)}%
-`).join('') : '  - No dependencies (leaf service)'}
+`
+        )
+        .join('')
+    : '  - No dependencies (leaf service)'
+}
 
 **Service Metrics:**
 - Total Operations: ${service.operations.length}
 - Error Rate: ${((service.metadata.errorRate as number) * 100).toFixed(2)}%
 - Performance: ${(service.metadata.avgLatencyMs as number).toFixed(0)}ms avg latency
-`).join('\n')}
+`
+  )
+  .join('\n')}
 
 ## Task
 Analyze these service dependencies and provide:
@@ -104,35 +129,46 @@ You are a performance engineer analyzing application performance from distribute
 ## Performance Data Summary
 
 ### Critical Paths (Highest Latency)
-${architecture.criticalPaths.slice(0, 5).map(path => `
+${architecture.criticalPaths
+  .slice(0, 5)
+  .map(
+    (path) => `
 **${path.name}**
 - Average Latency: ${path.avgLatencyMs.toFixed(0)}ms
 - Error Rate: ${(path.errorRate * 100).toFixed(2)}%
 - Services: ${path.services.join(' → ')}
-`).join('\n')}
+`
+  )
+  .join('\n')}
 
 ### Service Performance Profiles
 ${[...architecture.services]
   .sort((a, b) => (b.metadata.avgLatencyMs as number) - (a.metadata.avgLatencyMs as number))
   .slice(0, 10)
-  .map(service => `
+  .map(
+    (service) => `
 **${service.service}** (${service.type})
-- Avg Latency: ${(service.metadata.avgLatencyMs as number || 0).toFixed(0)}ms
-- P95 Latency: ${(service.metadata.p95LatencyMs as number || 0).toFixed(0)}ms  
-- Error Rate: ${((service.metadata.errorRate as number || 0) * 100).toFixed(2)}%
+- Avg Latency: ${((service.metadata.avgLatencyMs as number) || 0).toFixed(0)}ms
+- P95 Latency: ${((service.metadata.p95LatencyMs as number) || 0).toFixed(0)}ms  
+- Error Rate: ${(((service.metadata.errorRate as number) || 0) * 100).toFixed(2)}%
 - Volume: ${service.metadata.totalSpans || 0} spans analyzed
-`).join('\n')}
+`
+  )
+  .join('\n')}
 
 ### High-Volume Data Flows
 ${[...architecture.dataFlows]
   .sort((a, b) => b.volume - a.volume)
   .slice(0, 10)
-  .map(flow => `
+  .map(
+    (flow) => `
 **${flow.from} → ${flow.to}**
 - Volume: ${flow.volume} calls
 - Latency: P50=${flow.latency.p50.toFixed(0)}ms, P95=${flow.latency.p95.toFixed(0)}ms, P99=${flow.latency.p99.toFixed(0)}ms
 - Operation: ${flow.operation}
-`).join('\n')}
+`
+  )
+  .join('\n')}
 
 ## Task
 Provide a performance analysis including:
@@ -149,20 +185,28 @@ Focus on actionable performance optimization recommendations.
   /**
    * Generate Mermaid diagrams
    */
-  mermaidDiagram: (architecture: ApplicationArchitecture, diagramType: 'architecture' | 'sequence' | 'dataflow') => {
+  mermaidDiagram: (
+    architecture: ApplicationArchitecture,
+    diagramType: 'architecture' | 'sequence' | 'dataflow'
+  ) => {
     const basePrompt = `
 Generate a Mermaid diagram for this application architecture:
 
 ## Services:
-${architecture.services.map(s => `- ${s.service} (${s.type})`).join('\n')}
+${architecture.services.map((s) => `- ${s.service} (${s.type})`).join('\n')}
 
 ## Key Data Flows:
-${architecture.dataFlows.slice(0, 15).map(f => `- ${f.from} → ${f.to} (${f.volume} calls)`).join('\n')}
+${architecture.dataFlows
+  .slice(0, 15)
+  .map((f) => `- ${f.from} → ${f.to} (${f.volume} calls)`)
+  .join('\n')}
 `
 
     switch (diagramType) {
       case 'architecture':
-        return basePrompt + `
+        return (
+          basePrompt +
+          `
 ## Task
 Create a Mermaid **graph** diagram showing the application architecture:
 - Use appropriate node shapes for different service types
@@ -172,9 +216,12 @@ Create a Mermaid **graph** diagram showing the application architecture:
 
 Return ONLY the Mermaid code, starting with \`graph TD\` or \`graph LR\`.
 `
+        )
 
       case 'sequence':
-        return basePrompt + `
+        return (
+          basePrompt +
+          `
 ## Critical Path Example:
 ${architecture.criticalPaths[0] ? `${architecture.criticalPaths[0].services.join(' → ')}` : 'No critical path data'}
 
@@ -186,9 +233,12 @@ Create a Mermaid **sequenceDiagram** showing a typical request flow:
 
 Return ONLY the Mermaid code, starting with \`sequenceDiagram\`.
 `
+        )
 
       case 'dataflow':
-        return basePrompt + `
+        return (
+          basePrompt +
+          `
 ## Task
 Create a Mermaid **flowchart** focused on data flow:
 - Show how data moves through the system
@@ -198,6 +248,7 @@ Create a Mermaid **flowchart** focused on data flow:
 
 Return ONLY the Mermaid code, starting with \`flowchart TD\` or \`flowchart LR\`.
 `
+        )
     }
   },
 
@@ -259,21 +310,26 @@ Format as clean Markdown with appropriate headers, lists, and emphasis. Include 
  * Prompt utilities for dynamic content
  */
 export const PromptUtils = {
-  
   /**
    * Add service filtering context to prompts
    */
   withServiceFilter: (basePrompt: string, services: readonly string[]) => {
-    return basePrompt + `\n\n**Note:** This analysis is filtered to focus on these services: ${services.join(', ')}`
+    return (
+      basePrompt +
+      `\n\n**Note:** This analysis is filtered to focus on these services: ${services.join(', ')}`
+    )
   },
 
   /**
-   * Add time range context to prompts  
+   * Add time range context to prompts
    */
   withTimeContext: (basePrompt: string, startTime: Date, endTime: Date) => {
     const duration = endTime.getTime() - startTime.getTime()
     const hours = Math.round(duration / (1000 * 60 * 60))
-    return basePrompt + `\n\n**Analysis Time Window:** ${hours} hours (${startTime.toISOString()} to ${endTime.toISOString()})`
+    return (
+      basePrompt +
+      `\n\n**Analysis Time Window:** ${hours} hours (${startTime.toISOString()} to ${endTime.toISOString()})`
+    )
   },
 
   /**
@@ -284,9 +340,9 @@ export const PromptUtils = {
 **${service.service}** (${service.type})
 - Operations: ${service.operations.join(', ')}
 - Dependencies: ${service.dependencies.length}
-- Error Rate: ${((service.metadata.errorRate as number || 0) * 100).toFixed(2)}%
-- Avg Latency: ${(service.metadata.avgLatencyMs as number || 0).toFixed(0)}ms
-- P95 Latency: ${(service.metadata.p95LatencyMs as number || 0).toFixed(0)}ms
+- Error Rate: ${(((service.metadata.errorRate as number) || 0) * 100).toFixed(2)}%
+- Avg Latency: ${((service.metadata.avgLatencyMs as number) || 0).toFixed(0)}ms
+- P95 Latency: ${((service.metadata.p95LatencyMs as number) || 0).toFixed(0)}ms
 - Volume: ${service.metadata.totalSpans || 0} spans
 `
   }

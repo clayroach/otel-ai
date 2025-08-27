@@ -1,6 +1,6 @@
 /**
  * Complete Service Layers
- * 
+ *
  * Provides all service layer implementations for the LLM Manager.
  */
 
@@ -15,7 +15,7 @@ import { LLMManagerLayer } from './manager.js'
 
 /**
  * Complete LLM Manager Context
- * 
+ *
  * Provides all services needed for the LLM Manager to function.
  */
 export const LLMManagerContext = Layer.mergeAll(
@@ -30,7 +30,7 @@ export const LLMManagerContext = Layer.mergeAll(
 
 /**
  * Essential Services Only
- * 
+ *
  * Minimal service layer for basic functionality.
  */
 export const LLMManagerEssentials = Layer.mergeAll(

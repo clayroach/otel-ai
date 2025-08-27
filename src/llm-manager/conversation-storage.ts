@@ -1,6 +1,6 @@
 /**
  * Conversation Storage Service Implementation
- * 
+ *
  * Simple in-memory storage for conversation contexts.
  */
 
@@ -25,10 +25,12 @@ export const makeConversationStorageService = () =>
         Effect.gen(function* (_) {
           const context = conversations.get(conversationId)
           if (!context) {
-            return yield* _(Effect.fail({
-              _tag: 'ConfigurationError' as const,
-              message: `Conversation ${conversationId} not found`
-            }))
+            return yield* _(
+              Effect.fail({
+                _tag: 'ConfigurationError' as const,
+                message: `Conversation ${conversationId} not found`
+              })
+            )
           }
           return context
         }),

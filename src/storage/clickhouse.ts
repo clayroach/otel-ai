@@ -55,7 +55,10 @@ export const makeClickHouseStorage = (
       Effect.tryPromise({
         try: () => client.query({ query: 'SELECT 1' }),
         catch: (error) =>
-          StorageErrorConstructors.ConnectionError(`Failed to connect to ClickHouse: ${error}`, error)
+          StorageErrorConstructors.ConnectionError(
+            `Failed to connect to ClickHouse: ${error}`,
+            error
+          )
       })
     )
 
@@ -138,7 +141,11 @@ export const makeClickHouseStorage = (
                 format: 'JSONEachRow'
               }),
             catch: (error) =>
-              StorageErrorConstructors.QueryError(`Failed to insert traces: ${error}`, insertQuery, error)
+              StorageErrorConstructors.QueryError(
+                `Failed to insert traces: ${error}`,
+                insertQuery,
+                error
+              )
           }).pipe(
             Effect.retry(
               Schedule.exponential('100 millis').pipe(Schedule.compose(Schedule.recurs(3)))
@@ -300,7 +307,8 @@ export const makeClickHouseStorage = (
                 query,
                 format: 'JSONEachRow'
               }),
-            catch: (error) => StorageErrorConstructors.QueryError(`Trace query failed: ${error}`, query, error)
+            catch: (error) =>
+              StorageErrorConstructors.QueryError(`Trace query failed: ${error}`, query, error)
           })
         )
 
@@ -316,7 +324,8 @@ export const makeClickHouseStorage = (
         const result = yield* _(
           Effect.tryPromise({
             try: () => client.query({ query, format: 'JSONEachRow' }),
-            catch: (error) => StorageErrorConstructors.QueryError(`Metric query failed: ${error}`, query, error)
+            catch: (error) =>
+              StorageErrorConstructors.QueryError(`Metric query failed: ${error}`, query, error)
           })
         )
 
@@ -332,7 +341,8 @@ export const makeClickHouseStorage = (
         const result = yield* _(
           Effect.tryPromise({
             try: () => client.query({ query, format: 'JSONEachRow' }),
-            catch: (error) => StorageErrorConstructors.QueryError(`Log query failed: ${error}`, query, error)
+            catch: (error) =>
+              StorageErrorConstructors.QueryError(`Log query failed: ${error}`, query, error)
           })
         )
 
@@ -348,7 +358,8 @@ export const makeClickHouseStorage = (
         const result = yield* _(
           Effect.tryPromise({
             try: () => client.query({ query, format: 'JSONEachRow' }),
-            catch: (error) => StorageErrorConstructors.QueryError(`AI query failed: ${error}`, query, error)
+            catch: (error) =>
+              StorageErrorConstructors.QueryError(`AI query failed: ${error}`, query, error)
           })
         )
 
@@ -361,7 +372,8 @@ export const makeClickHouseStorage = (
         yield* _(
           Effect.tryPromise({
             try: () => client.query({ query: 'SELECT 1 as health' }),
-            catch: (error) => StorageErrorConstructors.ConnectionError(`Health check failed: ${error}`, error)
+            catch: (error) =>
+              StorageErrorConstructors.ConnectionError(`Health check failed: ${error}`, error)
           })
         )
         return true

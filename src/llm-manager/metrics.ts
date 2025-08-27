@@ -1,6 +1,6 @@
 /**
  * Metrics Service Implementation
- * 
+ *
  * Simple metrics collection for LLM operations.
  */
 
@@ -77,14 +77,18 @@ export const makeMetricsService = () =>
         Effect.succeed({
           totalRequests: requests.length,
           totalErrors: errors.length,
-          averageLatency: responses.length > 0 
-            ? responses.reduce((sum, r) => sum + r.latency, 0) / responses.length 
-            : 0,
+          averageLatency:
+            responses.length > 0
+              ? responses.reduce((sum, r) => sum + r.latency, 0) / responses.length
+              : 0,
           totalCost: responses.reduce((sum, r) => sum + r.cost, 0),
-          requestsByModel: requests.reduce((acc, r) => {
-            acc[r.model] = (acc[r.model] || 0) + 1
-            return acc
-          }, {} as Record<ModelType, number>)
+          requestsByModel: requests.reduce(
+            (acc, r) => {
+              acc[r.model] = (acc[r.model] || 0) + 1
+              return acc
+            },
+            {} as Record<ModelType, number>
+          )
         })
     }
   })
@@ -92,7 +96,4 @@ export const makeMetricsService = () =>
 /**
  * Metrics Service Layer
  */
-export const MetricsLayer = Layer.effect(
-  LLMMetricsService,
-  makeMetricsService()
-)
+export const MetricsLayer = Layer.effect(LLMMetricsService, makeMetricsService())

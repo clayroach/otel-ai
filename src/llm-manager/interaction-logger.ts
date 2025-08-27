@@ -1,6 +1,6 @@
 /**
  * LLM Interaction Logger
- * 
+ *
  * Comprehensive logging system for LLM interactions including:
  * - Request/response tracking with timestamps
  * - Model-specific conversation logs
@@ -24,26 +24,30 @@ export const InteractionLogEntrySchema = Schema.Struct({
     taskType: Schema.String,
     preferences: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
   }),
-  response: Schema.optional(Schema.Struct({
-    content: Schema.String,
-    model: Schema.String,
-    usage: Schema.Struct({
-      promptTokens: Schema.Number,
-      completionTokens: Schema.Number,
-      totalTokens: Schema.Number,
-      cost: Schema.optional(Schema.Number)
-    }),
-    metadata: Schema.Record(Schema.String, Schema.Unknown)
-  })),
+  response: Schema.optional(
+    Schema.Struct({
+      content: Schema.String,
+      model: Schema.String,
+      usage: Schema.Struct({
+        promptTokens: Schema.Number,
+        completionTokens: Schema.Number,
+        totalTokens: Schema.Number,
+        cost: Schema.optional(Schema.Number)
+      }),
+      metadata: Schema.Record(Schema.String, Schema.Unknown)
+    })
+  ),
   error: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
   latencyMs: Schema.optional(Schema.Number),
   status: Schema.Literal('pending', 'success', 'error'),
-  debugInfo: Schema.optional(Schema.Struct({
-    routingReason: Schema.String,
-    cacheHit: Schema.Boolean,
-    retryCount: Schema.Number,
-    fallbackUsed: Schema.optional(Schema.String)
-  }))
+  debugInfo: Schema.optional(
+    Schema.Struct({
+      routingReason: Schema.String,
+      cacheHit: Schema.Boolean,
+      retryCount: Schema.Number,
+      fallbackUsed: Schema.optional(Schema.String)
+    })
+  )
 })
 
 export type InteractionLogEntry = Schema.Schema.Type<typeof InteractionLogEntrySchema>
@@ -98,18 +102,24 @@ export interface InteractionLoggerInterface {
     model?: ModelType
   ) => Effect.Effect<InteractionLogEntry[], never, never>
 
-  readonly getInteractionById: (id: string) => Effect.Effect<InteractionLogEntry | null, never, never>
+  readonly getInteractionById: (
+    id: string
+  ) => Effect.Effect<InteractionLogEntry | null, never, never>
 
   readonly getModelComparison: (
     taskType?: string,
     timeWindowMs?: number
-  ) => Effect.Effect<{
-    model: ModelType
-    interactions: InteractionLogEntry[]
-    avgLatency: number
-    successRate: number
-    avgCost: number
-  }[], never, never>
+  ) => Effect.Effect<
+    {
+      model: ModelType
+      interactions: InteractionLogEntry[]
+      avgLatency: number
+      successRate: number
+      avgCost: number
+    }[],
+    never,
+    never
+  >
 
   readonly clearLogs: () => Effect.Effect<void, never, never>
 }
@@ -117,7 +127,9 @@ export interface InteractionLoggerInterface {
 /**
  * Interaction Logger Service Tag
  */
-export const InteractionLoggerService = Context.GenericTag<InteractionLoggerInterface>('InteractionLoggerService')
+export const InteractionLoggerService = Context.GenericTag<InteractionLoggerInterface>(
+  'InteractionLoggerService'
+)
 
 /**
  * Generate Unique Interaction ID
@@ -135,21 +147,25 @@ export const makeInteractionLogger = () =>
   Effect.gen(function* (_) {
     // In-memory storage for interactions
     const interactionsRef = yield* _(Ref.make(new Map<string, InteractionLogEntry>()))
-    
+
     // Live feed subscribers
-    const subscribersRef = yield* _(Ref.make(new Set<{
-      emit: (event: LiveInteractionEvent) => void
-      fail: (error: any) => void
-      end: () => void
-    }>()))
+    const subscribersRef = yield* _(
+      Ref.make(
+        new Set<{
+          emit: (event: LiveInteractionEvent) => void
+          fail: (error: any) => void
+          end: () => void
+        }>()
+      )
+    )
 
     // Helper to broadcast events to live feed subscribers
     const broadcastEvent = (event: LiveInteractionEvent) =>
       Effect.gen(function* (_) {
         const subscribers = yield* _(Ref.get(subscribersRef))
         const failedSubscribers: any[] = []
-        
-        subscribers.forEach(subscriber => {
+
+        subscribers.forEach((subscriber) => {
           try {
             subscriber.emit(event)
           } catch (error) {
@@ -157,13 +173,15 @@ export const makeInteractionLogger = () =>
             failedSubscribers.push(subscriber)
           }
         })
-        
+
         // Remove failed subscribers
         if (failedSubscribers.length > 0) {
-          yield* _(Ref.update(subscribersRef, subs => {
-            failedSubscribers.forEach(sub => subs.delete(sub))
-            return subs
-          }))
+          yield* _(
+            Ref.update(subscribersRef, (subs) => {
+              failedSubscribers.forEach((sub) => subs.delete(sub))
+              return subs
+            })
+          )
         }
       })
 
@@ -172,7 +190,7 @@ export const makeInteractionLogger = () =>
         Effect.gen(function* (_) {
           const id = generateInteractionId()
           const timestamp = Date.now()
-          
+
           const entry: InteractionLogEntry = {
             id,
             timestamp,
@@ -184,116 +202,150 @@ export const makeInteractionLogger = () =>
             },
             status: 'pending',
             debugInfo: {
-              routingReason: (debugInfo && typeof debugInfo === 'object' && 'routingReason' in debugInfo) ? debugInfo.routingReason as string : 'Unknown',
-              cacheHit: (debugInfo && typeof debugInfo === 'object' && 'cacheHit' in debugInfo) ? debugInfo.cacheHit as boolean : false,
-              retryCount: (debugInfo && typeof debugInfo === 'object' && 'retryCount' in debugInfo) ? debugInfo.retryCount as number : 0,
-              fallbackUsed: (debugInfo && typeof debugInfo === 'object' && 'fallbackUsed' in debugInfo) ? debugInfo.fallbackUsed as string : undefined
+              routingReason:
+                debugInfo && typeof debugInfo === 'object' && 'routingReason' in debugInfo
+                  ? (debugInfo.routingReason as string)
+                  : 'Unknown',
+              cacheHit:
+                debugInfo && typeof debugInfo === 'object' && 'cacheHit' in debugInfo
+                  ? (debugInfo.cacheHit as boolean)
+                  : false,
+              retryCount:
+                debugInfo && typeof debugInfo === 'object' && 'retryCount' in debugInfo
+                  ? (debugInfo.retryCount as number)
+                  : 0,
+              fallbackUsed:
+                debugInfo && typeof debugInfo === 'object' && 'fallbackUsed' in debugInfo
+                  ? (debugInfo.fallbackUsed as string)
+                  : undefined
             }
           }
 
           // Store the entry
-          yield* _(Ref.update(interactionsRef, interactions => {
-            interactions.set(id, entry)
-            return interactions
-          }))
+          yield* _(
+            Ref.update(interactionsRef, (interactions) => {
+              interactions.set(id, entry)
+              return interactions
+            })
+          )
 
           // Broadcast live event
-          yield* _(broadcastEvent({
-            type: 'request_start',
-            entry
-          }))
+          yield* _(
+            broadcastEvent({
+              type: 'request_start',
+              entry
+            })
+          )
 
           // Log to console for immediate visibility
-          yield* _(Effect.log(
-            `🔹 LLM Request [${id}] → ${model} (${request.taskType})\n` +
-            `   Prompt: ${request.prompt.substring(0, 100)}${request.prompt.length > 100 ? '...' : ''}\n` +
-            `   Routing: ${(debugInfo && typeof debugInfo === 'object' && 'routingReason' in debugInfo) ? debugInfo.routingReason : 'Unknown'}`
-          ))
+          yield* _(
+            Effect.log(
+              `🔹 LLM Request [${id}] → ${model} (${request.taskType})\n` +
+                `   Prompt: ${request.prompt.substring(0, 100)}${request.prompt.length > 100 ? '...' : ''}\n` +
+                `   Routing: ${debugInfo && typeof debugInfo === 'object' && 'routingReason' in debugInfo ? debugInfo.routingReason : 'Unknown'}`
+            )
+          )
 
           return id
         }),
 
       logResponse: (interactionId: string, response: LLMResponse, latencyMs: number) =>
         Effect.gen(function* (_) {
-          yield* _(Ref.update(interactionsRef, interactions => {
-            const existing = interactions.get(interactionId)
-            if (existing) {
-              const updated: InteractionLogEntry = {
-                ...existing,
-                response: {
-                  content: response.content,
-                  model: response.model,
-                  usage: response.usage,
-                  metadata: response.metadata
-                },
-                latencyMs,
-                status: 'success'
+          yield* _(
+            Ref.update(interactionsRef, (interactions) => {
+              const existing = interactions.get(interactionId)
+              if (existing) {
+                const updated: InteractionLogEntry = {
+                  ...existing,
+                  response: {
+                    content: response.content,
+                    model: response.model,
+                    usage: response.usage,
+                    metadata: response.metadata
+                  },
+                  latencyMs,
+                  status: 'success'
+                }
+                interactions.set(interactionId, updated)
+
+                // Broadcast live event (don't await to avoid blocking)
+                Effect.runFork(
+                  broadcastEvent({
+                    type: 'request_complete',
+                    entry: updated
+                  })
+                )
               }
-              interactions.set(interactionId, updated)
-              
-              // Broadcast live event (don't await to avoid blocking)
-              Effect.runFork(broadcastEvent({
-                type: 'request_complete',
-                entry: updated
-              }))
-            }
-            return interactions
-          }))
+              return interactions
+            })
+          )
 
           // Log to console
-          yield* _(Effect.log(
-            `✅ LLM Response [${interactionId}] ← ${response.model} (${latencyMs}ms)\n` +
-            `   Content: ${response.content.substring(0, 200)}${response.content.length > 200 ? '...' : ''}\n` +
-            `   Usage: ${response.usage.totalTokens} tokens, $${response.usage.cost?.toFixed(4) || '0.0000'}`
-          ))
+          yield* _(
+            Effect.log(
+              `✅ LLM Response [${interactionId}] ← ${response.model} (${latencyMs}ms)\n` +
+                `   Content: ${response.content.substring(0, 200)}${response.content.length > 200 ? '...' : ''}\n` +
+                `   Usage: ${response.usage.totalTokens} tokens, $${response.usage.cost?.toFixed(4) || '0.0000'}`
+            )
+          )
         }),
 
       logError: (interactionId: string, error: LLMError, latencyMs: number) =>
         Effect.gen(function* (_) {
-          yield* _(Ref.update(interactionsRef, interactions => {
-            const existing = interactions.get(interactionId)
-            if (existing) {
-              const updated: InteractionLogEntry = {
-                ...existing,
-                error: error as { readonly [x: string]: unknown },
-                latencyMs,
-                status: 'error'
+          yield* _(
+            Ref.update(interactionsRef, (interactions) => {
+              const existing = interactions.get(interactionId)
+              if (existing) {
+                const updated: InteractionLogEntry = {
+                  ...existing,
+                  error: error as { readonly [x: string]: unknown },
+                  latencyMs,
+                  status: 'error'
+                }
+                interactions.set(interactionId, updated)
+
+                // Broadcast live event
+                Effect.runFork(
+                  broadcastEvent({
+                    type: 'request_error',
+                    entry: updated
+                  })
+                )
               }
-              interactions.set(interactionId, updated)
-              
-              // Broadcast live event
-              Effect.runFork(broadcastEvent({
-                type: 'request_error',
-                entry: updated
-              }))
-            }
-            return interactions
-          }))
+              return interactions
+            })
+          )
 
           // Log to console
-          yield* _(Effect.log(
-            `❌ LLM Error [${interactionId}] (${latencyMs}ms)\n` +
-            `   Error: ${error._tag} - ${('message' in error) ? error.message as string : 'Unknown error'}`
-          ))
+          yield* _(
+            Effect.log(
+              `❌ LLM Error [${interactionId}] (${latencyMs}ms)\n` +
+                `   Error: ${error._tag} - ${'message' in error ? (error.message as string) : 'Unknown error'}`
+            )
+          )
         }),
 
       logStreamChunk: (interactionId: string, chunk: string) =>
         Effect.gen(function* (_) {
           const interactions = yield* _(Ref.get(interactionsRef))
           const entry = interactions.get(interactionId)
-          
+
           if (entry) {
             // Broadcast stream chunk
-            yield* _(broadcastEvent({
-              type: 'stream_chunk',
-              entry,
-              streamChunk: chunk
-            }))
+            yield* _(
+              broadcastEvent({
+                type: 'stream_chunk',
+                entry,
+                streamChunk: chunk
+              })
+            )
 
             // Log chunk (abbreviated)
-            yield* _(Effect.log(
-              `🔄 Stream Chunk [${interactionId}]: ${chunk.substring(0, 50)}${chunk.length > 50 ? '...' : ''}`
-            ))
+            yield* _(
+              Effect.log(
+                `🔄 Stream Chunk [${interactionId}]: ${chunk.substring(0, 50)}${chunk.length > 50 ? '...' : ''}`
+              )
+            )
           }
         }),
 
@@ -307,7 +359,7 @@ export const makeInteractionLogger = () =>
 
           // Add subscriber
           Effect.runSync(
-            Ref.update(subscribersRef, subs => {
+            Ref.update(subscribersRef, (subs) => {
               subs.add(subscriber)
               return subs
             })
@@ -316,7 +368,7 @@ export const makeInteractionLogger = () =>
           // Return cleanup function
           return Effect.sync(() => {
             Effect.runSync(
-              Ref.update(subscribersRef, subs => {
+              Ref.update(subscribersRef, (subs) => {
                 subs.delete(subscriber)
                 return subs
               })
@@ -327,16 +379,14 @@ export const makeInteractionLogger = () =>
       getRecentInteractions: (limit = 50, model?: ModelType) =>
         Effect.gen(function* (_) {
           const interactions = yield* _(Ref.get(interactionsRef))
-          
+
           let entries = Array.from(interactions.values())
-          
+
           if (model) {
-            entries = entries.filter(entry => entry.model === model)
+            entries = entries.filter((entry) => entry.model === model)
           }
-          
-          return entries
-            .sort((a, b) => b.timestamp - a.timestamp)
-            .slice(0, limit)
+
+          return entries.sort((a, b) => b.timestamp - a.timestamp).slice(0, limit)
         }),
 
       getInteractionById: (id: string) =>
@@ -349,45 +399,50 @@ export const makeInteractionLogger = () =>
         Effect.gen(function* (_) {
           const interactions = yield* _(Ref.get(interactionsRef))
           const cutoff = Date.now() - timeWindowMs
-          
-          let entries = Array.from(interactions.values())
-            .filter(entry => entry.timestamp > cutoff)
-          
+
+          let entries = Array.from(interactions.values()).filter(
+            (entry) => entry.timestamp > cutoff
+          )
+
           if (taskType) {
-            entries = entries.filter(entry => entry.request.taskType === taskType)
+            entries = entries.filter((entry) => entry.request.taskType === taskType)
           }
-          
+
           // Group by model
           const byModel = new Map<ModelType, InteractionLogEntry[]>()
-          entries.forEach(entry => {
+          entries.forEach((entry) => {
             const model = entry.model as ModelType
             if (!byModel.has(model)) {
               byModel.set(model, [])
             }
             byModel.get(model)!.push(entry)
           })
-          
+
           // Calculate stats for each model
-          return Array.from(byModel.entries()).map(([model, interactions]) => {
-            const successful = interactions.filter(i => i.status === 'success')
-            const avgLatency = successful.length > 0 
-              ? successful.reduce((sum, i) => sum + (i.latencyMs || 0), 0) / successful.length 
-              : 0
-            const successRate = interactions.length > 0 
-              ? successful.length / interactions.length 
-              : 0
-            const avgCost = successful.length > 0 
-              ? successful.reduce((sum, i) => sum + (i.response?.usage.cost || 0), 0) / successful.length 
-              : 0
-            
-            return {
-              model,
-              interactions,
-              avgLatency: Math.round(avgLatency),
-              successRate: Math.round(successRate * 100) / 100,
-              avgCost: Math.round(avgCost * 10000) / 10000
-            }
-          }).sort((a, b) => b.interactions.length - a.interactions.length)
+          return Array.from(byModel.entries())
+            .map(([model, interactions]) => {
+              const successful = interactions.filter((i) => i.status === 'success')
+              const avgLatency =
+                successful.length > 0
+                  ? successful.reduce((sum, i) => sum + (i.latencyMs || 0), 0) / successful.length
+                  : 0
+              const successRate =
+                interactions.length > 0 ? successful.length / interactions.length : 0
+              const avgCost =
+                successful.length > 0
+                  ? successful.reduce((sum, i) => sum + (i.response?.usage.cost || 0), 0) /
+                    successful.length
+                  : 0
+
+              return {
+                model,
+                interactions,
+                avgLatency: Math.round(avgLatency),
+                successRate: Math.round(successRate * 100) / 100,
+                avgCost: Math.round(avgCost * 10000) / 10000
+              }
+            })
+            .sort((a, b) => b.interactions.length - a.interactions.length)
         }),
 
       clearLogs: () =>
@@ -411,10 +466,7 @@ export const InteractionLoggerLayer = Layer.effect(
  */
 function isLLMError(error: unknown): error is LLMError {
   return (
-    error !== null &&
-    typeof error === 'object' &&
-    '_tag' in error &&
-    typeof error._tag === 'string'
+    error !== null && typeof error === 'object' && '_tag' in error && typeof error._tag === 'string'
   )
 }
 
@@ -446,20 +498,19 @@ function getLLMErrorMessage(error: LLMError): string {
  * Console Helper for Pretty-Printing Interactions
  */
 export const formatInteractionForConsole = (entry: InteractionLogEntry): string => {
-  const status = entry.status === 'success' ? '✅' : 
-                entry.status === 'error' ? '❌' : '⏳'
-  
+  const status = entry.status === 'success' ? '✅' : entry.status === 'error' ? '❌' : '⏳'
+
   const timestamp = new Date(entry.timestamp).toLocaleTimeString()
-  
+
   let output = `${status} [${entry.id}] ${entry.model.toUpperCase()} @ ${timestamp}\n`
   output += `   Task: ${entry.request.taskType}\n`
   output += `   Prompt: "${entry.request.prompt.substring(0, 150)}${entry.request.prompt.length > 150 ? '...' : ''}"\n`
-  
+
   if (entry.response) {
     output += `   Response: "${entry.response.content.substring(0, 150)}${entry.response.content.length > 150 ? '...' : ''}"\n`
     output += `   Usage: ${entry.response.usage.totalTokens} tokens ($${entry.response.usage.cost?.toFixed(4) || '0.0000'})\n`
   }
-  
+
   if (entry.error) {
     if (isLLMError(entry.error)) {
       output += `   Error: ${entry.error._tag} - ${getLLMErrorMessage(entry.error)}\n`
@@ -467,14 +518,14 @@ export const formatInteractionForConsole = (entry: InteractionLogEntry): string 
       output += `   Error: ${String(entry.error)}\n`
     }
   }
-  
+
   if (entry.latencyMs) {
     output += `   Latency: ${entry.latencyMs}ms\n`
   }
-  
+
   if (entry.debugInfo) {
     output += `   Debug: ${entry.debugInfo.routingReason}, cache=${entry.debugInfo.cacheHit}, retries=${entry.debugInfo.retryCount}\n`
   }
-  
+
   return output
 }

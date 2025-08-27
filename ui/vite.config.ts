@@ -1,5 +1,5 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -15,19 +15,19 @@ export default defineConfig({
         configure: (proxy, _options) => {
           proxy.on('proxyReq', (proxyReq, req, _res) => {
             // Add ClickHouse authentication
-            const auth = Buffer.from('otel:otel123').toString('base64');
-            proxyReq.setHeader('Authorization', `Basic ${auth}`);
-            const targetHost = process.env.CLICKHOUSE_HOST || 'localhost';
-            const targetPort = process.env.CLICKHOUSE_PORT || '8123';
-            console.log(`Proxying: ${req.method} ${req.url} -> http://${targetHost}:${targetPort}`);
-          });
-        },
-      },
-    },
+            const auth = Buffer.from('otel:otel123').toString('base64')
+            proxyReq.setHeader('Authorization', `Basic ${auth}`)
+            const targetHost = process.env.CLICKHOUSE_HOST || 'localhost'
+            const targetPort = process.env.CLICKHOUSE_PORT || '8123'
+            console.log(`Proxying: ${req.method} ${req.url} -> http://${targetHost}:${targetPort}`)
+          })
+        }
+      }
+    }
   },
   build: {
     outDir: 'dist/web',
-    emptyOutDir: true,
+    emptyOutDir: true
   },
-  base: './',
-});
+  base: './'
+})

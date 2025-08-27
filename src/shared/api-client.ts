@@ -1,6 +1,6 @@
 /**
  * Production-Ready API Client with Effect-TS Error Channels
- * 
+ *
  * This client provides type-safe, effectful service-to-service communication
  * with proper error handling and schema validation.
  */
@@ -10,9 +10,18 @@ import { Schema } from '@effect/schema'
 
 // Error types for API operations - using simple tagged union pattern
 export type APIClientError =
-  | { readonly _tag: 'APIError'; readonly status: number; readonly message: string; readonly details?: unknown }
+  | {
+      readonly _tag: 'APIError'
+      readonly status: number
+      readonly message: string
+      readonly details?: unknown
+    }
   | { readonly _tag: 'NetworkError'; readonly message: string; readonly cause?: unknown }
-  | { readonly _tag: 'ValidationError'; readonly message: string; readonly errors: readonly string[] }
+  | {
+      readonly _tag: 'ValidationError'
+      readonly message: string
+      readonly errors: readonly string[]
+    }
 
 // Base API client interface
 export interface APIClient {
@@ -20,9 +29,9 @@ export interface APIClient {
     url: string,
     schema: Schema.Schema<A>
   ) => Effect.Effect<A, APIClientError, never>
-  
+
   readonly post: <A, B>(
-    url: string, 
+    url: string,
     data: B,
     responseSchema: Schema.Schema<A>
   ) => Effect.Effect<A, APIClientError, never>
@@ -34,7 +43,7 @@ export const APIClientLive: APIClient = {
     return Effect.tryPromise({
       try: async () => {
         const response = await fetch(url)
-        
+
         if (!response.ok) {
           throw {
             _tag: 'APIError' as const,
@@ -43,9 +52,9 @@ export const APIClientLive: APIClient = {
             details: { url }
           }
         }
-        
+
         const json = await response.json()
-        
+
         // Validate with schema
         const result = Schema.decodeUnknownEither(schema)(json)
         if (result._tag === 'Left') {
@@ -55,7 +64,7 @@ export const APIClientLive: APIClient = {
             errors: [result.left.message]
           }
         }
-        
+
         return result.right
       },
       catch: (error): APIClientError => {
@@ -71,7 +80,11 @@ export const APIClientLive: APIClient = {
     })
   },
 
-  post: <A, B>(url: string, data: B, responseSchema: Schema.Schema<A>): Effect.Effect<A, APIClientError, never> => {
+  post: <A, B>(
+    url: string,
+    data: B,
+    responseSchema: Schema.Schema<A>
+  ): Effect.Effect<A, APIClientError, never> => {
     return Effect.tryPromise({
       try: async () => {
         const response = await fetch(url, {
@@ -79,7 +92,7 @@ export const APIClientLive: APIClient = {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
         })
-        
+
         if (!response.ok) {
           throw {
             _tag: 'APIError' as const,
@@ -88,9 +101,9 @@ export const APIClientLive: APIClient = {
             details: { url, data }
           }
         }
-        
+
         const json = await response.json()
-        
+
         // Validate with schema
         const result = Schema.decodeUnknownEither(responseSchema)(json)
         if (result._tag === 'Left') {
@@ -100,7 +113,7 @@ export const APIClientLive: APIClient = {
             errors: [result.left.message]
           }
         }
-        
+
         return result.right
       },
       catch: (error): APIClientError => {
@@ -123,8 +136,4 @@ export class APIClientService extends Context.Tag('APIClientService')<
   APIClient
 >() {}
 
-export const APIClientLayer = Layer.succeed(
-  APIClientService,
-  APIClientLive
-)
-
+export const APIClientLayer = Layer.succeed(APIClientService, APIClientLive)

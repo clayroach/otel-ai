@@ -1,10 +1,10 @@
-import { app, BrowserWindow, Menu, shell } from 'electron';
-import * as path from 'path';
+import { app, BrowserWindow, Menu, shell } from 'electron'
+import * as path from 'path'
 
-const isDev = process.env.NODE_ENV === 'development';
+const isDev = process.env.NODE_ENV === 'development'
 
 // Keep a global reference of the window object
-let mainWindow: BrowserWindow;
+let mainWindow: BrowserWindow
 
 function createWindow(): void {
   // Create the browser window
@@ -17,39 +17,39 @@ function createWindow(): void {
       nodeIntegration: false,
       contextIsolation: true,
       enableRemoteModule: false,
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload.js')
     },
     titleBarStyle: 'hiddenInset',
-    show: false, // Don't show until ready
-  });
+    show: false // Don't show until ready
+  })
 
   // Load the app
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
+    mainWindow.loadURL('http://localhost:5173')
     // Open DevTools in development
-    mainWindow.webContents.openDevTools();
+    mainWindow.webContents.openDevTools()
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../web/index.html'));
+    mainWindow.loadFile(path.join(__dirname, '../web/index.html'))
   }
 
   // Show window when ready to prevent visual flash
   mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
-  });
+    mainWindow.show()
+  })
 
   // Handle window closed
   mainWindow.on('closed', () => {
-    mainWindow = null as any;
-  });
+    mainWindow = null as any
+  })
 
   // Handle external links
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
-    return { action: 'deny' };
-  });
+    shell.openExternal(url)
+    return { action: 'deny' }
+  })
 
   // Set up application menu
-  createMenu();
+  createMenu()
 }
 
 function createMenu(): void {
@@ -61,34 +61,34 @@ function createMenu(): void {
           label: 'New Query',
           accelerator: 'CmdOrCtrl+N',
           click: () => {
-            mainWindow.webContents.send('menu-new-query');
-          },
+            mainWindow.webContents.send('menu-new-query')
+          }
         },
         {
           label: 'Open Query',
           accelerator: 'CmdOrCtrl+O',
           click: () => {
-            mainWindow.webContents.send('menu-open-query');
-          },
+            mainWindow.webContents.send('menu-open-query')
+          }
         },
         {
           label: 'Save Query',
           accelerator: 'CmdOrCtrl+S',
           click: () => {
-            mainWindow.webContents.send('menu-save-query');
-          },
+            mainWindow.webContents.send('menu-save-query')
+          }
         },
         { type: 'separator' },
         {
           label: 'Preferences',
           accelerator: 'CmdOrCtrl+,',
           click: () => {
-            mainWindow.webContents.send('menu-preferences');
-          },
+            mainWindow.webContents.send('menu-preferences')
+          }
         },
         { type: 'separator' },
-        { role: 'quit' },
-      ],
+        { role: 'quit' }
+      ]
     },
     {
       label: 'Edit',
@@ -99,8 +99,8 @@ function createMenu(): void {
         { role: 'cut' },
         { role: 'copy' },
         { role: 'paste' },
-        { role: 'selectall' },
-      ],
+        { role: 'selectall' }
+      ]
     },
     {
       label: 'View',
@@ -109,29 +109,29 @@ function createMenu(): void {
           label: 'Traces',
           accelerator: 'CmdOrCtrl+1',
           click: () => {
-            mainWindow.webContents.send('menu-navigate', 'traces');
-          },
+            mainWindow.webContents.send('menu-navigate', 'traces')
+          }
         },
         {
           label: 'Metrics',
           accelerator: 'CmdOrCtrl+2',
           click: () => {
-            mainWindow.webContents.send('menu-navigate', 'metrics');
-          },
+            mainWindow.webContents.send('menu-navigate', 'metrics')
+          }
         },
         {
           label: 'Logs',
           accelerator: 'CmdOrCtrl+3',
           click: () => {
-            mainWindow.webContents.send('menu-navigate', 'logs');
-          },
+            mainWindow.webContents.send('menu-navigate', 'logs')
+          }
         },
         {
           label: 'AI Insights',
           accelerator: 'CmdOrCtrl+4',
           click: () => {
-            mainWindow.webContents.send('menu-navigate', 'insights');
-          },
+            mainWindow.webContents.send('menu-navigate', 'insights')
+          }
         },
         { type: 'separator' },
         { role: 'reload' },
@@ -142,8 +142,8 @@ function createMenu(): void {
         { role: 'zoomIn' },
         { role: 'zoomOut' },
         { type: 'separator' },
-        { role: 'togglefullscreen' },
-      ],
+        { role: 'togglefullscreen' }
+      ]
     },
     {
       label: 'Query',
@@ -152,32 +152,29 @@ function createMenu(): void {
           label: 'Run Query',
           accelerator: 'CmdOrCtrl+Enter',
           click: () => {
-            mainWindow.webContents.send('menu-run-query');
-          },
+            mainWindow.webContents.send('menu-run-query')
+          }
         },
         {
           label: 'Format Query',
           accelerator: 'CmdOrCtrl+Shift+F',
           click: () => {
-            mainWindow.webContents.send('menu-format-query');
-          },
+            mainWindow.webContents.send('menu-format-query')
+          }
         },
         { type: 'separator' },
         {
           label: 'Show AI Suggestions',
           accelerator: 'CmdOrCtrl+Space',
           click: () => {
-            mainWindow.webContents.send('menu-ai-suggestions');
-          },
-        },
-      ],
+            mainWindow.webContents.send('menu-ai-suggestions')
+          }
+        }
+      ]
     },
     {
       label: 'Window',
-      submenu: [
-        { role: 'minimize' },
-        { role: 'close' },
-      ],
+      submenu: [{ role: 'minimize' }, { role: 'close' }]
     },
     {
       label: 'Help',
@@ -185,44 +182,44 @@ function createMenu(): void {
         {
           label: 'Documentation',
           click: () => {
-            shell.openExternal('https://docs.otel-ai.com');
-          },
+            shell.openExternal('https://docs.otel-ai.com')
+          }
         },
         {
           label: 'About',
           click: () => {
-            mainWindow.webContents.send('menu-about');
-          },
-        },
-      ],
-    },
-  ];
+            mainWindow.webContents.send('menu-about')
+          }
+        }
+      ]
+    }
+  ]
 
-  const menu = Menu.buildFromTemplate(template);
-  Menu.setApplicationMenu(menu);
+  const menu = Menu.buildFromTemplate(template)
+  Menu.setApplicationMenu(menu)
 }
 
 // App event handlers
-app.whenReady().then(createWindow);
+app.whenReady().then(createWindow)
 
 app.on('window-all-closed', () => {
   // On macOS, apps typically stay active until explicitly quit
   if (process.platform !== 'darwin') {
-    app.quit();
+    app.quit()
   }
-});
+})
 
 app.on('activate', () => {
   // On macOS, re-create window when dock icon is clicked
   if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
+    createWindow()
   }
-});
+})
 
 // Security: Prevent new window creation
 app.on('web-contents-created', (event, contents) => {
   contents.on('new-window', (navigationEvent, navigationUrl) => {
-    navigationEvent.preventDefault();
-    shell.openExternal(navigationUrl);
-  });
-});
+    navigationEvent.preventDefault()
+    shell.openExternal(navigationUrl)
+  })
+})

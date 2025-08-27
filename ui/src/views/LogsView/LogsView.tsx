@@ -1,7 +1,7 @@
-import React from 'react';
-import { Card, Typography } from 'antd';
+import React from 'react'
+import { Card, Typography } from 'antd'
 
-const { Title } = Typography;
+const { Title } = Typography
 
 export const LogsView: React.FC = () => {
   return (
@@ -12,5 +12,5 @@ export const LogsView: React.FC = () => {
         <p>This will include log search, filtering, and correlation with traces.</p>
       </Card>
     </div>
-  );
-};
+  )
+}

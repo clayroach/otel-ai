@@ -1,6 +1,6 @@
 /**
  * AI Analyzer Package
- * 
+ *
  * LLM-based analysis of trace data for application architecture discovery.
  * Provides insights into service topology, dependencies, and performance patterns.
  */
@@ -12,14 +12,11 @@ export * from './queries.js'
 export * from './prompts.js'
 
 // Main exports for easy consumption
-export { 
-  AIAnalyzerLayer,
-  defaultAnalyzerConfig
-} from './service.js'
+export { AIAnalyzerLayer, defaultAnalyzerConfig } from './service.js'
 
 export { AIAnalyzerService } from './types.js'
 
-export type { 
+export type {
   AnalysisRequest,
   AnalysisResult,
   ApplicationArchitecture,
