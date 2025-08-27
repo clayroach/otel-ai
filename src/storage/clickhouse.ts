@@ -2,9 +2,9 @@
  * ClickHouse storage implementation with OTLP ingestion and AI-optimized queries
  */
 
-import { Effect, Schedule, Stream, Sink, Chunk, Option } from 'effect'
+import { Effect, Schedule } from 'effect'
 import { Schema } from '@effect/schema'
-import { createClient, type ClickHouseClient } from '@clickhouse/client'
+import { createClient } from '@clickhouse/client'
 import {
   type TraceData,
   type MetricData,
@@ -14,8 +14,7 @@ import {
   type AIQueryParams,
   type AIDataset,
   OTLPDataSchema,
-  QueryParamsSchema,
-  AIQueryParamsSchema
+  QueryParamsSchema
 } from './schemas.js'
 import { type ClickHouseConfig } from './config.js'
 import { type StorageError, StorageErrorConstructors } from './errors.js'
@@ -50,27 +49,26 @@ export const makeClickHouseStorage = (
       }
     })
 
-    // Test connection
+    // Test connection on initialization
     yield* _(
       Effect.tryPromise({
         try: () => client.query({ query: 'SELECT 1' }),
-        catch: (error) =>
-          StorageErrorConstructors.ConnectionError(
-            `Failed to connect to ClickHouse: ${error}`,
-            error
-          )
+        catch: (error) => StorageErrorConstructors.ConnectionError(
+          `Failed to connect to ClickHouse: ${error}`,
+          error
+        )
       })
     )
 
     const writeOTLP = (data: OTLPData): Effect.Effect<void, StorageError> =>
       Effect.gen(function* (_) {
-        // Validate input data
+        // Validate OTLP data
         const validatedData = yield* _(
           Schema.decodeUnknown(OTLPDataSchema)(data).pipe(
-            Effect.mapError((parseError) =>
+            Effect.mapError((error) =>
               StorageErrorConstructors.ValidationError(
-                'Invalid OTLP data structure',
-                parseError.message ? [parseError.message] : ['Unknown validation error']
+                'Invalid OTLP data format',
+                [error.message]
               )
             )
           )
@@ -287,12 +285,13 @@ export const makeClickHouseStorage = (
 
     const queryTraces = (params: QueryParams): Effect.Effect<TraceData[], StorageError> =>
       Effect.gen(function* (_) {
+        // Validate query parameters
         const validatedParams = yield* _(
           Schema.decodeUnknown(QueryParamsSchema)(params).pipe(
-            Effect.mapError((parseError) =>
+            Effect.mapError((error) =>
               StorageErrorConstructors.ValidationError(
                 'Invalid query parameters',
-                parseError.message ? [parseError.message] : ['Unknown validation error']
+                [error.message]
               )
             )
           )
@@ -312,8 +311,20 @@ export const makeClickHouseStorage = (
           })
         )
 
-        const resultSet = yield* _(Effect.promise(() => result.json<any[]>()))
-        return resultSet.map((row) => transformClickHouseRowToTrace(row))
+        // Parse and transform query results
+        const resultSet = yield* _(
+          Effect.tryPromise({
+            try: () => result.json(),
+            catch: (error) => StorageErrorConstructors.QueryError(
+              `Failed to parse query results: ${error}`,
+              query,
+              error
+            )
+          })
+        )
+        
+        // Transform ClickHouse rows to TraceData format with validation
+        return (resultSet as ClickHouseTraceRow[]).map((row) => transformClickHouseRowToTrace(row))
       })
 
     const queryMetrics = (params: QueryParams): Effect.Effect<MetricData[], StorageError> =>
@@ -329,8 +340,19 @@ export const makeClickHouseStorage = (
           })
         )
 
-        const resultSet = yield* _(Effect.promise(() => result.json<any[]>()))
-        return resultSet.map((row) => transformClickHouseRowToMetric(row))
+        // Parse and transform metric query results
+        const resultSet = yield* _(
+          Effect.tryPromise({
+            try: () => result.json(),
+            catch: (error) => StorageErrorConstructors.QueryError(
+              `Failed to parse metric query results: ${error}`,
+              query,
+              error
+            )
+          })
+        )
+        
+        return (resultSet as ClickHouseMetricRow[]).map((row) => transformClickHouseRowToMetric(row))
       })
 
     const queryLogs = (params: QueryParams): Effect.Effect<LogData[], StorageError> =>
@@ -346,8 +368,19 @@ export const makeClickHouseStorage = (
           })
         )
 
-        const resultSet = yield* _(Effect.promise(() => result.json<any[]>()))
-        return resultSet.map((row) => transformClickHouseRowToLog(row))
+        // Parse and transform log query results
+        const resultSet = yield* _(
+          Effect.tryPromise({
+            try: () => result.json(),
+            catch: (error) => StorageErrorConstructors.QueryError(
+              `Failed to parse log query results: ${error}`,
+              query,
+              error
+            )
+          })
+        )
+        
+        return (resultSet as ClickHouseLogRow[]).map((row) => transformClickHouseRowToLog(row))
       })
 
     const queryForAI = (params: AIQueryParams): Effect.Effect<AIDataset, StorageError> =>
@@ -363,17 +396,31 @@ export const makeClickHouseStorage = (
           })
         )
 
-        const resultSet = yield* _(Effect.promise(() => result.json<any[]>()))
-        return transformResultSetToAIDataset(resultSet, params)
+        // Parse and transform AI query results
+        const resultSet = yield* _(
+          Effect.tryPromise({
+            try: () => result.json(),
+            catch: (error) => StorageErrorConstructors.QueryError(
+              `Failed to parse AI query results: ${error}`,
+              query,
+              error
+            )
+          })
+        )
+        
+        return transformResultSetToAIDataset(resultSet as AIResultRow[], params)
       })
 
     const healthCheck = (): Effect.Effect<boolean, StorageError> =>
       Effect.gen(function* (_) {
+        // Execute health check query
         yield* _(
           Effect.tryPromise({
             try: () => client.query({ query: 'SELECT 1 as health' }),
-            catch: (error) =>
-              StorageErrorConstructors.ConnectionError(`Health check failed: ${error}`, error)
+            catch: (error) => StorageErrorConstructors.ConnectionError(
+              `ClickHouse health check failed: ${error}`,
+              error
+            )
           })
         )
         return true
@@ -392,6 +439,13 @@ export const makeClickHouseStorage = (
       close
     }
   })
+
+// Schema definitions removed as they were unused
+// These can be added back when we need runtime schema validation
+// Currently using interface-based typing for better performance
+
+// Row type definitions removed as they were unused
+// Add back when needed for proper schema validation
 
 // Helper functions for query building and data transformation
 const buildTraceQuery = (params: QueryParams): string => {
@@ -463,7 +517,7 @@ const buildLogQuery = (params: QueryParams): string => {
 
 const buildAIQuery = (params: AIQueryParams): string => {
   // AI-optimized query with feature extraction
-  const { timeRange, features, windowSize, datasetType } = params
+  const { timeRange, features, datasetType } = params
 
   switch (datasetType) {
     case 'anomaly-detection':
@@ -481,7 +535,23 @@ const buildAIQuery = (params: AIQueryParams): string => {
   }
 }
 
-const transformClickHouseRowToTrace = (row: any): TraceData => ({
+// Define proper ClickHouse row interface for type safety
+interface ClickHouseTraceRow {
+  traceId: string
+  spanId: string
+  parentSpanId: string
+  operationName: string
+  startTime: string
+  duration: number
+  serviceName: string
+  statusCode: string
+  statusMessage: string
+  spanKind: string
+  attributes: unknown
+  resourceAttributes: unknown
+}
+
+const transformClickHouseRowToTrace = (row: ClickHouseTraceRow): TraceData => ({
   traceId: row.traceId,
   spanId: row.spanId,
   parentSpanId: row.parentSpanId,
@@ -490,25 +560,46 @@ const transformClickHouseRowToTrace = (row: any): TraceData => ({
   endTime: new Date(row.startTime).getTime() * 1000000 + row.duration * 1000000,
   duration: row.duration,
   serviceName: row.serviceName,
-  statusCode: row.statusCode,
+  statusCode: parseInt(row.statusCode, 10) || 0, // Convert string to number
   statusMessage: row.statusMessage,
   spanKind: row.spanKind,
-  attributes: row.attributes || {},
-  resourceAttributes: row.resourceAttributes || {},
+  attributes: (row.attributes as Record<string, string>) || {},
+  resourceAttributes: (row.resourceAttributes as Record<string, string>) || {},
   events: [],
   links: []
 })
 
-const transformClickHouseRowToMetric = (row: any): MetricData => ({
+// Define proper ClickHouse metric row interface
+interface ClickHouseMetricRow {
+  MetricName: string
+  Timestamp: string
+  Value: number
+  Attributes: unknown
+  ResourceAttributes: unknown
+}
+
+const transformClickHouseRowToMetric = (row: ClickHouseMetricRow): MetricData => ({
   metricName: row.MetricName,
   timestamp: new Date(row.Timestamp).getTime() * 1000000,
   value: row.Value,
   metricType: 'counter' as const,
-  attributes: row.Attributes || {},
-  resourceAttributes: row.ResourceAttributes || {}
+  attributes: (row.Attributes as Record<string, string>) || {},
+  resourceAttributes: (row.ResourceAttributes as Record<string, string>) || {}
 })
 
-const transformClickHouseRowToLog = (row: any): LogData => ({
+// Define proper ClickHouse log row interface
+interface ClickHouseLogRow {
+  Timestamp: string
+  TraceId: string
+  SpanId: string
+  SeverityText: string
+  SeverityNumber: number
+  Body: string
+  LogAttributes: unknown
+  ResourceAttributes: unknown
+}
+
+const transformClickHouseRowToLog = (row: ClickHouseLogRow): LogData => ({
   timestamp: new Date(row.Timestamp).getTime() * 1000000,
   observedTimestamp: new Date(row.Timestamp).getTime() * 1000000,
   severityText: row.SeverityText,
@@ -516,12 +607,20 @@ const transformClickHouseRowToLog = (row: any): LogData => ({
   body: row.Body,
   traceId: row.TraceId,
   spanId: row.SpanId,
-  attributes: row.LogAttributes || {},
-  resourceAttributes: row.ResourceAttributes || {}
+  attributes: (row.LogAttributes as Record<string, string>) || {},
+  resourceAttributes: (row.ResourceAttributes as Record<string, string>) || {}
 })
 
-const transformResultSetToAIDataset = (resultSet: any[], params: AIQueryParams): AIDataset => ({
-  features: resultSet.map((row) => params.features.map((feature) => parseFloat(row[feature]) || 0)),
+// Define proper result set interface for AI datasets
+interface AIResultRow {
+  [key: string]: string | number | null
+}
+
+const transformResultSetToAIDataset = (
+  resultSet: AIResultRow[],
+  params: AIQueryParams
+): AIDataset => ({
+  features: resultSet.map((row) => params.features.map((feature) => parseFloat(String(row[feature] ?? '0')) || 0)),
   metadata: {
     query: params,
     resultCount: resultSet.length

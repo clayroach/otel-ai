@@ -113,7 +113,10 @@ export const discoverCriticalPaths = (traceFlows: TraceFlowRaw[]) => {
       if (!acc[traceId]) {
         acc[traceId] = []
       }
-      acc[traceId]!.push(flow)
+      const traceArray = acc[traceId]
+      if (traceArray) {
+        traceArray.push(flow)
+      }
       return acc
     },
     {} as Record<string, TraceFlowRaw[]>

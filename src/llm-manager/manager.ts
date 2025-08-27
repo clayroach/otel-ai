@@ -318,7 +318,7 @@ export const makeLLMManager = (config: LLMConfig) =>
       getConversation: (conversationId: string) => conversationStorage.load(conversationId),
 
       getAvailableModels: () =>
-        Effect.gen(function* (_) {
+        Effect.succeed((() => {
           const models: ModelType[] = []
 
           // Check which models are configured
@@ -327,7 +327,7 @@ export const makeLLMManager = (config: LLMConfig) =>
           if (config.models.llama && clients.llama) models.push('llama')
 
           return models
-        }),
+        })()),
 
       getModelHealth: () =>
         Effect.gen(function* (_) {

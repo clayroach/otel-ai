@@ -113,7 +113,7 @@ describe('Port Conflict Detection', () => {
     console.log(`📋 ClickHouse configuration: ${clickhouseHost}:${clickhousePort}`)
     
     // Verify our configuration uses non-standard ports
-    expect(parseInt(clickhousePort!)).toBe(8124)
+    expect(clickhousePort ? parseInt(clickhousePort) : undefined).toBe(8124)
     
     // This ensures users get clear connection info
     expect(clickhouseHost).toBe('localhost')

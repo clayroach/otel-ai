@@ -5,11 +5,10 @@
 
 import { fromBinary } from '@bufbuild/protobuf'
 import cors from 'cors'
-import { Context, Effect, Stream } from 'effect'
+import { Context, Effect, Stream, Layer } from 'effect'
 import express from 'express'
 import { AIAnalyzerService } from './ai-analyzer/index.js'
 import {
-  defaultAnalyzerConfig,
   generateInsights,
   generateRequestId
 } from './ai-analyzer/service.js'
@@ -19,6 +18,12 @@ import {
   ResourceSpans,
   ScopeSpans
 } from './opentelemetry/index.js'
+import { 
+  StorageAPIClientTag, 
+  ClickHouseConfigTag,
+  StorageAPIClientLayer
+} from './storage/index.js'
+// TODO: Remove SimpleStorage once all endpoints migrated to Storage API Client
 import { SimpleStorage, type SimpleStorageConfig } from './storage/simple-storage.js'
 
 /**
@@ -63,20 +68,20 @@ interface ProtobufDoubleValue {
 }
 
 // Type guard functions
-function isProtobufStringValue(obj: any): obj is ProtobufStringValue {
-  return obj && typeof obj === 'object' && 'stringValue' in obj
+function isProtobufStringValue(obj: unknown): obj is ProtobufStringValue {
+  return obj != null && typeof obj === 'object' && 'stringValue' in obj
 }
 
-function isProtobufIntValue(obj: any): obj is ProtobufIntValue {
-  return obj && typeof obj === 'object' && 'intValue' in obj
+function isProtobufIntValue(obj: unknown): obj is ProtobufIntValue {
+  return obj != null && typeof obj === 'object' && 'intValue' in obj
 }
 
-function isProtobufBoolValue(obj: any): obj is ProtobufBoolValue {
-  return obj && typeof obj === 'object' && 'boolValue' in obj
+function isProtobufBoolValue(obj: unknown): obj is ProtobufBoolValue {
+  return obj != null && typeof obj === 'object' && 'boolValue' in obj
 }
 
-function isProtobufDoubleValue(obj: any): obj is ProtobufDoubleValue {
-  return obj && typeof obj === 'object' && 'doubleValue' in obj
+function isProtobufDoubleValue(obj: unknown): obj is ProtobufDoubleValue {
+  return obj != null && typeof obj === 'object' && 'doubleValue' in obj
 }
 
 /**
@@ -235,6 +240,19 @@ const storageConfig: SimpleStorageConfig = {
 
 const storage = new SimpleStorage(storageConfig)
 
+// Create server storage layer with proper dependency injection
+const ClickHouseConfigLayer = Layer.succeed(ClickHouseConfigTag, {
+  host: process.env.CLICKHOUSE_HOST || 'localhost',
+  port: parseInt(process.env.CLICKHOUSE_PORT || '8123'),
+  database: process.env.CLICKHOUSE_DATABASE || 'otel',
+  username: process.env.CLICKHOUSE_USERNAME || 'otel',
+  password: process.env.CLICKHOUSE_PASSWORD || 'otel123'
+})
+
+const ServerStorageLayer = StorageAPIClientLayer.pipe(
+  Layer.provide(ClickHouseConfigLayer)
+)
+
 // Initialize AI analyzer service
 let aiAnalyzer: Context.Tag.Service<typeof AIAnalyzerService> | null = null
 
@@ -286,12 +304,30 @@ async function createViews() {
 // Health check endpoint
 app.get('/health', async (_req, res) => {
   try {
-    const isHealthy = await storage.healthCheck()
+    const healthResult = await Effect.runPromise(
+      Effect.gen(function* (_) {
+        const apiClient = yield* _(StorageAPIClientTag)
+        return yield* _(apiClient.healthCheck())
+      }).pipe(
+        Effect.provide(ServerStorageLayer),
+        Effect.match({
+          onFailure: (error) => {
+            console.error('Storage health check failed:', error._tag)
+            return { healthy: false, error: error._tag, clickhouse: false, s3: false }
+          },
+          onSuccess: (health) => {
+            return { healthy: health.clickhouse && health.s3, ...health }
+          }
+        })
+      )
+    )
+
     res.json({
-      status: isHealthy ? 'healthy' : 'unhealthy',
+      status: healthResult.healthy ? 'healthy' : 'unhealthy',
       service: 'otel-ai-backend',
       timestamp: new Date().toISOString(),
-      clickhouse: isHealthy
+      clickhouse: healthResult.clickhouse,
+      s3: healthResult.s3
     })
   } catch (error) {
     res.status(503).json({
@@ -308,7 +344,8 @@ app.get('/api/traces', async (req, res) => {
     const limit = parseInt(req.query.limit as string) || 100
     const since = (req.query.since as string) || '5 MINUTE'
 
-    // Query recent traces from simplified schema
+    // TODO: Migrate to Storage API Client once type issues are resolved
+    // For now, maintain backward compatibility with direct storage query
     const query = `
       SELECT 
         trace_id,
@@ -348,6 +385,7 @@ app.get('/api/services/stats', async (req, res) => {
   try {
     const since = (req.query.since as string) || '5 MINUTE'
 
+    // TODO: Migrate to Storage API Client once type issues are resolved
     const query = `
       SELECT 
         service_name,
@@ -384,6 +422,7 @@ app.get('/api/anomalies', async (req, res) => {
     const since = (req.query.since as string) || '15 MINUTE'
     const threshold = parseFloat(req.query.threshold as string) || 2.0 // Z-score threshold
 
+    // TODO: Migrate to Storage API Client once type issues are resolved
     // Query for anomalies using statistical methods
     const query = `
       WITH service_stats AS (
@@ -1046,10 +1085,57 @@ app.post('/v1/traces', async (req, res) => {
 
       console.log(`📍 Processed ${traces.length} traces for unified ingestion`)
 
-      // Store directly to the simplified traces table
+      // Transform traces to proper TraceData format for Storage API Client
       if (traces.length > 0) {
-        await storage.writeTracesToSimplifiedSchema(traces)
-        console.log(`✅ Successfully stored ${traces.length} traces`)
+        const traceDataArray = traces.map((trace) => ({
+          traceId: trace.trace_id,
+          spanId: trace.span_id,
+          parentSpanId: trace.parent_span_id || undefined,
+          operationName: trace.operation_name,
+          startTime: new Date(trace.start_time).getTime() * 1000000, // Convert to nanoseconds
+          endTime: new Date(trace.end_time).getTime() * 1000000, 
+          duration: trace.duration_ns,
+          serviceName: trace.service_name,
+          statusCode: trace.status_code === 'STATUS_CODE_OK' ? 1 : 
+                     trace.status_code === 'STATUS_CODE_ERROR' ? 2 : 0,
+          statusMessage: trace.status_message || undefined,
+          spanKind: trace.span_kind,
+          attributes: Object.fromEntries(
+            Object.entries(trace.span_attributes || {}).map(([k, v]) => [k, String(v)])
+          ),
+          resourceAttributes: Object.fromEntries(
+            Object.entries(trace.resource_attributes || {}).map(([k, v]) => [k, String(v)])
+          ),
+          events: [], // TODO: Parse events from JSON string
+          links: []   // TODO: Parse links from JSON string
+        }))
+
+        // Use Storage API Client with Effect-TS pattern
+        const writeResult = await Effect.runPromise(
+          Effect.gen(function* (_) {
+            const apiClient = yield* _(StorageAPIClientTag)
+            return yield* _(apiClient.writeOTLP({
+              traces: traceDataArray,
+              timestamp: Date.now()
+            }))
+          }).pipe(
+            Effect.provide(ServerStorageLayer),
+            Effect.match({
+              onFailure: (error) => {
+                console.error('Storage write failed:', error._tag, error)
+                return { success: false, error: error._tag }
+              },
+              onSuccess: () => {
+                console.log(`✅ Successfully stored ${traces.length} traces via Storage API Client`)
+                return { success: true }
+              }
+            })
+          )
+        )
+
+        if (!writeResult.success) {
+          throw new Error(`Storage write failed: ${'error' in writeResult ? writeResult.error : 'Unknown error'}`)
+        }
       }
 
       // Return success response (OTLP format)
@@ -1284,7 +1370,7 @@ app.listen(PORT, async () => {
           }),
 
         getServiceTopology: (
-          timeRange: Parameters<
+          _timeRange: Parameters<
             Context.Tag.Service<typeof AIAnalyzerService>['getServiceTopology']
           >[0]
         ) =>
@@ -1533,15 +1619,23 @@ app.delete('/api/llm/interactions', async (_req, res) => {
   }
 })
 
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('🛑 Received SIGTERM, shutting down gracefully...')
-  await storage.close()
+// Graceful shutdown with Effect-TS cleanup
+async function gracefulShutdown(signal: string) {
+  console.log(`🛑 Received ${signal}, shutting down gracefully...`)
+  
+  try {
+    // Close legacy SimpleStorage connection
+    await storage.close()
+    
+    // Note: Storage API Client connections are managed by Effect runtime
+    // and will be properly disposed when the Layer is released
+    console.log('✅ Storage connections closed successfully')
+  } catch (error) {
+    console.error('❌ Error during shutdown:', error)
+  }
+  
   process.exit(0)
-})
+}
 
-process.on('SIGINT', async () => {
-  console.log('🛑 Received SIGINT, shutting down gracefully...')
-  await storage.close()
-  process.exit(0)
-})
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
+process.on('SIGINT', () => gracefulShutdown('SIGINT'))

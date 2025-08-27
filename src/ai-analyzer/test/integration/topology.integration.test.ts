@@ -73,7 +73,7 @@ async function waitForTelemetryData(minServices = 5, maxWaitMs = 20000): Promise
 }
 
 // Helper function to wait for sufficient data for architecture analysis
-async function waitForArchitectureData(minSpans = 50, maxWaitMs = 15000): Promise<any> {
+async function waitForArchitectureData(minSpans = 50, maxWaitMs = 15000): Promise<unknown> {
   const startWait = Date.now()
   
   while (Date.now() - startWait < maxWaitMs) {

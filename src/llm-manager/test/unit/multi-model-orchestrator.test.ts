@@ -5,7 +5,7 @@
  * and architectural insights generation.
  */
 
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { Effect } from 'effect'
 import { makeMultiModelOrchestrator } from '../../multi-model-orchestrator.js'
 import type { ModelClient, LLMRequest, LLMResponse } from '../../types.js'

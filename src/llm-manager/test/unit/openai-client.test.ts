@@ -137,7 +137,13 @@ describe('OpenAI Client (Effect-TS)', () => {
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
           expect(client).toBeDefined()
-          expect(client.gpt).toBeDefined()
+          
+          // Safe access to client properties with proper typing
+          const gptClient = client.gpt
+          if (!gptClient) {
+            throw new Error('GPT client should be available in test layer')
+          }
+          expect(gptClient).toBeDefined()
           expect(client.claude).toBeUndefined() // Not enabled in mock
           expect(client.llama).toBeUndefined() // Not enabled in mock
           return true
@@ -158,8 +164,14 @@ describe('OpenAI Client (Effect-TS)', () => {
         throw new Error('Invalid config structure')
       }
       const typedConfig = config as LLMConfig
-      expect(typedConfig.models.gpt?.apiKey).toBe('mock-openai-api-key')
-      expect(typedConfig.models.gpt?.model).toBe('gpt-4')
+      
+      // Safe property access for GPT config
+      const gptConfig = typedConfig.models.gpt
+      if (!gptConfig) {
+        throw new Error('GPT config should be available in test layer')
+      }
+      expect(gptConfig.apiKey).toBe('mock-openai-api-key')
+      expect(gptConfig.model).toBe('gpt-4')
       expect(typedConfig.routing.strategy).toBe('balanced')
     })
   })
@@ -178,7 +190,13 @@ describe('OpenAI Client (Effect-TS)', () => {
       const response = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
-          return yield* _(client.gpt!.generate(testRequest))
+          
+          // Extract client reference for safe access
+          const gptClient = client.gpt
+          if (!gptClient) {
+            throw new Error('GPT client not available')
+          }
+          return yield* _(gptClient.generate(testRequest))
         }).pipe(Effect.provide(TestOpenAILayer))
       )
       
@@ -211,7 +229,13 @@ describe('OpenAI Client (Effect-TS)', () => {
       const response = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
-          return yield* _(client.gpt!.generate(codeRequest))
+          
+          // Extract client reference for safe access
+          const gptClient = client.gpt
+          if (!gptClient) {
+            throw new Error('GPT client not available')
+          }
+          return yield* _(gptClient.generate(codeRequest))
         }).pipe(Effect.provide(TestOpenAILayer))
       )
       
@@ -233,7 +257,16 @@ describe('OpenAI Client (Effect-TS)', () => {
       const chunks = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
-          const stream = client.gpt!.generateStream!(request)
+          
+          // Extract client reference for safe streaming access
+          const gptClient = client.gpt
+          if (!gptClient) {
+            throw new Error('GPT client not available')
+          }
+          if (!gptClient.generateStream) {
+            throw new Error('GPT streaming not available')
+          }
+          const stream = gptClient.generateStream(request)
           
           return yield* _(stream.pipe(
             Stream.runCollect,
@@ -254,7 +287,13 @@ describe('OpenAI Client (Effect-TS)', () => {
       const isHealthy = await Effect.runPromise(
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
-          return yield* _(client.gpt!.isHealthy())
+          
+          // Extract client reference for safe access
+          const gptClient = client.gpt
+          if (!gptClient) {
+            throw new Error('GPT client not available')
+          }
+          return yield* _(gptClient.isHealthy())
         }).pipe(Effect.provide(TestOpenAILayer))
       )
       expect(isHealthy).toBe(true)
@@ -272,7 +311,13 @@ describe('OpenAI Client (Effect-TS)', () => {
       expect(metrics.totalRequests).toBe(150)
       expect(metrics.averageLatency).toBe(600) // GPT-4 latency
       expect(metrics.totalCost).toBe(0.45) // Significant cost for GPT-4
-      expect(metrics.requestsByModel.gpt).toBe(150)
+      
+      // Safe property access for model-specific metrics
+      const gptRequests = metrics.requestsByModel.gpt
+      if (typeof gptRequests !== 'number') {
+        throw new Error('GPT request count should be available')
+      }
+      expect(gptRequests).toBe(150)
     })
   })
 
@@ -304,7 +349,13 @@ describe('OpenAI Client (Effect-TS)', () => {
         Effect.gen(function* (_) {
           const client = yield* _(ModelClientService)
           
-          return yield* _(client.gpt!.generate({
+          // Extract client reference for safe access
+          const gptClient = client.gpt
+          if (!gptClient) {
+            throw new Error('GPT client not available')
+          }
+          
+          return yield* _(gptClient.generate({
             prompt: 'This should fail',
             taskType: 'general'
           }).pipe(Effect.option))

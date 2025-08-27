@@ -7,8 +7,7 @@
  */
 
 import { Effect, Duration } from 'effect'
-import { LLMRequest, LLMResponse, LLMError, ModelType, TaskType } from './types.js'
-import { ModelClient } from './types.js'
+import { LLMRequest, LLMResponse, LLMError, TaskType, ModelClient } from './types.js'
 
 /**
  * Multi-Model Response
@@ -47,7 +46,7 @@ Provide insights on:
 Format the analysis with clear sections and actionable insights for product strategy.
   `,
 
-  featurePrioritization: (features: string[], marketData: any) => `
+  featurePrioritization: (features: string[], marketData: Record<string, unknown>) => `
 Based on the following market data and feature list, provide prioritization recommendations:
 
 Features under consideration: ${features.join(', ')}
@@ -85,7 +84,7 @@ Provide strategic recommendations with specific next steps.
  * Specialized prompts for technical architecture analysis and recommendations.
  */
 const ARCHITECTURAL_TEMPLATES = {
-  systemAnalysis: (services: string[], dependencies: any) => `
+  systemAnalysis: (services: string[], dependencies: Record<string, unknown>) => `
 Analyze this microservices architecture:
 
 Services: ${services.join(', ')}
@@ -101,7 +100,7 @@ Provide insights on:
 Include specific technical recommendations with implementation priorities.
   `,
 
-  performanceOptimization: (metrics: any, bottlenecks: string[]) => `
+  performanceOptimization: (metrics: Record<string, unknown>, bottlenecks: string[]) => `
 Based on these performance metrics and identified bottlenecks:
 
 Metrics: ${JSON.stringify(metrics, null, 2)}
@@ -117,7 +116,7 @@ Analyze and recommend:
 Prioritize recommendations by impact and implementation complexity.
   `,
 
-  costOptimization: (costs: any, usage: any) => `
+  costOptimization: (costs: Record<string, unknown>, usage: Record<string, unknown>) => `
 Analyze cost optimization opportunities:
 
 Current costs: ${JSON.stringify(costs, null, 2)}
@@ -151,7 +150,7 @@ export const makeMultiModelOrchestrator = (clients: {
    */
   generateMarketIntelligence: (
     analysisType: 'competitor' | 'feature-prioritization' | 'business-model',
-    data: any
+    data: Record<string, unknown>
   ): Effect.Effect<MultiModelResponse, LLMError, never> =>
     Effect.gen(function* (_) {
       let prompt: string
@@ -159,20 +158,20 @@ export const makeMultiModelOrchestrator = (clients: {
       switch (analysisType) {
         case 'competitor':
           prompt = MARKET_INTELLIGENCE_TEMPLATES.competitorAnalysis(
-            data.competitors || [],
-            data.domain || 'observability platform'
+            (data.competitors as string[]) || [],
+            (data.domain as string) || 'observability platform'
           )
           break
         case 'feature-prioritization':
           prompt = MARKET_INTELLIGENCE_TEMPLATES.featurePrioritization(
-            data.features || [],
-            data.marketData || {}
+            (data.features as string[]) || [],
+            (data.marketData as Record<string, unknown>) || {}
           )
           break
         case 'business-model':
           prompt = MARKET_INTELLIGENCE_TEMPLATES.businessModelAnalysis(
-            data.currentModel || 'SaaS',
-            data.alternatives || []
+            (data.currentModel as string) || 'SaaS',
+            (data.alternatives as string[]) || []
           )
           break
         default:
@@ -199,7 +198,7 @@ export const makeMultiModelOrchestrator = (clients: {
    */
   generateArchitecturalInsights: (
     analysisType: 'system-analysis' | 'performance-optimization' | 'cost-optimization',
-    data: any
+    data: Record<string, unknown>
   ): Effect.Effect<MultiModelResponse, LLMError, never> =>
     Effect.gen(function* (_) {
       let prompt: string
@@ -207,18 +206,18 @@ export const makeMultiModelOrchestrator = (clients: {
       switch (analysisType) {
         case 'system-analysis':
           prompt = ARCHITECTURAL_TEMPLATES.systemAnalysis(
-            data.services || [],
-            data.dependencies || {}
+            (data.services as string[]) || [],
+            (data.dependencies as Record<string, unknown>) || {}
           )
           break
         case 'performance-optimization':
           prompt = ARCHITECTURAL_TEMPLATES.performanceOptimization(
-            data.metrics || {},
-            data.bottlenecks || []
+            (data.metrics as Record<string, unknown>) || {},
+            (data.bottlenecks as string[]) || []
           )
           break
         case 'cost-optimization':
-          prompt = ARCHITECTURAL_TEMPLATES.costOptimization(data.costs || {}, data.usage || {})
+          prompt = ARCHITECTURAL_TEMPLATES.costOptimization((data.costs as Record<string, unknown>) || {}, (data.usage as Record<string, unknown>) || {})
           break
         default:
           prompt = `Analyze the provided architectural data: ${JSON.stringify(data, null, 2)}`

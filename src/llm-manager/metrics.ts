@@ -35,14 +35,14 @@ interface ErrorMetric {
  * In-Memory Metrics Implementation
  */
 export const makeMetricsService = () =>
-  Effect.gen(function* (_) {
+  Effect.succeed((() => {
     const requests: RequestMetric[] = []
     const responses: ResponseMetric[] = []
     const errors: ErrorMetric[] = []
 
     return {
       recordRequest: (model: ModelType, request: LLMRequest) =>
-        Effect.gen(function* (_) {
+        Effect.sync(() => {
           requests.push({
             timestamp: Date.now(),
             model,
@@ -52,7 +52,7 @@ export const makeMetricsService = () =>
         }),
 
       recordResponse: (model: ModelType, response: LLMResponse) =>
-        Effect.gen(function* (_) {
+        Effect.sync(() => {
           responses.push({
             timestamp: Date.now(),
             model,
@@ -64,7 +64,7 @@ export const makeMetricsService = () =>
         }),
 
       recordError: (model: ModelType, error: LLMError) =>
-        Effect.gen(function* (_) {
+        Effect.sync(() => {
           errors.push({
             timestamp: Date.now(),
             model,
@@ -91,7 +91,7 @@ export const makeMetricsService = () =>
           )
         })
     }
-  })
+  })())
 
 /**
  * Metrics Service Layer

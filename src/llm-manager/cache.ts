@@ -18,7 +18,7 @@ interface CacheEntry {
  * In-Memory Cache Implementation
  */
 export const makeCacheService = () =>
-  Effect.gen(function* () {
+  Effect.succeed((() => {
     const cache = new Map<string, CacheEntry>()
 
     return {
@@ -61,7 +61,7 @@ export const makeCacheService = () =>
 
       size: () => Effect.succeed(cache.size)
     }
-  })
+  })())
 
 /**
  * Cache Service Layer
