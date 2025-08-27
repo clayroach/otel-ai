@@ -7,27 +7,28 @@ RUN npm install -g pnpm
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package.json pnpm-lock.yaml ./
+# Copy workspace root files (needed for pnpm workspace)
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY ui/package.json ./ui/
 
 # Install dependencies (avoid frozen-lockfile due to electron version mismatch)
 # Use --no-frozen-lockfile explicitly to allow lockfile updates
 RUN pnpm install --no-frozen-lockfile
 
-# Copy source code
-COPY . .
+# Copy UI source code
+COPY ui/ ./ui/
 
 # Build the web application only
-RUN pnpm build:web
+RUN cd ui && pnpm build:web
 
 # Production stage
 FROM nginx:alpine AS production
 
-# Copy built assets to nginx
-COPY --from=base /app/dist /usr/share/nginx/html
+# Copy built assets to nginx (from workspace ui subdirectory)
+COPY --from=base /app/ui/dist /usr/share/nginx/html
 
-# Copy nginx configuration for SPA routing
-COPY docker/nginx.conf /etc/nginx/nginx.conf
+# Copy nginx configuration for SPA routing (from ui directory)
+COPY ui/docker/nginx.conf /etc/nginx/nginx.conf
 
 # Expose port
 EXPOSE 80
@@ -45,5 +46,6 @@ RUN pnpm install --no-frozen-lockfile
 # Expose Vite dev server port
 EXPOSE 5173
 
-# Start development server with host binding
+# Start development server with host binding (from ui directory)
+WORKDIR /app/ui
 CMD ["pnpm", "dev:web", "--host", "0.0.0.0"]
