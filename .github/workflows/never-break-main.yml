@@ -71,8 +71,8 @@ jobs:
       - name: Install dependencies
         run: |
           echo "📦 Installing dependencies (skipping optional native compilation)..."
-          # Skip post-install scripts to avoid node-gyp issues - TestContainers works fine without ssh2 native bindings
-          pnpm install --frozen-lockfile --ignore-scripts
+          # Update lockfiles to match package.json, then skip post-install scripts to avoid node-gyp issues
+          pnpm install --ignore-scripts
           
       - name: Build required Docker images
         run: |
@@ -204,7 +204,8 @@ jobs:
       - name: Install dependencies
         run: |
           echo "📦 Installing dependencies (skipping optional native compilation)..."
-          pnpm install --frozen-lockfile --ignore-scripts
+          # Update lockfiles to match package.json, then skip post-install scripts to avoid node-gyp issues
+          pnpm install --ignore-scripts
           
       - name: Generate protobuf definitions
         run: pnpm proto:generate
