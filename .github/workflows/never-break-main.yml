@@ -88,8 +88,8 @@ jobs:
           echo "🏗️ Building required Docker images..."
           # Build migrator image
           docker build -t otel-ai-migrator:latest ./migrations
-          # Build test data generator
-          docker build -t otel-ai-test-data-generator:latest ./docker/test-data
+          # Build test data generator (using docker/test-data as context)
+          docker build -t otel-ai-test-data-generator:latest -f ./docker/test-data/Dockerfile ./docker/test-data
           echo "✅ Docker images built successfully"
           
       - name: Start infrastructure services
