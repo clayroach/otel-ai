@@ -2,7 +2,12 @@ import { describe, it, expect } from 'vitest'
 import { createServer } from 'net'
 
 /**
- * Port Conflict Detection Tests
+ * Port Conflict Detection Tests - Integration Test Gatekeeper
+ * 
+ * ⚠️ RUNS FIRST (00- prefix): This test acts as a gatekeeper for all integration tests.
+ * It's the fastest way to detect if the runtime environment (ClickHouse, MinIO, etc.) 
+ * is available and ready for testing. If this fails, other integration tests will 
+ * fail too, so this provides early feedback.
  * 
  * These tests validate that our application can detect and handle port conflicts
  * gracefully, preventing issues when users have other services running on 

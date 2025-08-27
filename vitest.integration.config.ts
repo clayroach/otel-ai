@@ -14,8 +14,11 @@ export default defineConfig({
       },
     },
     
-    // Include only integration test files
-    include: ['**/*.integration.test.{js,ts}'],
+    // Include integration test files and directories
+    include: [
+      '**/*.integration.test.{js,ts}', 
+      '**/test/integration/**/*.test.{js,ts}'
+    ],
     
     // Exclude regular unit tests  
     exclude: [

@@ -2,8 +2,14 @@
  * Temporary helpers for integration tests during TypeScript migration
  */
 
+interface TopologyService {
+  serviceName: string
+  dependencies: string[]
+  metadata: Record<string, unknown>
+}
+
 // Helper functions to replace the complex API client integration
-export const waitForTelemetryData = async (minServices = 5, maxWaitMs = 20000): Promise<any[]> => {
+export const waitForTelemetryData = async (minServices = 5, maxWaitMs = 20000): Promise<TopologyService[]> => {
   const startWait = Date.now()
   const API_BASE_URL = process.env.API_URL || 'http://localhost:4319'
 
@@ -24,7 +30,7 @@ export const waitForTelemetryData = async (minServices = 5, maxWaitMs = 20000): 
       })
 
       if (response.ok) {
-        const topology = (await response.json()) as any[]
+        const topology = (await response.json()) as TopologyService[]
         if (Array.isArray(topology) && topology.length >= minServices) {
           console.log(`✅ Found ${topology.length} services - sufficient data available`)
           return topology
@@ -55,7 +61,7 @@ export const waitForTelemetryData = async (minServices = 5, maxWaitMs = 20000): 
   })
 
   if (response.ok) {
-    const topology = (await response.json()) as any[]
+    const topology = (await response.json()) as TopologyService[]
     console.log(`⚠️ Final attempt: Found ${topology.length} services after ${maxWaitMs}ms wait`)
     return topology
   }
@@ -63,7 +69,20 @@ export const waitForTelemetryData = async (minServices = 5, maxWaitMs = 20000): 
   throw new Error(`Failed to get topology data after ${maxWaitMs}ms`)
 }
 
-export const waitForArchitectureData = async (minSpans = 50, maxWaitMs = 15000): Promise<any> => {
+interface ArchitectureAnalysis {
+  architecture: { 
+    services: Array<{
+      serviceName: string
+      dependencies: string[]
+      metadata: Record<string, unknown>
+    }>
+  }
+  metadata: { 
+    analyzedSpans: string | number
+  }
+}
+
+export const waitForArchitectureData = async (minSpans = 50, maxWaitMs = 15000): Promise<ArchitectureAnalysis> => {
   const startWait = Date.now()
   const API_BASE_URL = process.env.API_URL || 'http://localhost:4319'
 
@@ -85,10 +104,7 @@ export const waitForArchitectureData = async (minSpans = 50, maxWaitMs = 15000):
       })
 
       if (response.ok) {
-        const analysis = (await response.json()) as {
-          architecture: { services: any[] }
-          metadata: { analyzedSpans: string | number }
-        }
+        const analysis = (await response.json()) as ArchitectureAnalysis
         // TypeScript comment: analysis could have undefined or null properties
         const spanCount =
           typeof analysis?.metadata?.analyzedSpans === 'string'
@@ -126,10 +142,7 @@ export const waitForArchitectureData = async (minSpans = 50, maxWaitMs = 15000):
   })
 
   if (response.ok) {
-    const analysis = (await response.json()) as {
-      architecture: { services: any[] }
-      metadata: { analyzedSpans: string | number }
-    }
+    const analysis = (await response.json()) as ArchitectureAnalysis
     // TypeScript comment: using structured type instead of any
     console.log(
       `⚠️ Final attempt: ${analysis?.metadata?.analyzedSpans || 0} spans, ${analysis?.architecture?.services?.length || 0} services`
@@ -140,10 +153,16 @@ export const waitForArchitectureData = async (minSpans = 50, maxWaitMs = 15000):
   throw new Error(`Failed to get architecture data after ${maxWaitMs}ms`)
 }
 
-export const isValidServiceMetadata = (metadata: any): boolean => {
-  // TypeScript comment: metadata could be null or undefined
+export const isValidServiceMetadata = (metadata: unknown): boolean => {
+  // TypeScript: metadata could be null or undefined
   return (
-    metadata && typeof metadata.avgLatencyMs === 'number' && typeof metadata.errorRate === 'number'
+    metadata !== null &&
+    metadata !== undefined &&
+    typeof metadata === 'object' &&
+    'avgLatencyMs' in metadata &&
+    'errorRate' in metadata &&
+    typeof (metadata as Record<string, unknown>).avgLatencyMs === 'number' &&
+    typeof (metadata as Record<string, unknown>).errorRate === 'number'
   )
 }
 

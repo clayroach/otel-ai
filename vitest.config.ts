@@ -11,6 +11,9 @@ export default defineConfig({
       'node_modules', 
       'dist',
       '**/node_modules/**',
+      '**/integration/**', // Exclude integration tests from unit test runs
+      '**/*.integration.test.ts', // Exclude integration test files
+      '**/test/integration/**', // Exclude integration test directories
     ],
     watch: false, // Disable watch mode by default - run once and exit
     coverage: {
