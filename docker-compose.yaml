@@ -143,8 +143,8 @@ services:
   # UI Service - Development build with hot reload
   ui-dev:
     build:
-      context: ./ui
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./ui/Dockerfile
       target: development
     container_name: otel-ai-ui-dev
     ports:

@@ -4,17 +4,21 @@ FROM node:18-alpine AS base
 # Install pnpm
 RUN npm install -g pnpm
 
-# Set working directory
-WORKDIR /app
+# Set working directory for workspace
+WORKDIR /workspace
 
-# Copy package files
-COPY package.json pnpm-lock.yaml ./
+# Copy workspace root package files first
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
-# Install dependencies (fix lockfile mismatch)
+# Copy UI package files
+COPY ui/package.json ui/pnpm-lock.yaml ./ui/
+
+# Install dependencies with workspace context (fix lockfile mismatch)
 RUN pnpm install --no-frozen-lockfile
 
-# Copy source code
-COPY . .
+# Set working directory to ui and copy source code
+WORKDIR /workspace/ui
+COPY ui/ .
 
 # Build the web application only
 RUN pnpm build:web
@@ -23,7 +27,7 @@ RUN pnpm build:web
 FROM nginx:alpine AS production
 
 # Copy built assets to nginx
-COPY --from=base /app/dist /usr/share/nginx/html
+COPY --from=base /workspace/ui/dist /usr/share/nginx/html
 
 # Copy nginx configuration for SPA routing
 COPY docker/nginx.conf /etc/nginx/nginx.conf
@@ -36,9 +40,6 @@ CMD ["nginx", "-g", "daemon off;"]
 
 # Development stage (for docker-compose)
 FROM base AS development
-
-# Install development dependencies (fix lockfile mismatch)
-RUN pnpm install --no-frozen-lockfile
 
 # Expose Vite dev server port
 EXPOSE 5173
