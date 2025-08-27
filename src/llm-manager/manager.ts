@@ -5,7 +5,7 @@
  * Handles intelligent routing, caching, conversation management, and fallback strategies.
  */
 
-import { Effect, Layer, Stream, Option, Duration, Schedule, Cause } from 'effect'
+import { Effect, Layer, Stream, Duration, Schedule } from 'effect'
 import { Schema } from '@effect/schema'
 import {
   LLMManagerService,
@@ -26,7 +26,6 @@ import {
   ModelHealthStatus,
   ModelType,
   LLMRequestSchema,
-  ConversationContextSchema
 } from './types.js'
 
 /**

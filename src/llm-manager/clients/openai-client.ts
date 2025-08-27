@@ -8,7 +8,7 @@
 import { Effect, Stream, Schedule, Duration } from 'effect'
 import { Schema } from '@effect/schema'
 import type { ModelClient, LLMRequest, LLMResponse, LLMError } from '../types.js'
-import { ensureLLMError, withLLMError } from './error-utils.js'
+import { withLLMError } from './error-utils.js'
 
 /**
  * OpenAI Configuration Schema
