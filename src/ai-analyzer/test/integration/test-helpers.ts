@@ -9,7 +9,10 @@ interface TopologyService {
 }
 
 // Helper functions to replace the complex API client integration
-export const waitForTelemetryData = async (minServices = 5, maxWaitMs = 20000): Promise<TopologyService[]> => {
+export const waitForTelemetryData = async (
+  minServices = 5,
+  maxWaitMs = 20000
+): Promise<TopologyService[]> => {
   const startWait = Date.now()
   const API_BASE_URL = process.env.API_URL || 'http://localhost:4319'
 
@@ -70,19 +73,22 @@ export const waitForTelemetryData = async (minServices = 5, maxWaitMs = 20000): 
 }
 
 interface ArchitectureAnalysis {
-  architecture: { 
+  architecture: {
     services: Array<{
       serviceName: string
       dependencies: string[]
       metadata: Record<string, unknown>
     }>
   }
-  metadata: { 
+  metadata: {
     analyzedSpans: string | number
   }
 }
 
-export const waitForArchitectureData = async (minSpans = 50, maxWaitMs = 15000): Promise<ArchitectureAnalysis> => {
+export const waitForArchitectureData = async (
+  minSpans = 50,
+  maxWaitMs = 15000
+): Promise<ArchitectureAnalysis> => {
   const startWait = Date.now()
   const API_BASE_URL = process.env.API_URL || 'http://localhost:4319'
 
