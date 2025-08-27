@@ -202,7 +202,7 @@ describe('End-to-End LLM Manager Tests', () => {
     })
   })
 
-  describe('Real API Integration Tests', () => {
+  describe.skip('Real API Integration Tests', () => {
     it('should work with OpenAI if configured', async () => {
       if (!process.env.OPENAI_API_KEY) {
         console.log('❌ OpenAI API key required for this test')

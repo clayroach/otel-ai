@@ -30,6 +30,7 @@ export default defineConfig({
 
     // Environment setup
     environment: 'node',
+    setupFiles: ['./src/test-setup.ts'],
     
     // Reporters
     reporters: ['verbose'],

@@ -26,7 +26,7 @@ if (!process.env.CLICKHOUSE_HOST) {
   process.env.CLICKHOUSE_HOST = 'localhost'
 }
 if (!process.env.CLICKHOUSE_PORT) {
-  process.env.CLICKHOUSE_PORT = '8123'
+  process.env.CLICKHOUSE_PORT = '8124'
 }
 if (!process.env.CLICKHOUSE_DATABASE) {
   process.env.CLICKHOUSE_DATABASE = 'otel'
