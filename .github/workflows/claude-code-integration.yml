@@ -62,7 +62,7 @@ jobs:
         run: pnpm install --frozen-lockfile
         
       - name: TypeScript type checking
-        run: pnpm typecheck
+        run: pnpm typecheck:all
         
       - name: ESLint code quality
         run: pnpm lint

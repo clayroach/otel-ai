@@ -31,6 +31,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
+    "typecheck:ui": "cd ui && pnpm type-check",
+    "typecheck:all": "pnpm typecheck && pnpm typecheck:ui",
     "clean": "rimraf dist",
     "db:truncate": "docker exec otel-ai-clickhouse clickhouse-client --user=otel --password=otel123 --database=otel --query=\"TRUNCATE TABLE traces\"",
     "preinstall": "npx only-allow pnpm",
@@ -85,7 +87,7 @@
     "dev:validate:watch": "vitest src/test/integration/trace-ingestion.integration.test.ts",
     "// Combined workflows": "",
     "setup": "run-s dev:up install",
-    "ci": "run-s format:check lint typecheck test",
+    "ci": "run-s format:check lint typecheck:all test",
     "release": "run-s ci build"
   },
   "dependencies": {
