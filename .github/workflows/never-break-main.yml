@@ -119,6 +119,13 @@ jobs:
           json-final-path: './target/coverage/coverage-final.json'
           vite-config-path: './vitest.config.ts'
           
+      - name: Start demo for integration tests
+        run: |
+          echo "🎬 Starting OpenTelemetry demo for realistic telemetry data..."
+          pnpm demo:up
+          echo "⏳ Waiting for demo services to generate telemetry data..."
+          sleep 45
+          
       - name: Integration tests
         run: |
           echo "🔗 Running integration tests with established pnpm commands..."
@@ -144,6 +151,7 @@ jobs:
         if: always()
         run: |
           echo "🧹 Cleaning up services with established pnpm commands..."
+          pnpm demo:down || echo "Demo cleanup completed"
           pnpm dev:down
           docker system prune -f
 
