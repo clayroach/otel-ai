@@ -153,7 +153,7 @@ export const makeInteractionLogger = () =>
       Ref.make(
         new Set<{
           emit: (event: LiveInteractionEvent) => void
-          fail: (error: any) => void
+          fail: (error: unknown) => void
           end: () => void
         }>()
       )
@@ -163,7 +163,11 @@ export const makeInteractionLogger = () =>
     const broadcastEvent = (event: LiveInteractionEvent) =>
       Effect.gen(function* (_) {
         const subscribers = yield* _(Ref.get(subscribersRef))
-        const failedSubscribers: any[] = []
+        const failedSubscribers: Array<{
+          emit: (event: LiveInteractionEvent) => void
+          fail: (error: unknown) => void
+          end: () => void
+        }> = []
 
         subscribers.forEach((subscriber) => {
           try {
@@ -353,7 +357,7 @@ export const makeInteractionLogger = () =>
         Stream.async<LiveInteractionEvent, never, never>((emit) => {
           const subscriber = {
             emit: (event: LiveInteractionEvent) => emit.single(event),
-            fail: (_error: any) => {}, // No-op since we use never error type
+            fail: (_error: unknown) => {}, // No-op since we use never error type
             end: () => emit.end()
           }
 
@@ -415,7 +419,10 @@ export const makeInteractionLogger = () =>
             if (!byModel.has(model)) {
               byModel.set(model, [])
             }
-            byModel.get(model)!.push(entry)
+            const modelEntries = byModel.get(model)
+            if (modelEntries) {
+              modelEntries.push(entry)
+            }
           })
 
           // Calculate stats for each model

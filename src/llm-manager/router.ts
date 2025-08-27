@@ -9,16 +9,12 @@ import { Effect, Layer } from 'effect'
 import {
   ModelRouterService,
   ModelClientService,
-  LLMConfigService,
-  LLMMetricsService
+  LLMConfigService
 } from './services.js'
 import {
   LLMRequest,
-  LLMResponse,
-  LLMError,
   ModelType,
   TaskType,
-  RoutingStrategy,
   LLMConfig,
   ModelClient
 } from './types.js'
@@ -98,11 +94,10 @@ export const makeModelRouter = (
     llama?: ModelClient
   }
 ) =>
-  Effect.gen(function* (_) {
-    // Track model performance for routing decisions
-    const performanceTracker = new Map<ModelType, ModelPerformance>()
-
-    return {
+  Effect.succeed({
+    performanceTracker: new Map<ModelType, ModelPerformance>()
+  }).pipe(
+    Effect.map(({ performanceTracker }) => ({
       selectModel: (request: LLMRequest) =>
         Effect.gen(function* (_) {
           // If user has model preference, use it if available
@@ -238,7 +233,7 @@ export const makeModelRouter = (
                     )
                     yield* _(Effect.log(`Model ${selectedModel} failed: ${JSON.stringify(error)}`))
                   }),
-                onSuccess: (response) =>
+                onSuccess: (_response) =>
                   Effect.gen(function* (_) {
                     const latency = Date.now() - startTime
                     yield* _(
@@ -254,11 +249,11 @@ export const makeModelRouter = (
         }),
 
       getFallbackChain: (failedModel: ModelType) =>
-        Effect.gen(function* (_) {
+        Effect.succeed((() => {
           // Find task routing that includes the failed model
           const taskRoutings = Object.entries(TASK_ROUTING)
 
-          for (const [taskType, routing] of taskRoutings) {
+          for (const [, routing] of taskRoutings) {
             if (routing.preferred === failedModel || routing.fallback.includes(failedModel)) {
               // Return remaining models in fallback chain
               const remainingModels = routing.fallback.filter((model) => model !== failedModel)
@@ -272,12 +267,12 @@ export const makeModelRouter = (
           // Default fallback chain excluding failed model
           const allModels: ModelType[] = ['llama', 'gpt', 'claude']
           return allModels.filter((model) => model !== failedModel)
-        }),
+        })()),
 
       updateModelPerformance: (model: ModelType, latencyMs: number, success: boolean) =>
         updateModelPerformance(model, latencyMs, success, performanceTracker)
-    }
-  })
+    }))
+  )
 
 /**
  * Check Model Availability

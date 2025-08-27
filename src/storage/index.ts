@@ -8,6 +8,7 @@
 export * from './schemas.js'
 export * from './config.js'
 export * from './errors.js'
+export * from './api-client.js'
 export * from './simple-storage.js'
 
 // Simple storage for initial development and testing
@@ -38,6 +39,16 @@ export { StorageConfigSchema, defaultStorageConfig } from './config.js'
 // Error types
 export type { StorageError } from './errors.js'
 export { StorageErrorSchema } from './errors.js'
+
+// API Client types and implementations
+export type { StorageAPIClient } from './api-client.js'
+export { 
+  StorageAPIClientTag, 
+  ClickHouseConfigTag, 
+  S3ConfigTag,
+  makeStorageAPIClient, 
+  StorageAPIClientLayer 
+} from './api-client.js'
 
 // Effect-TS storage implementations - now with resolved type issues
 export * from './clickhouse.js'

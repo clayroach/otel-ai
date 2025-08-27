@@ -15,7 +15,7 @@ import {
   CacheService,
   LLMConfigService,
   LLMMetricsService,
-  InteractionLoggerService
+  // InteractionLoggerService // TODO: Enable when interaction logging is needed
 } from './services.js'
 import {
   LLMConfig,
@@ -93,7 +93,7 @@ export const makeLLMManager = (config: LLMConfig) =>
     const cache = yield* _(CacheService)
     const conversationStorage = yield* _(ConversationStorageService)
     const metrics = yield* _(LLMMetricsService)
-    const logger = yield* _(InteractionLoggerService)
+    // const logger = yield* _(InteractionLoggerService) // TODO: Enable when interaction logging is needed
 
     return {
       generate: (request: LLMRequest): Effect.Effect<LLMResponse, LLMError, never> =>
@@ -115,14 +115,15 @@ export const makeLLMManager = (config: LLMConfig) =>
           // Pre-select model for logging
           const selectedModel = yield* _(router.selectModel(validatedRequest))
 
-          // Log the request with routing information
-          const interactionId = yield* _(
-            logger.logRequest(selectedModel, validatedRequest, {
-              routingReason: `Task-based routing for ${validatedRequest.taskType}`,
-              cacheHit: false,
-              retryCount: 0
-            })
-          )
+          // Log the request with routing information (TODO: Enable when interaction logging is needed)
+          // const interactionId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          // const interactionId = yield* _(
+          //   logger.logRequest(selectedModel, validatedRequest, {
+          //     routingReason: `Task-based routing for ${validatedRequest.taskType}`,
+          //     cacheHit: false,
+          //     retryCount: 0
+          //   })
+          // )
 
           // Check cache first if enabled
           if (config.cache.enabled) {
@@ -130,19 +131,19 @@ export const makeLLMManager = (config: LLMConfig) =>
             const cached = yield* _(cache.get(cacheKey))
 
             if (cached) {
-              // Update interaction log for cache hit
-              yield* _(
-                logger.logResponse(
-                  interactionId,
-                  { ...cached, metadata: { ...cached.metadata, cached: true } },
-                  0 // Cache hits are essentially instant
-                )
-              )
+              // Update interaction log for cache hit (TODO: Enable when interaction logging is needed)
+              // yield* _(
+              //   logger.logResponse(
+              //     interactionId,
+              //     { ...cached, metadata: { ...cached.metadata, cached: true } },
+              //     0 // Cache hits are essentially instant
+              //   )
+              // )
               return { ...cached, metadata: { ...cached.metadata, cached: true } }
             }
           }
 
-          const startTime = Date.now()
+          // const startTime = Date.now() // TODO: Enable when interaction logging is needed
 
           // Route to appropriate model with fallback and retry
           const response: LLMResponse = yield* _(
@@ -165,15 +166,15 @@ export const makeLLMManager = (config: LLMConfig) =>
               }),
               Effect.tapError((error) =>
                 Effect.gen(function* (_) {
-                  const latency = Date.now() - startTime
-                  yield* _(logger.logError(interactionId, error, latency))
+                  // const latency = Date.now() - startTime // TODO: Enable when interaction logging is needed
+                  // yield* _(logger.logError(interactionId, error, latency)) // TODO: Enable when interaction logging is needed
                   yield* _(Effect.log(`LLM request failed: ${JSON.stringify(error)}`))
                 })
               )
             )
           )
 
-          const latency = Date.now() - startTime
+          // const latency = Date.now() - startTime // TODO: Enable when interaction logging is needed
 
           // Cache successful response
           if (config.cache.enabled && !response.metadata.cached) {
@@ -181,8 +182,8 @@ export const makeLLMManager = (config: LLMConfig) =>
             yield* _(cache.set(cacheKey, response, config.cache.ttlSeconds))
           }
 
-          // Log successful response
-          yield* _(logger.logResponse(interactionId, response, latency))
+          // Log successful response (TODO: Enable when interaction logging is needed)
+          // yield* _(logger.logResponse(interactionId, response, latency))
 
           // Record successful response metrics
           yield* _(metrics.recordResponse(selectedModel, response))
@@ -318,7 +319,7 @@ export const makeLLMManager = (config: LLMConfig) =>
       getConversation: (conversationId: string) => conversationStorage.load(conversationId),
 
       getAvailableModels: () =>
-        Effect.gen(function* (_) {
+        Effect.succeed((() => {
           const models: ModelType[] = []
 
           // Check which models are configured
@@ -327,7 +328,7 @@ export const makeLLMManager = (config: LLMConfig) =>
           if (config.models.llama && clients.llama) models.push('llama')
 
           return models
-        }),
+        })()),
 
       getModelHealth: () =>
         Effect.gen(function* (_) {

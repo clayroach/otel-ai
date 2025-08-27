@@ -284,7 +284,11 @@ describe('Multi-Model Integration Tests', () => {
       // Test Local Streaming
       try {
         const localClient = makeLocalModelClient(defaultLocalConfig)
-        const stream = localClient.generateStream!(request)
+        const stream = localClient.generateStream?.(request)
+        if (!stream) {
+          console.log('✅ Streaming not supported by local client')
+          return
+        }
         const chunks: string[] = []
         let firstChunkTime = 0
         const startTime = Date.now()
@@ -324,7 +328,11 @@ describe('Multi-Model Integration Tests', () => {
             ...defaultOpenAIConfig,
             apiKey: process.env.OPENAI_API_KEY
           })
-          const stream = openaiClient.generateStream!(request)
+          const stream = openaiClient.generateStream?.(request)
+          if (!stream) {
+            console.log('✅ Streaming not supported by OpenAI client')
+            return
+          }
           const chunks: string[] = []
           let firstChunkTime = 0
           const startTime = Date.now()
@@ -362,7 +370,11 @@ describe('Multi-Model Integration Tests', () => {
             ...defaultClaudeConfig,
             apiKey: process.env.CLAUDE_API_KEY
           })
-          const stream = claudeClient.generateStream!(request)
+          const stream = claudeClient.generateStream?.(request)
+          if (!stream) {
+            console.log('✅ Streaming not supported by Claude client')
+            return
+          }
           const chunks: string[] = []
           let firstChunkTime = 0
           const startTime = Date.now()

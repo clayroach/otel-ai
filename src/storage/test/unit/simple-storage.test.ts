@@ -7,7 +7,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { Effect, Layer } from 'effect'
 import { 
-  StorageService,
   StorageServiceTag,
   ConfigServiceTag,
   type StorageStats
@@ -21,6 +20,8 @@ import {
   type LogData,
   type AIDataset
 } from '../../schemas.js'
+import { StorageAPIClientTag, type StorageAPIClient } from '../../api-client.js'
+import { type StorageError, StorageErrorConstructors } from '../../errors.js'
 
 // Mock Storage Service Layer for unit tests - properly typed to match interface
 const MockStorageServiceLive = Layer.succeed(StorageServiceTag, {
@@ -123,13 +124,51 @@ const MockConfigServiceLive = Layer.succeed(ConfigServiceTag, {
   }
 })
 
+// Mock API Client Layer with proper error handling demonstration
+const MockAPIClientLive = Layer.succeed(StorageAPIClientTag, {
+  writeOTLP: (_data: OTLPData): Effect.Effect<void, StorageError> =>
+    Effect.succeed(undefined),
+
+  queryTraces: (_params: QueryParams): Effect.Effect<TraceData[], StorageError> =>
+    Effect.succeed([
+      {
+        traceId: 'api-mock-trace-123',
+        spanId: 'api-mock-span-123',
+        operationName: 'api-mock-operation',
+        startTime: Date.now() * 1000000,
+        endTime: (Date.now() + 1000) * 1000000,
+        duration: 1000000000,
+        serviceName: 'api-mock-service',
+        statusCode: 1,
+        spanKind: 'SERVER',
+        attributes: { 'test.api': 'true' },
+        resourceAttributes: { 'service.name': 'api-mock-service' },
+        events: [],
+        links: []
+      }
+    ]),
+
+  queryMetrics: (_params: QueryParams): Effect.Effect<MetricData[], StorageError> =>
+    Effect.succeed([]),
+
+  queryLogs: (_params: QueryParams): Effect.Effect<LogData[], StorageError> =>
+    Effect.succeed([]),
+
+  queryAI: (_params: AIQueryParams): Effect.Effect<unknown[], StorageError> =>
+    Effect.succeed([]),
+
+  healthCheck: (): Effect.Effect<{ clickhouse: boolean; s3: boolean }, StorageError> =>
+    Effect.succeed({ clickhouse: true, s3: true })
+} as StorageAPIClient)
+
 // Combined test layer - fix dependency order
 const TestStorageLayer = Layer.mergeAll(
   MockConfigServiceLive,
-  MockStorageServiceLive
+  MockStorageServiceLive,
+  MockAPIClientLive
 )
 
-describe('Storage Service (Effect-TS)', () => {
+describe('Storage Service with API Client (Effect-TS)', () => {
   beforeEach(() => {
     // No external setup needed with Effect layers
   })
@@ -179,7 +218,10 @@ describe('Storage Service (Effect-TS)', () => {
 
     it('should handle health check through service interface', async () => {
       const isHealthy = await Effect.runPromise(
-        StorageService.healthCheck().pipe(Effect.provide(TestStorageLayer))
+        Effect.gen(function* (_) {
+          const storage = yield* _(StorageServiceTag)
+          return yield* _(storage.healthCheck())
+        }).pipe(Effect.provide(TestStorageLayer))
       )
       expect(isHealthy.clickhouse).toBe(true)
       expect(isHealthy.s3).toBe(true)
@@ -210,7 +252,10 @@ describe('Storage Service (Effect-TS)', () => {
 
     it('should write OTLP data through Effect service', async () => {
       const result = await Effect.runPromise(
-        StorageService.writeOTLP(testTraceData).pipe(Effect.provide(TestStorageLayer))
+        Effect.gen(function* (_) {
+          const storage = yield* _(StorageServiceTag)
+          return yield* _(storage.writeOTLP(testTraceData))
+        }).pipe(Effect.provide(TestStorageLayer))
       )
       // Mock service always succeeds
       expect(result).toBeUndefined() // void return
@@ -223,7 +268,10 @@ describe('Storage Service (Effect-TS)', () => {
       }
 
       const result = await Effect.runPromise(
-        StorageService.writeOTLP(emptyData).pipe(Effect.provide(TestStorageLayer))
+        Effect.gen(function* (_) {
+          const storage = yield* _(StorageServiceTag)
+          return yield* _(storage.writeOTLP(emptyData))
+        }).pipe(Effect.provide(TestStorageLayer))
       )
       expect(result).toBeUndefined()
     })
@@ -253,7 +301,10 @@ describe('Storage Service (Effect-TS)', () => {
 
     it('should query traces through Effect service', async () => {
       const traces = await Effect.runPromise(
-        StorageService.queryTraces(queryParams).pipe(Effect.provide(TestStorageLayer))
+        Effect.gen(function* (_) {
+          const storage = yield* _(StorageServiceTag)
+          return yield* _(storage.queryTraces(queryParams))
+        }).pipe(Effect.provide(TestStorageLayer))
       )
       expect(Array.isArray(traces)).toBe(true)
       expect(traces.length).toBeGreaterThan(0)
@@ -261,6 +312,7 @@ describe('Storage Service (Effect-TS)', () => {
       // Validate mock data structure
       expect(traces.length).toBeGreaterThan(0)
       const trace = traces[0]
+      expect(trace).toBeDefined()
       if (trace) {
         expect(trace).toHaveProperty('traceId')
         expect(trace).toHaveProperty('spanId')
@@ -275,14 +327,20 @@ describe('Storage Service (Effect-TS)', () => {
 
     it('should query metrics through Effect service', async () => {
       const metrics = await Effect.runPromise(
-        StorageService.queryMetrics(queryParams).pipe(Effect.provide(TestStorageLayer))
+        Effect.gen(function* (_) {
+          const storage = yield* _(StorageServiceTag)
+          return yield* _(storage.queryMetrics(queryParams))
+        }).pipe(Effect.provide(TestStorageLayer))
       )
       expect(Array.isArray(metrics)).toBe(true)
     })
 
     it('should query logs through Effect service', async () => {
       const logs = await Effect.runPromise(
-        StorageService.queryLogs(queryParams).pipe(Effect.provide(TestStorageLayer))
+        Effect.gen(function* (_) {
+          const storage = yield* _(StorageServiceTag)
+          return yield* _(storage.queryLogs(queryParams))
+        }).pipe(Effect.provide(TestStorageLayer))
       )
       expect(Array.isArray(logs)).toBe(true)
     })
@@ -295,7 +353,10 @@ describe('Storage Service (Effect-TS)', () => {
       }
       
       const dataset = await Effect.runPromise(
-        StorageService.queryForAI(aiParams).pipe(Effect.provide(TestStorageLayer))
+        Effect.gen(function* (_) {
+          const storage = yield* _(StorageServiceTag)
+          return yield* _(storage.queryForAI(aiParams))
+        }).pipe(Effect.provide(TestStorageLayer))
       )
       expect(dataset).toBeDefined()
       expect(dataset.features).toBeDefined()
@@ -432,14 +493,20 @@ describe('Storage Service (Effect-TS)', () => {
       }
 
       const result = await Effect.runPromise(
-        StorageService.writeOTLP(largeDataset).pipe(Effect.provide(TestStorageLayer))
+        Effect.gen(function* (_) {
+          const storage = yield* _(StorageServiceTag)
+          return yield* _(storage.writeOTLP(largeDataset))
+        }).pipe(Effect.provide(TestStorageLayer))
       )
       expect(result).toBeUndefined() // void return indicates success
     })
 
     it('should provide storage statistics', async () => {
       const stats = await Effect.runPromise(
-        StorageService.getStats().pipe(Effect.provide(TestStorageLayer))
+        Effect.gen(function* (_) {
+          const storage = yield* _(StorageServiceTag)
+          return yield* _(storage.getStorageStats())
+        }).pipe(Effect.provide(TestStorageLayer))
       )
       
       expect(stats).toBeDefined()
@@ -449,6 +516,129 @@ describe('Storage Service (Effect-TS)', () => {
       expect(typeof stats.s3.totalObjects).toBe('number')
       expect(stats.clickhouse.diskUsage).toBe('1.2 GB')
       expect(stats.s3.totalSize).toBe('500 MB')
+    })
+  })
+
+  describe('API Client Integration', () => {
+    it('should demonstrate API client usage with Effect.match pattern', async () => {
+      const result = await Effect.runPromise(
+        Effect.gen(function* (_) {
+          const apiClient = yield* _(StorageAPIClientTag)
+          
+          const queryParams: QueryParams = {
+            timeRange: {
+              start: Date.now() - 3600000,
+              end: Date.now()
+            },
+            limit: 10
+          }
+          
+          return yield* _(apiClient.queryTraces(queryParams))
+        }).pipe(
+          Effect.provide(TestStorageLayer),
+          Effect.match({
+            onFailure: (error) => ({ success: false as const, error }),
+            onSuccess: (traces) => ({ success: true as const, traces })
+          })
+        )
+      )
+      
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(Array.isArray(result.traces)).toBe(true)
+        expect(result.traces.length).toBeGreaterThan(0)
+        
+        const trace = result.traces[0]
+        expect(trace).toBeDefined()
+        if (trace) {
+          expect(trace.traceId).toBe('api-mock-trace-123')
+          expect(trace.attributes['test.api']).toBe('true')
+        }
+      }
+    })
+
+    it('should demonstrate API client write with proper error handling', async () => {
+      const testData: OTLPData = {
+        traces: [{
+          traceId: 'api-write-test',
+          spanId: 'api-write-span',
+          operationName: 'api-write-operation',
+          startTime: Date.now() * 1000000,
+          endTime: (Date.now() + 1000) * 1000000,
+          duration: 1000000000,
+          serviceName: 'api-write-service',
+          statusCode: 1,
+          spanKind: 'SERVER',
+          attributes: { 'write.test': 'true' },
+          resourceAttributes: { 'service.name': 'api-write-service' },
+          events: [],
+          links: []
+        }],
+        timestamp: Date.now()
+      }
+      
+      const writeResult = await Effect.runPromise(
+        Effect.gen(function* (_) {
+          const apiClient = yield* _(StorageAPIClientTag)
+          return yield* _(apiClient.writeOTLP(testData))
+        }).pipe(
+          Effect.provide(TestStorageLayer),
+          Effect.match({
+            onFailure: (error) => ({ success: false as const, error }),
+            onSuccess: () => ({ success: true as const })
+          })
+        )
+      )
+      
+      expect(writeResult.success).toBe(true)
+    })
+
+    it('should demonstrate proper error handling with failing API client', async () => {
+      // Create a failing API client for testing error paths
+      const FailingAPIClientLive = Layer.succeed(StorageAPIClientTag, {
+        writeOTLP: (_data: OTLPData) =>
+          Effect.fail(StorageErrorConstructors.ConnectionError(
+            'Mock API client connection failure',
+            new Error('Mock error')
+          )),
+        queryTraces: (_params: QueryParams) =>
+          Effect.fail(StorageErrorConstructors.QueryError(
+            'Mock query failure',
+            'SELECT * FROM traces',
+            new Error('Mock error')
+          )),
+        queryMetrics: (_params: QueryParams) => Effect.succeed([]),
+        queryLogs: (_params: QueryParams) => Effect.succeed([]),
+        queryAI: (_params: AIQueryParams) => Effect.succeed([]),
+        healthCheck: () => Effect.succeed({ clickhouse: false, s3: false })
+      } as StorageAPIClient)
+
+      const FailingTestLayer = Layer.mergeAll(
+        MockConfigServiceLive,
+        MockStorageServiceLive,
+        FailingAPIClientLive
+      )
+
+      const errorResult = await Effect.runPromise(
+        Effect.gen(function* (_) {
+          const apiClient = yield* _(StorageAPIClientTag)
+          return yield* _(apiClient.queryTraces({
+            timeRange: { start: Date.now() - 3600000, end: Date.now() }
+          }))
+        }).pipe(
+          Effect.provide(FailingTestLayer),
+          Effect.match({
+            onFailure: (error) => ({ success: false as const, error }),
+            onSuccess: (traces) => ({ success: true as const, traces })
+          })
+        )
+      )
+
+      expect(errorResult.success).toBe(false)
+      if (!errorResult.success) {
+        expect(errorResult.error._tag).toBe('QueryError')
+        expect(errorResult.error.message).toContain('Mock query failure')
+      }
     })
   })
 

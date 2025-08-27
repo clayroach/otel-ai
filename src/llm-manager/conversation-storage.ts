@@ -12,7 +12,7 @@ import { ConversationStorageService } from './services.js'
  * In-Memory Conversation Storage Implementation
  */
 export const makeConversationStorageService = () =>
-  Effect.gen(function* (_) {
+  Effect.succeed((() => {
     const conversations = new Map<string, ConversationContext>()
 
     return {
@@ -46,7 +46,7 @@ export const makeConversationStorageService = () =>
           return limit ? contexts.slice(0, limit) : contexts
         })
     }
-  })
+  })())
 
 /**
  * Conversation Storage Layer

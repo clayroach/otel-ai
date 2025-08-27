@@ -284,7 +284,7 @@ describe('Model Selection and Insights Generation', () => {
       const insightsInsights = generateInsights(mockArchitecture, 'insights')
 
       // Compare insights without timing-sensitive metadata
-      const normalizeInsights = (insights: any[]) => insights.map(insight => ({
+      const normalizeInsights = (insights: Array<{ evidence: { metadata: Record<string, unknown> }; [key: string]: unknown }>) => insights.map(insight => ({
         ...insight,
         evidence: {
           ...insight.evidence,

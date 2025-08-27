@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { LLMRequest, LLMResponse, LLMError, LLMConfig, ModelClient } from './types.js'
+import { LLMRequest, LLMResponse, LLMError, LLMConfig } from './types.js'
 import { makeLocalModelClient, defaultLocalConfig } from './clients/local-client.js'
 
 /**
