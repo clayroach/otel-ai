@@ -12,18 +12,18 @@ An AI-native observability platform with unified OTLP ingestion and OpenTelemetr
 
 ## 🚀 Quick Start
 
-**Prerequisites:** Docker only! All development tools run in containers.
+**Prerequisites:** Node.js 18+, pnpm, Docker
 
 ```bash
 # 1. Clone and setup
 git clone https://github.com/clayroach/otel-ai.git
 cd otel-ai
 
-# 2. One-command setup
-pnpm setup
+# 2. Install dependencies
+pnpm install
 
 # 3. Start developing
-pnpm dev:up        # Start platform services
+pnpm dev:up        # Start platform services (Docker)
 pnpm dev          # Start development server
 
 # 4. Try the OpenTelemetry Demo integration
@@ -86,6 +86,8 @@ pnpm demo:up      # Start demo with our backend
 pnpm demo:down    # Stop demo services
 pnpm demo:logs    # View demo logs
 pnpm demo:clean   # Clean up demo containers
+pnpm demo:status  # Check demo service status
+pnpm demo:validate # Validate demo integration
 ```
 
 **Key Features**:
@@ -98,52 +100,68 @@ pnpm demo:clean   # Clean up demo containers
 
 ## 📦 Development Workflow
 
-### Modern Task Runner
+### Package Documentation
 
-Instead of Makefiles, we use a modern JavaScript-based task runner:
+Each package includes comprehensive documentation following our **Option C pattern**:
+
+- **README.md**: Quick start, API overview, basic examples
+- **Dendron notes**: Full specifications, architecture, design decisions
+
+| Package | README | Comprehensive Docs |
+|---------|--------|--------------------|
+| [storage](src/storage/) | [📖 README](src/storage/README.md) | [📚 Full Docs](notes/packages/storage/package.md) |
+| [ai-analyzer](src/ai-analyzer/) | [📖 README](src/ai-analyzer/README.md) | [📚 Full Docs](notes/packages/ai-analyzer/package.md) |
+| [llm-manager](src/llm-manager/) | [📖 README](src/llm-manager/README.md) | [📚 Full Docs](notes/packages/llm-manager/package.md) |
+| [ui-generator](src/ui-generator/) | [📖 README](src/ui-generator/README.md) | [📚 Full Docs](notes/packages/ui-generator/package.md) |
+| [config-manager](src/config-manager/) | [📖 README](src/config-manager/README.md) | [📚 Full Docs](notes/packages/config-manager/package.md) |
+| [deployment](src/deployment/) | [📖 README](src/deployment/README.md) | [📚 Full Docs](notes/packages/deployment/package.md) |
+
+### Development Commands
 
 ```bash
-# Using npm scripts (recommended)
-pnpm setup          # Initial setup
-pnpm dev           # Development mode
-pnpm build         # Build project
-pnpm test          # Run tests
-pnpm ci            # CI checks (format, lint, typecheck, test)
-
-# Or using the task runner directly
-node .taskfile.js setup
-node .taskfile.js dev
-# ... etc
-
-# Pro tip: Add alias for convenience
-alias task='node .taskfile.js'
-task help
+# Development workflow
+pnpm install        # Install dependencies
+pnpm dev:up        # Start infrastructure (Docker)
+pnpm dev           # Start development server
+pnpm test          # Run unit tests
+pnpm test:integration  # Run integration tests
+pnpm test:e2e      # Run E2E tests with Playwright
+pnpm typecheck     # TypeScript validation
 ```
 
 ### Infrastructure Management
 
 ```bash
 # Infrastructure control
-pnpm infra:up       # Start ClickHouse, MinIO, OTel Collector
-pnpm infra:down     # Stop all services
-pnpm infra:reset    # Reset with clean volumes
-pnpm infra:logs     # View service logs
-```
+pnpm dev:up         # Start development services (ClickHouse, MinIO, OTel Collector)
+pnpm dev:down       # Stop development services
+pnpm dev:reset      # Reset with clean volumes
+pnpm dev:logs       # View service logs
 
-### Development Container
-
-```bash
-# Use development container with all tools pre-installed
-pnpm dev:container  # Start dev container
-pnpm dev:shell      # Get shell in running container
+# Production infrastructure
+pnpm infra:up       # Start production services
+pnpm infra:down     # Stop production services
+pnpm infra:reset    # Reset production with clean volumes
+pnpm infra:logs     # View production service logs
 ```
 
 ## 🧪 Testing
 
 ```bash
-pnpm test              # Unit tests
+# Unit and integration tests
+pnpm test              # Unit tests with Vitest
 pnpm test:coverage     # Coverage report
-pnpm test:integration  # Integration tests (requires Docker)
+pnpm test:integration  # Integration tests (requires Docker services)
+
+# End-to-end testing
+pnpm test:e2e          # E2E tests with Playwright
+pnpm test:e2e:ui       # E2E tests with Playwright UI
+pnpm test:e2e:headed   # E2E tests in headed mode
+pnpm test:e2e:debug    # Debug E2E tests
+pnpm test:e2e:quick    # Quick validation tests
+
+# Docker-based integration testing
+pnpm test:integration:docker  # Run integration tests in Docker container
 ```
 
 ## ✅ **Current Features**
@@ -171,12 +189,13 @@ pnpm test:integration  # Integration tests (requires Docker)
 
 ```
 otel-ai/
-├── src/                    # Source code
-│   ├── storage/           # ClickHouse + S3 storage layer
-│   ├── ai-analyzer/       # Anomaly detection (TODO)
-│   ├── llm-manager/       # Multi-model LLM orchestration (TODO)
-│   ├── ui-generator/      # Dynamic React components (TODO)
-│   └── config-manager/    # Self-healing config (TODO)
+├── src/                    # Source code packages
+│   ├── storage/           # ClickHouse + S3 storage layer [📖 README](src/storage/README.md)
+│   ├── ai-analyzer/       # Anomaly detection with ML models [📖 README](src/ai-analyzer/README.md)
+│   ├── llm-manager/       # Multi-model LLM orchestration [📖 README](src/llm-manager/README.md)
+│   ├── ui-generator/      # Dynamic React components [📖 README](src/ui-generator/README.md)
+│   ├── config-manager/    # Self-healing configuration [📖 README](src/config-manager/README.md)
+│   └── deployment/        # Bazel build + deployment [📖 README](src/deployment/README.md)
 ├── migrations/            # Atlas schema migration system
 │   ├── entrypoint.sh     # Container-native migration entrypoint
 │   ├── schema/          # HCL schema definitions and views
