@@ -1,0 +1,209 @@
+name: Claude Code CI/CD Integration
+
+on:
+  # Trigger on PR comments for @claude mentions
+  issue_comment:
+    types: [created]
+  
+  # Trigger on pull requests for automated review
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+  
+  # Trigger on pushes to main for deployment validation
+  push:
+    branches: [main]
+  
+  # Manual workflow dispatch for testing
+  workflow_dispatch:
+    inputs:
+      claude_command:
+        description: 'Claude command to run'
+        required: false
+        default: '/review'
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '8.15.0'
+
+jobs:
+  # Automated testing pipeline
+  test-pipeline:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+        
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+            
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        
+      - name: TypeScript type checking
+        run: pnpm typecheck
+        
+      - name: ESLint code quality
+        run: pnpm lint
+        
+      - name: Prettier format checking
+        run: pnpm format:check
+        
+      - name: Unit tests
+        run: pnpm test
+        
+      - name: Setup Docker for integration tests
+        run: |
+          docker compose --profile dev up -d
+          # Wait for services to be ready
+          sleep 30
+          
+      - name: Integration tests
+        run: pnpm test:integration
+        
+      - name: E2E tests
+        run: pnpm test:e2e
+        
+      - name: Cleanup Docker services
+        if: always()
+        run: docker compose --profile dev down -v
+
+  # Claude Code integration for PR review and assistance  
+  claude-assistant:
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request' && github.event.action == 'opened') ||
+      github.event_name == 'workflow_dispatch'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Fetch full history for better context
+          fetch-depth: 0
+          
+      - name: Claude Code Review (on PR open)
+        if: github.event_name == 'pull_request'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Please review this pull request focusing on:
+            1. Code quality and adherence to project standards in CLAUDE.md
+            2. Testing coverage and quality
+            3. Documentation updates (README.md files should match implementation)
+            4. AI-native development patterns and Effect-TS usage
+            5. Security considerations and best practices
+            
+            Provide constructive feedback and suggestions for improvement.
+            Use the code-review-agent patterns when available.
+          claude_args: "--max-turns 3 --timeout 300"
+          
+      - name: Claude Code Comment Response
+        if: github.event_name == 'issue_comment'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: ${{ github.event.comment.body }}
+          claude_args: "--max-turns 5 --timeout 600"
+          
+      - name: Claude Manual Command
+        if: github.event_name == 'workflow_dispatch'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: ${{ github.event.inputs.claude_command }}
+          claude_args: "--max-turns 3 --timeout 300"
+
+  # Prevent breaking main branch
+  protect-main:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    needs: [test-pipeline]
+    
+    steps:
+      - name: Verify all tests passed
+        run: |
+          echo "✅ All tests passed - main branch protection successful"
+          echo "Ready for deployment or further automation"
+          
+      - name: Deployment validation
+        run: |
+          echo "🚀 Main branch updated successfully"
+          echo "Automated checks completed:"
+          echo "  - TypeScript compilation: ✅"
+          echo "  - Code quality (ESLint): ✅" 
+          echo "  - Code formatting: ✅"
+          echo "  - Unit tests: ✅"
+          echo "  - Integration tests: ✅"
+          echo "  - E2E tests: ✅"
+
+  # Agent-driven automation workflows
+  agent-workflows:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test-pipeline, protect-main]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js for agents
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: Trigger documentation sync agent
+        if: contains(github.event.head_commit.message, 'feat:') || contains(github.event.head_commit.message, 'fix:')
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Use the code-to-docs-sync-agent to ensure documentation stays aligned with code changes.
+            Review the latest commit and update any relevant README.md files or package documentation.
+            Focus on maintaining bidirectional sync between implementation and documentation.
+          claude_args: "--max-turns 2 --timeout 300"
+          
+      - name: Trigger visual content updates
+        if: contains(github.event.head_commit.message, 'feat:') || contains(github.event.head_commit.message, 'ui:')
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Use the visual-content-agent to update any relevant screenshots or visual documentation
+            based on the latest UI or feature changes. Organize screenshots and update README files
+            with current visual representations.
+          claude_args: "--max-turns 2 --timeout 300"
+          
+      - name: Generate end-of-day summary
+        if: contains(github.event.head_commit.message, 'day-') || contains(github.event.head_commit.message, 'milestone')
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Use the end-day-agent to generate a progress summary and create blog content
+            for this milestone or daily update. Review the changes and create appropriate
+            content for the 30-Day AI-Native Observability Platform series.
+          claude_args: "--max-turns 3 --timeout 600"
