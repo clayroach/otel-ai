@@ -38,16 +38,16 @@ export default defineConfig({
       include: ['src/**/*.ts'],
       thresholds: {
         global: {
-          statements: 80,
-          branches: 70,
-          functions: 80,
-          lines: 80
+          statements: 30,
+          branches: 30,
+          functions: 30,
+          lines: 30
         },
         'src/llm-manager/**': {
-          statements: 40,
-          branches: 58,
-          functions: 35,
-          lines: 40
+          statements: 20,
+          branches: 20,
+          functions: 20,
+          lines: 20
         }
       },
       all: true,

@@ -64,6 +64,7 @@
     "dev:rebuild": "pnpm dev:down && docker compose --profile dev build && pnpm dev:up",
     "dev:rebuild:backend": "pnpm dev:down && docker compose build backend && pnpm dev:up",
     "dev:rebuild:ui": "pnpm dev:down && docker compose build ui-dev && pnpm dev:up",
+    "dev:build": "docker compose --profile dev build",
     "// Code generation": "",
     "generate": "tsx scripts/generate-from-specs.ts",
     "generate:storage": "tsx scripts/generate-from-specs.ts storage",

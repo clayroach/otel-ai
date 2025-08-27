@@ -84,8 +84,7 @@ jobs:
       - name: Build required Docker images
         run: |
           echo "🏗️ Building required Docker images with established pnpm commands..."
-          # Use the established pnpm dev:rebuild command (without starting services)
-          docker compose --profile dev build
+          pnpm dev:build
           echo "✅ Docker images built successfully"
           
       - name: Start infrastructure services
@@ -219,8 +218,8 @@ jobs:
         
       - name: Validate Docker builds
         run: |
-          echo "🐳 Building Docker containers with established patterns..."
-          docker compose --profile dev build
+          echo "🐳 Building Docker containers with established pnpm commands..."
+          pnpm dev:build
           echo "✅ Docker builds successful"
           
       - name: Test production deployment
