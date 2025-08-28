@@ -79,11 +79,21 @@ jobs:
           # Wait for services to be ready
           sleep 30
           
+      - name: Setup OpenTelemetry Demo
+        run: pnpm demo:setup
+          
+      - name: Start OpenTelemetry Demo
+        run: pnpm demo:up
+          
       - name: Integration tests
         run: pnpm test:integration
         
       - name: E2E tests
         run: pnpm test:e2e
+        
+      - name: Cleanup Demo services
+        if: always()
+        run: pnpm demo:down
         
       - name: Cleanup Docker services
         if: always()

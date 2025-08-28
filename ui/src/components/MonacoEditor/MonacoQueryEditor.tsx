@@ -282,10 +282,10 @@ export const MonacoQueryEditor: React.FC<MonacoQueryEditorProps> = ({
           const suggestions = [
             // Tables
             {
-              label: 'otel.traces',
+              label: 'traces',
               kind: monaco.languages.CompletionItemKind.Class,
-              insertText: 'otel.traces',
-              documentation: 'Main traces table with all telemetry data from unified ingestion',
+              insertText: 'traces',
+              documentation: 'Main traces table with all telemetry data',
               range
             },
             // Common columns from unified view
@@ -343,7 +343,7 @@ export const MonacoQueryEditor: React.FC<MonacoQueryEditorProps> = ({
                 '  duration_ms,',
                 '  start_time as timestamp,',
                 '  status_code',
-                'FROM otel.traces',
+                'FROM traces',
                 'WHERE start_time >= subtractHours(now(), 1)',
                 'ORDER BY start_time DESC',
                 'LIMIT 100'

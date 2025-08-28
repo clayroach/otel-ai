@@ -196,26 +196,33 @@ const PORT = process.env.PORT || 4319
 // Middleware
 app.use(cors())
 
-// For OTLP endpoints, use raw middleware with gzip decompression enabled
-app.use('/v1*', (req, res, next) => {
+// Combined body parsing middleware for OTLP and other endpoints
+app.use((req, res, next) => {
   console.log('🔍 [Debug] Path:', req.path)
   console.log('🔍 [Debug] Content-Type:', req.headers['content-type'])
   console.log('🔍 [Debug] Content-Encoding:', req.headers['content-encoding'])
-
-  // Use raw middleware for all OTLP data with gzip decompression enabled
-  express.raw({
-    limit: '10mb',
-    type: '*/*',
-    inflate: true // Enable gzip decompression for all content types
-  })(req, res, next)
-})
-
-// For non-OTLP endpoints only, use standard middleware (exclude /v1/* paths)
-app.use((req, res, next) => {
-  if (!req.path.startsWith('/v1/')) {
-    express.json({ limit: '10mb' })(req, res, next)
+  
+  const contentType = req.headers['content-type'] || ''
+  
+  if (req.path.startsWith('/v1/')) {
+    // For OTLP endpoints, check content-type
+    if (contentType.includes('application/json')) {
+      // Parse as JSON for JSON content
+      express.json({ 
+        limit: '10mb',
+        inflate: true // Enable gzip decompression
+      })(req, res, next)
+    } else {
+      // Use raw middleware for protobuf with gzip decompression
+      express.raw({
+        limit: '10mb',
+        type: '*/*',
+        inflate: true // Enable gzip decompression
+      })(req, res, next)
+    }
   } else {
-    next()
+    // For all other endpoints, always parse JSON
+    express.json({ limit: '10mb' })(req, res, next)
   }
 })
 
@@ -266,19 +273,19 @@ async function createViews() {
     const createViewSQL = `
       CREATE OR REPLACE VIEW traces_view AS
       SELECT 
-          trace_id,
-          span_id,
-          parent_span_id,
-          start_time,
+          TraceId,
+          SpanId,
+          parent_SpanId,
+          Timestamp,
           end_time,
           duration_ns,
-          duration_ms,
-          service_name,
-          operation_name,
+          Duration / 1000000,
+          ServiceName,
+          SpanName,
           span_kind,
           status_code,
           status_message,
-          is_error,
+          CASE WHEN StatusCode = '2' THEN 1 ELSE 0 END,
           is_root,
           trace_state,
           scope_name,
@@ -348,13 +355,13 @@ app.get('/api/traces', async (req, res) => {
     // For now, maintain backward compatibility with direct storage query
     const query = `
       SELECT 
-        trace_id,
-        service_name,
-        operation_name,
-        duration_ms,
-        start_time as timestamp,
+        TraceId,
+        ServiceName,
+        SpanName,
+        Duration / 1000000,
+        Timestamp as timestamp,
         status_code,
-        is_error,
+        CASE WHEN StatusCode = '2' THEN 1 ELSE 0 END,
         span_kind,
         is_root,
         encoding_type
@@ -429,7 +436,7 @@ app.get('/api/anomalies', async (req, res) => {
         SELECT 
           service_name,
           AVG(duration_ms) as avg_duration_ms,
-          stddevSamp(duration_ms) as std_duration_ms,
+          stddevSamp(duration_ms) as std_duration,
           COUNT(*) as sample_count,
           MAX(start_time) as latest_timestamp
         FROM traces
@@ -454,18 +461,18 @@ app.get('/api/anomalies', async (req, res) => {
         rt.timestamp,
         rt.trace_id,
         ss.avg_duration_ms as service_avg_duration_ms,
-        ss.std_duration_ms as service_std_duration_ms,
-        (rt.duration_ms - ss.avg_duration_ms) / ss.std_duration_ms as z_score,
+        ss.std_duration as service_std_duration,
+        (rt.duration_ms - ss.avg_duration_ms) / ss.std_duration as z_score,
         'latency_anomaly' as anomaly_type,
         CASE 
-          WHEN ABS((rt.duration_ms - ss.avg_duration_ms) / ss.std_duration_ms) >= ${threshold}
+          WHEN ABS((rt.duration_ms - ss.avg_duration_ms) / ss.std_duration) >= ${threshold}
           THEN 'high'
           ELSE 'normal'
         END as severity
       FROM recent_traces rt
       JOIN service_stats ss ON rt.service_name = ss.service_name
-      WHERE ABS((rt.duration_ms - ss.avg_duration_ms) / ss.std_duration_ms) >= ${threshold}
-      ORDER BY ABS((rt.duration_ms - ss.avg_duration_ms) / ss.std_duration_ms) DESC
+      WHERE ABS((rt.duration_ms - ss.avg_duration_ms) / ss.std_duration) >= ${threshold}
+      ORDER BY ABS((rt.duration_ms - ss.avg_duration_ms) / ss.std_duration) DESC
       LIMIT 50
     `
 
@@ -483,6 +490,39 @@ app.get('/api/anomalies', async (req, res) => {
     res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// Generic ClickHouse query endpoint for UI traces view
+app.post('/api/clickhouse/query', async (req, res) => {
+  try {
+    const { query } = req.body
+
+    if (!query || typeof query !== 'string') {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'Query parameter is required and must be a string'
+      })
+      return
+    }
+
+    console.log('🔍 Executing ClickHouse query:', query.substring(0, 100) + '...')
+
+    const result = await storage.queryWithResults(query)
+
+    res.json({
+      data: result.data,
+      rows: result.data.length,
+      query: query,
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('❌ Error executing ClickHouse query:', error)
+    res.status(500).json({
+      error: 'Query execution failed',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      query: req.body?.query?.substring(0, 100) || 'unknown'
     })
   }
 })
@@ -741,17 +781,20 @@ app.post('/v1/traces', async (req, res) => {
       contentType.includes('x-protobuf') ||
       contentType === 'application/octet-stream' ||
       (Buffer.isBuffer(req.body) && req.body.length > 0 && !contentType.includes('json'))
+    
+    // If body is already parsed as JSON object, it's definitely JSON
+    const isJson = !Buffer.isBuffer(req.body) && typeof req.body === 'object' && req.body !== null
 
     console.log('🔍 Checking content type for protobuf:', req.headers['content-type'])
-    console.log('🔍 Is protobuf?', isProtobuf)
+    console.log('🔍 Is protobuf?', isProtobuf, 'Is JSON?', isJson)
 
     // Continue with data processing
     try {
       const rawData = req.body
       let otlpData
-      let encodingType: 'json' | 'protobuf' = 'json'
+      let encodingType: 'json' | 'protobuf' = isJson ? 'json' : 'protobuf'
 
-      if (isProtobuf) {
+      if (!isJson && isProtobuf) {
         // Handle protobuf data - try to parse as JSON first (collector might be sending JSON in protobuf wrapper)
         console.log('🔍 Processing protobuf OTLP data...')
         console.log('🔍 Protobuf data size:', rawData?.length || 0, 'bytes')
@@ -937,6 +980,7 @@ app.post('/v1/traces', async (req, res) => {
       console.log('🔍 OTLP payload keys:', Object.keys(otlpData))
 
       // Transform OTLP data to our simplified storage format
+      console.log('🔍 [DEBUG] encodingType being used for traces:', encodingType)
       const traces = []
 
       if (otlpData.resourceSpans) {
@@ -1043,10 +1087,10 @@ app.post('/v1/traces', async (req, res) => {
                 : span.parentSpanId || ''
 
               const trace = {
-                trace_id: traceIdStr,
-                span_id: spanIdStr,
-                parent_span_id: parentSpanIdStr,
-                start_time: new Date(Math.floor(startTimeNs / 1000000))
+                TraceId: traceIdStr,
+                SpanId: spanIdStr,
+                parent_SpanId: parentSpanIdStr,
+                Timestamp: new Date(Math.floor(startTimeNs / 1000000))
                   .toISOString()
                   .replace('T', ' ')
                   .replace('Z', ''),
@@ -1055,11 +1099,17 @@ app.post('/v1/traces', async (req, res) => {
                   .replace('T', ' ')
                   .replace('Z', ''),
                 duration_ns: durationNs,
-                service_name:
+                ServiceName:
                   (resourceAttributes['service.name'] as string) ||
                   (encodingType === 'json' ? 'json-test-service' : 'unknown-service'),
-                operation_name: span.name,
-                span_kind: span.kind || 'SPAN_KIND_INTERNAL',
+                SpanName: span.name,
+                span_kind: typeof span.kind === 'number' ? 
+                           span.kind === 1 ? 'SPAN_KIND_INTERNAL' :
+                           span.kind === 2 ? 'SPAN_KIND_SERVER' :
+                           span.kind === 3 ? 'SPAN_KIND_CLIENT' :
+                           span.kind === 4 ? 'SPAN_KIND_PRODUCER' :
+                           span.kind === 5 ? 'SPAN_KIND_CONSUMER' :
+                           'SPAN_KIND_UNSPECIFIED' : span.kind || 'SPAN_KIND_INTERNAL',
                 status_code: span.status?.code || 'STATUS_CODE_UNSET',
                 status_message: span.status?.message || '',
                 trace_state: span.traceState || '',
@@ -1088,23 +1138,29 @@ app.post('/v1/traces', async (req, res) => {
       // Transform traces to proper TraceData format for Storage API Client
       if (traces.length > 0) {
         const traceDataArray = traces.map((trace) => ({
-          traceId: trace.trace_id,
-          spanId: trace.span_id,
-          parentSpanId: trace.parent_span_id || undefined,
-          operationName: trace.operation_name,
-          startTime: new Date(trace.start_time).getTime() * 1000000, // Convert to nanoseconds
+          traceId: trace.TraceId,
+          spanId: trace.SpanId,
+          parentSpanId: trace.parent_SpanId || undefined,
+          operationName: trace.SpanName,
+          startTime: new Date(trace.Timestamp).getTime() * 1000000, // Convert to nanoseconds
           endTime: new Date(trace.end_time).getTime() * 1000000, 
           duration: trace.duration_ns,
-          serviceName: trace.service_name,
+          serviceName: trace.ServiceName,
           statusCode: trace.status_code === 'STATUS_CODE_OK' ? 1 : 
                      trace.status_code === 'STATUS_CODE_ERROR' ? 2 : 0,
           statusMessage: trace.status_message || undefined,
-          spanKind: trace.span_kind,
+          spanKind: typeof trace.span_kind === 'number' ? 
+                     trace.span_kind === 1 ? 'SPAN_KIND_INTERNAL' :
+                     trace.span_kind === 2 ? 'SPAN_KIND_SERVER' :
+                     trace.span_kind === 3 ? 'SPAN_KIND_CLIENT' :
+                     trace.span_kind === 4 ? 'SPAN_KIND_PRODUCER' :
+                     trace.span_kind === 5 ? 'SPAN_KIND_CONSUMER' :
+                     'SPAN_KIND_UNSPECIFIED' : String(trace.span_kind),
           attributes: Object.fromEntries(
-            Object.entries(trace.span_attributes || {}).map(([k, v]) => [k, String(v)])
+            Object.entries(trace.span_attributes || {}).map(([k, v]) => [k, typeof v === 'object' ? JSON.stringify(v) : String(v)])
           ),
           resourceAttributes: Object.fromEntries(
-            Object.entries(trace.resource_attributes || {}).map(([k, v]) => [k, String(v)])
+            Object.entries(trace.resource_attributes || {}).map(([k, v]) => [k, typeof v === 'object' ? JSON.stringify(v) : String(v)])
           ),
           events: [], // TODO: Parse events from JSON string
           links: []   // TODO: Parse links from JSON string
@@ -1117,7 +1173,7 @@ app.post('/v1/traces', async (req, res) => {
             return yield* _(apiClient.writeOTLP({
               traces: traceDataArray,
               timestamp: Date.now()
-            }))
+            }, encodingType))
           }).pipe(
             Effect.provide(ServerStorageLayer),
             Effect.match({
@@ -1209,13 +1265,13 @@ app.listen(PORT, async () => {
                 async () =>
                   await storage.queryWithResults(`
             SELECT 
-              service_name,
+              service_name as service,
               COUNT(DISTINCT operation_name) as operation_count,
               COUNT(*) as span_count,
               AVG(duration_ms) as avg_latency_ms,
               SUM(is_error) / COUNT(*) as error_rate
             FROM traces 
-            WHERE start_time > now() - INTERVAL 1 HOUR
+            WHERE 1=1
             GROUP BY service_name
             ORDER BY span_count DESC
             LIMIT 20
@@ -1245,7 +1301,7 @@ app.listen(PORT, async () => {
             )
 
             interface TopologyRow {
-              service_name: string
+              service: string
               operation_count: number
               span_count: number
               avg_latency_ms: number
@@ -1288,16 +1344,16 @@ app.listen(PORT, async () => {
                 service: dep.child_service,
                 operation: 'unknown', // Could be enhanced with operation-level analysis
                 callCount: Number(dep.call_count) || 0,
-                avgLatencyMs: Number(dep.avg_duration_ms) || 0,
+                avgLatencyMs: Number(dep.avg_duration_ms / 1000000) || 0,
                 errorRate: Number(dep.error_rate) || 0
               })
             })
 
             const services = typedData.map((row) => ({
-              service: row.service_name,
+              service: row.service,
               type: 'backend' as const,
               operations: [`operation-${Math.floor(Math.random() * 100)}`],
-              dependencies: dependencyMap.get(row.service_name) || [],
+              dependencies: dependencyMap.get(row.service) || [],
               metadata: {
                 avgLatencyMs: Number(row.avg_latency_ms) || 0,
                 errorRate: Number(row.error_rate) || 0,
@@ -1312,9 +1368,9 @@ app.listen(PORT, async () => {
               to: dep.child_service,
               volume: Number(dep.call_count) || 0,
               latency: {
-                p50: Number(dep.avg_duration_ms) || 0,
-                p95: Number(dep.avg_duration_ms) * 1.5 || 0, // Estimated
-                p99: Number(dep.avg_duration_ms) * 2 || 0 // Estimated
+                p50: Number(dep.avg_duration_ms / 1000000) || 0,
+                p95: Number(dep.avg_duration_ms / 1000000) * 1.5 || 0, // Estimated
+                p99: Number(dep.avg_duration_ms / 1000000) * 2 || 0 // Estimated
               }
             }))
 
@@ -1381,13 +1437,13 @@ app.listen(PORT, async () => {
                 async () =>
                   await storage.queryWithResults(`
             SELECT 
-              service_name,
+              service_name as service,
               COUNT(DISTINCT operation_name) as operation_count,
               COUNT(*) as span_count,
               AVG(duration_ms) as avg_latency_ms,
               SUM(is_error) / COUNT(*) as error_rate
             FROM traces 
-            WHERE start_time > now() - INTERVAL 1 HOUR
+            WHERE 1=1
             GROUP BY service_name
             ORDER BY span_count DESC
             LIMIT 20
@@ -1396,7 +1452,7 @@ app.listen(PORT, async () => {
             )
 
             interface TopologyRow {
-              service_name: string
+              service: string
               operation_count: number
               span_count: number
               avg_latency_ms: number
@@ -1404,7 +1460,7 @@ app.listen(PORT, async () => {
             }
             const typedData = topology.data as unknown as TopologyRow[]
             return typedData.map((row) => ({
-              service: row.service_name,
+              service: row.service,
               type: 'backend' as const,
               operations: [`operation-${Math.floor(Math.random() * 100)}`],
               dependencies: [], // TODO: Fix dependency discovery

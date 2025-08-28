@@ -1,33 +1,47 @@
-# UI Dockerfile for production deployment
-FROM node:18-alpine AS base
+# UI Dockerfile for production and development
+
+# Development stage - minimal setup for mounting local files
+FROM node:18-alpine AS development
 
 # Install pnpm
 RUN npm install -g pnpm
 
-# Set working directory for workspace
-WORKDIR /workspace
+# Set working directory
+WORKDIR /app
 
-# Copy workspace root package files first
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# Expose Vite dev server port
+EXPOSE 5173
 
-# Copy UI package files
-COPY ui/package.json ui/pnpm-lock.yaml ./ui/
+# The actual source files and package.json will be mounted via docker-compose
+# Start development server with host binding
+CMD ["sh", "-c", "pnpm install && pnpm dev:web --host 0.0.0.0"]
 
-# Install dependencies with workspace context (fix lockfile mismatch, skip optional native compilation)
-RUN pnpm install --no-frozen-lockfile --ignore-scripts
+# Production build stage
+FROM node:18-alpine AS builder
 
-# Set working directory to ui and copy source code
-WORKDIR /workspace/ui
+# Install pnpm
+RUN npm install -g pnpm
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY ui/package.json ui/pnpm-lock.yaml ./
+
+# Install dependencies (including devDependencies needed for build)
+RUN pnpm install --no-frozen-lockfile
+
+# Copy source code
 COPY ui/ .
 
-# Build the web application only
+# Build the web application
 RUN pnpm build:web
 
 # Production stage
 FROM nginx:alpine AS production
 
 # Copy built assets to nginx
-COPY --from=base /workspace/ui/dist /usr/share/nginx/html
+COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Copy nginx configuration for SPA routing
 COPY docker/nginx.conf /etc/nginx/nginx.conf
@@ -37,12 +51,3 @@ EXPOSE 80
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]
-
-# Development stage (for docker-compose)
-FROM base AS development
-
-# Expose Vite dev server port
-EXPOSE 5173
-
-# Start development server with host binding
-CMD ["pnpm", "dev:web", "--host", "0.0.0.0"]

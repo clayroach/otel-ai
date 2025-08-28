@@ -100,7 +100,7 @@ async function checkClickHouseData() {
     const headers = { Authorization: `Basic ${auth}` }
 
     const response = await fetch(
-      'http://localhost:8123/?query=SELECT count(*) FROM otel.otel_traces',
+      'http://localhost:8123/?query=SELECT count(*) FROM otel.traces',
       { headers }
     )
     const countText = await response.text()
@@ -116,7 +116,7 @@ async function checkClickHouseData() {
 
       // Show recent traces
       const tracesResponse = await fetch(
-        'http://localhost:8123/?query=SELECT TraceId, ServiceName, SpanName, Duration, Timestamp FROM otel.otel_traces ORDER BY Timestamp DESC LIMIT 5 FORMAT JSON',
+        'http://localhost:8123/?query=SELECT trace_id, service_name, operation_name, duration_ms, start_time FROM otel.traces ORDER BY start_time DESC LIMIT 5 FORMAT JSON',
         { headers }
       )
       const tracesData = await tracesResponse.json()

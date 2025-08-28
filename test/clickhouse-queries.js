@@ -37,35 +37,35 @@ async function runTraceAnalysisQueries() {
   console.log('====================================')
 
   // Basic trace count
-  await executeQuery('SELECT count(*) as total_traces FROM otel.otel_traces', 'Total trace count')
+  await executeQuery('SELECT count(*) as total_traces FROM otel.traces', 'Total trace count')
 
   // Service breakdown
   await executeQuery(
-    'SELECT ServiceName, count(*) as span_count FROM otel.otel_traces GROUP BY ServiceName ORDER BY span_count DESC',
+    'SELECT service_name, count(*) as span_count FROM otel.traces GROUP BY service_name ORDER BY span_count DESC',
     'Traces by service'
   )
 
   // Recent traces with details
   await executeQuery(
-    'SELECT TraceId, ServiceName, SpanName, round(Duration/1000000) as duration_ms, Timestamp FROM otel.otel_traces ORDER BY Timestamp DESC LIMIT 10',
+    'SELECT trace_id, service_name, operation_name, duration_ms, start_time FROM otel.traces ORDER BY start_time DESC LIMIT 10',
     'Recent traces (last 10)'
   )
 
   // Error analysis
   await executeQuery(
-    'SELECT StatusCode, count(*) as count FROM otel.otel_traces GROUP BY StatusCode ORDER BY count DESC',
+    'SELECT status_code, count(*) as count FROM otel.traces GROUP BY status_code ORDER BY count DESC',
     'Status code distribution'
   )
 
   // Performance analysis
   await executeQuery(
-    'SELECT SpanName, avg(Duration/1000000) as avg_duration_ms, quantile(0.95)(Duration/1000000) as p95_duration_ms FROM otel.otel_traces GROUP BY SpanName ORDER BY avg_duration_ms DESC',
+    'SELECT operation_name, avg(duration_ms) as avg_duration_ms, quantile(0.95)(duration_ms) as p95_duration_ms FROM otel.traces GROUP BY operation_name ORDER BY avg_duration_ms DESC',
     'Performance by operation'
   )
 
   // Trace timeline for visualization
   await executeQuery(
-    'SELECT TraceId, ServiceName, SpanName, Duration, Timestamp, SpanId, ParentSpanId FROM otel.otel_traces WHERE TraceId IN (SELECT TraceId FROM otel.otel_traces ORDER BY Timestamp DESC LIMIT 1) ORDER BY Timestamp',
+    'SELECT trace_id, service_name, operation_name, duration_ms, start_time, span_id, parent_span_id FROM otel.traces WHERE trace_id IN (SELECT trace_id FROM otel.traces ORDER BY start_time DESC LIMIT 1) ORDER BY start_time',
     'Detailed trace breakdown (latest trace)'
   )
 

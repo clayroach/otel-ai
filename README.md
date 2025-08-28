@@ -30,6 +30,78 @@ pnpm dev          # Start development server
 pnpm demo:up      # Start demo with your platform as backend
 ```
 
+## 📋 **Development Commands**
+
+**IMPORTANT**: Always use pnpm commands - never use direct docker/docker-compose/curl commands.
+
+### Core Development Commands
+
+```bash
+# Development environment
+pnpm dev:up              # Start all services (Docker containers + backend)
+pnpm dev:down            # Stop all services
+pnpm dev:logs            # View service logs
+pnpm dev:reset           # Clean reset (removes volumes and restarts)
+
+# Rebuild services (after code changes)
+pnpm dev:rebuild:backend # Rebuild and restart backend service
+pnpm dev:rebuild:ui      # Rebuild and restart UI service
+pnpm dev:rebuild         # Rebuild all services
+
+# Testing
+pnpm test                # Run all unit tests
+pnpm test:integration    # Run integration tests
+pnpm test:e2e            # Run end-to-end tests
+pnpm test:coverage       # Run tests with coverage report
+
+# Code quality
+pnpm lint                # Run ESLint
+pnpm lint:fix            # Auto-fix linting issues
+pnpm format              # Format code with Prettier
+pnpm typecheck           # Run TypeScript type checking
+
+# Cleanup
+pnpm clean               # Clean build artifacts
+pnpm clean:all           # Full cleanup (containers, volumes, artifacts)
+pnpm clean:containers    # Remove all containers
+pnpm clean:volumes       # Remove all volumes
+pnpm clean:prune         # Docker system prune with volumes
+pnpm db:truncate         # Clear traces table data
+
+# OpenTelemetry Demo integration
+pnpm demo:setup          # Initial demo setup
+pnpm demo:up             # Start demo services
+pnpm demo:down           # Stop demo services
+pnpm demo:logs           # View demo logs
+pnpm demo:clean          # Clean demo containers
+pnpm demo:status         # Check demo status
+
+# Infrastructure validation
+pnpm dev:validate        # Validate environment setup
+pnpm dev:validate:traces # Validate trace ingestion
+```
+
+### Development Workflows
+
+```bash
+# After pulling latest changes
+pnpm install             # Install new dependencies
+pnpm dev:rebuild:backend # Rebuild backend with changes
+pnpm test                # Run tests to verify
+
+# Fresh start (clean everything)
+pnpm clean:all           # Remove all containers and data
+pnpm dev:up              # Start fresh environment
+pnpm demo:setup          # Setup demo if needed
+pnpm demo:up             # Start demo services
+
+# Before committing
+pnpm lint:fix            # Fix linting issues
+pnpm format              # Format code
+pnpm typecheck           # Check types
+pnpm test                # Run all tests
+```
+
 ## 🏗️ **Unified OTLP Ingestion** ✅
 
 **Simplified Architecture**: Single path for all telemetry data

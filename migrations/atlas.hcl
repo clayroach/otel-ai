@@ -20,8 +20,7 @@ env "local" {
   # Diff policy - how to handle schema differences
   diff {
     skip {
-      # Skip system tables
-      table = "system.*"
+      # Skip system tables (ClickHouse specific syntax)
     }
   }
 }

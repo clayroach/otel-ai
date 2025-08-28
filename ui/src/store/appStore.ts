@@ -167,17 +167,18 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'otel-ai-app-storage',
-      version: 2, // Increment to force storage reset
+      version: 3, // Increment to force storage reset and clear activeQuery
       partialize: (state) => ({
         darkMode: state.darkMode,
         sidebarCollapsed: state.sidebarCollapsed,
         clickhouseUrl: state.clickhouseUrl,
         clickhouseAuth: state.clickhouseAuth,
         queryHistory: state.queryHistory
+        // Note: activeQuery is deliberately NOT persisted
       }),
       migrate: (persistedState: any, version: number) => {
         // Force reset to ensure we use proxy URL and new history format
-        if (version < 2) {
+        if (version < 3) {
           return {
             darkMode: persistedState?.darkMode || false,
             sidebarCollapsed: persistedState?.sidebarCollapsed || false,
@@ -187,6 +188,7 @@ export const useAppStore = create<AppState>()(
               password: 'otel123'
             },
             queryHistory: [] // Reset to new format
+            // activeQuery will default to '' which forces use of DEFAULT_QUERY
           }
         }
         return persistedState

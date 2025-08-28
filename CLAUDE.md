@@ -746,4 +746,14 @@ export CLAUDE_CODE_ALLOWED_COMMANDS="curl:*,docker:*,docker compose:*,docker exe
 
 - Always try to consider production-readiness when creation of new assets - for instance init scripts for containers rather than standalone scripts
 - use the package.json by default for starting demo and other scripts and not call them directly.  Most everything should be controlled during dev/test using pnpm.
-- always default to using pnpm commands first before running your own other command line equivalents
+- **CRITICAL: ALWAYS use pnpm commands exclusively - NEVER use direct docker/docker-compose/curl commands**
+  - **FIRST**: Always run `pnpm run` to see ALL available scripts before doing anything
+  - **Development**: Use `pnpm dev:*` commands (dev:up, dev:down, dev:rebuild:backend, etc.)
+  - **Testing**: Use `pnpm test*` commands (test, test:unit, test:integration, test:e2e)
+  - **Demo**: Use `pnpm demo:*` commands (demo:up, demo:down, demo:setup)
+  - **Cleanup**: Use `pnpm clean:*` commands for removing containers and pruning
+  - **NEVER** use direct docker/docker-compose/curl/grep/find commands
+  - **NEVER** create custom bash commands when pnpm scripts exist
+  - If a pnpm script doesn't exist, ASK THE USER to create one rather than using other commands
+  - When testing endpoints, use pnpm test commands, not curl
+  - When checking logs, look for a pnpm logs command first

@@ -152,7 +152,7 @@ export class SimpleStorage {
     }))
 
     await this.client.insert({
-      table: 'otel_traces',
+      table: 'traces',
       values,
       format: 'JSONEachRow'
     })

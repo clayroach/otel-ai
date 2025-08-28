@@ -22,7 +22,7 @@ import { type StorageError, StorageErrorConstructors } from './errors.js'
 // Temporarily remove timeout operations to fix compilation issues
 
 export interface ClickHouseStorage {
-  readonly writeOTLP: (data: OTLPData) => Effect.Effect<void, StorageError>
+  readonly writeOTLP: (data: OTLPData, encodingType?: 'protobuf' | 'json') => Effect.Effect<void, StorageError>
   readonly writeBatch: (data: OTLPData[]) => Effect.Effect<void, StorageError>
   readonly queryTraces: (params: QueryParams) => Effect.Effect<TraceData[], StorageError>
   readonly queryMetrics: (params: QueryParams) => Effect.Effect<MetricData[], StorageError>
@@ -60,7 +60,7 @@ export const makeClickHouseStorage = (
       })
     )
 
-    const writeOTLP = (data: OTLPData): Effect.Effect<void, StorageError> =>
+    const writeOTLP = (data: OTLPData, encodingType: 'protobuf' | 'json' = 'protobuf'): Effect.Effect<void, StorageError> =>
       Effect.gen(function* (_) {
         // Validate OTLP data
         const validatedData = yield* _(
@@ -76,7 +76,7 @@ export const makeClickHouseStorage = (
 
         // Write traces if present
         if (validatedData.traces && validatedData.traces.length > 0) {
-          yield* _(writeTraces([...validatedData.traces]))
+          yield* _(writeTraces([...validatedData.traces], encodingType))
         }
 
         // Write metrics if present
@@ -100,41 +100,61 @@ export const makeClickHouseStorage = (
         )
       })
 
-    const writeTraces = (traces: TraceData[]): Effect.Effect<void, StorageError> =>
+    const writeTraces = (traces: TraceData[], encodingType: 'protobuf' | 'json' = 'protobuf'): Effect.Effect<void, StorageError> =>
       Effect.gen(function* (_) {
         const insertQuery = `
-          INSERT INTO otel_traces (
-            Timestamp, TraceId, SpanId, ParentSpanId, SpanName, SpanKind,
-            ServiceName, ResourceAttributes, Duration, StatusCode, StatusMessage,
-            SpanAttributes, Events
+          INSERT INTO traces (
+            trace_id, span_id, parent_span_id, 
+            start_time, end_time, duration_ns,
+            service_name, operation_name, span_kind,
+            status_code, status_message,
+            trace_state, scope_name, scope_version,
+            span_attributes, resource_attributes,
+            events, links,
+            ingestion_time, processing_version, encoding_type
           ) VALUES
         `
 
-        const values = traces.map((trace) => [
-          new Date(trace.startTime / 1000000), // Convert nanoseconds to milliseconds
-          trace.traceId,
-          trace.spanId,
-          trace.parentSpanId || '',
-          trace.operationName,
-          trace.spanKind,
-          trace.serviceName,
-          trace.resourceAttributes,
-          trace.duration,
-          trace.statusCode,
-          trace.statusMessage || '',
-          trace.attributes,
-          trace.events.map((event) => [
-            new Date(event.timestamp / 1000000),
-            event.name,
-            event.attributes
-          ])
-        ])
+        const values = traces.map((trace) => {
+          // Convert nanoseconds to DateTime64(9) format
+          // ClickHouse expects DateTime64(9) as nanoseconds since epoch
+          const startTimeNs = trace.startTime
+          const endTimeNs = trace.endTime || (trace.startTime + trace.duration)
+          
+          console.log(`🔍 [Debug] Timestamp conversion for trace ${trace.traceId}: ${startTimeNs}ns`)
+          
+          return {
+            trace_id: trace.traceId,
+            span_id: trace.spanId,
+            parent_span_id: trace.parentSpanId || '',
+            start_time: startTimeNs,
+            end_time: endTimeNs,
+            duration_ns: trace.duration,
+            service_name: trace.serviceName,
+            operation_name: trace.operationName,
+            span_kind: trace.spanKind,
+            status_code: trace.statusCode.toString(),
+            status_message: trace.statusMessage || '',
+            trace_state: '', // Not available in TraceData type
+            scope_name: '', // Not available in TraceData type
+            scope_version: '', // Not available in TraceData type
+            span_attributes: trace.attributes,
+            resource_attributes: trace.resourceAttributes,
+            events: JSON.stringify(trace.events), // Convert to JSON string for storage
+            links: JSON.stringify(trace.links), // Convert to JSON string for storage
+            ingestion_time: Date.now() * 1_000_000, // Current time in nanoseconds for DateTime64(9)
+            processing_version: 1,
+            encoding_type: encodingType
+          }
+        })
+
+        console.log(`🔍 [Debug] First trace JSON sample:`, JSON.stringify(values[0], null, 2))
 
         yield* _(
           Effect.tryPromise({
             try: () =>
               client.insert({
-                table: 'otel_traces',
+                table: 'traces',
                 values,
                 format: 'JSONEachRow'
               }),
@@ -465,7 +485,7 @@ const buildTraceQuery = (params: QueryParams): string => {
       SpanKind as spanKind,
       SpanAttributes as attributes,
       ResourceAttributes as resourceAttributes
-    FROM otel_traces 
+    FROM traces 
     WHERE Timestamp >= ${new Date(timeRange.start).toISOString()}
       AND Timestamp <= ${new Date(timeRange.end).toISOString()}
   `
@@ -525,7 +545,7 @@ const buildAIQuery = (params: AIQueryParams): string => {
         SELECT 
           ${features.join(', ')},
           toUnixTimestamp(Timestamp) as timestamp
-        FROM otel_traces
+        FROM traces
         WHERE Timestamp >= '${new Date(timeRange.start).toISOString()}'
           AND Timestamp <= '${new Date(timeRange.end).toISOString()}'
         ORDER BY Timestamp

@@ -116,8 +116,8 @@ test.describe('Protobuf Service Name Cleaning Validation', () => {
         // Check that evidence shows clean names with metrics
         const evidenceContent = await page.locator('.ant-card').filter({ hasText: 'High Latency Services' }).textContent()
         
-        // Should contain pattern like "service-name: 1234ms avg latency" not {"stringValue":"service-name"}
-        const hasCleanEvidence = evidenceContent?.match(/\w+-\w+:\s+\d+ms\s+avg\s+latency/) !== null
+        // Should contain pattern like "service-name: 1234ms avg latency (123 spans)" not {"stringValue":"service-name"}
+        const hasCleanEvidence = evidenceContent?.match(/\w+[\w-]*:\s+\d+ms\s+avg\s+latency\s*\(\d+\s+spans\)/) !== null
         expect(hasCleanEvidence).toBeTruthy()
         
         if (hasCleanEvidence) {

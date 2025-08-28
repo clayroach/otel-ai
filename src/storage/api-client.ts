@@ -30,7 +30,7 @@ import { type ClickHouseConfig } from './config.js'
  * Provides type-safe storage operations with proper error handling
  */
 export interface StorageAPIClient {
-  readonly writeOTLP: (data: OTLPData) => Effect.Effect<void, StorageError>
+  readonly writeOTLP: (data: OTLPData, encodingType?: 'protobuf' | 'json') => Effect.Effect<void, StorageError>
   readonly queryTraces: (params: QueryParams) => Effect.Effect<TraceData[], StorageError>
   readonly queryMetrics: (params: QueryParams) => Effect.Effect<MetricData[], StorageError>  
   readonly queryLogs: (params: QueryParams) => Effect.Effect<LogData[], StorageError>
@@ -79,22 +79,33 @@ export const makeStorageAPIClient: Effect.Effect<StorageAPIClient, StorageError,
     const clickhouseStorage = yield* _(makeClickHouseStorage(clickhouseConfig))
 
     return {
-  writeOTLP: (data: OTLPData) =>
+  writeOTLP: (data: OTLPData, encodingType: 'protobuf' | 'json' = 'protobuf') =>
     Effect.gen(function* (_) {
+      console.log('🔍 [Storage API Client] writeOTLP called with:', {
+        traces: data.traces?.length || 0,
+        metrics: data.metrics?.length || 0,
+        logs: data.logs?.length || 0,
+        timestamp: data.timestamp
+      })
+      
       // Validate input data
       const validatedData = yield* _(
         Schema.decodeUnknown(OTLPDataSchema)(data).pipe(
-          Effect.mapError((error) => 
-            StorageErrorConstructors.ValidationError(
+          Effect.mapError((error) => {
+            console.error('🚨 [Storage API Client] Validation failed:', error.message)
+            console.error('🚨 [Storage API Client] Data that failed validation:', JSON.stringify(data, null, 2))
+            return StorageErrorConstructors.ValidationError(
               'Invalid OTLP data format',
               [error.message]
             )
-          )
+          })
         )
       )
 
+      console.log('✅ [Storage API Client] Validation passed, calling ClickHouse storage...')
       // Delegate to internal ClickHouse storage implementation
-      yield* _(clickhouseStorage.writeOTLP(validatedData))
+      yield* _(clickhouseStorage.writeOTLP(validatedData, encodingType))
+      console.log('✅ [Storage API Client] ClickHouse write completed successfully')
     }),
 
   queryTraces: (params: QueryParams) =>
