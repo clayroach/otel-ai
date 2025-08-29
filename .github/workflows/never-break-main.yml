@@ -42,7 +42,11 @@ jobs:
           version: '8.15.0'
           
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: |
+          echo "📦 Installing root dependencies..."
+          pnpm install --frozen-lockfile
+          echo "📦 Installing UI dependencies..."
+          cd ui && pnpm install --frozen-lockfile
         
       - name: TypeScript compilation
         run: pnpm typecheck:all
@@ -89,9 +93,11 @@ jobs:
           
       - name: Install dependencies
         run: |
-          echo "📦 Installing dependencies (skipping optional native compilation)..."
+          echo "📦 Installing root dependencies (skipping optional native compilation)..."
           # Update lockfiles to match package.json, then skip post-install scripts to avoid node-gyp issues
           pnpm install --ignore-scripts
+          echo "📦 Installing UI dependencies..."
+          cd ui && pnpm install --ignore-scripts
           
       - name: Build required Docker images
         run: |
