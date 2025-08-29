@@ -30,6 +30,9 @@ jobs:
   # Automated testing pipeline
   test-pipeline:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     if: github.event_name == 'pull_request' || github.event_name == 'push'
     
     steps:
