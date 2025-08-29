@@ -6,18 +6,8 @@
  */
 
 import { Effect, Layer } from 'effect'
-import {
-  ModelRouterService,
-  ModelClientService,
-  LLMConfigService
-} from './services.js'
-import {
-  LLMRequest,
-  ModelType,
-  TaskType,
-  LLMConfig,
-  ModelClient
-} from './types.js'
+import { ModelRouterService, ModelClientService, LLMConfigService } from './services.js'
+import { LLMRequest, ModelType, TaskType, LLMConfig, ModelClient } from './types.js'
 
 /**
  * Enhanced Task-Based Routing Strategy
@@ -249,25 +239,27 @@ export const makeModelRouter = (
         }),
 
       getFallbackChain: (failedModel: ModelType) =>
-        Effect.succeed((() => {
-          // Find task routing that includes the failed model
-          const taskRoutings = Object.entries(TASK_ROUTING)
+        Effect.succeed(
+          (() => {
+            // Find task routing that includes the failed model
+            const taskRoutings = Object.entries(TASK_ROUTING)
 
-          for (const [, routing] of taskRoutings) {
-            if (routing.preferred === failedModel || routing.fallback.includes(failedModel)) {
-              // Return remaining models in fallback chain
-              const remainingModels = routing.fallback.filter((model) => model !== failedModel)
-              if (routing.preferred !== failedModel) {
-                remainingModels.unshift(routing.preferred)
+            for (const [, routing] of taskRoutings) {
+              if (routing.preferred === failedModel || routing.fallback.includes(failedModel)) {
+                // Return remaining models in fallback chain
+                const remainingModels = routing.fallback.filter((model) => model !== failedModel)
+                if (routing.preferred !== failedModel) {
+                  remainingModels.unshift(routing.preferred)
+                }
+                return remainingModels
               }
-              return remainingModels
             }
-          }
 
-          // Default fallback chain excluding failed model
-          const allModels: ModelType[] = ['llama', 'gpt', 'claude']
-          return allModels.filter((model) => model !== failedModel)
-        })()),
+            // Default fallback chain excluding failed model
+            const allModels: ModelType[] = ['llama', 'gpt', 'claude']
+            return allModels.filter((model) => model !== failedModel)
+          })()
+        ),
 
       updateModelPerformance: (model: ModelType, latencyMs: number, success: boolean) =>
         updateModelPerformance(model, latencyMs, success, performanceTracker)

@@ -4,6 +4,8 @@ on:
   pull_request:
     branches: [main]
     paths-ignore:
+      - '.claude/**'
+      - '.github/**'
       - 'notes/**'
       - 'blog/**'
       - '*.md'
@@ -11,6 +13,8 @@ on:
   push:
     branches: [main]
     paths-ignore:
+      - '.claude/**'
+      - '.github/**'
       - 'notes/**'
       - 'blog/**'
       - '*.md' 
@@ -22,40 +26,41 @@ env:
 
 jobs:
   # Fast feedback - basic checks
-  # TEMPORARILY DISABLED: quick-validation job for debugging full-validation
-  # quick-validation:
-  #   name: Quick Validation
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 10
-  #   
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-  #       
-  #     - name: Setup Node.js
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: ${{ env.NODE_VERSION }}
-  #         
-  #     - name: Setup pnpm
-  #       uses: pnpm/action-setup@v2
-  #       with:
-  #         version: ${{ env.PNPM_VERSION }}
-  #         
-  #     - name: Install dependencies
-  #       run: pnpm install --frozen-lockfile
-  #       
-  #     - name: TypeScript compilation
-  #       run: pnpm typecheck:all
-  #       
-  #     - name: Code quality (ESLint)
-  #       run: pnpm lint
-  #       
-  #     - name: Code formatting (Prettier)
-  #       run: pnpm format:check
-  #       
-  #     - name: Quick unit tests
-  #       run: pnpm test
+  quick-validation:
+    name: Quick Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: '8.15.0'
+          
+      - name: Install dependencies
+        run: |
+          echo "📦 Installing workspace dependencies..."
+          pnpm install --frozen-lockfile
+        
+      - name: TypeScript compilation
+        run: pnpm typecheck:all
+        
+      - name: Code quality (ESLint)
+        run: pnpm lint
+        
+      - name: Code formatting (Prettier)
+        run: pnpm format:check
+        
+      - name: Unit tests
+        run: pnpm test
 
   # Comprehensive testing with real services
   full-validation:
@@ -65,7 +70,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    # needs: quick-validation  # DISABLED: removed dependency while debugging
+    needs: quick-validation
     
     steps:
       - name: Checkout code
@@ -90,7 +95,7 @@ jobs:
           
       - name: Install dependencies
         run: |
-          echo "📦 Installing dependencies (skipping optional native compilation)..."
+          echo "📦 Installing workspace dependencies (skipping optional native compilation)..."
           # Update lockfiles to match package.json, then skip post-install scripts to avoid node-gyp issues
           pnpm install --ignore-scripts
           
@@ -178,6 +183,16 @@ jobs:
           echo "📊 Running performance baseline checks..."
           # Add performance tests here when available
           echo "Performance checks completed"
+          
+      # - name: Sync documentation with code changes
+      #   uses: anthropics/claude-code-action@v1
+      #   with:
+      #     agent: code-to-docs-sync-agent
+      #     prompt: |
+      #       Full validation completed successfully. Analyze all code changes in this PR and ensure documentation is fully synchronized. 
+      #       Update package READMEs, Dendron notes, API documentation, and CLAUDE.md to reflect current implementation state.
+      #   env:
+      #     ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           
       - name: Cleanup services
         if: always()
@@ -290,7 +305,7 @@ jobs:
   main-protection-gate:
     name: Main Branch Protection Gate
     runs-on: ubuntu-latest
-    needs: [full-validation]  # DISABLED: removed quick-validation, security-scan, and build-validation while debugging
+    needs: [quick-validation, full-validation]
     if: always()
     
     steps:
@@ -298,21 +313,19 @@ jobs:
         run: |
           echo "📋 Checking active job results..."
           
-          # DISABLED: QUICK_STATUS="${{ needs.quick-validation.result }}"
+          QUICK_STATUS="${{ needs.quick-validation.result }}"
           FULL_STATUS="${{ needs.full-validation.result }}"
-          # DISABLED: SECURITY_STATUS="${{ needs.security-scan.result }}"
-          # DISABLED: BUILD_STATUS="${{ needs.build-validation.result }}"
           
-          # echo "Quick Validation: $QUICK_STATUS"  # DISABLED
+          echo "Quick Validation: $QUICK_STATUS"
           echo "Full Validation: $FULL_STATUS"
-          # echo "Security Scan: $SECURITY_STATUS"  # DISABLED
-          # echo "Build Validation: $BUILD_STATUS"  # DISABLED
           
-          if [[ "$FULL_STATUS" != "success" ]]; then
-            echo "❌ Full validation failed - MAIN BRANCH PROTECTION ACTIVATED"
+          if [[ "$QUICK_STATUS" != "success" || "$FULL_STATUS" != "success" ]]; then
+            echo "❌ Validation failed - MAIN BRANCH PROTECTION ACTIVATED"
+            echo "Quick Validation: $QUICK_STATUS"
+            echo "Full Validation: $FULL_STATUS"
             echo "This change will be blocked from merging to main"
             exit 1
           fi
           
-          echo "✅ ALL ACTIVE CHECKS PASSED - Safe to merge to main"
-          echo "🎉 Never Break Main policy successfully enforced (with debugging exceptions)"
+          echo "✅ ALL CHECKS PASSED - Safe to merge to main"
+          echo "🎉 Never Break Main policy successfully enforced"

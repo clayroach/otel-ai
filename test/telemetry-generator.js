@@ -99,10 +99,9 @@ async function checkClickHouseData() {
     const auth = Buffer.from('otel:otel123').toString('base64')
     const headers = { Authorization: `Basic ${auth}` }
 
-    const response = await fetch(
-      'http://localhost:8123/?query=SELECT count(*) FROM otel.traces',
-      { headers }
-    )
+    const response = await fetch('http://localhost:8123/?query=SELECT count(*) FROM otel.traces', {
+      headers
+    })
     const countText = await response.text()
     const count = parseInt(countText.trim())
 

@@ -14,7 +14,7 @@ import {
   ConversationStorageService,
   CacheService,
   LLMConfigService,
-  LLMMetricsService,
+  LLMMetricsService
   // InteractionLoggerService // TODO: Enable when interaction logging is needed
 } from './services.js'
 import {
@@ -319,16 +319,18 @@ export const makeLLMManager = (config: LLMConfig) =>
       getConversation: (conversationId: string) => conversationStorage.load(conversationId),
 
       getAvailableModels: () =>
-        Effect.succeed((() => {
-          const models: ModelType[] = []
+        Effect.succeed(
+          (() => {
+            const models: ModelType[] = []
 
-          // Check which models are configured
-          if (config.models.gpt && clients.gpt) models.push('gpt')
-          if (config.models.claude && clients.claude) models.push('claude')
-          if (config.models.llama && clients.llama) models.push('llama')
+            // Check which models are configured
+            if (config.models.gpt && clients.gpt) models.push('gpt')
+            if (config.models.claude && clients.claude) models.push('claude')
+            if (config.models.llama && clients.llama) models.push('llama')
 
-          return models
-        })()),
+            return models
+          })()
+        ),
 
       getModelHealth: () =>
         Effect.gen(function* (_) {

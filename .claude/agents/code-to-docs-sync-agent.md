@@ -1,7 +1,7 @@
 ---
 name: code-to-docs-sync-agent
 description: Bidirectional documentation synchronization
-tools: ["*"]
+tools: ["Read", "Write", "Edit", "MultiEdit", "Glob", "Grep", "LS"]
 ---
 
 You are the code-to-docs-sync-agent for bidirectional documentation synchronization.

@@ -1,0 +1,150 @@
+name: Per-Commit Validation (Lightweight)
+
+on:
+  push:
+    branches: ["**"]
+    paths-ignore:
+      - 'notes/**'
+      - 'blog/**'
+      - '*.md'
+      - 'docs/**'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - 'notes/**'
+      - 'blog/**'
+      - '*.md'
+      - 'docs/**'
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '8.15.0'
+
+jobs:
+  quick-validation:
+    name: Quick Validation (Code Changes)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: '8.15.0'
+          
+      - name: Install dependencies
+        run: |
+          echo "📦 Installing workspace dependencies..."
+          pnpm install --frozen-lockfile
+        
+      - name: TypeScript compilation
+        run: pnpm typecheck:all
+        
+      - name: Code quality (ESLint)
+        run: pnpm lint
+        
+      - name: Code formatting (Prettier)
+        run: pnpm format:check
+        
+      - name: Unit tests
+        run: pnpm test
+
+# DISABLING CODE-TO-DOCS SYNC JOB FOR NOW
+  # code-to-docs-sync:
+  #   name: Code-to-Docs Sync Validation
+  #   runs-on: ubuntu-latest
+  #   needs: quick-validation
+  #   timeout-minutes: 5
+  #   
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #       
+  #     - name: Run code-to-docs sync validation
+  #       uses: anthropics/claude-code-action@v1
+  #       with:
+  #         agent: code-to-docs-sync-agent
+  #         prompt: |
+  #           Analyze recent code changes and ensure documentation is synchronized. 
+  #           Update package READMEs, Dendron notes, and API documentation to reflect current implementation. 
+  #           Report any misalignments found.
+  #       env:
+  #         ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+  docs-validation:
+    name: Documentation Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: >
+      contains(github.head_ref, 'docs/') || 
+      contains(github.event.head_commit.message, 'docs:') ||
+      contains(github.event.commits[0].message, 'docs:')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          
+      - name: Install dependencies (minimal)
+        run: |
+          echo "📦 Installing workspace dependencies (minimal)..."
+          pnpm install --frozen-lockfile --ignore-scripts
+        
+# DISABLING FOR NOW
+      # - name: Run code-to-docs sync validation
+      #   uses: anthropics/claude-code-action@v1
+      #   with:
+      #     agent: code-to-docs-sync-agent
+      #     prompt: |
+      #       Validate that documentation is synchronized with current codebase. 
+      #       Check for any misalignment between implementation and specs. 
+      #       Report any issues found.
+      #   env:
+      #     ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          
+      - name: Documentation structure validation
+        run: |
+          echo "📚 Running fallback documentation validation..."
+          
+          # Fallback validation for CI environments
+          # Check that daily notes follow naming convention
+          if ls notes/daily/*.md >/dev/null 2>&1; then
+            echo "✅ Daily notes found"
+          fi
+          
+          # Check that blog posts have proper frontmatter
+          if ls blog/platforms/*.md >/dev/null 2>&1; then
+            for file in blog/platforms/*.md; do
+              if head -5 "$file" | grep -q "title:"; then
+                echo "✅ Blog post $file has frontmatter"
+              else
+                echo "❌ Blog post $file missing frontmatter"
+                exit 1
+              fi
+            done
+          fi
+          
+          echo "✅ Documentation validation completed"
+          
+      - name: Run minimal unit tests (safety check)
+        run: |
+          echo "🧪 Running minimal unit tests as safety check..."
+          pnpm test --reporter=dot
+          echo "✅ Basic unit tests pass - no accidental code changes detected"

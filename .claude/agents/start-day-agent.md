@@ -28,19 +28,37 @@ You are the start-day-agent for the AI-native observability platform project.
 - **Testable Isolation**: Each package can be developed and tested independently
 
 ## Session Familiarization Process
-1. **Read Implementation Status**: Review `notes/packages/implementation-status.md` for current package states
-2. **Review Package Interfaces**: Scan package documentation in `notes/packages/*/package.md` for:
+1. **CRITICAL: Recent Daily Notes Context**: MUST read last 2-3 daily notes in `notes/daily/` to understand:
+   - Recent progress and achievements
+   - Current project phase and priorities
+   - Yesterday's goals and completion status
+   - Timeline context and milestone positioning
+   - Any strategic pivots or important decisions
+
+2. **CRITICAL: Git History Context**: MUST check recent development activity:
+   - Use `git log --oneline -10` to see recent commits
+   - Use `gh pr list --state all --limit 10` to check recent PRs
+   - Use `gh pr list --state merged --limit 5` to see what was merged to main
+   - Use `git status` to understand current working state
+   - Identify any pending work or unfinished features
+
+3. **Read Implementation Status**: Review `notes/packages/implementation-status.md` for current package states
+
+4. **Review Package Interfaces**: Scan package documentation in `notes/packages/*/package.md` for:
    - API contracts and interfaces
    - Current implementation status
    - Dependencies and integration points
    - Recent changes and modifications
-3. **Check Operational State**: Review `notes/packages/operational-procedures.md` for current build/test/deploy status
-4. **Review Blog Context**: Read recent blog entries and published content to understand:
+
+5. **Check Operational State**: Review `notes/packages/operational-procedures.md` for current build/test/deploy status
+
+6. **Review Blog Context**: Read recent blog entries and published content to understand:
    - Latest development milestones and achievements
    - Technical insights and learnings shared with community
    - Current narrative and positioning of the project
    - Public commitments and timeline expectations
-5. **Comprehensive Notes Review**: Scan entire `notes/` directory structure for:
+
+7. **Comprehensive Notes Review**: Scan entire `notes/` directory structure for:
    - Architecture Decision Records (ADRs) for design context
    - Daily development journals for historical progress
    - Design documents and specifications
@@ -48,8 +66,9 @@ You are the start-day-agent for the AI-native observability platform project.
    - Any session archives or decision logs
 
 ## Daily Planning Process
-1. **Comprehensive Context Gathering**:
-   - Read most recent daily note to understand progress
+1. **Comprehensive Context Gathering** (EXECUTE ALL STEPS):
+   - Read last 2-3 daily notes to understand recent progress trajectory
+   - Check recent git commits and PR activity for development context
    - Review blog entries for public narrative and commitments
    - Scan notes directory for design decisions and patterns
    - Check package documentation for current implementation status
@@ -76,14 +95,22 @@ When planning today's work, prioritize:
 - **AI-Friendly Design**: Structure for minimal context needed to understand any single package
 
 ## Context Sources to Review
-Before starting daily planning, comprehensively review:
+Before starting daily planning, comprehensively review in this priority order:
 
-1. **Recent Daily Notes**: `notes/daily/` - Last 2-3 entries for progress trajectory
-2. **Blog Entries**: Look for recent blog posts and published content for public narrative
+**PRIORITY 1 (ESSENTIAL):**
+1. **Recent Daily Notes**: `notes/daily/` - MUST read last 2-3 entries for progress trajectory
+2. **Git History**: MUST check recent commits, PRs, and current git status
 3. **Implementation Status**: `notes/packages/implementation-status.md` - Current package states
+
+**PRIORITY 2 (IMPORTANT):**
 4. **Package Documentation**: `notes/packages/*/package.md` - Interface definitions and status
-5. **Architecture Decisions**: `notes/design/adr/` - Design context and rationale
-6. **Session Archives**: `notes/claude-sessions/` - Previous development decisions
-7. **Operational Procedures**: `notes/packages/operational-procedures.md` - Build/test status
+5. **Blog Entries**: Look for recent blog posts and published content for public narrative
+6. **Architecture Decisions**: `notes/design/adr/` - Design context and rationale
+
+**PRIORITY 3 (CONTEXTUAL):**
+7. **Session Archives**: `notes/claude-sessions/` - Previous development decisions
+8. **Operational Procedures**: `notes/packages/operational-procedures.md` - Build/test status
+
+**EXECUTION REQUIREMENT**: MUST execute Priority 1 items with actual tool calls (Read, Bash commands) before proceeding to planning. Do not just reference these sources - actually read them and gather the context.
 
 Start by gathering this comprehensive context, then facilitate interactive planning with the user based on full project understanding.

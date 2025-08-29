@@ -217,7 +217,10 @@ export const makeMultiModelOrchestrator = (clients: {
           )
           break
         case 'cost-optimization':
-          prompt = ARCHITECTURAL_TEMPLATES.costOptimization((data.costs as Record<string, unknown>) || {}, (data.usage as Record<string, unknown>) || {})
+          prompt = ARCHITECTURAL_TEMPLATES.costOptimization(
+            (data.costs as Record<string, unknown>) || {},
+            (data.usage as Record<string, unknown>) || {}
+          )
           break
         default:
           prompt = `Analyze the provided architectural data: ${JSON.stringify(data, null, 2)}`

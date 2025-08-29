@@ -35,63 +35,65 @@ interface ErrorMetric {
  * In-Memory Metrics Implementation
  */
 export const makeMetricsService = () =>
-  Effect.succeed((() => {
-    const requests: RequestMetric[] = []
-    const responses: ResponseMetric[] = []
-    const errors: ErrorMetric[] = []
+  Effect.succeed(
+    (() => {
+      const requests: RequestMetric[] = []
+      const responses: ResponseMetric[] = []
+      const errors: ErrorMetric[] = []
 
-    return {
-      recordRequest: (model: ModelType, request: LLMRequest) =>
-        Effect.sync(() => {
-          requests.push({
-            timestamp: Date.now(),
-            model,
-            taskType: request.taskType,
-            tokens: request.preferences?.maxTokens || 0
+      return {
+        recordRequest: (model: ModelType, request: LLMRequest) =>
+          Effect.sync(() => {
+            requests.push({
+              timestamp: Date.now(),
+              model,
+              taskType: request.taskType,
+              tokens: request.preferences?.maxTokens || 0
+            })
+          }),
+
+        recordResponse: (model: ModelType, response: LLMResponse) =>
+          Effect.sync(() => {
+            responses.push({
+              timestamp: Date.now(),
+              model,
+              latency: response.metadata.latencyMs,
+              tokens: response.usage.totalTokens,
+              cost: response.usage.cost || 0,
+              cached: response.metadata.cached
+            })
+          }),
+
+        recordError: (model: ModelType, error: LLMError) =>
+          Effect.sync(() => {
+            errors.push({
+              timestamp: Date.now(),
+              model,
+              errorType: error._tag,
+              message: 'message' in error ? error.message : `${error._tag} error`
+            })
+          }),
+
+        getMetrics: () =>
+          Effect.succeed({
+            totalRequests: requests.length,
+            totalErrors: errors.length,
+            averageLatency:
+              responses.length > 0
+                ? responses.reduce((sum, r) => sum + r.latency, 0) / responses.length
+                : 0,
+            totalCost: responses.reduce((sum, r) => sum + r.cost, 0),
+            requestsByModel: requests.reduce(
+              (acc, r) => {
+                acc[r.model] = (acc[r.model] || 0) + 1
+                return acc
+              },
+              {} as Record<ModelType, number>
+            )
           })
-        }),
-
-      recordResponse: (model: ModelType, response: LLMResponse) =>
-        Effect.sync(() => {
-          responses.push({
-            timestamp: Date.now(),
-            model,
-            latency: response.metadata.latencyMs,
-            tokens: response.usage.totalTokens,
-            cost: response.usage.cost || 0,
-            cached: response.metadata.cached
-          })
-        }),
-
-      recordError: (model: ModelType, error: LLMError) =>
-        Effect.sync(() => {
-          errors.push({
-            timestamp: Date.now(),
-            model,
-            errorType: error._tag,
-            message: 'message' in error ? error.message : `${error._tag} error`
-          })
-        }),
-
-      getMetrics: () =>
-        Effect.succeed({
-          totalRequests: requests.length,
-          totalErrors: errors.length,
-          averageLatency:
-            responses.length > 0
-              ? responses.reduce((sum, r) => sum + r.latency, 0) / responses.length
-              : 0,
-          totalCost: responses.reduce((sum, r) => sum + r.cost, 0),
-          requestsByModel: requests.reduce(
-            (acc, r) => {
-              acc[r.model] = (acc[r.model] || 0) + 1
-              return acc
-            },
-            {} as Record<ModelType, number>
-          )
-        })
-    }
-  })())
+      }
+    })()
+  )
 
 /**
  * Metrics Service Layer

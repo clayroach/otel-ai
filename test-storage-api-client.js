@@ -5,8 +5,8 @@
  */
 
 import { Effect, Layer } from 'effect'
-import { 
-  StorageAPIClientTag, 
+import {
+  StorageAPIClientTag,
   ClickHouseConfigTag,
   StorageAPIClientLayer,
   makeStorageAPIClient
@@ -24,32 +24,30 @@ const TestClickHouseConfigLayer = Layer.succeed(ClickHouseConfigTag, {
 })
 
 // Create test layer combining config and API client
-const TestStorageLayer = StorageAPIClientLayer.pipe(
-  Layer.provide(TestClickHouseConfigLayer)
-)
+const TestStorageLayer = StorageAPIClientLayer.pipe(Layer.provide(TestClickHouseConfigLayer))
 
 // Test 1: Verify Storage API Client can be instantiated
 const testStorageAPIClientCreation = Effect.gen(function* (_) {
   console.log('✓ Testing Storage API Client creation...')
-  
+
   const apiClient = yield* _(StorageAPIClientTag)
-  
+
   // Verify API client has expected interface methods
   const expectedMethods = [
-    'writeOTLP', 
-    'queryTraces', 
-    'queryMetrics', 
-    'queryLogs', 
-    'queryAI', 
+    'writeOTLP',
+    'queryTraces',
+    'queryMetrics',
+    'queryLogs',
+    'queryAI',
     'healthCheck'
   ]
-  
+
   for (const method of expectedMethods) {
     if (typeof apiClient[method] !== 'function') {
       throw new Error(`API client missing method: ${method}`)
     }
   }
-  
+
   console.log('✅ Storage API Client interface verified')
   return { success: true, clientMethods: expectedMethods }
 })
@@ -57,26 +55,26 @@ const testStorageAPIClientCreation = Effect.gen(function* (_) {
 // Test 2: Verify layer dependencies resolve correctly
 const testLayerDependencies = Effect.gen(function* (_) {
   console.log('✓ Testing layer dependency resolution...')
-  
+
   const config = yield* _(ClickHouseConfigTag)
   const apiClient = yield* _(StorageAPIClientTag)
-  
+
   console.log('✅ Layer dependencies resolved successfully')
-  return { 
-    success: true, 
-    configResolved: !!config, 
-    apiClientResolved: !!apiClient 
+  return {
+    success: true,
+    configResolved: !!config,
+    apiClientResolved: !!apiClient
   }
 })
 
 // Test 3: Test error handling (simulate connection failure)
 const testErrorHandling = Effect.gen(function* (_) {
   console.log('✓ Testing error handling...')
-  
+
   // This will fail since we don't have a real ClickHouse instance
   // But it should return a proper StorageError, not crash
   const apiClient = yield* _(StorageAPIClientTag)
-  
+
   try {
     // This should fail gracefully
     yield* _(apiClient.healthCheck())
@@ -98,7 +96,7 @@ const testErrorHandling = Effect.gen(function* (_) {
 async function runTests() {
   try {
     console.log('🚀 Starting Storage API Client integration tests...\n')
-    
+
     // Test 1: API Client Creation
     const test1Result = await Effect.runPromise(
       testStorageAPIClientCreation.pipe(
@@ -113,9 +111,9 @@ async function runTests() {
         })
       )
     )
-    
+
     console.log('Test 1 Result:', test1Result)
-    
+
     // Test 2: Layer Dependencies
     const test2Result = await Effect.runPromise(
       testLayerDependencies.pipe(
@@ -129,9 +127,9 @@ async function runTests() {
         })
       )
     )
-    
+
     console.log('Test 2 Result:', test2Result)
-    
+
     // Test 3: Error Handling
     const test3Result = await Effect.runPromise(
       testErrorHandling.pipe(
@@ -145,17 +143,20 @@ async function runTests() {
         })
       )
     )
-    
+
     console.log('Test 3 Result:', test3Result)
-    
+
     // Summary
     const allTestsPassed = test1Result.success && test2Result.success && test3Result.success
     console.log('\n📊 Test Summary:')
     console.log('- API Client Creation:', test1Result.success ? '✅ PASS' : '❌ FAIL')
-    console.log('- Layer Dependencies:', test2Result.success ? '✅ PASS' : '❌ FAIL') 
+    console.log('- Layer Dependencies:', test2Result.success ? '✅ PASS' : '❌ FAIL')
     console.log('- Error Handling:', test3Result.success ? '✅ PASS' : '❌ FAIL')
-    console.log('\n🎯 Overall Result:', allTestsPassed ? '✅ ALL TESTS PASSED' : '❌ SOME TESTS FAILED')
-    
+    console.log(
+      '\n🎯 Overall Result:',
+      allTestsPassed ? '✅ ALL TESTS PASSED' : '❌ SOME TESTS FAILED'
+    )
+
     if (allTestsPassed) {
       console.log('\n🎉 Storage API Client integration is working correctly!')
       console.log('✅ Type safety fixes have been successfully applied')
@@ -164,7 +165,6 @@ async function runTests() {
       console.log('\n💥 Some integration issues remain')
       process.exit(1)
     }
-    
   } catch (error) {
     console.error('❌ Test execution failed:', error)
     process.exit(1)
