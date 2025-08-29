@@ -1,6 +1,7 @@
 /**
  * OTLP Ingestion Server for AI-Native Observability Platform
  * Provides direct OTLP ingestion endpoint for "direct" path testing
+ * Trigger clean workflow validation
  */
 
 import { fromBinary } from '@bufbuild/protobuf'
