@@ -1,0 +1,110 @@
+name: Playwright E2E Validation
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/playwright-validation.yml'
+      - 'ui/test/e2e/**'
+      - 'playwright.config.ts'
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '8.15.0'
+
+jobs:
+  playwright-test:
+    name: Playwright E2E Test Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+        
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+            
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        
+      - name: Start minimal backend services for E2E
+        run: |
+          echo "🚀 Starting minimal services for E2E testing..."
+          docker compose --profile dev up -d clickhouse minio
+          # Wait for essential services
+          sleep 10
+          
+      - name: Start backend API
+        run: |
+          echo "🔧 Starting backend API server..."
+          pnpm dev:rebuild:backend
+          nohup pnpm dev:backend &
+          sleep 5
+          
+      - name: Start frontend dev server
+        run: |
+          echo "🎨 Starting frontend dev server..."  
+          nohup pnpm dev:frontend &
+          sleep 10
+          
+      - name: Verify services are running
+        run: |
+          echo "🔍 Checking service health..."
+          curl -f http://localhost:4319/health || echo "Backend not ready"
+          curl -f http://localhost:5173 || echo "Frontend not ready"
+          
+      - name: Install Playwright browsers
+        run: |
+          echo "📥 Installing Playwright browsers..."
+          pnpm exec playwright install --with-deps chromium
+          
+      - name: Verify Playwright installation
+        run: |
+          echo "🔍 Verifying Playwright installation..."
+          pnpm exec playwright --version
+          ls -la ~/.cache/ms-playwright/ || echo "No cache found"
+          
+      - name: Run single E2E test for validation
+        run: |
+          echo "🎭 Running single E2E test for validation..."
+          pnpm exec playwright test ui/test/e2e/ai-analyzer-e2e.spec.ts --project=chromium --workers=1 --retries=0 --reporter=line
+          
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: playwright-test-results
+          path: |
+            target/test-results/
+            ui/test-results/
+          retention-days: 3
+          
+      - name: Cleanup
+        if: always()
+        run: |
+          echo "🧹 Cleaning up services..."
+          pkill -f "pnpm dev" || true
+          docker compose --profile dev down -v || true
