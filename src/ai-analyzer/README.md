@@ -61,7 +61,7 @@ For comprehensive documentation, ML model specifications, and training procedure
 
 ```bash
 # Unit tests
-pnpm test:unit
+pnpm test
 
 # Integration tests (requires trained models)
 pnpm test:integration

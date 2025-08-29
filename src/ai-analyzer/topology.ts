@@ -6,7 +6,14 @@
  */
 
 import { Effect } from 'effect'
-import type { ServiceTopology, ApplicationArchitecture, AnalysisError } from './types.js'
+import type { 
+  ServiceTopology, 
+  ApplicationArchitecture, 
+  AnalysisError,
+  TopologyVisualizationData,
+  ServiceNode,
+  ServiceEdge
+} from './types.js'
 import type { ServiceDependencyRaw, ServiceTopologyRaw, TraceFlowRaw } from './queries.js'
 
 /**
@@ -315,3 +322,210 @@ export const identifyLeafServices = (services: ServiceTopology[]): ServiceTopolo
       service.type === 'external'
   )
 }
+
+/**
+ * Convert health status string to color for visualization
+ */
+export const getHealthColor = (status: ServiceTopologyRaw['health_status']): string => {
+  switch (status) {
+    case 'healthy':
+      return '#52c41a' // green
+    case 'warning':
+      return '#faad14' // yellow
+    case 'degraded':
+      return '#fa8c16' // orange
+    case 'critical':
+      return '#f5222d' // red
+    case 'unavailable':
+      return '#262626' // black
+    default:
+      return '#8c8c8c' // gray
+  }
+}
+
+/**
+ * Calculate edge thickness based on call volume
+ */
+export const getEdgeThickness = (callCount: number): number => {
+  if (callCount < 10) return 1 // thin
+  if (callCount < 100) return 2 // medium
+  if (callCount < 1000) return 3 // thick
+  return 4 // very thick
+}
+
+/**
+ * Map runtime language to icon
+ */
+export const getRuntimeIcon = (language?: string): string => {
+  const iconMap: Record<string, string> = {
+    go: '🐹',
+    java: '☕',
+    python: '🐍',
+    javascript: '⚡',
+    nodejs: '⚡',
+    csharp: '🔷',
+    dotnet: '🔷',
+    ruby: '💎',
+    php: '🐘',
+    rust: '🦀'
+  }
+  return iconMap[language?.toLowerCase() || ''] || '🔥'
+}
+
+/**
+ * Build topology visualization data from application architecture
+ */
+export const buildTopologyVisualizationData = (
+  topologyData: ServiceTopologyRaw[],
+  dependencyData: ServiceDependencyRaw[],
+  architecture: ApplicationArchitecture
+): TopologyVisualizationData => {
+  // Create nodes from services with health status
+  const nodes: ServiceNode[] = []
+  const nodeMap = new Map<string, ServiceNode>()
+  
+  // Group topology data by service for aggregated metrics
+  const serviceMetrics = new Map<string, {
+    totalSpans: number
+    errorRate: number
+    p95Duration: number
+    rate: number
+    health: ServiceTopologyRaw['health_status']
+    runtime?: string
+  }>()
+
+  topologyData.forEach((raw) => {
+    const existing = serviceMetrics.get(raw.service_name)
+    if (!existing || raw.total_spans > existing.totalSpans) {
+      const metrics: {
+        totalSpans: number
+        errorRate: number
+        p95Duration: number
+        rate: number
+        health: ServiceTopologyRaw['health_status']
+        runtime?: string
+      } = {
+        totalSpans: raw.total_spans,
+        errorRate: raw.error_rate_percent,
+        p95Duration: raw.p95_duration_ms,
+        rate: raw.rate_per_second,
+        health: raw.health_status
+      }
+      
+      if (raw.runtime_language) {
+        metrics.runtime = raw.runtime_language
+      }
+      
+      serviceMetrics.set(raw.service_name, metrics)
+    }
+  })
+
+  // Create nodes with visualization properties
+  architecture.services.forEach((service) => {
+    const metrics = serviceMetrics.get(service.service)
+    const node: ServiceNode = {
+      id: service.service,
+      name: service.service,
+      category: metrics?.runtime || 'unknown',
+      symbolSize: Math.min(20 + Math.log10(metrics?.totalSpans || 1) * 10, 60), // Size based on activity
+      itemStyle: {
+        color: getHealthColor(metrics?.health || 'healthy')
+      },
+      label: {
+        show: true
+      },
+      metrics: {
+        rate: metrics?.rate || 0,
+        errorRate: metrics?.errorRate || 0,
+        duration: metrics?.p95Duration || 0
+      }
+    }
+    nodes.push(node)
+    nodeMap.set(service.service, node)
+  })
+
+  // Create edges from dependencies
+  const edges: ServiceEdge[] = []
+  dependencyData.forEach((dep) => {
+    const sourceNode = nodeMap.get(dep.service_name)
+    const targetNode = nodeMap.get(dep.dependent_service)
+    
+    if (sourceNode && targetNode) {
+      edges.push({
+        source: dep.service_name,
+        target: dep.dependent_service,
+        value: dep.call_count,
+        lineStyle: {
+          width: getEdgeThickness(dep.call_count),
+          color: targetNode.itemStyle.color // Use target service health color
+        }
+      })
+    }
+  })
+
+  // Calculate health summary
+  const healthSummary = {
+    healthy: 0,
+    warning: 0,
+    degraded: 0,
+    critical: 0,
+    unavailable: 0
+  }
+
+  topologyData.forEach((raw) => {
+    switch (raw.health_status) {
+      case 'healthy':
+        healthSummary.healthy++
+        break
+      case 'warning':
+        healthSummary.warning++
+        break
+      case 'degraded':
+        healthSummary.degraded++
+        break
+      case 'critical':
+        healthSummary.critical++
+        break
+      case 'unavailable':
+        healthSummary.unavailable++
+        break
+    }
+  })
+
+  // Extract unique runtime environments
+  const runtimeEnvironments = [...new Set(
+    topologyData
+      .map(t => t.runtime_language)
+      .filter((r): r is string => Boolean(r))
+  )]
+
+  return {
+    ...architecture,
+    nodes,
+    edges,
+    runtimeEnvironments,
+    healthSummary
+  }
+}
+
+/**
+ * Enhanced topology discovery with visualization data
+ */
+export const discoverTopologyWithVisualization = (
+  topologyData: ServiceTopologyRaw[],
+  dependencyData: ServiceDependencyRaw[],
+  traceFlows: TraceFlowRaw[]
+): Effect.Effect<TopologyVisualizationData, AnalysisError, never> =>
+  Effect.gen(function* (_) {
+    // First, build the base application architecture
+    const architecture = yield* _(discoverApplicationTopology(topologyData, dependencyData, traceFlows))
+    
+    // Then enhance it with visualization data
+    const visualizationData = buildTopologyVisualizationData(
+      topologyData,
+      dependencyData,
+      architecture
+    )
+    
+    return visualizationData
+  })

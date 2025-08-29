@@ -108,9 +108,9 @@ export const ArchitectureQueries = {
         WHEN quantile(0.95)(duration_ns / 1000000) > 100 THEN 'warning'
         ELSE 'healthy'
       END as health_status,
-      extractAll(resource_attributes, '"telemetry.sdk.language":"([^"]+)"')[1] as runtime_language,
-      extractAll(resource_attributes, '"process.runtime.name":"([^"]+)"')[1] as runtime_name,
-      extractAll(span_attributes, '"component":"([^"]+)"')[1] as component
+      any(resource_attributes['telemetry.sdk.language']) as runtime_language,
+      any(resource_attributes['process.runtime.name']) as runtime_name,
+      any(span_attributes['component']) as component
     FROM traces
     WHERE start_time >= now() - INTERVAL ${timeRangeHours} HOUR
     GROUP BY service_name, operation_name, span_kind
@@ -130,8 +130,8 @@ export const ArchitectureQueries = {
         span_id,
         service_name,
         operation_name,
-        NULL as parent_service,
-        NULL as parent_operation,
+        CAST(NULL AS Nullable(String)) as parent_service,
+        CAST(NULL AS Nullable(String)) as parent_operation,
         start_time,
         duration_ns / 1000000 as duration_ms,
         span_kind,

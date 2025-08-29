@@ -75,7 +75,7 @@ For comprehensive documentation, deployment strategies, and infrastructure setup
 
 ```bash
 # Unit tests
-pnpm test:unit
+pnpm test
 
 # Integration tests (full deployment)
 pnpm test:integration

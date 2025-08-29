@@ -83,7 +83,7 @@ policies:
 
 ```bash
 # Unit tests
-pnpm test:unit
+pnpm test
 
 # Integration tests (requires k8s access)
 pnpm test:integration

@@ -31,6 +31,7 @@ import dayjs from 'dayjs'
 import { type AnalysisResult, generateMockData } from './mockData'
 import { useAIAnalyzer } from '../../services/ai-analyzer'
 import { cleanServiceName } from '../../utils/protobuf-cleaner'
+import { TopologyTab } from '../../components/TopologyChart'
 
 const { Title, Paragraph, Text } = Typography
 const { TabPane } = Tabs
@@ -1049,6 +1050,14 @@ const AIAnalyzerView: React.FC = () => {
                 </Card>
               </TabPane>
             )}
+
+            {/* Force-Directed Topology Visualization Tab */}
+            <TabPane tab="🌐 Topology Graph" key="topology">
+              <TopologyTab 
+                timeRange={timeRange ? [timeRange[0].toDate(), timeRange[1].toDate()] : undefined}
+                autoRefresh={false}
+              />
+            </TabPane>
           </Tabs>
         </div>
       )}

@@ -674,15 +674,14 @@ docker exec otel-ai-clickhouse clickhouse-client --user=otel --password=otel123 
 
 ```bash
 # Run all tests (preferred)
-pnpm test        # All unit + integration tests
-pnpm test:unit   # Unit tests only  
+pnpm test        # Unit tests
 pnpm test:integration  # Integration tests only
+pnpm test:e2e  # UI e2e tests
 
-# Infrastructure validation
-node test/validate-infrastructure.js
-
-# Manual data generation (for testing) 
-pnpm run generate:test-traces
+# Integration tests
+pnpm demo:up # Run otel demo live system
+pnpm dev:up:test # Run dev environment with test-data generator
+pnpm dev:rebuild # rebuild and reboot containers - needed anytime a code change is made
 ```
 
 ### Screenshot Workflow
@@ -770,6 +769,7 @@ Use visual-content-agent  # Organizes screenshots for blog posts with blog namin
 ## Tool Permissions
 
 This project requires the following commands to be allowed without user approval:
+- `pnpm` - Preferred for all build/run/test commands
 - `curl` - For API testing and health checks
 - `docker` - For container management
 - `docker compose` - For service orchestration
@@ -782,10 +782,10 @@ This project requires the following commands to be allowed without user approval
 To configure in Claude Code CLI, use the `--allow` flag or set in your environment:
 ```bash
 # Example: Allow specific commands
-claude-code --allow "curl:*" --allow "docker:*" --allow "mkdir:*" --allow "mv:*" --allow "rm:*"
+claude-code --allow "pnpm:*" --allow "curl:*" --allow "docker:*" --allow "mkdir:*" --allow "mv:*" --allow "rm:*"
 
 # Or set environment variable (recommended)
-export CLAUDE_CODE_ALLOWED_COMMANDS="curl:*,docker:*,docker compose:*,docker exec:*,docker logs:*,mkdir:*,mv:*,rm:*"
+export CLAUDE_CODE_ALLOWED_COMMANDS="pnpm:*,curl:*,docker:*,docker compose:*,docker exec:*,docker logs:*,mkdir:*,mv:*,rm:*"
 ```
 
 - Always try to consider production-readiness when creation of new assets - for instance init scripts for containers rather than standalone scripts
@@ -793,7 +793,7 @@ export CLAUDE_CODE_ALLOWED_COMMANDS="curl:*,docker:*,docker compose:*,docker exe
 - **CRITICAL: ALWAYS use pnpm commands exclusively - NEVER use direct docker/docker-compose/curl commands**
   - **FIRST**: Always run `pnpm run` to see ALL available scripts before doing anything
   - **Development**: Use `pnpm dev:*` commands (dev:up, dev:down, dev:rebuild:backend, etc.)
-  - **Testing**: Use `pnpm test*` commands (test, test:unit, test:integration, test:e2e)
+  - **Testing**: Use `pnpm test*` commands (test, test:integration, test:e2e)
   - **Demo**: Use `pnpm demo:*` commands (demo:up, demo:down, demo:setup)
   - **Cleanup**: Use `pnpm clean:*` commands for removing containers and pruning
   - **NEVER** use direct docker/docker-compose/curl/grep/find commands
