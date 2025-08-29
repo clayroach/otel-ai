@@ -19,9 +19,9 @@ The screenshot shows complete workflow success with all validation steps passing
 ### E2E Test Results - Multi-Model AI Validation
 
 #### Claude AI Analysis
-**File**: `pr-30-e2e-claude-results.png`
+**File**: `claude-results.png`
 
-![Claude Results](pr-30-e2e-claude-results.png)
+![Claude Results](https://raw.githubusercontent.com/clayroach/otel-ai/main/notes/screenshots/2025-08-29/claude-results.png)
 
 Shows Claude's unique **"Architectural Pattern Analysis"** insight:
 - 4 total insights including model-specific architectural analysis
@@ -29,9 +29,9 @@ Shows Claude's unique **"Architectural Pattern Analysis"** insight:
 - Full-page screenshot captures content that was previously cut off below the fold
 
 #### GPT AI Analysis  
-**File**: `pr-30-e2e-gpt-results.png`
+**File**: `gpt-results.png`
 
-![GPT Results](pr-30-e2e-gpt-results.png)
+![GPT Results](https://raw.githubusercontent.com/clayroach/otel-ai/main/notes/screenshots/2025-08-29/gpt-results.png)
 
 Demonstrates GPT's unique **"Performance Optimization Opportunities"** insight:
 - 4 total insights including model-specific performance analysis
@@ -39,9 +39,9 @@ Demonstrates GPT's unique **"Performance Optimization Opportunities"** insight:
 - Clear differentiation from other AI models' analytical approaches
 
 #### Llama AI Analysis
-**File**: `pr-30-e2e-llama-results.png`
+**File**: `llama-results.png`
 
-![Llama Results](pr-30-e2e-llama-results.png)
+![Llama Results](https://raw.githubusercontent.com/clayroach/otel-ai/main/notes/screenshots/2025-08-29/llama-results.png)
 
 Shows Llama's unique **"Resource Utilization & Scalability Analysis"** insight:
 - 4 total insights including model-specific resource analysis
