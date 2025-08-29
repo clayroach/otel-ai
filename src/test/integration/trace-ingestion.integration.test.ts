@@ -3,7 +3,7 @@
  * Tests the full ingestion pipeline from OTLP data to ClickHouse storage
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll } from 'vitest'
 import { Effect, Layer } from 'effect'
 import { 
   StorageAPIClientTag,
@@ -94,7 +94,7 @@ describe('Trace Ingestion Integration', () => {
     expect(results).toBeDefined()
     expect(results.length).toBeGreaterThan(0)
     
-    const retrievedTrace = results[0] as any
+    const retrievedTrace = results[0] as Record<string, unknown>
     expect(retrievedTrace).toBeDefined()
     expect(retrievedTrace.service_name).toBe('test-service')
     expect(retrievedTrace.operation_name).toBe('test-operation')
