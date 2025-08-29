@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react'
 import ReactECharts from 'echarts-for-react'
-import type { EChartsOption } from 'echarts'
+import type { EChartsOption, GraphSeriesOption } from 'echarts'
+import type { CallbackDataParams } from 'echarts/types/dist/shared'
 import { Card, Space, Tag, Row, Col, Typography, Badge } from 'antd'
 import { 
   HeartOutlined,
@@ -9,6 +10,7 @@ import {
   StopOutlined,
   CheckCircleOutlined 
 } from '@ant-design/icons'
+
 
 const { Text } = Typography
 
@@ -111,6 +113,43 @@ export const TopologyChart: React.FC<TopologyChartProps> = ({
       value: node.metrics?.rate || 1
     }))
 
+    const graphSeries: GraphSeriesOption = {
+      name: 'Service Topology',
+      type: 'graph',
+      layout: 'force',
+      data: nodesWithIcons,
+      links: data.edges,
+      roam: true,
+      draggable: true,
+      focusNodeAdjacency: true,
+      categories: data.runtimeEnvironments?.map(runtime => ({
+        name: runtime,
+        symbol: 'circle'
+      })),
+      force: {
+        repulsion: 300,
+        gravity: 0.1,
+        edgeLength: [50, 200],
+        friction: 0.6
+      },
+      label: {
+        show: true,
+        position: 'bottom',
+        formatter: '{b}',
+        fontSize: 11
+      },
+      lineStyle: {
+        curveness: 0.3,
+        opacity: 0.7
+      },
+      emphasis: {
+        focus: 'adjacency' as const,
+        lineStyle: {
+          width: 3
+        }
+      }
+    }
+
     return {
       title: {
         text: 'Service Topology Overview',
@@ -120,30 +159,33 @@ export const TopologyChart: React.FC<TopologyChartProps> = ({
       },
       tooltip: {
         trigger: 'item',
-        formatter: (params: any) => {
-          if (params.dataType === 'node') {
-            const node = params.data as ServiceNode
-            const metrics = node.metrics
-            return `
-              <div style="padding: 8px;">
-                <strong>${node.name}</strong><br/>
-                ${metrics ? `
-                  <div style="margin-top: 8px;">
-                    📊 Rate: ${metrics.rate.toFixed(2)} req/s<br/>
-                    ⚠️ Error Rate: ${metrics.errorRate.toFixed(2)}%<br/>
-                    ⏱️ P95 Duration: ${metrics.duration.toFixed(0)}ms
-                  </div>
-                ` : 'No metrics available'}
-              </div>
-            `
-          } else if (params.dataType === 'edge') {
-            const edge = params.data
-            return `
-              <div style="padding: 8px;">
-                <strong>${edge.source} → ${edge.target}</strong><br/>
-                Call Volume: ${edge.value} calls
-              </div>
-            `
+        formatter: (params: CallbackDataParams | CallbackDataParams[]) => {
+          if (!Array.isArray(params)) {
+            const param = params
+            if (param.dataType === 'node' && param.data) {
+              const nodeData = param.data as { name?: string; metrics?: { rate: number; errorRate: number; duration: number } }
+              const metrics = nodeData.metrics
+              return `
+                <div style="padding: 8px;">
+                  <strong>${nodeData.name || 'Unknown'}</strong><br/>
+                  ${metrics ? `
+                    <div style="margin-top: 8px;">
+                      📊 Rate: ${metrics.rate.toFixed(2)} req/s<br/>
+                      ⚠️ Error Rate: ${metrics.errorRate.toFixed(2)}%<br/>
+                      ⏱️ P95 Duration: ${metrics.duration.toFixed(0)}ms
+                    </div>
+                  ` : 'No metrics available'}
+                </div>
+              `
+            } else if (param.dataType === 'edge' && param.data) {
+              const edgeData = param.data as { source?: string; target?: string; value?: number }
+              return `
+                <div style="padding: 8px;">
+                  <strong>${edgeData.source || 'Unknown'} → ${edgeData.target || 'Unknown'}</strong><br/>
+                  Call Volume: ${edgeData.value || 0} calls
+                </div>
+              `
+            }
           }
           return ''
         }
@@ -156,44 +198,7 @@ export const TopologyChart: React.FC<TopologyChartProps> = ({
       },
       animationDuration: 1500,
       animationEasingUpdate: 'quinticInOut',
-      series: [
-        {
-          name: 'Service Topology',
-          type: 'graph',
-          layout: 'force',
-          data: nodesWithIcons,
-          links: data.edges,
-          roam: true,
-          draggable: true,
-          focusNodeAdjacency: true,
-          categories: data.runtimeEnvironments?.map(runtime => ({
-            name: runtime,
-            symbol: 'circle'
-          })),
-          force: {
-            repulsion: 300,
-            gravity: 0.1,
-            edgeLength: [50, 200],
-            friction: 0.6
-          },
-          label: {
-            show: true,
-            position: 'bottom',
-            formatter: '{b}',
-            fontSize: 11
-          },
-          lineStyle: {
-            curveness: 0.3,
-            opacity: 0.7
-          },
-          emphasis: {
-            focus: 'adjacency' as const,
-            lineStyle: {
-              width: 3
-            }
-          }
-        } as any
-      ]
+      series: [graphSeries]
     }
   }
 
