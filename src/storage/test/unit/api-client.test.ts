@@ -1,7 +1,6 @@
 /**
- * Unit test suite for Storage Service using Effect-TS patterns
+ * Unit test suite for StorageAPIClient using Effect-TS patterns
  * Uses Effect layers for dependency injection without real external connections
- * For integration tests with real ClickHouse, see simple-storage.integration.test.ts
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
@@ -155,6 +154,9 @@ const MockAPIClientLive = Layer.succeed(StorageAPIClientTag, {
     Effect.succeed([]),
 
   queryAI: (_params: AIQueryParams): Effect.Effect<unknown[], StorageError> =>
+    Effect.succeed([]),
+  
+  queryRaw: (_sql: string): Effect.Effect<unknown[], StorageError> =>
     Effect.succeed([]),
 
   healthCheck: (): Effect.Effect<{ clickhouse: boolean; s3: boolean }, StorageError> =>
@@ -610,6 +612,7 @@ describe('Storage Service with API Client (Effect-TS)', () => {
         queryMetrics: (_params: QueryParams) => Effect.succeed([]),
         queryLogs: (_params: QueryParams) => Effect.succeed([]),
         queryAI: (_params: AIQueryParams) => Effect.succeed([]),
+        queryRaw: (_sql: string) => Effect.succeed([]),
         healthCheck: () => Effect.succeed({ clickhouse: false, s3: false })
       } as StorageAPIClient)
 

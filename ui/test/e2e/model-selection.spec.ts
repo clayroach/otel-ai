@@ -95,10 +95,14 @@ test.describe('AI Analyzer Model Selection E2E', () => {
     }
     
     // Validate that results are actually different
-    const claudeResults = modelResults.get('claude')!
-    const gptResults = modelResults.get('gpt')!
-    const llamaResults = modelResults.get('llama')!
-    const statisticalResults = modelResults.get('local-statistical-analyzer')!
+    const claudeResults = modelResults.get('claude')
+    const gptResults = modelResults.get('gpt')
+    const llamaResults = modelResults.get('llama')
+    const statisticalResults = modelResults.get('local-statistical-analyzer')
+    
+    if (!claudeResults || !gptResults || !llamaResults || !statisticalResults) {
+      throw new Error('Expected all model results to be present')
+    }
     
     // Statistical should have fewer insights
     expect(statisticalResults.insights.length).toBeLessThan(claudeResults.insights.length)

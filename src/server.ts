@@ -23,8 +23,6 @@ import {
   ClickHouseConfigTag,
   StorageAPIClientLayer
 } from './storage/index.js'
-// TODO: Remove SimpleStorage once all endpoints migrated to Storage API Client
-import { SimpleStorage, type SimpleStorageConfig } from './storage/simple-storage.js'
 
 /**
  * Type for OpenTelemetry attribute values
@@ -234,31 +232,36 @@ app.use((req, res, next) => {
   }
 })
 
-// Initialize storage
-const storageConfig: SimpleStorageConfig = {
-  clickhouse: {
-    host: process.env.CLICKHOUSE_HOST || 'localhost',
-    port: parseInt(process.env.CLICKHOUSE_PORT || '8123'),
-    database: process.env.CLICKHOUSE_DATABASE || 'otel',
-    username: process.env.CLICKHOUSE_USERNAME || 'otel',
-    password: process.env.CLICKHOUSE_PASSWORD || 'otel123'
-  }
-}
-
-const storage = new SimpleStorage(storageConfig)
-
-// Create server storage layer with proper dependency injection
-const ClickHouseConfigLayer = Layer.succeed(ClickHouseConfigTag, {
+// Initialize Effect-based storage
+const clickhouseConfig = {
   host: process.env.CLICKHOUSE_HOST || 'localhost',
   port: parseInt(process.env.CLICKHOUSE_PORT || '8123'),
   database: process.env.CLICKHOUSE_DATABASE || 'otel',
   username: process.env.CLICKHOUSE_USERNAME || 'otel',
   password: process.env.CLICKHOUSE_PASSWORD || 'otel123'
-})
+}
 
-const ServerStorageLayer = StorageAPIClientLayer.pipe(
-  Layer.provide(ClickHouseConfigLayer)
+// Create the storage layer
+const StorageLayer = StorageAPIClientLayer.pipe(
+  Layer.provide(Layer.succeed(ClickHouseConfigTag, clickhouseConfig))
 )
+
+// Helper function to run storage queries
+const runStorageQuery = <A, E>(effect: Effect.Effect<A, E, StorageAPIClientTag>): Promise<A> => {
+  return Effect.runPromise(Effect.provide(effect, StorageLayer))
+}
+
+// Helper function for raw queries that returns data in legacy format
+const queryWithResults = async (sql: string): Promise<{ data: Record<string, unknown>[] }> => {
+  const result = await runStorageQuery(
+    Effect.gen(function* () {
+      const storage = yield* StorageAPIClientTag
+      return yield* storage.queryRaw(sql)
+    })
+  )
+  return { data: result as Record<string, unknown>[] }
+}
+
 
 // Initialize AI analyzer service
 let aiAnalyzer: Context.Tag.Service<typeof AIAnalyzerService> | null = null
@@ -298,7 +301,12 @@ async function createViews() {
           processing_version
       FROM traces
     `
-    await storage.query(createViewSQL)
+    await runStorageQuery(
+      Effect.gen(function* () {
+        const storage = yield* StorageAPIClientTag
+        return yield* storage.queryRaw(createViewSQL)
+      })
+    )
     console.log('✅ Created simplified traces view for single-path ingestion')
   } catch (error) {
     console.log(
@@ -316,7 +324,7 @@ app.get('/health', async (_req, res) => {
         const apiClient = yield* _(StorageAPIClientTag)
         return yield* _(apiClient.healthCheck())
       }).pipe(
-        Effect.provide(ServerStorageLayer),
+        Effect.provide(StorageLayer),
         Effect.match({
           onFailure: (error) => {
             console.error('Storage health check failed:', error._tag)
@@ -371,7 +379,7 @@ app.get('/api/traces', async (req, res) => {
       LIMIT ${limit}
     `
 
-    const result = await storage.queryWithResults(query)
+    const result = await queryWithResults(query)
 
     res.json({
       traces: result.data,
@@ -408,7 +416,7 @@ app.get('/api/services/stats', async (req, res) => {
       ORDER BY span_count DESC
     `
 
-    const result = await storage.queryWithResults(query)
+    const result = await queryWithResults(query)
 
     res.json({
       services: result.data,
@@ -476,7 +484,7 @@ app.get('/api/anomalies', async (req, res) => {
       LIMIT 50
     `
 
-    const result = await storage.queryWithResults(query)
+    const result = await queryWithResults(query)
 
     res.json({
       anomalies: result.data,
@@ -509,7 +517,7 @@ app.post('/api/clickhouse/query', async (req, res) => {
 
     console.log('🔍 Executing ClickHouse query:', query.substring(0, 100) + '...')
 
-    const result = await storage.queryWithResults(query)
+    const result = await queryWithResults(query)
 
     res.json({
       data: result.data,
@@ -1175,7 +1183,7 @@ app.post('/v1/traces', async (req, res) => {
               timestamp: Date.now()
             }, encodingType))
           }).pipe(
-            Effect.provide(ServerStorageLayer),
+            Effect.provide(StorageLayer),
             Effect.match({
               onFailure: (error) => {
                 console.error('Storage write failed:', error._tag, error)
@@ -1263,7 +1271,7 @@ app.listen(PORT, async () => {
             const topology = yield* _(
               Effect.promise(
                 async () =>
-                  await storage.queryWithResults(`
+                  await queryWithResults(`
             SELECT 
               service_name as service,
               COUNT(DISTINCT operation_name) as operation_count,
@@ -1283,7 +1291,7 @@ app.listen(PORT, async () => {
             const dependencies = yield* _(
               Effect.promise(
                 async () =>
-                  await storage.queryWithResults(`
+                  await queryWithResults(`
             SELECT 
               parent.service_name as parent_service,
               child.service_name as child_service,
@@ -1435,7 +1443,7 @@ app.listen(PORT, async () => {
             const topology = yield* _(
               Effect.promise(
                 async () =>
-                  await storage.queryWithResults(`
+                  await queryWithResults(`
             SELECT 
               service_name as service,
               COUNT(DISTINCT operation_name) as operation_count,
@@ -1680,10 +1688,7 @@ async function gracefulShutdown(signal: string) {
   console.log(`🛑 Received ${signal}, shutting down gracefully...`)
   
   try {
-    // Close legacy SimpleStorage connection
-    await storage.close()
-    
-    // Note: Storage API Client connections are managed by Effect runtime
+    // Storage API Client connections are managed by Effect runtime
     // and will be properly disposed when the Layer is released
     console.log('✅ Storage connections closed successfully')
   } catch (error) {

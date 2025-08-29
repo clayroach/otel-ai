@@ -6,6 +6,21 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createClient, type ClickHouseClient } from '@clickhouse/client'
 
+// Type definitions for ClickHouse query results
+interface TraceQueryResult {
+  trace_id: string
+  service_name: string
+  operation_name: string
+  encoding_type: string
+  test_encoding?: string
+}
+
+interface ServiceEncodingResult {
+  service_name: string
+  encoding_type: string
+  count: string // ClickHouse returns COUNT as string
+}
+
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:4319'
 const CLICKHOUSE_CONFIG = {
   url: `http://${process.env.CLICKHOUSE_HOST || 'localhost'}:${process.env.CLICKHOUSE_PORT || '8124'}`,
@@ -129,10 +144,13 @@ describe('JSON Encoding Integration', () => {
       format: 'JSONEachRow'
     })
 
-    const rows = await result.json() as any[]
+    const rows = await result.json() as TraceQueryResult[]
     
     expect(rows).toHaveLength(1)
     const row = rows[0]
+    if (!row) {
+      throw new Error('Expected to find a trace row but none was found')
+    }
     
     expect(row.trace_id).toBe(traceId)
     expect(row.service_name).toBe('integration-json-test')
@@ -200,12 +218,15 @@ describe('JSON Encoding Integration', () => {
       format: 'JSONEachRow'
     })
 
-    const rows = await result.json() as any[]
+    const rows = await result.json() as ServiceEncodingResult[]
     
     // Verify JSON trace has correct encoding
     const jsonRow = rows.find(r => r.service_name === 'diff-test-json')
     expect(jsonRow).toBeDefined()
-    expect(jsonRow!.encoding_type).toBe('json')
+    if (!jsonRow) {
+      throw new Error('Expected to find JSON trace but none was found')
+    }
+    expect(jsonRow.encoding_type).toBe('json')
   })
 
   it('should handle malformed JSON gracefully', async () => {
@@ -223,9 +244,10 @@ describe('JSON Encoding Integration', () => {
       
       // Should not reach here
       expect(true).toBe(false)
-    } catch (error: any) {
+    } catch (error) {
       // Should get an error message indicating HTTP 400 or 500
-      expect(error.message).toMatch(/HTTP (400|500)/)
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      expect(errorMessage).toMatch(/HTTP (400|500)/)
     }
   })
 })

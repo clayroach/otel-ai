@@ -1,6 +1,9 @@
 # Test Data Generator Dockerfile
 FROM node:18-alpine
 
+# Install debug tools
+RUN apk add --no-cache curl wget netcat-openbsd jq bash
+
 # Install pnpm
 RUN npm install -g pnpm
 

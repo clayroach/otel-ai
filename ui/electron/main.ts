@@ -1,4 +1,5 @@
 import { app, BrowserWindow, Menu, shell } from 'electron'
+import type * as Electron from 'electron'
 import * as path from 'path'
 
 const isDev = process.env.NODE_ENV === 'development'
@@ -39,7 +40,7 @@ function createWindow(): void {
 
   // Handle window closed
   mainWindow.on('closed', () => {
-    mainWindow = null as any
+    mainWindow = null
   })
 
   // Handle external links

@@ -4,7 +4,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', {
   // Menu event listeners
-  onMenuAction: (callback: (action: string, data?: any) => void) => {
+  onMenuAction: (callback: (action: string, data?: unknown) => void) => {
     ipcRenderer.on('menu-new-query', () => callback('new-query'))
     ipcRenderer.on('menu-open-query', () => callback('open-query'))
     ipcRenderer.on('menu-save-query', () => callback('save-query'))
@@ -38,7 +38,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 declare global {
   interface Window {
     electronAPI: {
-      onMenuAction: (callback: (action: string, data?: any) => void) => void
+      onMenuAction: (callback: (action: string, data?: unknown) => void) => void
       removeAllListeners: () => void
       platform: string
       isElectron: boolean

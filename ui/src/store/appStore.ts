@@ -176,12 +176,13 @@ export const useAppStore = create<AppState>()(
         queryHistory: state.queryHistory
         // Note: activeQuery is deliberately NOT persisted
       }),
-      migrate: (persistedState: any, version: number) => {
+      migrate: (persistedState: unknown, version: number) => {
         // Force reset to ensure we use proxy URL and new history format
         if (version < 3) {
+          const state = persistedState as Record<string, unknown> | null | undefined
           return {
-            darkMode: persistedState?.darkMode || false,
-            sidebarCollapsed: persistedState?.sidebarCollapsed || false,
+            darkMode: (state?.darkMode as boolean) || false,
+            sidebarCollapsed: (state?.sidebarCollapsed as boolean) || false,
             clickhouseUrl: '/api/clickhouse',
             clickhouseAuth: {
               username: 'otel',

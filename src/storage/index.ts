@@ -9,11 +9,7 @@ export * from './schemas.js'
 export * from './config.js'
 export * from './errors.js'
 export * from './api-client.js'
-export * from './simple-storage.js'
 
-// Simple storage for initial development and testing
-export { SimpleStorage } from './simple-storage.js'
-export type { SimpleStorageConfig, SimpleTraceData, SimpleOTLPData } from './simple-storage.js'
 
 // Schema types
 export type {
@@ -56,3 +52,4 @@ export * from './s3.js'
 export * from './services.js'
 export type { StorageService } from './services.js'
 export { StorageServiceLive, makeStorageService } from './services.js'
+

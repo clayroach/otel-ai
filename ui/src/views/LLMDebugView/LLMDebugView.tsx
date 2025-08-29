@@ -118,13 +118,16 @@ export const LLMDebugView: React.FC = () => {
         if (liveEvent.type === 'request_complete' || liveEvent.type === 'request_error') {
           if (liveEvent.entry) {
             setInteractions((prev) => {
-              const filtered = prev.filter((i) => i.id !== liveEvent.entry!.id)
-              return [liveEvent.entry!, ...filtered].slice(0, 50)
+              if (!liveEvent.entry) return prev
+              const entry = liveEvent.entry
+              const filtered = prev.filter((i) => i.id !== entry.id)
+              return [entry, ...filtered].slice(0, 50)
             })
           }
         } else if (liveEvent.type === 'request_start') {
           if (liveEvent.entry) {
-            setInteractions((prev) => [liveEvent.entry!, ...prev].slice(0, 50))
+            const entry = liveEvent.entry
+            setInteractions((prev) => [entry, ...prev].slice(0, 50))
           }
         }
       } catch (error) {

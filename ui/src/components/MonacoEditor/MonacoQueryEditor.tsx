@@ -211,7 +211,7 @@ export const MonacoQueryEditor: React.FC<MonacoQueryEditorProps> = ({
           '>>>='
         ],
 
-        symbols: /[=><!~?:&|+\-*\/\^%]+/,
+        symbols: /[=><!~?:&|+\-*/^%]+/,
 
         tokenizer: {
           root: [
@@ -225,7 +225,7 @@ export const MonacoQueryEditor: React.FC<MonacoQueryEditorProps> = ({
                 }
               }
             ],
-            [/[{}()\[\]]/, '@brackets'],
+            [/[{}()[\]]/, '@brackets'],
             [
               /@symbols/,
               {
@@ -235,7 +235,7 @@ export const MonacoQueryEditor: React.FC<MonacoQueryEditorProps> = ({
                 }
               }
             ],
-            [/\d*\.\d+([eE][\-+]?\d+)?/, 'number.float'],
+            [/\d*\.\d+([eE][-+]?\d+)?/, 'number.float'],
             [/0[xX][0-9a-fA-F]+/, 'number.hex'],
             [/\d+/, 'number'],
             [/[;,.]/, 'delimiter'],
@@ -248,10 +248,10 @@ export const MonacoQueryEditor: React.FC<MonacoQueryEditorProps> = ({
           ],
 
           comment: [
-            [/[^\/*]+/, 'comment'],
+            [/[^/*]+/, 'comment'],
             [/\/\*/, 'comment', '@push'],
             [/\*\//, 'comment', '@pop'],
-            [/[\/*]/, 'comment']
+            [/[/*]/, 'comment']
           ],
 
           string: [

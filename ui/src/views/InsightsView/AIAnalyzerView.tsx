@@ -340,7 +340,11 @@ const AIAnalyzerView: React.FC = () => {
               <Text strong>Time Range:</Text>
               <RangePicker
                 value={timeRange}
-                onChange={(dates) => dates && setTimeRange([dates[0]!, dates[1]!])}
+                onChange={(dates) => {
+                  if (dates && dates[0] && dates[1]) {
+                    setTimeRange([dates[0], dates[1]])
+                  }
+                }}
                 showTime
                 style={{ width: '100%', marginTop: 8 }}
                 data-testid="time-range-picker"

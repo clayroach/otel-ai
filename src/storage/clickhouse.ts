@@ -28,6 +28,7 @@ export interface ClickHouseStorage {
   readonly queryMetrics: (params: QueryParams) => Effect.Effect<MetricData[], StorageError>
   readonly queryLogs: (params: QueryParams) => Effect.Effect<LogData[], StorageError>
   readonly queryForAI: (params: AIQueryParams) => Effect.Effect<AIDataset, StorageError>
+  readonly queryRaw: (sql: string) => Effect.Effect<unknown[], StorageError>
   readonly healthCheck: () => Effect.Effect<boolean, StorageError>
   readonly close: () => Effect.Effect<void, never>
 }
@@ -446,6 +447,89 @@ export const makeClickHouseStorage = (
         return true
       })
 
+    const queryRaw = (sql: string): Effect.Effect<unknown[], StorageError> =>
+      Effect.tryPromise({
+        try: async () => {
+          const result = await client.query({
+            query: sql,
+            format: 'JSONEachRow'
+          })
+          const data = await result.json() as unknown[]
+          
+          // Clean up protobuf strings and convert BigInt values
+          return data.map(row => convertBigIntToNumber(cleanProtobufStrings(row)))
+        },
+        catch: (error) => StorageErrorConstructors.QueryError(
+          `Raw query failed: ${String(error)}`,
+          String(error),
+          sql
+        )
+      })
+    
+    // Helper function to clean protobuf JSON strings
+    const cleanProtobufStrings = (obj: unknown): unknown => {
+      if (typeof obj === 'string') {
+        // Handle protobuf JSON strings for service names
+        if (obj.includes('$typeName') && obj.includes('opentelemetry.proto.common.v1.AnyValue')) {
+          try {
+            const parsed = JSON.parse(obj)
+            if (parsed.value?.case === 'stringValue' && parsed.value?.value) {
+              return parsed.value.value
+            }
+          } catch {
+            // Return original if parsing fails
+          }
+        }
+        
+        // Handle Buffer JSON strings for trace IDs
+        if (obj.includes('"type":"Buffer"') && obj.includes('"data"')) {
+          try {
+            const parsed = JSON.parse(obj)
+            if (parsed.type === 'Buffer' && Array.isArray(parsed.data)) {
+              return parsed.data.map((b: number) => b.toString(16).padStart(2, '0')).join('')
+            }
+          } catch {
+            // Return original if parsing fails
+          }
+        }
+      }
+      
+      if (Array.isArray(obj)) {
+        return obj.map(item => cleanProtobufStrings(item))
+      }
+      
+      if (obj !== null && typeof obj === 'object') {
+        const cleaned: Record<string, unknown> = {}
+        for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+          cleaned[key] = cleanProtobufStrings(value)
+        }
+        return cleaned
+      }
+      
+      return obj
+    }
+    
+    // Helper function to convert BigInt to number
+    const convertBigIntToNumber = (obj: unknown): unknown => {
+      if (typeof obj === 'bigint') {
+        return obj > Number.MAX_SAFE_INTEGER ? parseInt(obj.toString()) : Number(obj)
+      }
+      
+      if (Array.isArray(obj)) {
+        return obj.map(item => convertBigIntToNumber(item))
+      }
+      
+      if (obj !== null && typeof obj === 'object') {
+        const converted: Record<string, unknown> = {}
+        for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+          converted[key] = convertBigIntToNumber(value)
+        }
+        return converted
+      }
+      
+      return obj
+    }
+
     const close = (): Effect.Effect<void, never> => Effect.sync(() => client.close())
 
     return {
@@ -455,6 +539,7 @@ export const makeClickHouseStorage = (
       queryMetrics,
       queryLogs,
       queryForAI,
+      queryRaw,
       healthCheck,
       close
     }

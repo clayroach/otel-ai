@@ -127,12 +127,8 @@ export const useClickhouseConnection = () => {
   return useQuery<boolean, ClickhouseError>({
     queryKey: ['clickhouse-connection', clickhouseUrl, clickhouseAuth],
     queryFn: async () => {
-      try {
-        await executeClickhouseQuery('SELECT 1', clickhouseUrl, clickhouseAuth)
-        return true
-      } catch (error) {
-        throw error
-      }
+      await executeClickhouseQuery('SELECT 1', clickhouseUrl, clickhouseAuth)
+      return true
     },
     enabled: Boolean(clickhouseUrl),
     retry: false,

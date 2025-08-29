@@ -26,6 +26,9 @@ RUN pnpm build
 # Production stage
 FROM node:20-alpine AS production
 
+# Install debug tools
+RUN apk add --no-cache curl wget netcat-openbsd jq bash
+
 # Install pnpm
 RUN npm install -g pnpm
 

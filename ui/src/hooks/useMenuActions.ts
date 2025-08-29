@@ -9,7 +9,7 @@ export const useMenuActions = () => {
   useEffect(() => {
     // Only set up Electron menu handlers if we're in Electron
     if (typeof window !== 'undefined' && window.electronAPI) {
-      const handleMenuAction = (action: string, data?: any) => {
+      const handleMenuAction = (action: string, data?: unknown) => {
         switch (action) {
           case 'new-query':
             setActiveQuery('')
