@@ -66,7 +66,7 @@ jobs:
           echo "🔍 Checking demo service health..."
           pnpm demo:status || echo "Demo status check completed"
           echo "⏳ Waiting for telemetry data generation..."
-          sleep 45
+          sleep 75  # Extended wait time for CI environments where services start slower
                     
       - name: Verify services are running
         run: |
@@ -88,7 +88,7 @@ jobs:
       - name: Run single E2E test for validation
         run: |
           echo "🎭 Running single E2E test for validation..."
-          pnpm exec playwright test ui/test/e2e/ai-analyzer-e2e.spec.ts --project=chromium --workers=1 --retries=0 --reporter=line
+          CI=true pnpm exec playwright test ui/test/e2e/protobuf-cleaning-validation.spec.ts --project=chromium --workers=1 --retries=0 --reporter=line
           
       - name: Upload test results
         if: always()

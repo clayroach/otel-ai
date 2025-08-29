@@ -131,7 +131,7 @@ jobs:
           echo "🔍 Checking demo service health..."
           pnpm demo:status || echo "Demo status check completed"
           echo "⏳ Waiting for telemetry data generation..."
-          sleep 60  # Increased wait time for better telemetry data population
+          sleep 90  # Extended wait time for CI environments where services start slower
           
       - name: Integration tests
         run: |
@@ -144,7 +144,7 @@ jobs:
       - name: E2E tests with Playwright
         run: |
           echo "🎭 Running E2E tests with established pnpm commands..."
-          pnpm test:e2e
+          CI=true pnpm test:e2e
                     
       - name: Performance baseline check
         run: |

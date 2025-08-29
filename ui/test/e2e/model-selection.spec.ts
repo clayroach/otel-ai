@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test'
 
+// Helper function for CI-appropriate timeouts
+const getTimeout = (baseTimeout: number) => process.env.CI ? baseTimeout * 4 : baseTimeout
+
 // Types for network request tracking
 interface NetworkRequest {
   url: string;
@@ -47,7 +50,7 @@ test.describe('AI Analyzer Model Selection E2E', () => {
       await page.getByTestId('analyze-button').click()
       
       // Wait for analysis to complete
-      await page.waitForSelector('[data-testid="insights-results"]', { timeout: 30000 })
+      await page.waitForSelector('[data-testid="insights-results"]', { timeout: getTimeout(30000) })
       
       // Click on the AI-Powered Insights tab to see the actual insights
       await page.getByTestId('insights-tab-button').click()

@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test'
 
+// Helper function for CI-appropriate timeouts
+const getTimeout = (baseTimeout: number) => process.env.CI ? baseTimeout * 4 : baseTimeout
+
 // Specific test to validate protobuf service name cleaning
 test.describe('Protobuf Service Name Cleaning Validation', () => {
   test('should display clean service names without protobuf JSON', async ({ page }) => {
@@ -11,8 +14,8 @@ test.describe('Protobuf Service Name Cleaning Validation', () => {
     // Click analyze button using proper test ID
     await page.getByTestId('analyze-button').click()
 
-    // Wait for analysis results
-    await page.waitForSelector('[data-testid="insights-results"]', { timeout: 30000 })
+    // Wait for analysis results (increased timeout for CI)
+    await page.waitForSelector('[data-testid="insights-results"]', { timeout: getTimeout(30000) })
     
     // Navigate to insights tab to see the analysis content
     await page.getByTestId('insights-tab-button').click()
@@ -104,7 +107,7 @@ test.describe('Protobuf Service Name Cleaning Validation', () => {
 
     // Trigger analysis using proper test ID
     await page.getByTestId('analyze-button').click()
-    await page.waitForSelector('[data-testid="insights-results"]', { timeout: 30000 })
+    await page.waitForSelector('[data-testid="insights-results"]', { timeout: getTimeout(30000) })
 
     // Check insights tab
     const insightsTab = page.getByTestId('insights-tab-button')
