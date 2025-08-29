@@ -2,7 +2,7 @@ name: Sync Screenshots to GitHub Pages
 
 on:
   push:
-    branches: [main, test/ci-cd-validation]  # Added current branch for testing
+    branches: [main]
     paths: ['notes/screenshots/**']
   workflow_dispatch:
 
