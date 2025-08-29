@@ -4,11 +4,11 @@
 
 This folder contains visual documentation for the comprehensive CI/CD pipeline improvements completed on 2025-08-29.
 
-## PR #49 Screenshots
+## PR #30 Screenshots
 
 ### GitHub Actions Success
 **File**: Available in `screenshots-dropbox/Screenshot 2025-08-29 at 6.53.51 AM.png`
-**Purpose**: `pr-49-github-actions-success.png` 
+**Purpose**: `pr-30-github-actions-success.png` 
 
 The screenshot shows complete workflow success with all validation steps passing, demonstrating:
 - ✅ Parallel demo startup + Playwright browser installation
@@ -19,9 +19,9 @@ The screenshot shows complete workflow success with all validation steps passing
 ### E2E Test Results - Multi-Model AI Validation
 
 #### Claude AI Analysis
-**File**: `pr-49-e2e-claude-results.png`
+**File**: `pr-30-e2e-claude-results.png`
 
-![Claude Results](pr-49-e2e-claude-results.png)
+![Claude Results](pr-30-e2e-claude-results.png)
 
 Shows successful AI analysis with Claude model:
 - Generated 4 insights from telemetry data
@@ -29,9 +29,9 @@ Shows successful AI analysis with Claude model:
 - High latency and error rate detection working correctly
 
 #### GPT AI Analysis  
-**File**: `pr-49-e2e-gpt-results.png`
+**File**: `pr-30-e2e-gpt-results.png`
 
-![GPT Results](pr-49-e2e-gpt-results.png)
+![GPT Results](pr-30-e2e-gpt-results.png)
 
 Demonstrates multi-model capability:
 - Different AI model generating unique perspectives
@@ -39,9 +39,9 @@ Demonstrates multi-model capability:
 - Model switching functionality working properly
 
 #### Llama AI Analysis
-**File**: `pr-49-e2e-llama-results.png`
+**File**: `pr-30-e2e-llama-results.png`
 
-![Llama Results](pr-49-e2e-llama-results.png)
+![Llama Results](pr-30-e2e-llama-results.png)
 
 Validates local model integration:
 - Resource utilization insights from local statistical analyzer
@@ -65,7 +65,7 @@ These screenshots are excellent for blog content about:
 
 ## Usage References
 
-- **PR #49**: "CI/CD Pipeline Fixes & Graceful Claude Code Fallback"  
+- **PR #30**: "CI/CD Pipeline Fixes & Graceful Claude Code Fallback"  
 - **Daily Note**: 2025-08-29 progress documentation
 - **Blog Post**: Future "CI/CD optimization" technical article
 - **Package Docs**: Deployment package CI/CD validation section
