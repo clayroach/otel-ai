@@ -23,37 +23,21 @@ env:
 jobs:
   quick-validation:
     name: Quick Validation (Code Changes)
+    uses: ./.github/workflows/reusable-quick-validation.yml
+    with:
+      node-version: ${{ vars.NODE_VERSION || '20' }}
+      pnpm-version: ${{ vars.PNPM_VERSION || '8.15.0' }}
+      timeout-minutes: 10
+
+  code-to-docs-sync:
+    name: Code-to-Docs Sync Validation
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    needs: quick-validation
+    timeout-minutes: 5
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: ${{ env.PNPM_VERSION }}
-          
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-        
-      - name: TypeScript compilation
-        run: pnpm typecheck:all
-        
-      - name: Code quality (ESLint)
-        run: pnpm lint
-        
-      - name: Code formatting (Prettier)
-        run: pnpm format:check
-        
-      - name: Unit tests
-        run: pnpm test
         
       - name: Run code-to-docs sync validation
         run: |
