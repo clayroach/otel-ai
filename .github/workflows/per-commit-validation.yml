@@ -67,17 +67,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         
-      - name: Run code-to-docs sync validation
+      - name: Code-to-docs sync (manual process)
         run: |
-          echo "🔄 Running code-to-docs sync agent for code changes..."
-          
-          # Use Claude Code to run code-to-docs-sync-agent
-          # This ensures documentation stays aligned with code changes
-          claude-code --agent code-to-docs-sync-agent \
-            --prompt "Analyze recent code changes and ensure documentation is synchronized. Update package READMEs, Dendron notes, and API documentation to reflect current implementation. Report any misalignments found." \
-            --non-interactive || echo "⚠️ Code-to-docs sync agent not available in CI - manual sync may be needed"
-          
-          echo "✅ Code-to-docs sync validation completed"
+          echo "📝 Code-to-docs sync is a manual process using Claude Code locally"
+          echo "ℹ️  Use 'claude-code --agent code-to-docs-sync-agent' locally to sync documentation"
+          echo "✅ Skipping automated sync in CI environment"
 
   docs-validation:
     name: Documentation Validation
@@ -107,15 +101,9 @@ jobs:
           echo "📦 Installing workspace dependencies (minimal)..."
           pnpm install --frozen-lockfile --ignore-scripts
         
-      - name: Run code-to-docs sync validation
+      - name: Documentation structure validation
         run: |
-          echo "🔄 Running code-to-docs sync agent for documentation validation..."
-          
-          # Use Claude Code to run code-to-docs-sync-agent
-          # This ensures documentation stays aligned with code changes
-          claude-code --agent code-to-docs-sync-agent \
-            --prompt "Validate that documentation is synchronized with current codebase. Check for any misalignment between implementation and specs. Report any issues found." \
-            --non-interactive || echo "⚠️ Code-to-docs sync agent not available in CI - running fallback validation"
+          echo "📚 Validating documentation structure..."
           
           echo "📚 Running fallback documentation validation..."
           

@@ -180,17 +180,11 @@ jobs:
           # Add performance tests here when available
           echo "Performance checks completed"
           
-      - name: Sync documentation with code changes
+      - name: Documentation sync (manual process)
         run: |
-          echo "🔄 Running code-to-docs sync after full validation..."
-          
-          # Use Claude Code to run code-to-docs-sync-agent
-          # This ensures documentation stays current with merged changes
-          claude-code --agent code-to-docs-sync-agent \
-            --prompt "Full validation completed successfully. Analyze all code changes in this PR and ensure documentation is fully synchronized. Update package READMEs, Dendron notes, API documentation, and CLAUDE.md to reflect current implementation state." \
-            --non-interactive || echo "⚠️ Code-to-docs sync agent not available in CI - manual sync recommended"
-          
-          echo "✅ Documentation synchronization completed"
+          echo "📝 Documentation sync is a manual process using Claude Code locally"
+          echo "ℹ️  After merging, run 'claude-code --agent code-to-docs-sync-agent' to sync docs"
+          echo "✅ Automated sync skipped in CI - manual process preferred"
           
       - name: Cleanup services
         if: always()
