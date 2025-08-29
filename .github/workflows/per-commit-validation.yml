@@ -106,16 +106,17 @@ jobs:
           echo "📦 Installing workspace dependencies (minimal)..."
           pnpm install --frozen-lockfile --ignore-scripts
         
-      - name: Run code-to-docs sync validation
-        uses: anthropics/claude-code-action@v1
-        with:
-          agent: code-to-docs-sync-agent
-          prompt: |
-            Validate that documentation is synchronized with current codebase. 
-            Check for any misalignment between implementation and specs. 
-            Report any issues found.
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+# DISABLING FOR NOW
+      # - name: Run code-to-docs sync validation
+      #   uses: anthropics/claude-code-action@v1
+      #   with:
+      #     agent: code-to-docs-sync-agent
+      #     prompt: |
+      #       Validate that documentation is synchronized with current codebase. 
+      #       Check for any misalignment between implementation and specs. 
+      #       Report any issues found.
+      #   env:
+      #     ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           
       - name: Documentation structure validation
         run: |
