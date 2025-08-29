@@ -25,8 +25,8 @@ jobs:
     name: Quick Validation (Code Changes)
     uses: ./.github/workflows/reusable-quick-validation.yml
     with:
-      node-version: ${{ vars.NODE_VERSION || '20' }}
-      pnpm-version: ${{ vars.PNPM_VERSION || '8.15.0' }}
+      node-version: '20'
+      pnpm-version: '8.15.0'
       timeout-minutes: 10
 
   code-to-docs-sync:
@@ -112,5 +112,5 @@ jobs:
       - name: Run minimal unit tests (safety check)
         run: |
           echo "🧪 Running minimal unit tests as safety check..."
-          pnpm test --reporter=dot --bail=5
+          pnpm test --reporter=dot
           echo "✅ Basic unit tests pass - no accidental code changes detected"

@@ -26,8 +26,8 @@ jobs:
     name: Quick Validation
     uses: ./.github/workflows/reusable-quick-validation.yml
     with:
-      node-version: ${{ vars.NODE_VERSION || '20' }}
-      pnpm-version: ${{ vars.PNPM_VERSION || '8.15.0' }}
+      node-version: '20'
+      pnpm-version: '8.15.0'
       timeout-minutes: 10
 
   # Comprehensive testing with real services
