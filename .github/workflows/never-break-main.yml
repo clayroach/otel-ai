@@ -43,10 +43,8 @@ jobs:
           
       - name: Install dependencies
         run: |
-          echo "📦 Installing root dependencies..."
+          echo "📦 Installing workspace dependencies..."
           pnpm install --frozen-lockfile
-          echo "📦 Installing UI dependencies..."
-          cd ui && pnpm install --frozen-lockfile
         
       - name: TypeScript compilation
         run: pnpm typecheck:all
@@ -93,11 +91,9 @@ jobs:
           
       - name: Install dependencies
         run: |
-          echo "📦 Installing root dependencies (skipping optional native compilation)..."
+          echo "📦 Installing workspace dependencies (skipping optional native compilation)..."
           # Update lockfiles to match package.json, then skip post-install scripts to avoid node-gyp issues
           pnpm install --ignore-scripts
-          echo "📦 Installing UI dependencies..."
-          cd ui && pnpm install --ignore-scripts
           
       - name: Build required Docker images
         run: |
