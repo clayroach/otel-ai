@@ -75,7 +75,7 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
           }).pipe(
             Effect.retry(
               Schedule.exponential('100 millis').pipe(Schedule.compose(Schedule.recurs(3)))
-            ),
+            )
           )
         )
       })
@@ -102,19 +102,30 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
 
         if (!response.Body) {
           return yield* _(
-            Effect.fail(StorageErrorConstructors.QueryError(`No data found at key ${key}`, `GET ${key}`))
+            Effect.fail(
+              StorageErrorConstructors.QueryError(`No data found at key ${key}`, `GET ${key}`)
+            )
           )
         }
 
         // Convert stream to Uint8Array - use Effect.tryPromise to handle async
         const bodyBytes = yield* _(
           Effect.tryPromise({
-            try: () => response.Body!.transformToByteArray(),
+            try: () => {
+              if (!response.Body) {
+                throw new Error('Response body is null')
+              }
+              return response.Body.transformToByteArray()
+            },
             catch: (error) =>
-              StorageErrorConstructors.QueryError(`Failed to read response body: ${error}`, `READ ${key}`, error)
+              StorageErrorConstructors.QueryError(
+                `Failed to read response body: ${error}`,
+                `READ ${key}`,
+                error
+              )
           })
         )
-        
+
         return new Uint8Array(bodyBytes)
       })
 
@@ -153,9 +164,8 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
         // Create hierarchical key structure for efficient querying
         const baseKey = `otel-data/${year}/${month}/${day}/${hour}`
 
-        // Serialize OTLP data to JSON
-        const serializedData = JSON.stringify(data)
-        const dataBuffer = new TextEncoder().encode(serializedData)
+        // Note: OTLP data serialization removed as it was unused in current implementation
+        // Individual signal types are serialized separately below
 
         // Archive each signal type separately for better retention management
         if (data.traces && data.traces.length > 0) {
@@ -203,8 +213,7 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
     ): Effect.Effect<void, StorageError> =>
       Effect.gen(function* (_) {
         const cutoffDate = new Date(now - retentionMs)
-        const cutoffYear = cutoffDate.getUTCFullYear()
-        const cutoffMonth = cutoffDate.getUTCMonth() + 1
+        // Note: cutoffYear and cutoffMonth were unused, removed for ESLint compliance
 
         // List objects older than cutoff
         const objectsToDelete = yield* _(
@@ -332,8 +341,8 @@ const parseRetentionPeriod = (period: string): number => {
     throw new Error(`Invalid retention period format: ${period}`)
   }
 
-  const value = parseInt(match[1]!)
-  const unit = match[2]!
+  const value = parseInt(match[1] ?? '0')
+  const unit = match[2] ?? 'd'
 
   const millisecondsPerUnit = {
     d: 24 * 60 * 60 * 1000, // days

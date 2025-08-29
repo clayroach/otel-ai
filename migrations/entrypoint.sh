@@ -126,23 +126,20 @@ execute_sql_file() {
     return 0
 }
 
-# Function to run migrations
+# Function to run migrations using SQL files
 run_migrations() {
-    log_info "Running schema migrations..."
+    log_info "Running SQL schema migrations..."
     
-    # Check if this is first run (no migration history)
+    # Check if this is first run or clean slate
     TABLES_COUNT=$(execute_sql "SELECT count(*) FROM system.tables WHERE database = '${CLICKHOUSE_DATABASE}'" true || echo "0")
     
-    if [ "$TABLES_COUNT" -eq "0" ] || [ "$MIGRATION_MODE" = "init" ]; then
-        log_info "Initializing schema from scratch..."
-        
-        # Execute initial schema file
-        if execute_sql_file "/migrations/clickhouse/20250819000000_initial_schema.sql"; then
-            log_info "Initial schema created successfully"
-        else
-            log_error "Failed to create initial schema"
-            return 1
-        fi
+    # Apply original schema from main branch
+    log_info "Applying initial schema from SQL migration..."
+    if execute_sql_file "/migrations/clickhouse/20250819000000_initial_schema.sql"; then
+        log_info "Schema tables created successfully"
+    else
+        log_error "Failed to create schema tables"
+        return 1
     fi
     
     # Apply views (idempotent - safe to run multiple times)
@@ -150,7 +147,7 @@ run_migrations() {
     if execute_sql_file "/migrations/schema/views.sql" true; then
         log_info "Views created/updated successfully"
     else
-        log_warn "Some views may have failed (this might be normal if tables don't exist yet)"
+        log_warn "Some views may have failed (this might be normal on first run)"
     fi
     
     return 0
@@ -160,7 +157,7 @@ run_migrations() {
 validate_schema() {
     log_info "Validating database schema..."
     
-    # Check core tables
+    # Check core tables from original schema
     REQUIRED_TABLES=(
         "traces"
         "ai_anomalies"

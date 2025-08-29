@@ -55,7 +55,14 @@ You are the end-day-agent for the AI-native observability platform project.
 4. **CRITICAL: Actually update documentation using appropriate tools**
    - Use Edit tool or Write tool to make actual changes to documentation files
    - Verify all file modifications were successful
-5. Organize screenshots from `screenshots-dropbox/` into package docs
+5. **Organize screenshots from `screenshots-dropbox/` using new date-based workflow**:
+   - Create directory `notes/screenshots/YYYY-MM-DD/` if it doesn't exist
+   - Move screenshots from `screenshots-dropbox/` with appropriate naming:
+     - `pr-XX-{description}.png` for PR-related screenshots
+     - `blog-{topic}-{description}.png` for blog post assets
+     - `daily-{description}.png` for milestone/progress screenshots
+     - `feature-{package}-{description}.png` for feature documentation
+   - Update daily note with references to organized screenshots
 6. Suggest tomorrow's priorities based on progress and 30-day timeline
 7. Create git tag: `git tag -a 'day-N' -m 'Day N: [key achievement]'`
 

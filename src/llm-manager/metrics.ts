@@ -1,6 +1,6 @@
 /**
  * Metrics Service Implementation
- * 
+ *
  * Simple metrics collection for LLM operations.
  */
 
@@ -35,14 +35,14 @@ interface ErrorMetric {
  * In-Memory Metrics Implementation
  */
 export const makeMetricsService = () =>
-  Effect.gen(function* (_) {
+  Effect.succeed((() => {
     const requests: RequestMetric[] = []
     const responses: ResponseMetric[] = []
     const errors: ErrorMetric[] = []
 
     return {
       recordRequest: (model: ModelType, request: LLMRequest) =>
-        Effect.gen(function* (_) {
+        Effect.sync(() => {
           requests.push({
             timestamp: Date.now(),
             model,
@@ -52,7 +52,7 @@ export const makeMetricsService = () =>
         }),
 
       recordResponse: (model: ModelType, response: LLMResponse) =>
-        Effect.gen(function* (_) {
+        Effect.sync(() => {
           responses.push({
             timestamp: Date.now(),
             model,
@@ -64,7 +64,7 @@ export const makeMetricsService = () =>
         }),
 
       recordError: (model: ModelType, error: LLMError) =>
-        Effect.gen(function* (_) {
+        Effect.sync(() => {
           errors.push({
             timestamp: Date.now(),
             model,
@@ -77,22 +77,23 @@ export const makeMetricsService = () =>
         Effect.succeed({
           totalRequests: requests.length,
           totalErrors: errors.length,
-          averageLatency: responses.length > 0 
-            ? responses.reduce((sum, r) => sum + r.latency, 0) / responses.length 
-            : 0,
+          averageLatency:
+            responses.length > 0
+              ? responses.reduce((sum, r) => sum + r.latency, 0) / responses.length
+              : 0,
           totalCost: responses.reduce((sum, r) => sum + r.cost, 0),
-          requestsByModel: requests.reduce((acc, r) => {
-            acc[r.model] = (acc[r.model] || 0) + 1
-            return acc
-          }, {} as Record<ModelType, number>)
+          requestsByModel: requests.reduce(
+            (acc, r) => {
+              acc[r.model] = (acc[r.model] || 0) + 1
+              return acc
+            },
+            {} as Record<ModelType, number>
+          )
         })
     }
-  })
+  })())
 
 /**
  * Metrics Service Layer
  */
-export const MetricsLayer = Layer.effect(
-  LLMMetricsService,
-  makeMetricsService()
-)
+export const MetricsLayer = Layer.effect(LLMMetricsService, makeMetricsService())

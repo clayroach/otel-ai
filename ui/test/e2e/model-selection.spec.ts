@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test'
 
+// Helper function for CI-appropriate timeouts
+const getTimeout = (baseTimeout: number) => process.env.CI ? baseTimeout * 4 : baseTimeout
+
 // Types for network request tracking
 interface NetworkRequest {
   url: string;
@@ -47,7 +50,7 @@ test.describe('AI Analyzer Model Selection E2E', () => {
       await page.getByTestId('analyze-button').click()
       
       // Wait for analysis to complete
-      await page.waitForSelector('[data-testid="insights-results"]', { timeout: 30000 })
+      await page.waitForSelector('[data-testid="insights-results"]', { timeout: getTimeout(30000) })
       
       // Click on the AI-Powered Insights tab to see the actual insights
       await page.getByTestId('insights-tab-button').click()
@@ -77,28 +80,38 @@ test.describe('AI Analyzer Model Selection E2E', () => {
       console.log(`📊 ${model}: ${insights.length} insights, ${spanCount} spans`)
       console.log(`📋 Insights: ${insights.join(', ')}`)
       
-      // Take screenshot focusing on AI Powered Insights section to show differentiation
-      // Scroll to ensure AI insights section is fully visible
+      // Take screenshot capturing FULL content including LLM-specific insights below the fold
+      // Scroll to top of insights section
       await page.locator('[data-testid="insights-results"]').first().scrollIntoViewIfNeeded()
-      await page.waitForTimeout(1000) // Allow UI to settle
+      await page.waitForTimeout(1000)
       
-      await page.screenshot({ 
-        path: `screenshots-dropbox/${model}-results.png`,
-        fullPage: false,  // Focus on viewport that shows insights
-        clip: {
-          x: 0,
-          y: 100,  // Skip top nav, focus on content
-          width: 1400,
-          height: 900  // Taller to capture full insights section
+      // Scroll down to ensure ALL insights are captured, especially model-specific ones
+      await page.evaluate(() => {
+        // Scroll to bottom of insights to ensure all LLM content is loaded
+        const insightsSection = document.querySelector('[data-testid="insights-results"]')
+        if (insightsSection) {
+          insightsSection.scrollTop = insightsSection.scrollHeight
         }
+      })
+      await page.waitForTimeout(1000)
+      
+      // Take full-page screenshot to capture all content including below-the-fold LLM insights
+      await page.screenshot({ 
+        path: `target/screenshots/${model}-results.png`,  // Save to target for organized location
+        fullPage: true,  // Capture entire page content to avoid missing LLM insights
+        // Remove clip to ensure we capture all model-specific content
       })
     }
     
     // Validate that results are actually different
-    const claudeResults = modelResults.get('claude')!
-    const gptResults = modelResults.get('gpt')!
-    const llamaResults = modelResults.get('llama')!
-    const statisticalResults = modelResults.get('local-statistical-analyzer')!
+    const claudeResults = modelResults.get('claude')
+    const gptResults = modelResults.get('gpt')
+    const llamaResults = modelResults.get('llama')
+    const statisticalResults = modelResults.get('local-statistical-analyzer')
+    
+    if (!claudeResults || !gptResults || !llamaResults || !statisticalResults) {
+      throw new Error('Expected all model results to be present')
+    }
     
     // Statistical should have fewer insights
     expect(statisticalResults.insights.length).toBeLessThan(claudeResults.insights.length)

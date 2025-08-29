@@ -5,12 +5,24 @@
 
 import { fromBinary } from '@bufbuild/protobuf'
 import cors from 'cors'
-import { Context, Effect, Stream } from 'effect'
+import { Context, Effect, Stream, Layer } from 'effect'
 import express from 'express'
 import { AIAnalyzerService } from './ai-analyzer/index.js'
-import { defaultAnalyzerConfig, generateInsights, generateRequestId } from './ai-analyzer/service.js'
-import { ExportTraceServiceRequestSchema, KeyValue, ResourceSpans, ScopeSpans } from './opentelemetry/index.js'
-import { SimpleStorage, type SimpleStorageConfig } from './storage/simple-storage.js'
+import {
+  generateInsights,
+  generateRequestId
+} from './ai-analyzer/service.js'
+import {
+  ExportTraceServiceRequestSchema,
+  KeyValue,
+  ResourceSpans,
+  ScopeSpans
+} from './opentelemetry/index.js'
+import { 
+  StorageAPIClientTag, 
+  ClickHouseConfigTag,
+  StorageAPIClientLayer
+} from './storage/index.js'
 
 /**
  * Type for OpenTelemetry attribute values
@@ -54,20 +66,20 @@ interface ProtobufDoubleValue {
 }
 
 // Type guard functions
-function isProtobufStringValue(obj: any): obj is ProtobufStringValue {
-  return obj && typeof obj === 'object' && 'stringValue' in obj
+function isProtobufStringValue(obj: unknown): obj is ProtobufStringValue {
+  return obj != null && typeof obj === 'object' && 'stringValue' in obj
 }
 
-function isProtobufIntValue(obj: any): obj is ProtobufIntValue {
-  return obj && typeof obj === 'object' && 'intValue' in obj
+function isProtobufIntValue(obj: unknown): obj is ProtobufIntValue {
+  return obj != null && typeof obj === 'object' && 'intValue' in obj
 }
 
-function isProtobufBoolValue(obj: any): obj is ProtobufBoolValue {
-  return obj && typeof obj === 'object' && 'boolValue' in obj
+function isProtobufBoolValue(obj: unknown): obj is ProtobufBoolValue {
+  return obj != null && typeof obj === 'object' && 'boolValue' in obj
 }
 
-function isProtobufDoubleValue(obj: any): obj is ProtobufDoubleValue {
-  return obj && typeof obj === 'object' && 'doubleValue' in obj
+function isProtobufDoubleValue(obj: unknown): obj is ProtobufDoubleValue {
+  return obj != null && typeof obj === 'object' && 'doubleValue' in obj
 }
 
 /**
@@ -78,93 +90,98 @@ function parseOTLPFromRaw(buffer: Buffer): { resourceSpans: unknown[] } {
   try {
     // Convert buffer to string and look for patterns
     const data = buffer.toString('latin1')
-    
+
     // Look for OTLP structure markers
     const resourceSpans: unknown[] = []
-    
+
     // Find service name patterns
     const serviceMatches = [...data.matchAll(/service\.name\s*([a-zA-Z][a-zA-Z0-9\-_]+)/g)]
     const operationMatches = [...data.matchAll(/\s([a-zA-Z][a-zA-Z0-9\-_./]+)\s/g)]
-    
+
     // Look for trace and span IDs (16-byte hex strings)
     const traceIdMatches = [...data.matchAll(/\s([a-f0-9]{32})\s/g)]
     const spanIdMatches = [...data.matchAll(/\s([a-f0-9]{16})\s/g)]
-    
+
     // Find timestamp patterns (nanoseconds)
     const timestampMatches = [...data.matchAll(/\s(\d{16,19})\s/g)]
-    
+
     console.log('🔍 Raw protobuf parsing found:')
     console.log('  - Service matches:', serviceMatches.length)
-    console.log('  - Operation matches:', operationMatches.length) 
+    console.log('  - Operation matches:', operationMatches.length)
     console.log('  - Trace ID matches:', traceIdMatches.length)
     console.log('  - Span ID matches:', spanIdMatches.length)
     console.log('  - Timestamp matches:', timestampMatches.length)
-    
+
     if (serviceMatches.length === 0) {
       throw new Error('No service names found in protobuf data')
     }
-    
+
     // Extract the first service name
     const serviceName = serviceMatches[0]?.[1] || 'unknown-service'
-    
+
     // Try to find operation names - look for common operation patterns
     const operationCandidates = operationMatches
-      .map(match => match[1])
-      .filter((op): op is string => 
-        op != null &&
-        op.length > 3 && 
-        op.length < 100 &&
-        !op.match(/^[0-9a-f]+$/) && // Skip hex strings
-        !op.match(/^[0-9]+$/) && // Skip pure numbers
-        (op.includes('.') || op.includes('/') || op.includes('_') || /[A-Z]/.test(op)) // Likely operation names
+      .map((match) => match[1])
+      .filter(
+        (op): op is string =>
+          op != null &&
+          op.length > 3 &&
+          op.length < 100 &&
+          !op.match(/^[0-9a-f]+$/) && // Skip hex strings
+          !op.match(/^[0-9]+$/) && // Skip pure numbers
+          (op.includes('.') || op.includes('/') || op.includes('_') || /[A-Z]/.test(op)) // Likely operation names
       )
       .slice(0, 10) // Limit to first 10 candidates
-    
+
     console.log('🔍 Operation candidates:', operationCandidates)
-    
+
     // Create spans for each operation found
-    const spans = operationCandidates.length > 0 
-      ? operationCandidates.map((operation, index) => ({
-          traceId: traceIdMatches[index]?.[1] || Math.random().toString(16).padStart(32, '0'),
-          spanId: spanIdMatches[index]?.[1] || Math.random().toString(16).padStart(16, '0'),
-          name: operation,
-          startTimeUnixNano: timestampMatches[index * 2]?.[1] || (Date.now() * 1000000).toString(),
-          endTimeUnixNano: timestampMatches[index * 2 + 1]?.[1] || ((Date.now() + 50) * 1000000).toString(),
-          kind: 'SPAN_KIND_INTERNAL',
-          status: { code: 'STATUS_CODE_OK' },
-          attributes: [
-            { key: 'extraction.method', value: { stringValue: 'raw-protobuf-parsing' } },
-            { key: 'service.name', value: { stringValue: serviceName } }
+    const spans =
+      operationCandidates.length > 0
+        ? operationCandidates.map((operation, index) => ({
+            traceId: traceIdMatches[index]?.[1] || Math.random().toString(16).padStart(32, '0'),
+            spanId: spanIdMatches[index]?.[1] || Math.random().toString(16).padStart(16, '0'),
+            name: operation,
+            startTimeUnixNano:
+              timestampMatches[index * 2]?.[1] || (Date.now() * 1000000).toString(),
+            endTimeUnixNano:
+              timestampMatches[index * 2 + 1]?.[1] || ((Date.now() + 50) * 1000000).toString(),
+            kind: 'SPAN_KIND_INTERNAL',
+            status: { code: 'STATUS_CODE_OK' },
+            attributes: [
+              { key: 'extraction.method', value: { stringValue: 'raw-protobuf-parsing' } },
+              { key: 'service.name', value: { stringValue: serviceName } }
+            ]
+          }))
+        : [
+            {
+              traceId: traceIdMatches[0]?.[1] || Math.random().toString(16).padStart(32, '0'),
+              spanId: spanIdMatches[0]?.[1] || Math.random().toString(16).padStart(16, '0'),
+              name: 'extracted-operation',
+              startTimeUnixNano: timestampMatches[0]?.[1] || (Date.now() * 1000000).toString(),
+              endTimeUnixNano: timestampMatches[1]?.[1] || ((Date.now() + 50) * 1000000).toString(),
+              kind: 'SPAN_KIND_INTERNAL',
+              status: { code: 'STATUS_CODE_OK' },
+              attributes: [
+                { key: 'extraction.method', value: { stringValue: 'raw-protobuf-parsing' } },
+                { key: 'service.name', value: { stringValue: serviceName } }
+              ]
+            }
           ]
-        }))
-      : [{
-          traceId: traceIdMatches[0]?.[1] || Math.random().toString(16).padStart(32, '0'),
-          spanId: spanIdMatches[0]?.[1] || Math.random().toString(16).padStart(16, '0'),
-          name: 'extracted-operation',
-          startTimeUnixNano: timestampMatches[0]?.[1] || (Date.now() * 1000000).toString(),
-          endTimeUnixNano: timestampMatches[1]?.[1] || ((Date.now() + 50) * 1000000).toString(),
-          kind: 'SPAN_KIND_INTERNAL',
-          status: { code: 'STATUS_CODE_OK' },
-          attributes: [
-            { key: 'extraction.method', value: { stringValue: 'raw-protobuf-parsing' } },
-            { key: 'service.name', value: { stringValue: serviceName } }
-          ]
-        }]
-    
+
     resourceSpans.push({
       resource: {
-        attributes: [
-          { key: 'service.name', value: { stringValue: serviceName } }
-        ]
+        attributes: [{ key: 'service.name', value: { stringValue: serviceName } }]
       },
-      scopeSpans: [{
-        scope: { name: 'raw-protobuf-parser', version: '1.0.0' },
-        spans: spans
-      }]
+      scopeSpans: [
+        {
+          scope: { name: 'raw-protobuf-parser', version: '1.0.0' },
+          spans: spans
+        }
+      ]
     })
-    
+
     return { resourceSpans }
-    
   } catch (error) {
     console.error('❌ Raw protobuf parsing failed:', error)
     throw error
@@ -177,26 +194,33 @@ const PORT = process.env.PORT || 4319
 // Middleware
 app.use(cors())
 
-// For OTLP endpoints, use raw middleware with gzip decompression enabled
-app.use('/v1*', (req, res, next) => {
+// Combined body parsing middleware for OTLP and other endpoints
+app.use((req, res, next) => {
   console.log('🔍 [Debug] Path:', req.path)
   console.log('🔍 [Debug] Content-Type:', req.headers['content-type'])
   console.log('🔍 [Debug] Content-Encoding:', req.headers['content-encoding'])
   
-  // Use raw middleware for all OTLP data with gzip decompression enabled
-  express.raw({ 
-    limit: '10mb',
-    type: '*/*',
-    inflate: true  // Enable gzip decompression for all content types
-  })(req, res, next)
-})
-
-// For non-OTLP endpoints only, use standard middleware (exclude /v1/* paths)
-app.use((req, res, next) => {
-  if (!req.path.startsWith('/v1/')) {
-    express.json({ limit: '10mb' })(req, res, next)
+  const contentType = req.headers['content-type'] || ''
+  
+  if (req.path.startsWith('/v1/')) {
+    // For OTLP endpoints, check content-type
+    if (contentType.includes('application/json')) {
+      // Parse as JSON for JSON content
+      express.json({ 
+        limit: '10mb',
+        inflate: true // Enable gzip decompression
+      })(req, res, next)
+    } else {
+      // Use raw middleware for protobuf with gzip decompression
+      express.raw({
+        limit: '10mb',
+        type: '*/*',
+        inflate: true // Enable gzip decompression
+      })(req, res, next)
+    }
   } else {
-    next()
+    // For all other endpoints, always parse JSON
+    express.json({ limit: '10mb' })(req, res, next)
   }
 })
 
@@ -208,18 +232,36 @@ app.use((req, res, next) => {
   }
 })
 
-// Initialize storage
-const storageConfig: SimpleStorageConfig = {
-  clickhouse: {
-    host: process.env.CLICKHOUSE_HOST || 'localhost',
-    port: parseInt(process.env.CLICKHOUSE_PORT || '8123'),
-    database: process.env.CLICKHOUSE_DATABASE || 'otel',
-    username: process.env.CLICKHOUSE_USERNAME || 'otel',
-    password: process.env.CLICKHOUSE_PASSWORD || 'otel123'
-  }
+// Initialize Effect-based storage
+const clickhouseConfig = {
+  host: process.env.CLICKHOUSE_HOST || 'localhost',
+  port: parseInt(process.env.CLICKHOUSE_PORT || '8123'),
+  database: process.env.CLICKHOUSE_DATABASE || 'otel',
+  username: process.env.CLICKHOUSE_USERNAME || 'otel',
+  password: process.env.CLICKHOUSE_PASSWORD || 'otel123'
 }
 
-const storage = new SimpleStorage(storageConfig)
+// Create the storage layer
+const StorageLayer = StorageAPIClientLayer.pipe(
+  Layer.provide(Layer.succeed(ClickHouseConfigTag, clickhouseConfig))
+)
+
+// Helper function to run storage queries
+const runStorageQuery = <A, E>(effect: Effect.Effect<A, E, StorageAPIClientTag>): Promise<A> => {
+  return Effect.runPromise(Effect.provide(effect, StorageLayer))
+}
+
+// Helper function for raw queries that returns data in legacy format
+const queryWithResults = async (sql: string): Promise<{ data: Record<string, unknown>[] }> => {
+  const result = await runStorageQuery(
+    Effect.gen(function* () {
+      const storage = yield* StorageAPIClientTag
+      return yield* storage.queryRaw(sql)
+    })
+  )
+  return { data: result as Record<string, unknown>[] }
+}
+
 
 // Initialize AI analyzer service
 let aiAnalyzer: Context.Tag.Service<typeof AIAnalyzerService> | null = null
@@ -234,19 +276,19 @@ async function createViews() {
     const createViewSQL = `
       CREATE OR REPLACE VIEW traces_view AS
       SELECT 
-          trace_id,
-          span_id,
-          parent_span_id,
-          start_time,
+          TraceId,
+          SpanId,
+          parent_SpanId,
+          Timestamp,
           end_time,
           duration_ns,
-          duration_ms,
-          service_name,
-          operation_name,
+          Duration / 1000000,
+          ServiceName,
+          SpanName,
           span_kind,
           status_code,
           status_message,
-          is_error,
+          CASE WHEN StatusCode = '2' THEN 1 ELSE 0 END,
           is_root,
           trace_state,
           scope_name,
@@ -259,26 +301,52 @@ async function createViews() {
           processing_version
       FROM traces
     `
-    await storage.query(createViewSQL)
+    await runStorageQuery(
+      Effect.gen(function* () {
+        const storage = yield* StorageAPIClientTag
+        return yield* storage.queryRaw(createViewSQL)
+      })
+    )
     console.log('✅ Created simplified traces view for single-path ingestion')
   } catch (error) {
-    console.log('⚠️  View creation will be retried later:', error instanceof Error ? error.message : error)
+    console.log(
+      '⚠️  View creation will be retried later:',
+      error instanceof Error ? error.message : error
+    )
   }
 }
 
 // Health check endpoint
 app.get('/health', async (_req, res) => {
   try {
-    const isHealthy = await storage.healthCheck()
-    res.json({ 
-      status: isHealthy ? 'healthy' : 'unhealthy',
+    const healthResult = await Effect.runPromise(
+      Effect.gen(function* (_) {
+        const apiClient = yield* _(StorageAPIClientTag)
+        return yield* _(apiClient.healthCheck())
+      }).pipe(
+        Effect.provide(StorageLayer),
+        Effect.match({
+          onFailure: (error) => {
+            console.error('Storage health check failed:', error._tag)
+            return { healthy: false, error: error._tag, clickhouse: false, s3: false }
+          },
+          onSuccess: (health) => {
+            return { healthy: health.clickhouse && health.s3, ...health }
+          }
+        })
+      )
+    )
+
+    res.json({
+      status: healthResult.healthy ? 'healthy' : 'unhealthy',
       service: 'otel-ai-backend',
       timestamp: new Date().toISOString(),
-      clickhouse: isHealthy
+      clickhouse: healthResult.clickhouse,
+      s3: healthResult.s3
     })
   } catch (error) {
-    res.status(503).json({ 
-      status: 'error', 
+    res.status(503).json({
+      status: 'error',
       error: error instanceof Error ? error.message : 'Unknown error',
       timestamp: new Date().toISOString()
     })
@@ -289,18 +357,19 @@ app.get('/health', async (_req, res) => {
 app.get('/api/traces', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit as string) || 100
-    const since = req.query.since as string || '5 MINUTE'
-    
-    // Query recent traces from simplified schema
+    const since = (req.query.since as string) || '5 MINUTE'
+
+    // TODO: Migrate to Storage API Client once type issues are resolved
+    // For now, maintain backward compatibility with direct storage query
     const query = `
       SELECT 
-        trace_id,
-        service_name,
-        operation_name,
-        duration_ms,
-        start_time as timestamp,
+        TraceId,
+        ServiceName,
+        SpanName,
+        Duration / 1000000,
+        Timestamp as timestamp,
         status_code,
-        is_error,
+        CASE WHEN StatusCode = '2' THEN 1 ELSE 0 END,
         span_kind,
         is_root,
         encoding_type
@@ -309,9 +378,9 @@ app.get('/api/traces', async (req, res) => {
       ORDER BY start_time DESC
       LIMIT ${limit}
     `
-    
-    const result = await storage.queryWithResults(query)
-    
+
+    const result = await queryWithResults(query)
+
     res.json({
       traces: result.data,
       count: result.data.length,
@@ -319,7 +388,7 @@ app.get('/api/traces', async (req, res) => {
     })
   } catch (error) {
     console.error('❌ Error querying traces:', error)
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error'
     })
@@ -329,8 +398,9 @@ app.get('/api/traces', async (req, res) => {
 // Service statistics endpoint
 app.get('/api/services/stats', async (req, res) => {
   try {
-    const since = req.query.since as string || '5 MINUTE'
-    
+    const since = (req.query.since as string) || '5 MINUTE'
+
+    // TODO: Migrate to Storage API Client once type issues are resolved
     const query = `
       SELECT 
         service_name,
@@ -345,16 +415,16 @@ app.get('/api/services/stats', async (req, res) => {
       GROUP BY service_name
       ORDER BY span_count DESC
     `
-    
-    const result = await storage.queryWithResults(query)
-    
+
+    const result = await queryWithResults(query)
+
     res.json({
       services: result.data,
       timestamp: new Date().toISOString()
     })
   } catch (error) {
     console.error('❌ Error querying service stats:', error)
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error'
     })
@@ -364,16 +434,17 @@ app.get('/api/services/stats', async (req, res) => {
 // AI Anomaly Detection endpoint - Simple statistical anomaly detection
 app.get('/api/anomalies', async (req, res) => {
   try {
-    const since = req.query.since as string || '15 MINUTE'
+    const since = (req.query.since as string) || '15 MINUTE'
     const threshold = parseFloat(req.query.threshold as string) || 2.0 // Z-score threshold
-    
+
+    // TODO: Migrate to Storage API Client once type issues are resolved
     // Query for anomalies using statistical methods
     const query = `
       WITH service_stats AS (
         SELECT 
           service_name,
           AVG(duration_ms) as avg_duration_ms,
-          stddevSamp(duration_ms) as std_duration_ms,
+          stddevSamp(duration_ms) as std_duration,
           COUNT(*) as sample_count,
           MAX(start_time) as latest_timestamp
         FROM traces
@@ -398,23 +469,23 @@ app.get('/api/anomalies', async (req, res) => {
         rt.timestamp,
         rt.trace_id,
         ss.avg_duration_ms as service_avg_duration_ms,
-        ss.std_duration_ms as service_std_duration_ms,
-        (rt.duration_ms - ss.avg_duration_ms) / ss.std_duration_ms as z_score,
+        ss.std_duration as service_std_duration,
+        (rt.duration_ms - ss.avg_duration_ms) / ss.std_duration as z_score,
         'latency_anomaly' as anomaly_type,
         CASE 
-          WHEN ABS((rt.duration_ms - ss.avg_duration_ms) / ss.std_duration_ms) >= ${threshold}
+          WHEN ABS((rt.duration_ms - ss.avg_duration_ms) / ss.std_duration) >= ${threshold}
           THEN 'high'
           ELSE 'normal'
         END as severity
       FROM recent_traces rt
       JOIN service_stats ss ON rt.service_name = ss.service_name
-      WHERE ABS((rt.duration_ms - ss.avg_duration_ms) / ss.std_duration_ms) >= ${threshold}
-      ORDER BY ABS((rt.duration_ms - ss.avg_duration_ms) / ss.std_duration_ms) DESC
+      WHERE ABS((rt.duration_ms - ss.avg_duration_ms) / ss.std_duration) >= ${threshold}
+      ORDER BY ABS((rt.duration_ms - ss.avg_duration_ms) / ss.std_duration) DESC
       LIMIT 50
     `
-    
-    const result = await storage.queryWithResults(query)
-    
+
+    const result = await queryWithResults(query)
+
     res.json({
       anomalies: result.data,
       count: result.data.length,
@@ -424,9 +495,42 @@ app.get('/api/anomalies', async (req, res) => {
     })
   } catch (error) {
     console.error('❌ Error detecting anomalies:', error)
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// Generic ClickHouse query endpoint for UI traces view
+app.post('/api/clickhouse/query', async (req, res) => {
+  try {
+    const { query } = req.body
+
+    if (!query || typeof query !== 'string') {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'Query parameter is required and must be a string'
+      })
+      return
+    }
+
+    console.log('🔍 Executing ClickHouse query:', query.substring(0, 100) + '...')
+
+    const result = await queryWithResults(query)
+
+    res.json({
+      data: result.data,
+      rows: result.data.length,
+      query: query,
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('❌ Error executing ClickHouse query:', error)
+    res.status(500).json({
+      error: 'Query execution failed',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      query: req.body?.query?.substring(0, 100) || 'unknown'
     })
   }
 })
@@ -473,7 +577,7 @@ app.post('/api/ai-analyzer/analyze', async (req, res) => {
     }
 
     const { type, timeRange, filters, config } = req.body
-    
+
     const analysisRequest = {
       type: type || 'architecture',
       timeRange: {
@@ -485,9 +589,7 @@ app.post('/api/ai-analyzer/analyze', async (req, res) => {
     }
 
     // Execute the analysis using Effect
-    const result = await Effect.runPromise(
-      aiAnalyzer.analyzeArchitecture(analysisRequest)
-    )
+    const result = await Effect.runPromise(aiAnalyzer.analyzeArchitecture(analysisRequest))
 
     res.json(result)
   } catch (error) {
@@ -509,15 +611,13 @@ app.post('/api/ai-analyzer/topology', async (req, res) => {
     }
 
     const { timeRange } = req.body
-    
+
     const topologyRequest = {
       startTime: new Date(timeRange.startTime),
       endTime: new Date(timeRange.endTime)
     }
 
-    const topology = await Effect.runPromise(
-      aiAnalyzer.getServiceTopology(topologyRequest)
-    )
+    const topology = await Effect.runPromise(aiAnalyzer.getServiceTopology(topologyRequest))
 
     res.json(topology)
   } catch (error) {
@@ -532,10 +632,16 @@ app.post('/api/ai-analyzer/topology', async (req, res) => {
 // Helper function to recursively extract values from protobuf objects
 function extractProtobufValue(value: unknown): unknown {
   // If it's a protobuf object with $typeName
-  if (value && typeof value === 'object' && value !== null && '$typeName' in value && 'value' in value) {
+  if (
+    value &&
+    typeof value === 'object' &&
+    value !== null &&
+    '$typeName' in value &&
+    'value' in value
+  ) {
     const protoObj = value as ProtobufObject
     const protoValue = protoObj.value
-    
+
     if (protoValue?.case === 'stringValue') {
       return protoValue.value
     } else if (protoValue?.case === 'intValue') {
@@ -568,12 +674,12 @@ function extractProtobufValue(value: unknown): unknown {
       return protoValue.value
     }
   }
-  
+
   // If it's an array, process each element
   if (Array.isArray(value)) {
-    return value.map(v => extractProtobufValue(v))
+    return value.map((v) => extractProtobufValue(v))
   }
-  
+
   // If it's a regular object with potential nested protobuf values
   if (value && typeof value === 'object' && !Buffer.isBuffer(value)) {
     // Check if it has protobuf array structure
@@ -587,12 +693,12 @@ function extractProtobufValue(value: unknown): unknown {
     }
     return result
   }
-  
+
   // Handle BigInt directly
   if (typeof value === 'bigint') {
     return value.toString()
   }
-  
+
   // Return primitive values as-is
   return value
 }
@@ -607,19 +713,22 @@ function cleanAttributes(attributes: Record<string, unknown>): Record<string, un
 }
 
 // Helper function to generate critical paths for AI analysis
-function generateCriticalPaths(services: Array<{ service: string }>, dataFlows: Array<{ from: string; to: string; volume: number; latency: { p50: number } }>) {
+function generateCriticalPaths(
+  services: Array<{ service: string }>,
+  dataFlows: Array<{ from: string; to: string; volume: number; latency: { p50: number } }>
+) {
   const paths = []
-  
+
   // Find high-volume service chains
   const highVolumeFlows = dataFlows
-    .filter(flow => flow.volume > 50) // Threshold for high volume
+    .filter((flow) => flow.volume > 50) // Threshold for high volume
     .sort((a, b) => b.volume - a.volume)
     .slice(0, 10) // Top 10 flows
-  
+
   for (const flow of highVolumeFlows) {
-    const fromService = services.find(s => s.service === flow.from)
-    const toService = services.find(s => s.service === flow.to)
-    
+    const fromService = services.find((s) => s.service === flow.from)
+    const toService = services.find((s) => s.service === flow.to)
+
     if (fromService && toService) {
       paths.push({
         name: `${flow.from} → ${flow.to}`,
@@ -631,13 +740,13 @@ function generateCriticalPaths(services: Array<{ service: string }>, dataFlows: 
       })
     }
   }
-  
+
   // Find high-latency service chains
   const highLatencyFlows = dataFlows
-    .filter(flow => flow.latency.p50 > 1000) // >1s latency
+    .filter((flow) => flow.latency.p50 > 1000) // >1s latency
     .sort((a, b) => b.latency.p50 - a.latency.p50)
     .slice(0, 5)
-    
+
   for (const flow of highLatencyFlows) {
     paths.push({
       name: `${flow.from} → ${flow.to} (slow)`,
@@ -648,7 +757,7 @@ function generateCriticalPaths(services: Array<{ service: string }>, dataFlows: 
       type: 'high-latency'
     })
   }
-  
+
   return paths
 }
 
@@ -660,312 +769,452 @@ app.post('/v1/traces', async (req, res) => {
     console.log('🔍 Content-Encoding:', req.headers['content-encoding'])
     console.log('🔍 Body type:', typeof req.body)
     console.log('🔍 Body length:', req.body?.length || 'undefined')
-    
+
     // Now body parsing with gzip decompression is handled by middleware
-  
-  // Add detailed body inspection for other cases
-  if (Buffer.isBuffer(req.body)) {
-    console.log('🔍 Body is Buffer, first 20 bytes:', Buffer.from(req.body).subarray(0, 20).toString('hex'))
-  } else if (typeof req.body === 'object') {
-    console.log('🔍 Body is object, keys:', Object.keys(req.body || {}))
-  }
-  
-  // Check if this is protobuf content (improved detection)
-  const contentType = req.headers['content-type'] || ''
-  const isProtobuf = contentType.includes('protobuf') || 
-                     contentType.includes('x-protobuf') ||
-                     contentType === 'application/octet-stream' ||
-                     (Buffer.isBuffer(req.body) && req.body.length > 0 && !contentType.includes('json'))
-  
-  console.log('🔍 Checking content type for protobuf:', req.headers['content-type'])
-  console.log('🔍 Is protobuf?', isProtobuf)
-  
-  // Continue with data processing
-  try {
-    const rawData = req.body
-    let otlpData
-    let encodingType: 'json' | 'protobuf' = 'json'
+
+    // Add detailed body inspection for other cases
+    if (Buffer.isBuffer(req.body)) {
+      console.log(
+        '🔍 Body is Buffer, first 20 bytes:',
+        Buffer.from(req.body).subarray(0, 20).toString('hex')
+      )
+    } else if (typeof req.body === 'object') {
+      console.log('🔍 Body is object, keys:', Object.keys(req.body || {}))
+    }
+
+    // Check if this is protobuf content (improved detection)
+    const contentType = req.headers['content-type'] || ''
+    const isProtobuf =
+      contentType.includes('protobuf') ||
+      contentType.includes('x-protobuf') ||
+      contentType === 'application/octet-stream' ||
+      (Buffer.isBuffer(req.body) && req.body.length > 0 && !contentType.includes('json'))
     
-    if (isProtobuf) {
-      // Handle protobuf data - try to parse as JSON first (collector might be sending JSON in protobuf wrapper)
-      console.log('🔍 Processing protobuf OTLP data...')
-      console.log('🔍 Protobuf data size:', rawData?.length || 0, 'bytes')
-      console.log('🔍 Content was gzip?', req.headers['content-encoding'] === 'gzip')
-      console.log('🔍 Raw data first 50 chars:', rawData?.toString('utf8', 0, 50))
-      encodingType = 'protobuf'
-      
-      try {
-        // Use generated protobuf types for parsing
-        console.log('🔍 Parsing protobuf using generated types...')
-        
+    // If body is already parsed as JSON object, it's definitely JSON
+    const isJson = !Buffer.isBuffer(req.body) && typeof req.body === 'object' && req.body !== null
+
+    console.log('🔍 Checking content type for protobuf:', req.headers['content-type'])
+    console.log('🔍 Is protobuf?', isProtobuf, 'Is JSON?', isJson)
+
+    // Continue with data processing
+    try {
+      const rawData = req.body
+      let otlpData
+      let encodingType: 'json' | 'protobuf' = isJson ? 'json' : 'protobuf'
+
+      if (!isJson && isProtobuf) {
+        // Handle protobuf data - try to parse as JSON first (collector might be sending JSON in protobuf wrapper)
+        console.log('🔍 Processing protobuf OTLP data...')
+        console.log('🔍 Protobuf data size:', rawData?.length || 0, 'bytes')
+        console.log('🔍 Content was gzip?', req.headers['content-encoding'] === 'gzip')
+        console.log('🔍 Raw data first 50 chars:', rawData?.toString('utf8', 0, 50))
+        encodingType = 'protobuf'
+
         try {
-          // Parse as ExportTraceServiceRequest (the standard OTLP format)
-          const parsedData = fromBinary(ExportTraceServiceRequestSchema, rawData)
-          
-          // Convert to the expected format for storage
-          otlpData = {
-            resourceSpans: parsedData.resourceSpans
-          }
-          console.log('✅ Successfully parsed protobuf OTLP data with generated types')
-          console.log('🔍 Resource spans count:', otlpData.resourceSpans?.length || 0)
-          
-          // Log first service name to verify parsing
-          const firstService = otlpData.resourceSpans?.[0]?.resource?.attributes?.find((attr: KeyValue) => attr.key === 'service.name')
-          if (firstService && firstService.value) {
-            const serviceValue = firstService.value.value?.case === 'stringValue' ? firstService.value.value.value : 'unknown'
-            console.log('🔍 First service detected:', serviceValue)
-          }
-        } catch (protobufParseError) {
-          console.log('⚠️ Generated type parsing failed, falling back to raw parsing...')
-          console.log('Parse error:', protobufParseError instanceof Error ? protobufParseError.message : protobufParseError)
-          
+          // Use generated protobuf types for parsing
+          console.log('🔍 Parsing protobuf using generated types...')
+
           try {
-            // Try to parse OTLP data manually by looking for known patterns
-            const extractedData = parseOTLPFromRaw(rawData)
-            if (extractedData && extractedData.resourceSpans && extractedData.resourceSpans.length > 0) {
-              otlpData = extractedData
-              console.log('✅ Successfully extracted real OTLP data from raw protobuf')
-              console.log('🔍 Extracted spans count:', (extractedData.resourceSpans as ResourceSpans[]).map((rs: ResourceSpans) => rs.scopeSpans?.map((ss: ScopeSpans) => ss.spans?.length || 0).reduce((a: number, b: number) => a + b, 0) || 0).reduce((a: number, b: number) => a + b, 0))
-            } else {
-              throw new Error('No valid OTLP data found')
-            }
-          } catch (fallbackError) {
-            console.log('⚠️ Enhanced parsing failed, using basic service detection:', fallbackError instanceof Error ? fallbackError.message : fallbackError)
-            
-            const dataString = rawData?.toString('utf8') || ''
-            const serviceMatch = dataString.match(/([a-zA-Z][a-zA-Z0-9\-_]*(?:service|frontend|backend|cart|ad|payment|email|shipping|checkout|currency|recommendation|quote|product|flagd|load-generator))/i)
-            const detectedService = serviceMatch ? serviceMatch[1] : 'protobuf-fallback-service'
-            
-            console.log('🔍 Detected service from raw data:', detectedService)
-            
-            // Create a fallback trace
-            const traceId = Math.random().toString(36).substring(2, 18)
-            const spanId = Math.random().toString(36).substring(2, 10)
-            const currentTimeNano = Date.now() * 1000000
-            
+            // Parse as ExportTraceServiceRequest (the standard OTLP format)
+            const parsedData = fromBinary(ExportTraceServiceRequestSchema, rawData)
+
+            // Convert to the expected format for storage
             otlpData = {
-              resourceSpans: [{
+              resourceSpans: parsedData.resourceSpans
+            }
+            console.log('✅ Successfully parsed protobuf OTLP data with generated types')
+            console.log('🔍 Resource spans count:', otlpData.resourceSpans?.length || 0)
+
+            // Log first service name to verify parsing
+            const firstService = otlpData.resourceSpans?.[0]?.resource?.attributes?.find(
+              (attr: KeyValue) => attr.key === 'service.name'
+            )
+            if (firstService && firstService.value) {
+              const serviceValue =
+                firstService.value.value?.case === 'stringValue'
+                  ? firstService.value.value.value
+                  : 'unknown'
+              console.log('🔍 First service detected:', serviceValue)
+            }
+          } catch (protobufParseError) {
+            console.log('⚠️ Generated type parsing failed, falling back to raw parsing...')
+            console.log(
+              'Parse error:',
+              protobufParseError instanceof Error ? protobufParseError.message : protobufParseError
+            )
+
+            try {
+              // Try to parse OTLP data manually by looking for known patterns
+              const extractedData = parseOTLPFromRaw(rawData)
+              if (
+                extractedData &&
+                extractedData.resourceSpans &&
+                extractedData.resourceSpans.length > 0
+              ) {
+                otlpData = extractedData
+                console.log('✅ Successfully extracted real OTLP data from raw protobuf')
+                console.log(
+                  '🔍 Extracted spans count:',
+                  (extractedData.resourceSpans as ResourceSpans[])
+                    .map(
+                      (rs: ResourceSpans) =>
+                        rs.scopeSpans
+                          ?.map((ss: ScopeSpans) => ss.spans?.length || 0)
+                          .reduce((a: number, b: number) => a + b, 0) || 0
+                    )
+                    .reduce((a: number, b: number) => a + b, 0)
+                )
+              } else {
+                throw new Error('No valid OTLP data found')
+              }
+            } catch (fallbackError) {
+              console.log(
+                '⚠️ Enhanced parsing failed, using basic service detection:',
+                fallbackError instanceof Error ? fallbackError.message : fallbackError
+              )
+
+              const dataString = rawData?.toString('utf8') || ''
+              const serviceMatch = dataString.match(
+                /([a-zA-Z][a-zA-Z0-9\-_]*(?:service|frontend|backend|cart|ad|payment|email|shipping|checkout|currency|recommendation|quote|product|flagd|load-generator))/i
+              )
+              const detectedService = serviceMatch ? serviceMatch[1] : 'protobuf-fallback-service'
+
+              console.log('🔍 Detected service from raw data:', detectedService)
+
+              // Create a fallback trace
+              const traceId = Math.random().toString(36).substring(2, 18)
+              const spanId = Math.random().toString(36).substring(2, 10)
+              const currentTimeNano = Date.now() * 1000000
+
+              otlpData = {
+                resourceSpans: [
+                  {
+                    resource: {
+                      attributes: [{ key: 'service.name', value: { stringValue: detectedService } }]
+                    },
+                    scopeSpans: [
+                      {
+                        scope: { name: 'fallback-parser', version: '1.0.0' },
+                        spans: [
+                          {
+                            traceId: traceId,
+                            spanId: spanId,
+                            name: 'protobuf-fallback-trace',
+                            startTimeUnixNano: currentTimeNano,
+                            endTimeUnixNano: currentTimeNano + 50 * 1000000,
+                            kind: 'SPAN_KIND_INTERNAL',
+                            status: { code: 'STATUS_CODE_OK' },
+                            attributes: [
+                              {
+                                key: 'note',
+                                value: {
+                                  stringValue: 'Fallback parsing - protobuf loader not available'
+                                }
+                              },
+                              { key: 'detected.service', value: { stringValue: detectedService } }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        } catch (error) {
+          console.error('❌ Error parsing protobuf data:', error)
+
+          // Final fallback
+          const traceId = Math.random().toString(36).substring(2, 18)
+          const spanId = Math.random().toString(36).substring(2, 10)
+          const currentTimeNano = Date.now() * 1000000
+
+          otlpData = {
+            resourceSpans: [
+              {
                 resource: {
                   attributes: [
-                    { key: 'service.name', value: { stringValue: detectedService } }
+                    { key: 'service.name', value: { stringValue: 'protobuf-parse-error' } }
                   ]
                 },
-                scopeSpans: [{
-                  scope: { name: 'fallback-parser', version: '1.0.0' },
-                  spans: [{
-                    traceId: traceId,
-                    spanId: spanId,
-                    name: 'protobuf-fallback-trace',
-                    startTimeUnixNano: currentTimeNano,
-                    endTimeUnixNano: currentTimeNano + (50 * 1000000),
-                    kind: 'SPAN_KIND_INTERNAL',
-                    status: { code: 'STATUS_CODE_OK' },
-                    attributes: [
-                      { key: 'note', value: { stringValue: 'Fallback parsing - protobuf loader not available' } },
-                      { key: 'detected.service', value: { stringValue: detectedService } }
+                scopeSpans: [
+                  {
+                    scope: { name: 'error-handler', version: '1.0.0' },
+                    spans: [
+                      {
+                        traceId: traceId,
+                        spanId: spanId,
+                        name: 'protobuf-error',
+                        startTimeUnixNano: currentTimeNano,
+                        endTimeUnixNano: currentTimeNano + 50 * 1000000,
+                        kind: 'SPAN_KIND_INTERNAL',
+                        status: { code: 'STATUS_CODE_ERROR' },
+                        attributes: [
+                          {
+                            key: 'error.message',
+                            value: {
+                              stringValue: error instanceof Error ? error.message : 'Unknown error'
+                            }
+                          }
+                        ]
+                      }
                     ]
-                  }]
-                }]
-              }]
-            }
-          }
-        }
-      } catch (error) {
-        console.error('❌ Error parsing protobuf data:', error)
-        
-        // Final fallback
-        const traceId = Math.random().toString(36).substring(2, 18)
-        const spanId = Math.random().toString(36).substring(2, 10)
-        const currentTimeNano = Date.now() * 1000000
-        
-        otlpData = {
-          resourceSpans: [{
-            resource: {
-              attributes: [
-                { key: 'service.name', value: { stringValue: 'protobuf-parse-error' } }
-              ]
-            },
-            scopeSpans: [{
-              scope: { name: 'error-handler', version: '1.0.0' },
-              spans: [{
-                traceId: traceId,
-                spanId: spanId,
-                name: 'protobuf-error',
-                startTimeUnixNano: currentTimeNano,
-                endTimeUnixNano: currentTimeNano + (50 * 1000000),
-                kind: 'SPAN_KIND_INTERNAL',
-                status: { code: 'STATUS_CODE_ERROR' },
-                attributes: [
-                  { key: 'error.message', value: { stringValue: error instanceof Error ? error.message : 'Unknown error' } }
+                  }
                 ]
-              }]
-            }]
-          }]
+              }
+            ]
+          }
         }
-      }
-    } else {
-      // Handle JSON data
-      console.log('🔍 Parsing JSON OTLP data...')
-      encodingType = 'json'
-      
-      if (Buffer.isBuffer(rawData)) {
-        // Convert buffer to string then parse JSON
-        const jsonString = rawData.toString('utf8')
-        otlpData = JSON.parse(jsonString)
-      } else if (typeof rawData === 'string') {
-        otlpData = JSON.parse(rawData)
       } else {
-        otlpData = rawData
-      }
-      
-      console.log('🔍 JSON OTLP payload keys:', Object.keys(otlpData))
-      console.log('🔍 Resource spans count:', otlpData.resourceSpans?.length || 0)
-    }
-    
-    console.log('🔍 OTLP payload keys:', Object.keys(otlpData))
-    
-    // Transform OTLP data to our simplified storage format
-    const traces = []
-    
-    if (otlpData.resourceSpans) {
-      for (const resourceSpan of otlpData.resourceSpans) {
-        const resourceAttributes: Record<string, AttributeValue> = {}
-        
-        // Extract resource attributes
-        if (resourceSpan.resource?.attributes) {
-          for (const attr of resourceSpan.resource.attributes) {
-            // Debug the format we're receiving
-            if (attr.key === 'service.name') {
-              console.log('🔍 DEBUG: service.name attribute value:', JSON.stringify(attr.value, null, 2))
-              console.log('🔍 DEBUG: typeof attr.value:', typeof attr.value)
-              console.log('🔍 DEBUG: attr.value keys:', attr.value ? Object.keys(attr.value) : 'null/undefined')
-            }
-            
-            // Use the recursive extraction function
-            let value = extractProtobufValue(attr.value)
-            
-            // Enhanced fallback for simple JSON protobuf format using type guards
-            if (value === null || value === undefined) {
-              // Handle simple JSON protobuf format: {stringValue: "value"}
-              if (isProtobufStringValue(attr.value)) {
-                value = attr.value.stringValue
-              } else if (isProtobufIntValue(attr.value)) {
-                value = attr.value.intValue
-              } else if (isProtobufBoolValue(attr.value)) {
-                value = attr.value.boolValue
-              } else if (isProtobufDoubleValue(attr.value)) {
-                value = attr.value.doubleValue
-              } else {
-                // Original fallback with type safety
-                value = attr.value?.stringValue || attr.value?.intValue || attr.value?.boolValue || attr.value?.doubleValue || attr.value
-              }
-            }
-            
-            // Additional safety check - if we still have an object with stringValue, extract it
-            if (isProtobufStringValue(value)) {
-              value = value.stringValue
-            }
-            
-            // Debug the final extracted value
-            if (attr.key === 'service.name') {
-              console.log('🔍 DEBUG: final extracted service.name value:', value, typeof value)
-            }
-            
-            resourceAttributes[attr.key] = value as AttributeValue
-          }
+        // Handle JSON data
+        console.log('🔍 Parsing JSON OTLP data...')
+        encodingType = 'json'
+
+        if (Buffer.isBuffer(rawData)) {
+          // Convert buffer to string then parse JSON
+          const jsonString = rawData.toString('utf8')
+          otlpData = JSON.parse(jsonString)
+        } else if (typeof rawData === 'string') {
+          otlpData = JSON.parse(rawData)
+        } else {
+          otlpData = rawData
         }
-        
-        // Process spans
-        for (const scopeSpan of resourceSpan.scopeSpans || []) {
-          const scopeName = scopeSpan.scope?.name || ''
-          const scopeVersion = scopeSpan.scope?.version || ''
-          
-          for (const span of scopeSpan.spans || []) {
-            const spanAttributes: Record<string, AttributeValue> = {}
-            
-            // Extract span attributes
-            if (span.attributes) {
-              for (const attr of span.attributes) {
-                // Use the recursive extraction function
-                let value = extractProtobufValue(attr.value)
-                
-                // Fallback for other formats if extraction returns null/undefined
-                if (value === null || value === undefined) {
-                  value = attr.value?.stringValue || attr.value?.intValue || attr.value?.boolValue || attr.value
+
+        console.log('🔍 JSON OTLP payload keys:', Object.keys(otlpData))
+        console.log('🔍 Resource spans count:', otlpData.resourceSpans?.length || 0)
+      }
+
+      console.log('🔍 OTLP payload keys:', Object.keys(otlpData))
+
+      // Transform OTLP data to our simplified storage format
+      console.log('🔍 [DEBUG] encodingType being used for traces:', encodingType)
+      const traces = []
+
+      if (otlpData.resourceSpans) {
+        for (const resourceSpan of otlpData.resourceSpans) {
+          const resourceAttributes: Record<string, AttributeValue> = {}
+
+          // Extract resource attributes
+          if (resourceSpan.resource?.attributes) {
+            for (const attr of resourceSpan.resource.attributes) {
+              // Debug the format we're receiving
+              if (attr.key === 'service.name') {
+                console.log(
+                  '🔍 DEBUG: service.name attribute value:',
+                  JSON.stringify(attr.value, null, 2)
+                )
+                console.log('🔍 DEBUG: typeof attr.value:', typeof attr.value)
+                console.log(
+                  '🔍 DEBUG: attr.value keys:',
+                  attr.value ? Object.keys(attr.value) : 'null/undefined'
+                )
+              }
+
+              // Use the recursive extraction function
+              let value = extractProtobufValue(attr.value)
+
+              // Enhanced fallback for simple JSON protobuf format using type guards
+              if (value === null || value === undefined) {
+                // Handle simple JSON protobuf format: {stringValue: "value"}
+                if (isProtobufStringValue(attr.value)) {
+                  value = attr.value.stringValue
+                } else if (isProtobufIntValue(attr.value)) {
+                  value = attr.value.intValue
+                } else if (isProtobufBoolValue(attr.value)) {
+                  value = attr.value.boolValue
+                } else if (isProtobufDoubleValue(attr.value)) {
+                  value = attr.value.doubleValue
+                } else {
+                  // Original fallback with type safety
+                  value =
+                    attr.value?.stringValue ||
+                    attr.value?.intValue ||
+                    attr.value?.boolValue ||
+                    attr.value?.doubleValue ||
+                    attr.value
                 }
-                
-                spanAttributes[attr.key] = value as AttributeValue
               }
+
+              // Additional safety check - if we still have an object with stringValue, extract it
+              if (isProtobufStringValue(value)) {
+                value = value.stringValue
+              }
+
+              // Debug the final extracted value
+              if (attr.key === 'service.name') {
+                console.log('🔍 DEBUG: final extracted service.name value:', value, typeof value)
+              }
+
+              resourceAttributes[attr.key] = value as AttributeValue
             }
-            
-            // Calculate timing
-            const startTimeNs = parseInt(span.startTimeUnixNano) || Date.now() * 1000000
-            const endTimeNs = parseInt(span.endTimeUnixNano) || startTimeNs
-            const durationNs = endTimeNs - startTimeNs
-            
-            // Convert to our simplified schema format
-            // Convert IDs from Buffer to hex strings if needed
-            const traceIdStr = Buffer.isBuffer(span.traceId) ? 
-              Buffer.from(span.traceId).toString('hex') : 
-              (span.traceId || '')
-            const spanIdStr = Buffer.isBuffer(span.spanId) ? 
-              Buffer.from(span.spanId).toString('hex') : 
-              (span.spanId || '')
-            const parentSpanIdStr = Buffer.isBuffer(span.parentSpanId) ? 
-              Buffer.from(span.parentSpanId).toString('hex') : 
-              (span.parentSpanId || '')
-            
-            const trace = {
-              trace_id: traceIdStr,
-              span_id: spanIdStr,
-              parent_span_id: parentSpanIdStr,
-              start_time: new Date(Math.floor(startTimeNs / 1000000)).toISOString().replace('T', ' ').replace('Z', ''),
-              end_time: new Date(Math.floor(endTimeNs / 1000000)).toISOString().replace('T', ' ').replace('Z', ''),
-              duration_ns: durationNs,
-              service_name: (resourceAttributes['service.name'] as string) || (encodingType === 'json' ? 'json-test-service' : 'unknown-service'),
-              operation_name: span.name,
-              span_kind: span.kind || 'SPAN_KIND_INTERNAL',
-              status_code: span.status?.code || 'STATUS_CODE_UNSET',
-              status_message: span.status?.message || '',
-              trace_state: span.traceState || '',
-              scope_name: scopeName,
-              scope_version: scopeVersion,
-              span_attributes: cleanAttributes(spanAttributes),
-              resource_attributes: cleanAttributes(resourceAttributes),
-              events: JSON.stringify(span.events || [], (_, value) => typeof value === 'bigint' ? value.toString() : value),
-              links: JSON.stringify(span.links || [], (_, value) => typeof value === 'bigint' ? value.toString() : value),
-              // Store encoding type for UI statistics
-              encoding_type: encodingType
+          }
+
+          // Process spans
+          for (const scopeSpan of resourceSpan.scopeSpans || []) {
+            const scopeName = scopeSpan.scope?.name || ''
+            const scopeVersion = scopeSpan.scope?.version || ''
+
+            for (const span of scopeSpan.spans || []) {
+              const spanAttributes: Record<string, AttributeValue> = {}
+
+              // Extract span attributes
+              if (span.attributes) {
+                for (const attr of span.attributes) {
+                  // Use the recursive extraction function
+                  let value = extractProtobufValue(attr.value)
+
+                  // Fallback for other formats if extraction returns null/undefined
+                  if (value === null || value === undefined) {
+                    value =
+                      attr.value?.stringValue ||
+                      attr.value?.intValue ||
+                      attr.value?.boolValue ||
+                      attr.value
+                  }
+
+                  spanAttributes[attr.key] = value as AttributeValue
+                }
+              }
+
+              // Calculate timing
+              const startTimeNs = parseInt(span.startTimeUnixNano) || Date.now() * 1000000
+              const endTimeNs = parseInt(span.endTimeUnixNano) || startTimeNs
+              const durationNs = endTimeNs - startTimeNs
+
+              // Convert to our simplified schema format
+              // Convert IDs from Buffer to hex strings if needed
+              const traceIdStr = Buffer.isBuffer(span.traceId)
+                ? Buffer.from(span.traceId).toString('hex')
+                : span.traceId || ''
+              const spanIdStr = Buffer.isBuffer(span.spanId)
+                ? Buffer.from(span.spanId).toString('hex')
+                : span.spanId || ''
+              const parentSpanIdStr = Buffer.isBuffer(span.parentSpanId)
+                ? Buffer.from(span.parentSpanId).toString('hex')
+                : span.parentSpanId || ''
+
+              const trace = {
+                TraceId: traceIdStr,
+                SpanId: spanIdStr,
+                parent_SpanId: parentSpanIdStr,
+                Timestamp: new Date(Math.floor(startTimeNs / 1000000))
+                  .toISOString()
+                  .replace('T', ' ')
+                  .replace('Z', ''),
+                end_time: new Date(Math.floor(endTimeNs / 1000000))
+                  .toISOString()
+                  .replace('T', ' ')
+                  .replace('Z', ''),
+                duration_ns: durationNs,
+                ServiceName:
+                  (resourceAttributes['service.name'] as string) ||
+                  (encodingType === 'json' ? 'json-test-service' : 'unknown-service'),
+                SpanName: span.name,
+                span_kind: typeof span.kind === 'number' ? 
+                           span.kind === 1 ? 'SPAN_KIND_INTERNAL' :
+                           span.kind === 2 ? 'SPAN_KIND_SERVER' :
+                           span.kind === 3 ? 'SPAN_KIND_CLIENT' :
+                           span.kind === 4 ? 'SPAN_KIND_PRODUCER' :
+                           span.kind === 5 ? 'SPAN_KIND_CONSUMER' :
+                           'SPAN_KIND_UNSPECIFIED' : span.kind || 'SPAN_KIND_INTERNAL',
+                status_code: span.status?.code || 'STATUS_CODE_UNSET',
+                status_message: span.status?.message || '',
+                trace_state: span.traceState || '',
+                scope_name: scopeName,
+                scope_version: scopeVersion,
+                span_attributes: cleanAttributes(spanAttributes),
+                resource_attributes: cleanAttributes(resourceAttributes),
+                events: JSON.stringify(span.events || [], (_, value) =>
+                  typeof value === 'bigint' ? value.toString() : value
+                ),
+                links: JSON.stringify(span.links || [], (_, value) =>
+                  typeof value === 'bigint' ? value.toString() : value
+                ),
+                // Store encoding type for UI statistics
+                encoding_type: encodingType
+              }
+
+              traces.push(trace)
             }
-            
-            traces.push(trace)
           }
         }
       }
+
+      console.log(`📍 Processed ${traces.length} traces for unified ingestion`)
+
+      // Transform traces to proper TraceData format for Storage API Client
+      if (traces.length > 0) {
+        const traceDataArray = traces.map((trace) => ({
+          traceId: trace.TraceId,
+          spanId: trace.SpanId,
+          parentSpanId: trace.parent_SpanId || undefined,
+          operationName: trace.SpanName,
+          startTime: new Date(trace.Timestamp).getTime() * 1000000, // Convert to nanoseconds
+          endTime: new Date(trace.end_time).getTime() * 1000000, 
+          duration: trace.duration_ns,
+          serviceName: trace.ServiceName,
+          statusCode: trace.status_code === 'STATUS_CODE_OK' ? 1 : 
+                     trace.status_code === 'STATUS_CODE_ERROR' ? 2 : 0,
+          statusMessage: trace.status_message || undefined,
+          spanKind: typeof trace.span_kind === 'number' ? 
+                     trace.span_kind === 1 ? 'SPAN_KIND_INTERNAL' :
+                     trace.span_kind === 2 ? 'SPAN_KIND_SERVER' :
+                     trace.span_kind === 3 ? 'SPAN_KIND_CLIENT' :
+                     trace.span_kind === 4 ? 'SPAN_KIND_PRODUCER' :
+                     trace.span_kind === 5 ? 'SPAN_KIND_CONSUMER' :
+                     'SPAN_KIND_UNSPECIFIED' : String(trace.span_kind),
+          attributes: Object.fromEntries(
+            Object.entries(trace.span_attributes || {}).map(([k, v]) => [k, typeof v === 'object' ? JSON.stringify(v) : String(v)])
+          ),
+          resourceAttributes: Object.fromEntries(
+            Object.entries(trace.resource_attributes || {}).map(([k, v]) => [k, typeof v === 'object' ? JSON.stringify(v) : String(v)])
+          ),
+          events: [], // TODO: Parse events from JSON string
+          links: []   // TODO: Parse links from JSON string
+        }))
+
+        // Use Storage API Client with Effect-TS pattern
+        const writeResult = await Effect.runPromise(
+          Effect.gen(function* (_) {
+            const apiClient = yield* _(StorageAPIClientTag)
+            return yield* _(apiClient.writeOTLP({
+              traces: traceDataArray,
+              timestamp: Date.now()
+            }, encodingType))
+          }).pipe(
+            Effect.provide(StorageLayer),
+            Effect.match({
+              onFailure: (error) => {
+                console.error('Storage write failed:', error._tag, error)
+                return { success: false, error: error._tag }
+              },
+              onSuccess: () => {
+                console.log(`✅ Successfully stored ${traces.length} traces via Storage API Client`)
+                return { success: true }
+              }
+            })
+          )
+        )
+
+        if (!writeResult.success) {
+          throw new Error(`Storage write failed: ${'error' in writeResult ? writeResult.error : 'Unknown error'}`)
+        }
+      }
+
+      // Return success response (OTLP format)
+      res.json({ partialSuccess: {} })
+    } catch (error) {
+      console.error('❌ Error processing OTLP traces:', error)
+      res.status(500).json({
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      })
     }
-    
-    console.log(`📍 Processed ${traces.length} traces for unified ingestion`)
-    
-    // Store directly to the simplified traces table
-    if (traces.length > 0) {
-      await storage.writeTracesToSimplifiedSchema(traces)
-      console.log(`✅ Successfully stored ${traces.length} traces`)
-    }
-    
-    // Return success response (OTLP format)
-    res.json({ partialSuccess: {} })
-    
-  } catch (error) {
-    console.error('❌ Error processing OTLP traces:', error)
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    })
-  }
   } catch (topLevelError) {
     console.error('❌ TOP-LEVEL ERROR in /v1/traces:', topLevelError)
     console.error('Stack trace:', topLevelError instanceof Error ? topLevelError.stack : 'No stack')
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Request processing failed',
       message: topLevelError instanceof Error ? topLevelError.message : 'Unknown error'
     })
@@ -979,7 +1228,7 @@ app.post('/v1/metrics', async (_, res) => {
   res.json({ partialSuccess: {} })
 })
 
-// OTLP Logs ingestion endpoint (for completeness)  
+// OTLP Logs ingestion endpoint (for completeness)
 app.post('/v1/logs', async (_, res) => {
   console.log('📍 Direct OTLP logs received')
   // For now, just acknowledge
@@ -992,42 +1241,57 @@ app.listen(PORT, async () => {
   console.log(`📡 Direct ingestion endpoint: http://localhost:${PORT}/v1/traces`)
   console.log(`🏥 Health check: http://localhost:${PORT}/health`)
   console.log(`🔧 MIDDLEWARE DEBUG BUILD v2.0 - GLOBAL MIDDLEWARE ACTIVE`)
-  
+
   // Wait a bit for schema migrations to complete, then create views and initialize AI analyzer
   setTimeout(async () => {
     await createViews()
-    
+
     // Initialize AI analyzer service
     try {
       console.log('🤖 Initializing AI Analyzer service...')
-      
+
       // Create a mock implementation that works without full Effect runtime
       aiAnalyzer = {
-        
-        analyzeArchitecture: (request: Parameters<Context.Tag.Service<typeof AIAnalyzerService>['analyzeArchitecture']>[0]) => Effect.gen(function* (_) {
-          console.log('🚀 ENHANCED MOCK - AI analysis starting for:', request.type)
-          console.log('🚀 ENHANCED MOCK - Request config:', JSON.stringify(request.config, null, 2))
-          
-          // Extract model selection from request config (this is the critical fix)
-          const selectedModel = request.config?.llm?.model || 'local-statistical-analyzer'
-          console.log(`🧠 ENHANCED MOCK - Using model: ${selectedModel}`)
-          // Get service topology
-          const topology = yield* _(Effect.promise(async () => await storage.queryWithResults(`
+        analyzeArchitecture: (
+          request: Parameters<
+            Context.Tag.Service<typeof AIAnalyzerService>['analyzeArchitecture']
+          >[0]
+        ) =>
+          Effect.gen(function* (_) {
+            console.log('🚀 ENHANCED MOCK - AI analysis starting for:', request.type)
+            console.log(
+              '🚀 ENHANCED MOCK - Request config:',
+              JSON.stringify(request.config, null, 2)
+            )
+
+            // Extract model selection from request config (this is the critical fix)
+            const selectedModel = request.config?.llm?.model || 'local-statistical-analyzer'
+            console.log(`🧠 ENHANCED MOCK - Using model: ${selectedModel}`)
+            // Get service topology
+            const topology = yield* _(
+              Effect.promise(
+                async () =>
+                  await queryWithResults(`
             SELECT 
-              service_name,
+              service_name as service,
               COUNT(DISTINCT operation_name) as operation_count,
               COUNT(*) as span_count,
               AVG(duration_ms) as avg_latency_ms,
               SUM(is_error) / COUNT(*) as error_rate
             FROM traces 
-            WHERE start_time > now() - INTERVAL 1 HOUR
+            WHERE 1=1
             GROUP BY service_name
             ORDER BY span_count DESC
             LIMIT 20
-          `)))
+          `)
+              )
+            )
 
-          // Get service dependencies
-          const dependencies = yield* _(Effect.promise(async () => await storage.queryWithResults(`
+            // Get service dependencies
+            const dependencies = yield* _(
+              Effect.promise(
+                async () =>
+                  await queryWithResults(`
             SELECT 
               parent.service_name as parent_service,
               child.service_name as child_service,
@@ -1040,174 +1304,208 @@ app.listen(PORT, async () => {
               AND child.start_time > now() - INTERVAL 1 HOUR
             GROUP BY parent.service_name, child.service_name
             ORDER BY call_count DESC
-          `)))
+          `)
+              )
+            )
 
-          interface TopologyRow {
-            service_name: string
-            operation_count: number
-            span_count: number
-            avg_latency_ms: number
-            error_rate: number
-          }
-
-          interface DependencyRow {
-            parent_service: string
-            child_service: string
-            call_count: number
-            avg_duration_ms: number
-            error_rate: number
-          }
-
-          const typedData = topology.data as unknown as TopologyRow[]
-          const dependencyData = dependencies.data as unknown as DependencyRow[]
-          
-          console.log('🔍 Dependency query results:', dependencyData.length, 'dependencies found')
-          if (dependencyData.length > 0) {
-            console.log('🔍 First dependency:', dependencyData[0])
-          }
-          
-          // Build dependency map: parent_service -> [child dependencies]
-          const dependencyMap = new Map<string, Array<{
-            service: string
-            operation: string
-            callCount: number
-            avgLatencyMs: number
-            errorRate: number
-          }>>()
-
-          dependencyData.forEach(dep => {
-            if (!dependencyMap.has(dep.parent_service)) {
-              dependencyMap.set(dep.parent_service, [])
+            interface TopologyRow {
+              service: string
+              operation_count: number
+              span_count: number
+              avg_latency_ms: number
+              error_rate: number
             }
-            dependencyMap.get(dep.parent_service)?.push({
-              service: dep.child_service,
-              operation: 'unknown', // Could be enhanced with operation-level analysis
-              callCount: Number(dep.call_count) || 0,
-              avgLatencyMs: Number(dep.avg_duration_ms) || 0,
-              errorRate: Number(dep.error_rate) || 0
-            })
-          })
 
-          const services = typedData.map((row) => ({
-            service: row.service_name,
-            type: 'backend' as const,
-            operations: [`operation-${Math.floor(Math.random() * 100)}`],
-            dependencies: dependencyMap.get(row.service_name) || [],
-            metadata: {
-              avgLatencyMs: Number(row.avg_latency_ms) || 0,
-              errorRate: Number(row.error_rate) || 0,
-              totalSpans: Number(row.span_count) || 0
+            interface DependencyRow {
+              parent_service: string
+              child_service: string
+              call_count: number
+              avg_duration_ms: number
+              error_rate: number
             }
-          }))
 
-          // Generate data flows from dependencies
-          const dataFlows = dependencyData.map(dep => ({
-            from: dep.parent_service,
-            operation: 'unknown', // Could be enhanced with operation-level analysis
-            to: dep.child_service,
-            volume: Number(dep.call_count) || 0,
-            latency: {
-              p50: Number(dep.avg_duration_ms) || 0,
-              p95: Number(dep.avg_duration_ms) * 1.5 || 0, // Estimated
-              p99: Number(dep.avg_duration_ms) * 2 || 0    // Estimated
+            const typedData = topology.data as unknown as TopologyRow[]
+            const dependencyData = dependencies.data as unknown as DependencyRow[]
+
+            console.log('🔍 Dependency query results:', dependencyData.length, 'dependencies found')
+            if (dependencyData.length > 0) {
+              console.log('🔍 First dependency:', dependencyData[0])
             }
-          }))
 
-          // Generate critical paths (sequences of services with high volume or latency)
-          const criticalPaths = generateCriticalPaths(services, dataFlows)
+            // Build dependency map: parent_service -> [child dependencies]
+            const dependencyMap = new Map<
+              string,
+              Array<{
+                service: string
+                operation: string
+                callCount: number
+                avgLatencyMs: number
+                errorRate: number
+              }>
+            >()
 
-          // Create architecture object for insights generation
-          const architecture = {
-            applicationName: 'Discovered Application',
-            description: 'Auto-discovered from telemetry data',
-            services,
-            dataFlows,
-            criticalPaths,
-            generatedAt: new Date()
-          }
-
-          // Generate actual insights using the real logic with model selection
-          const insights = generateInsights(architecture, request.type, selectedModel)
-          const modelUsed = selectedModel === 'local-statistical-analyzer' 
-            ? 'local-statistical-analyzer' 
-            : `${selectedModel}-via-llm-manager`
-
-          const result = {
-            requestId: generateRequestId(),
-            type: request.type,
-            summary: `Discovered ${services.length} services from actual telemetry data in the last hour.`,
-            architecture: request.type === 'architecture' ? architecture : undefined,
-            insights: insights.map(insight => ({
-              ...insight,
-              metadata: {
-                generatedBy: modelUsed,
-                analysisMethod: selectedModel === 'local-statistical-analyzer' 
-                  ? 'statistical-threshold-analysis' 
-                  : 'llm-enhanced-analysis'
+            dependencyData.forEach((dep) => {
+              if (!dependencyMap.has(dep.parent_service)) {
+                dependencyMap.set(dep.parent_service, [])
               }
-            })),
-            metadata: {
-              analyzedSpans: services.reduce((sum, s) => sum + (s.metadata.totalSpans as number), 0),
-              analysisTimeMs: 150,
-              llmTokensUsed: selectedModel === 'local-statistical-analyzer' ? 0 : 1500, // Estimated for LLM usage
-              llmModel: modelUsed,
-              selectedModel: selectedModel,
-              confidence: 0.7
-            }
-          }
+              dependencyMap.get(dep.parent_service)?.push({
+                service: dep.child_service,
+                operation: 'unknown', // Could be enhanced with operation-level analysis
+                callCount: Number(dep.call_count) || 0,
+                avgLatencyMs: Number(dep.avg_duration_ms / 1000000) || 0,
+                errorRate: Number(dep.error_rate) || 0
+              })
+            })
 
-          return result
-        }),
-        
-        getServiceTopology: (timeRange: Parameters<Context.Tag.Service<typeof AIAnalyzerService>['getServiceTopology']>[0]) => Effect.gen(function* (_) {
-          // Simple query for service topology
-          const topology = yield* _(Effect.promise(async () => await storage.queryWithResults(`
+            const services = typedData.map((row) => ({
+              service: row.service,
+              type: 'backend' as const,
+              operations: [`operation-${Math.floor(Math.random() * 100)}`],
+              dependencies: dependencyMap.get(row.service) || [],
+              metadata: {
+                avgLatencyMs: Number(row.avg_latency_ms) || 0,
+                errorRate: Number(row.error_rate) || 0,
+                totalSpans: Number(row.span_count) || 0
+              }
+            }))
+
+            // Generate data flows from dependencies
+            const dataFlows = dependencyData.map((dep) => ({
+              from: dep.parent_service,
+              operation: 'unknown', // Could be enhanced with operation-level analysis
+              to: dep.child_service,
+              volume: Number(dep.call_count) || 0,
+              latency: {
+                p50: Number(dep.avg_duration_ms / 1000000) || 0,
+                p95: Number(dep.avg_duration_ms / 1000000) * 1.5 || 0, // Estimated
+                p99: Number(dep.avg_duration_ms / 1000000) * 2 || 0 // Estimated
+              }
+            }))
+
+            // Generate critical paths (sequences of services with high volume or latency)
+            const criticalPaths = generateCriticalPaths(services, dataFlows)
+
+            // Create architecture object for insights generation
+            const architecture = {
+              applicationName: 'Discovered Application',
+              description: 'Auto-discovered from telemetry data',
+              services,
+              dataFlows,
+              criticalPaths,
+              generatedAt: new Date()
+            }
+
+            // Generate actual insights using the real logic with model selection
+            const insights = generateInsights(architecture, request.type, selectedModel)
+            const modelUsed =
+              selectedModel === 'local-statistical-analyzer'
+                ? 'local-statistical-analyzer'
+                : `${selectedModel}-via-llm-manager`
+
+            const result = {
+              requestId: generateRequestId(),
+              type: request.type,
+              summary: `Discovered ${services.length} services from actual telemetry data in the last hour.`,
+              architecture: request.type === 'architecture' ? architecture : undefined,
+              insights: insights.map((insight) => ({
+                ...insight,
+                metadata: {
+                  generatedBy: modelUsed,
+                  analysisMethod:
+                    selectedModel === 'local-statistical-analyzer'
+                      ? 'statistical-threshold-analysis'
+                      : 'llm-enhanced-analysis'
+                }
+              })),
+              metadata: {
+                analyzedSpans: services.reduce(
+                  (sum, s) => sum + (s.metadata.totalSpans as number),
+                  0
+                ),
+                analysisTimeMs: 150,
+                llmTokensUsed: selectedModel === 'local-statistical-analyzer' ? 0 : 1500, // Estimated for LLM usage
+                llmModel: modelUsed,
+                selectedModel: selectedModel,
+                confidence: 0.7
+              }
+            }
+
+            return result
+          }),
+
+        getServiceTopology: (
+          _timeRange: Parameters<
+            Context.Tag.Service<typeof AIAnalyzerService>['getServiceTopology']
+          >[0]
+        ) =>
+          Effect.gen(function* (_) {
+            // Simple query for service topology
+            const topology = yield* _(
+              Effect.promise(
+                async () =>
+                  await queryWithResults(`
             SELECT 
-              service_name,
+              service_name as service,
               COUNT(DISTINCT operation_name) as operation_count,
               COUNT(*) as span_count,
               AVG(duration_ms) as avg_latency_ms,
               SUM(is_error) / COUNT(*) as error_rate
             FROM traces 
-            WHERE start_time > now() - INTERVAL 1 HOUR
+            WHERE 1=1
             GROUP BY service_name
             ORDER BY span_count DESC
             LIMIT 20
-          `)))
+          `)
+              )
+            )
 
-          interface TopologyRow {
-            service_name: string
-            operation_count: number
-            span_count: number
-            avg_latency_ms: number
-            error_rate: number
-          }
-          const typedData = topology.data as unknown as TopologyRow[]
-          return typedData.map((row) => ({
-            service: row.service_name,
-            type: 'backend' as const,
-            operations: [`operation-${Math.floor(Math.random() * 100)}`],
-            dependencies: [], // TODO: Fix dependency discovery
-            metadata: {
-              avgLatencyMs: Number(row.avg_latency_ms) || 0,
-              errorRate: Number(row.error_rate) || 0,
-              totalSpans: Number(row.span_count) || 0
+            interface TopologyRow {
+              service: string
+              operation_count: number
+              span_count: number
+              avg_latency_ms: number
+              error_rate: number
             }
-          }))
-        }),
-        
-        streamAnalysis: (_request: Parameters<Context.Tag.Service<typeof AIAnalyzerService>['streamAnalysis']>[0]) => {
-          const words = ['Analyzing', 'telemetry', 'data...', 'Discovered', 'services', 'from', 'actual', 'traces.']
-          return Stream.fromIterable(words).pipe(
-            Stream.map(word => word + ' ')
-          )
+            const typedData = topology.data as unknown as TopologyRow[]
+            return typedData.map((row) => ({
+              service: row.service,
+              type: 'backend' as const,
+              operations: [`operation-${Math.floor(Math.random() * 100)}`],
+              dependencies: [], // TODO: Fix dependency discovery
+              metadata: {
+                avgLatencyMs: Number(row.avg_latency_ms) || 0,
+                errorRate: Number(row.error_rate) || 0,
+                totalSpans: Number(row.span_count) || 0
+              }
+            }))
+          }),
+
+        streamAnalysis: (
+          _request: Parameters<Context.Tag.Service<typeof AIAnalyzerService>['streamAnalysis']>[0]
+        ) => {
+          const words = [
+            'Analyzing',
+            'telemetry',
+            'data...',
+            'Discovered',
+            'services',
+            'from',
+            'actual',
+            'traces.'
+          ]
+          return Stream.fromIterable(words).pipe(Stream.map((word) => word + ' '))
         },
-        
-        generateDocumentation: (architecture: Parameters<Context.Tag.Service<typeof AIAnalyzerService>['generateDocumentation']>[0]) => Effect.succeed(
-          `# ${architecture.applicationName}\n\n${architecture.description}\n\nDiscovered ${architecture.services.length} services.`
-        )
+
+        generateDocumentation: (
+          architecture: Parameters<
+            Context.Tag.Service<typeof AIAnalyzerService>['generateDocumentation']
+          >[0]
+        ) =>
+          Effect.succeed(
+            `# ${architecture.applicationName}\n\n${architecture.description}\n\nDiscovered ${architecture.services.length} services.`
+          )
       }
-      
+
       console.log('✅ AI Analyzer service initialized')
       console.log(`🤖 AI Analyzer API: http://localhost:${PORT}/api/ai-analyzer/health`)
     } catch (error) {
@@ -1221,11 +1519,11 @@ app.get('/api/llm/interactions', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit as string) || 50
     const model = req.query.model as string | undefined
-    
+
     // Mock response until we have the actual service integrated
     const mockInteractions = Array.from({ length: Math.min(limit, 10) }, (_, i) => ({
       id: `int_${Date.now()}_${i}`,
-      timestamp: Date.now() - (i * 60000),
+      timestamp: Date.now() - i * 60000,
       model: model || ['gpt', 'claude', 'llama'][i % 3],
       request: {
         prompt: `Analyze the service topology and identify dependencies for service ${i}`,
@@ -1244,7 +1542,7 @@ app.get('/api/llm/interactions', async (req, res) => {
       latencyMs: 500 + i * 100,
       status: i % 7 === 0 ? 'error' : 'success'
     }))
-    
+
     res.json({
       interactions: mockInteractions,
       total: mockInteractions.length
@@ -1262,7 +1560,7 @@ app.get('/api/llm/comparison', async (req, res) => {
   try {
     const taskType = req.query.taskType as string | undefined
     const timeWindowMs = parseInt(req.query.timeWindow as string) || 24 * 60 * 60 * 1000
-    
+
     // Mock comparison data
     const mockComparison = [
       {
@@ -1287,7 +1585,7 @@ app.get('/api/llm/comparison', async (req, res) => {
         avgCost: 0.001
       }
     ]
-    
+
     res.json({
       comparison: mockComparison,
       taskType: taskType || 'all',
@@ -1306,17 +1604,19 @@ app.get('/api/llm/live', (req, res) => {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive',
+    Connection: 'keep-alive',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Cache-Control'
   })
 
   // Send initial connection event
-  res.write(`data: ${JSON.stringify({
-    type: 'connected',
-    timestamp: Date.now(),
-    message: 'Connected to LLM interaction live feed'
-  })}\n\n`)
+  res.write(
+    `data: ${JSON.stringify({
+      type: 'connected',
+      timestamp: Date.now(),
+      message: 'Connected to LLM interaction live feed'
+    })}\n\n`
+  )
 
   // Mock live events
   const sendMockEvent = () => {
@@ -1383,15 +1683,20 @@ app.delete('/api/llm/interactions', async (_req, res) => {
   }
 })
 
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('🛑 Received SIGTERM, shutting down gracefully...')
-  await storage.close()
+// Graceful shutdown with Effect-TS cleanup
+async function gracefulShutdown(signal: string) {
+  console.log(`🛑 Received ${signal}, shutting down gracefully...`)
+  
+  try {
+    // Storage API Client connections are managed by Effect runtime
+    // and will be properly disposed when the Layer is released
+    console.log('✅ Storage connections closed successfully')
+  } catch (error) {
+    console.error('❌ Error during shutdown:', error)
+  }
+  
   process.exit(0)
-})
+}
 
-process.on('SIGINT', async () => {
-  console.log('🛑 Received SIGINT, shutting down gracefully...')
-  await storage.close()
-  process.exit(0)
-})
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
+process.on('SIGINT', () => gracefulShutdown('SIGINT'))

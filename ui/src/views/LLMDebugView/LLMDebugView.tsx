@@ -1,6 +1,6 @@
 /**
  * LLM Debug View
- * 
+ *
  * Real-time debugging interface for LLM interactions with streaming logs,
  * model comparisons, and query analysis.
  */
@@ -117,14 +117,17 @@ export const LLMDebugView: React.FC = () => {
         // Update interactions if it's a complete event
         if (liveEvent.type === 'request_complete' || liveEvent.type === 'request_error') {
           if (liveEvent.entry) {
-            setInteractions(prev => {
-              const filtered = prev.filter(i => i.id !== liveEvent.entry!.id)
-              return [liveEvent.entry!, ...filtered].slice(0, 50)
+            setInteractions((prev) => {
+              if (!liveEvent.entry) return prev
+              const entry = liveEvent.entry
+              const filtered = prev.filter((i) => i.id !== entry.id)
+              return [entry, ...filtered].slice(0, 50)
             })
           }
         } else if (liveEvent.type === 'request_start') {
           if (liveEvent.entry) {
-            setInteractions(prev => [liveEvent.entry!, ...prev].slice(0, 50))
+            const entry = liveEvent.entry
+            setInteractions((prev) => [entry, ...prev].slice(0, 50))
           }
         }
       } catch (error) {
@@ -135,7 +138,7 @@ export const LLMDebugView: React.FC = () => {
     eventSource.onerror = () => {
       setIsLiveFeedConnected(false)
       console.log('❌ Lost connection to LLM live feed')
-      
+
       // Try to reconnect after 5 seconds
       setTimeout(connectLiveFeed, 5000)
     }
@@ -198,10 +201,14 @@ export const LLMDebugView: React.FC = () => {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'success': return '✅'
-      case 'error': return '❌'
-      case 'pending': return '⏳'
-      default: return '❓'
+      case 'success':
+        return '✅'
+      case 'error':
+        return '❌'
+      case 'pending':
+        return '⏳'
+      default:
+        return '❓'
     }
   }
 
@@ -211,12 +218,14 @@ export const LLMDebugView: React.FC = () => {
         <h2>🤖 LLM Interaction Debug Console</h2>
         <div className="header-controls">
           <div className="connection-status">
-            <span className={`status-indicator ${isLiveFeedConnected ? 'connected' : 'disconnected'}`}>
+            <span
+              className={`status-indicator ${isLiveFeedConnected ? 'connected' : 'disconnected'}`}
+            >
               {isLiveFeedConnected ? '🟢 Live' : '🔴 Offline'}
             </span>
           </div>
-          <select 
-            value={selectedModel} 
+          <select
+            value={selectedModel}
             onChange={(e) => setSelectedModel(e.target.value)}
             className="model-filter"
           >
@@ -279,7 +288,7 @@ export const LLMDebugView: React.FC = () => {
                   <span className="timestamp">{formatTimestamp(interaction.timestamp)}</span>
                   <span className="latency">{formatLatency(interaction.latencyMs)}</span>
                 </div>
-                
+
                 <div className="interaction-details">
                   <div className="request-section">
                     <strong>📤 Request ({interaction.request.taskType}):</strong>
@@ -287,9 +296,13 @@ export const LLMDebugView: React.FC = () => {
                     {interaction.debugInfo && (
                       <div className="debug-info">
                         <span>Routing: {interaction.debugInfo.routingReason}</span>
-                        {interaction.debugInfo.cacheHit && <span className="cache-hit">💰 Cache Hit</span>}
+                        {interaction.debugInfo.cacheHit && (
+                          <span className="cache-hit">💰 Cache Hit</span>
+                        )}
                         {interaction.debugInfo.retryCount > 0 && (
-                          <span className="retry-count">🔄 Retries: {interaction.debugInfo.retryCount}</span>
+                          <span className="retry-count">
+                            🔄 Retries: {interaction.debugInfo.retryCount}
+                          </span>
                         )}
                       </div>
                     )}
@@ -309,13 +322,15 @@ export const LLMDebugView: React.FC = () => {
                   {interaction.error && (
                     <div className="error-section">
                       <strong>❌ Error:</strong>
-                      <div className="error-text">{interaction.error._tag}: {interaction.error.message}</div>
+                      <div className="error-text">
+                        {interaction.error._tag}: {interaction.error.message}
+                      </div>
                     </div>
                   )}
                 </div>
               </div>
             ))}
-            
+
             {interactions.length === 0 && (
               <div className="no-interactions">
                 <p>No LLM interactions yet. Start using AI features to see debug information.</p>

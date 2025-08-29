@@ -1,6 +1,6 @@
 /**
  * ClickHouse Query Layer for AI Analysis
- * 
+ *
  * Specialized queries for extracting application architecture insights from trace data.
  * Focuses on service topology, dependency mapping, and data flow analysis.
  */
@@ -50,7 +50,6 @@ export interface TraceFlowRaw {
  * Core queries for application architecture discovery
  */
 export const ArchitectureQueries = {
-  
   /**
    * Discover service dependencies by analyzing parent-child span relationships
    */
@@ -276,15 +275,15 @@ export const withTimeFilter = (baseQuery: string, timeRangeHours: number): strin
  */
 export const QueryBuilders = {
   filterByServices: (baseQuery: string, services: string[]): string => {
-    const serviceFilter = services.map(s => `'${s}'`).join(', ')
+    const serviceFilter = services.map((s) => `'${s}'`).join(', ')
     return baseQuery.replace(
-      'WHERE start_time >=', 
+      'WHERE start_time >=',
       `WHERE service_name IN (${serviceFilter}) AND start_time >=`
     )
   },
 
   filterByOperations: (baseQuery: string, operations: string[]): string => {
-    const operationFilter = operations.map(o => `'${o}'`).join(', ')
+    const operationFilter = operations.map((o) => `'${o}'`).join(', ')
     return baseQuery.replace(
       'WHERE start_time >=',
       `WHERE operation_name IN (${operationFilter}) AND start_time >=`

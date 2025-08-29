@@ -1,6 +1,6 @@
 /**
  * Model Client Service Implementation
- * 
+ *
  * Provides access to configured model clients.
  */
 
@@ -20,65 +20,68 @@ export const makeModelClientService = () =>
     const config = yield* _(configService.getConfig())
 
     // Create local client if configured
-    const llamaClient = config.models.llama 
+    const llamaClient = config.models.llama
       ? (() => {
           const client = makeLocalModelClient({
             ...defaultLocalConfig,
             ...config.models.llama,
             endpoint: config.models.llama.endpoint || defaultLocalConfig.endpoint
           })
-          
+
           // Ensure generateStream is always available
           return {
             ...client,
-            generateStream: client.generateStream || (() => 
-              Stream.fail({
-                _tag: 'ConfigurationError' as const,
-                message: 'Streaming not supported by this model'
-              })
-            )
+            generateStream:
+              client.generateStream ||
+              (() =>
+                Stream.fail({
+                  _tag: 'ConfigurationError' as const,
+                  message: 'Streaming not supported by this model'
+                }))
           }
         })()
       : undefined
 
     // Create OpenAI GPT client if configured
-    const gptClient = config.models.gpt 
+    const gptClient = config.models.gpt
       ? (() => {
           const client = makeOpenAIClient({
             ...defaultOpenAIConfig,
             ...config.models.gpt
           })
-          
+
           // Ensure generateStream is always available
           return {
             ...client,
-            generateStream: client.generateStream || (() => 
-              Stream.fail({
-                _tag: 'ConfigurationError' as const,
-                message: 'Streaming not supported by this model'
-              })
-            )
+            generateStream:
+              client.generateStream ||
+              (() =>
+                Stream.fail({
+                  _tag: 'ConfigurationError' as const,
+                  message: 'Streaming not supported by this model'
+                }))
           }
         })()
       : undefined
 
     // Create Claude client if configured
-    const claudeClient = config.models.claude 
+    const claudeClient = config.models.claude
       ? (() => {
           const client = makeClaudeClient({
             ...defaultClaudeConfig,
             ...config.models.claude
           })
-          
+
           // Ensure generateStream is always available
           return {
             ...client,
-            generateStream: client.generateStream || (() => 
-              Stream.fail({
-                _tag: 'ConfigurationError' as const,
-                message: 'Streaming not supported by this model'
-              })
-            )
+            generateStream:
+              client.generateStream ||
+              (() =>
+                Stream.fail({
+                  _tag: 'ConfigurationError' as const,
+                  message: 'Streaming not supported by this model'
+                }))
           }
         })()
       : undefined
@@ -93,9 +96,6 @@ export const makeModelClientService = () =>
 /**
  * Model Client Service Layer
  */
-export const ModelClientLayer = Layer.effect(
-  ModelClientService,
-  makeModelClientService()
-).pipe(
+export const ModelClientLayer = Layer.effect(ModelClientService, makeModelClientService()).pipe(
   Layer.provide(LLMConfigLayer)
 )

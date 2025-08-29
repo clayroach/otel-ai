@@ -50,8 +50,7 @@ ui/dist/
 ui/release/
 ui/proxy.log
 
-# Test coverage reports
-coverage/
+# Test coverage reports - moved to target/ for consistency
 .nyc_output/
 
 # Generated assets - centralized target directory

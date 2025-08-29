@@ -1,52 +1,54 @@
 # Deployment Package
 
-Bazel build system with single-command deployment for the entire AI-native observability platform.
+Container orchestration and deployment automation for the AI-native observability platform using Docker Compose and Kubernetes.
 
 ## Quick Start
 
 ```bash
-# Build everything
-bazel build //...
-
 # Deploy to local development
-pnpm deploy:dev
+pnpm dev:up
 
-# Deploy to production
-pnpm deploy:prod
+# Deploy to production infrastructure
+pnpm infra:up
+
+# Deploy with specific profiles
+pnpm dev:up:json    # JSON encoding variant
 ```
 
 ## Key Features
 
-- **Bazel Build System**: Reproducible, incremental builds with dependency caching
-- **Single-Command Deployment**: Deploy entire platform with one command
-- **Multi-Environment Support**: Dev, staging, production configurations
-- **Container Orchestration**: Docker Compose and Kubernetes support
+- **Docker Compose Orchestration**: Multi-service container deployment
+- **Environment Profiles**: Dev, staging, production configurations  
+- **Kubernetes Ready**: Production-ready container definitions
+- **Health Monitoring**: Automated service health validation
 - **Effect-TS Integration**: Type-safe deployment pipelines with structured error handling
 
 ## Installation
 
 ```bash
-# Install Bazel (macOS)
-brew install bazel
-
 # Install dependencies
 pnpm install
+
+# Ensure Docker is running
+docker --version
 ```
 
 ## Basic Usage
 
 ```bash
-# Development deployment
+# Development deployment  
 pnpm dev:up                 # Start all services locally
 pnpm dev:down               # Stop all services
+pnpm dev:logs               # View service logs
 
 # Production deployment
-pnpm deploy:prod            # Deploy to production environment
-pnpm deploy:staging         # Deploy to staging environment
+pnpm infra:up               # Deploy production infrastructure
+pnpm infra:down             # Stop production services
+pnpm infra:reset            # Reset with clean volumes
 
-# Build operations
-bazel build //src/...       # Build all packages
-bazel test //src/...        # Run all tests
+# Build operations handled by build package
+pnpm build                  # TypeScript compilation
+pnpm test:integration       # Test deployment
 ```
 
 ## Deployment Targets

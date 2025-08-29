@@ -1,5 +1,6 @@
 /**
  * Main entry point for the AI-native observability platform
+ * Trigger full-stack CI validation
  */
 
 import './server.js'

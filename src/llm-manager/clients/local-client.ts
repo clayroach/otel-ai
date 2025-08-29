@@ -1,6 +1,6 @@
 /**
  * Local Model Client (LM Studio / Local Llama)
- * 
+ *
  * Implements local model integration with support for LM Studio's OpenAI-compatible API
  * and direct Llama model integration. Provides zero-cost inference with local hardware.
  */
@@ -72,7 +72,7 @@ interface OpenAIStreamChunk {
 
 /**
  * Create Local Model Client
- * 
+ *
  * Creates a client for local models with LM Studio OpenAI-compatible API support.
  * Handles both direct API calls and streaming responses.
  */
@@ -80,17 +80,19 @@ export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => (
   generate: (request: LLMRequest) =>
     Effect.gen(function* (_) {
       const startTime = Date.now()
-      
+
       // Validate configuration
       const validatedConfig = yield* _(
         Schema.decodeUnknown(LocalModelConfigSchema)(config).pipe(
-          Effect.mapError((error): LLMError => ({
-            _tag: 'ConfigurationError',
-            message: `Configuration validation failed: ${error.message}`
-          }))
+          Effect.mapError(
+            (error): LLMError => ({
+              _tag: 'ConfigurationError',
+              message: `Configuration validation failed: ${error.message}`
+            })
+          )
         )
       )
-      
+
       // Prepare OpenAI-compatible request
       const openAIRequest: OpenAIRequest = {
         model: validatedConfig.model,
@@ -98,7 +100,7 @@ export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => (
         max_tokens: request.preferences?.maxTokens ?? validatedConfig.maxTokens,
         temperature: request.preferences?.temperature ?? validatedConfig.temperature
       }
-      
+
       // Make API call to local model
       const response = yield* _(
         Effect.tryPromise({
@@ -106,16 +108,18 @@ export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => (
             const fetchResponse = await fetch(`${validatedConfig.endpoint}/chat/completions`, {
               method: 'POST',
               headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json'
               },
               body: JSON.stringify(openAIRequest),
               signal: AbortSignal.timeout(validatedConfig.timeout ?? 30000)
             })
-            
+
             if (!fetchResponse.ok) {
-              throw new Error(`Local model API error: ${fetchResponse.status} ${fetchResponse.statusText}`)
+              throw new Error(
+                `Local model API error: ${fetchResponse.status} ${fetchResponse.statusText}`
+              )
             }
-            
+
             return fetchResponse.json() as Promise<OpenAIResponse>
           },
           catch: (error) => ({
@@ -125,10 +129,10 @@ export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => (
           })
         })
       )
-      
+
       const endTime = Date.now()
       const latencyMs = endTime - startTime
-      
+
       // Transform to LLMResponse format
       const llmResponse: LLMResponse = {
         content: response.choices[0]?.message?.content ?? '',
@@ -146,7 +150,7 @@ export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => (
           confidence: 0.9 // Local models generally consistent
         }
       }
-      
+
       return llmResponse
     }),
 
@@ -155,13 +159,15 @@ export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => (
       Effect.gen(function* (_) {
         const validatedConfig = yield* _(
           Schema.decodeUnknown(LocalModelConfigSchema)(config).pipe(
-            Effect.mapError((error): LLMError => ({
-              _tag: 'ConfigurationError',
-              message: `Configuration validation failed: ${error.message}`
-            }))
+            Effect.mapError(
+              (error): LLMError => ({
+                _tag: 'ConfigurationError',
+                message: `Configuration validation failed: ${error.message}`
+              })
+            )
           )
         )
-        
+
         // Prepare streaming request
         const openAIRequest: OpenAIRequest = {
           model: validatedConfig.model,
@@ -170,7 +176,7 @@ export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => (
           temperature: request.preferences?.temperature ?? validatedConfig.temperature,
           stream: true
         }
-        
+
         // Create streaming response
         return Stream.async<string, LLMError>((emit) => {
           // Use Effect.runPromise to handle the async operation
@@ -178,14 +184,15 @@ export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => (
             Effect.gen(function* (_) {
               const fetchResponse = yield* _(
                 Effect.tryPromise({
-                  try: () => fetch(`${validatedConfig.endpoint}/chat/completions`, {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(openAIRequest),
-                    signal: AbortSignal.timeout(validatedConfig.timeout ?? 30000)
-                  }),
+                  try: () =>
+                    fetch(`${validatedConfig.endpoint}/chat/completions`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json'
+                      },
+                      body: JSON.stringify(openAIRequest),
+                      signal: AbortSignal.timeout(validatedConfig.timeout ?? 30000)
+                    }),
                   catch: (error) => ({
                     _tag: 'ModelUnavailable' as const,
                     model: 'llama',
@@ -193,7 +200,7 @@ export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => (
                   })
                 })
               )
-              
+
               if (!fetchResponse.ok) {
                 emit.fail({
                   _tag: 'ModelUnavailable',
@@ -202,7 +209,7 @@ export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => (
                 })
                 return
               }
-              
+
               const reader = fetchResponse.body?.getReader()
               if (!reader) {
                 emit.fail({
@@ -212,21 +219,21 @@ export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => (
                 })
                 return
               }
-              
+
               // Process the stream within the Effect context
               yield* _(
                 Effect.tryPromise({
                   try: async () => {
                     const decoder = new TextDecoder()
-                    
+
                     // eslint-disable-next-line no-constant-condition
                     while (true) {
                       const { done, value } = await reader.read()
                       if (done) break
-                      
+
                       const chunk = decoder.decode(value, { stream: true })
-                      const lines = chunk.split('\n').filter(line => line.trim())
-                      
+                      const lines = chunk.split('\n').filter((line) => line.trim())
+
                       for (const line of lines) {
                         if (line.startsWith('data: ')) {
                           const data = line.slice(6).trim()
@@ -234,7 +241,7 @@ export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => (
                             emit.end()
                             return
                           }
-                          
+
                           try {
                             const parsed: OpenAIStreamChunk = JSON.parse(data)
                             const content = parsed.choices[0]?.delta?.content
@@ -248,7 +255,7 @@ export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => (
                         }
                       }
                     }
-                    
+
                     emit.end()
                   },
                   catch: (error) => ({
@@ -271,13 +278,15 @@ export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => (
     Effect.gen(function* (_) {
       const validatedConfig = yield* _(
         Schema.decodeUnknown(LocalModelConfigSchema)(config).pipe(
-          Effect.mapError((error): LLMError => ({
-            _tag: 'ConfigurationError', 
-            message: `Configuration validation failed: ${error.message}`
-          }))
+          Effect.mapError(
+            (error): LLMError => ({
+              _tag: 'ConfigurationError',
+              message: `Configuration validation failed: ${error.message}`
+            })
+          )
         )
       )
-      
+
       return yield* _(
         Effect.tryPromise({
           try: async () => {
@@ -292,16 +301,14 @@ export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => (
             model: 'llama',
             message: error instanceof Error ? error.message : 'Health check failed'
           })
-        }).pipe(
-          Effect.catchAll(() => Effect.succeed(false))
-        )
+        }).pipe(Effect.catchAll(() => Effect.succeed(false)))
       )
     })
 })
 
 /**
  * Default Local Model Configuration
- * 
+ *
  * Provides sensible defaults for LM Studio setup with openai/gpt-oss-20b or similar models.
  */
 export const defaultLocalConfig: LocalModelConfig = {
@@ -315,15 +322,14 @@ export const defaultLocalConfig: LocalModelConfig = {
 
 /**
  * Create Local Model Client with Defaults
- * 
+ *
  * Convenience function to create a local model client with reasonable defaults.
  */
-export const createDefaultLocalClient = (): ModelClient =>
-  makeLocalModelClient(defaultLocalConfig)
+export const createDefaultLocalClient = (): ModelClient => makeLocalModelClient(defaultLocalConfig)
 
 /**
  * Health Check Utility
- * 
+ *
  * Checks if LM Studio or local model endpoint is available and responsive.
  */
 export const checkLocalModelHealth = (endpoint: string = 'http://localhost:1234/v1') =>
@@ -340,7 +346,7 @@ export const checkLocalModelHealth = (endpoint: string = 'http://localhost:1234/
         catch: () => false
       })
     )
-    
+
     return {
       endpoint,
       healthy: isHealthy,

@@ -1,0 +1,148 @@
+name: Comprehensive UI Testing (All Browsers)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ui/**'
+      - 'playwright.config.ts'
+  push:
+    branches: [main]
+    paths:
+      - 'ui/**'
+      - 'playwright.config.ts'
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '8.15.0'
+
+jobs:
+  comprehensive-ui-testing:
+    name: Multi-Browser UI Testing
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      pull-requests: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_API_KEY }}
+        continue-on-error: true
+          
+      - name: Install dependencies
+        run: |
+          echo "📦 Installing dependencies (skipping optional native compilation)..."
+          pnpm install --ignore-scripts
+          
+      - name: Build required Docker images
+        run: |
+          echo "🏗️ Building required Docker images..."
+          pnpm dev:build
+          
+      - name: Start infrastructure services
+        run: |
+          echo "🚀 Starting infrastructure services..."
+          pnpm dev:up
+          echo "⏳ Waiting for services to be ready..."
+          sleep 30
+          
+      - name: Validate infrastructure health
+        run: |
+          echo "🏥 Validating infrastructure..."
+          pnpm dev:validate
+          
+      - name: Run database migrations
+        run: |
+          echo "🗄️ Running database migrations..."
+          pnpm db:migrate
+          
+      - name: Start demo and install all Playwright browsers in parallel
+        run: |
+          echo "🚀 Starting comprehensive UI testing setup..."
+          
+          # Start demo in background
+          echo "🎬 Starting OpenTelemetry demo for realistic telemetry data..."
+          pnpm demo:up &
+          DEMO_PID=$!
+          
+          # Install ALL Playwright browsers for comprehensive testing
+          echo "📥 Installing all Playwright browsers (Chromium, Firefox, WebKit)..."
+          pnpm exec playwright install --with-deps &
+          PLAYWRIGHT_PID=$!
+          
+          # Wait for both to complete
+          echo "⏳ Waiting for demo startup to complete..."
+          wait $DEMO_PID
+          echo "✅ Demo startup completed"
+          
+          echo "⏳ Waiting for Playwright installation to complete..."
+          wait $PLAYWRIGHT_PID
+          echo "✅ All Playwright browsers installed"
+          
+          # Extended wait for telemetry data generation
+          echo "⏳ Waiting for demo services to generate telemetry data..."
+          sleep 30
+          pnpm demo:status || echo "Demo status check completed"
+          sleep 90  # Extended wait for CI environments
+          
+      - name: Comprehensive E2E tests (All Browsers)
+        run: |
+          echo "🎭 Running comprehensive E2E tests across all browsers..."
+          echo "Testing on: Chromium, Firefox, WebKit"
+          CI=true pnpm test:e2e:all
+          
+      - name: Upload test artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: comprehensive-ui-test-results
+          path: |
+            target/test-results/
+            target/screenshots/
+          retention-days: 7
+          
+      - name: Cleanup services
+        if: always()
+        run: |
+          echo "🧹 Cleaning up services..."
+          pnpm demo:down || echo "Demo cleanup completed"
+          pnpm dev:down
+          docker system prune -f
+
+  ui-testing-summary:
+    name: UI Testing Summary
+    runs-on: ubuntu-latest
+    needs: [comprehensive-ui-testing]
+    if: always()
+    
+    steps:
+      - name: Report comprehensive UI testing results
+        run: |
+          echo "📋 Comprehensive UI Testing Results:"
+          
+          if [[ "${{ needs.comprehensive-ui-testing.result }}" == "success" ]]; then
+            echo "✅ All browsers (Chromium, Firefox, WebKit) passed UI testing"
+            echo "🎯 UI changes validated across all supported browsers"
+          else
+            echo "❌ Multi-browser UI testing failed"
+            echo "🔍 Check individual browser test results for specific failures"
+            exit 1
+          fi

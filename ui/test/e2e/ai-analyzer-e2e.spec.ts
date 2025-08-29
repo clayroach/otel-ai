@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test'
 
+// Helper function for CI-appropriate timeouts
+const getTimeout = (baseTimeout: number) => process.env.CI ? baseTimeout * 4 : baseTimeout
+
 // Comprehensive AI Analyzer end-to-end validation
 test.describe('AI Analyzer End-to-End Validation', () => {
   test('should perform complete analysis workflow', async ({ page }) => {
@@ -22,9 +25,9 @@ test.describe('AI Analyzer End-to-End Validation', () => {
     // Check if we get analysis results
     // Look for either the overview tab or insights content
     const hasResults = await Promise.race([
-      page.waitForSelector('text=📊 Topology Overview', { timeout: 10000 }).then(() => true).catch(() => false),
-      page.waitForSelector('text=AI-Generated Architecture Analysis', { timeout: 10000 }).then(() => true).catch(() => false),
-      page.waitForSelector('text=High Latency Services', { timeout: 10000 }).then(() => true).catch(() => false)
+      page.waitForSelector('text=📊 Topology Overview', { timeout: getTimeout(10000) }).then(() => true).catch(() => false),
+      page.waitForSelector('text=AI-Generated Architecture Analysis', { timeout: getTimeout(10000) }).then(() => true).catch(() => false),
+      page.waitForSelector('text=High Latency Services', { timeout: getTimeout(10000) }).then(() => true).catch(() => false)
     ])
 
     if (hasResults) {

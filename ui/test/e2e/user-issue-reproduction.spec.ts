@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test'
 
+// Helper function for CI-appropriate timeouts  
+const getTimeout = (baseTimeout: number) => process.env.CI ? baseTimeout * 4 : baseTimeout
+
 // Types for API request/response tracking
 interface APIRequest {
   url: string;
@@ -31,7 +34,7 @@ test.describe('User Issue Reproduction: Model Selection Not Working', () => {
     await page.waitForTimeout(2000)
     
     // Verify we're on the AI Analyzer page
-    await page.waitForSelector('h2:has-text("AI-Powered Architecture Analysis")', { timeout: 10000 })
+    await page.waitForSelector('h2:has-text("AI-Powered Architecture Analysis")', { timeout: getTimeout(10000) })
   })
 
   test('should reproduce user issue with model selection', async ({ page }) => {
@@ -77,7 +80,7 @@ test.describe('User Issue Reproduction: Model Selection Not Working', () => {
     await page.getByTestId('analyze-button').click()
     
     // Wait for results
-    await page.waitForSelector('[data-testid="insights-results"]', { timeout: 30000 })
+    await page.waitForSelector('[data-testid="insights-results"]', { timeout: getTimeout(30000) })
     
     // Navigate to insights tab to see actual insights
     await page.getByTestId('insights-tab-button').click()
@@ -118,7 +121,7 @@ test.describe('User Issue Reproduction: Model Selection Not Working', () => {
     await page.getByTestId('analyze-button').click()
     
     // Wait for results
-    await page.waitForSelector('[data-testid="insights-results"]', { timeout: 30000 })
+    await page.waitForSelector('[data-testid="insights-results"]', { timeout: getTimeout(30000) })
     
     // Capture GPT results
     const gptInsights = await page.locator('[data-testid="insight-title"]').allTextContents()
@@ -155,7 +158,7 @@ test.describe('User Issue Reproduction: Model Selection Not Working', () => {
     await page.getByTestId('analyze-button').click()
     
     // Wait for results
-    await page.waitForSelector('[data-testid="insights-results"]', { timeout: 30000 })
+    await page.waitForSelector('[data-testid="insights-results"]', { timeout: getTimeout(30000) })
     
     // Capture Llama results
     const llamaInsights = await page.locator('[data-testid="insight-title"]').allTextContents()
@@ -308,7 +311,7 @@ test.describe('User Issue Reproduction: Model Selection Not Working', () => {
       
       // Brief analysis to check state propagation
       await page.getByTestId('analyze-button').click()
-      await page.waitForSelector('[data-testid="insights-results"]', { timeout: 30000 })
+      await page.waitForSelector('[data-testid="insights-results"]', { timeout: getTimeout(30000) })
       
       // Check metadata shows correct model
       const metadataText = await page.locator('[data-testid="analysis-metadata"]').first().textContent()

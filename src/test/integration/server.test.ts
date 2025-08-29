@@ -1,6 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import request from 'supertest'
-import express from 'express'
+import { describe, it, expect } from 'vitest'
 
 describe('Protobuf Attribute Extraction', () => {
   describe('Handle @bufbuild/protobuf format', () => {
@@ -18,12 +16,17 @@ describe('Protobuf Attribute Extraction', () => {
       }
 
       // The extraction logic from server.ts
-      let extractedValue: any
+      let extractedValue: string | bigint | unknown[] | undefined
       const attr = protobufAttribute
       if (attr.value && typeof attr.value === 'object' && '$typeName' in attr.value && 'value' in attr.value) {
-        const protoValue = (attr.value as any).value
-        if (protoValue?.case === 'stringValue') {
-          extractedValue = protoValue.value
+        const attrValue = attr.value as { value: { case: string; value: unknown } }
+        const protoValue = attrValue.value
+        if (protoValue.case === 'stringValue') {
+          extractedValue = protoValue.value as string
+        } else if (protoValue.case === 'intValue') {
+          extractedValue = protoValue.value as bigint
+        } else if (protoValue.case === 'arrayValue') {
+          extractedValue = (protoValue.value as { values: unknown[] }).values
         }
       }
 
@@ -45,12 +48,14 @@ describe('Protobuf Attribute Extraction', () => {
       }
 
       // The extraction logic from server.ts
-      let extractedValue: any
+      let extractedValue: string | bigint | unknown[] | undefined
       const attr = protobufAttribute
       if (attr.value && typeof attr.value === 'object' && '$typeName' in attr.value && 'value' in attr.value) {
-        const protoValue = (attr.value as any).value
-        if (protoValue?.case === 'intValue') {
-          extractedValue = typeof protoValue.value === 'bigint' ? protoValue.value.toString() : protoValue.value
+        const attrValue = attr.value as { value: { case: string; value: unknown } }
+        const protoValue = attrValue.value
+        if (protoValue.case === 'intValue') {
+          const intVal = protoValue.value
+          extractedValue = typeof intVal === 'bigint' ? intVal.toString() : String(intVal)
         }
       }
 
@@ -73,18 +78,22 @@ describe('Protobuf Attribute Extraction', () => {
       }
 
       // The extraction logic from server.ts
-      let extractedValue: any
+      let extractedValue: string | bigint | unknown[] | undefined
       const attr = protobufAttribute
       if (attr.value && typeof attr.value === 'object' && '$typeName' in attr.value && 'value' in attr.value) {
-        const protoValue = (attr.value as any).value
+        const protoValue = (attr.value as { value?: { case?: string; value?: unknown } }).value
         if (protoValue?.case === 'arrayValue') {
           extractedValue = JSON.parse(JSON.stringify(protoValue.value, (key, val) => typeof val === 'bigint' ? val.toString() : val))
         }
       }
 
       expect(extractedValue).toEqual({ values: ['1024', '2048'] })
-      expect(extractedValue.values[0]).toBe('1024')
-      expect(typeof extractedValue.values[0]).toBe('string')
+      expect(extractedValue).toHaveProperty('values')
+      if (extractedValue && typeof extractedValue === 'object' && 'values' in extractedValue) {
+        const values = (extractedValue as unknown as { values: string[] }).values
+        expect(values[0]).toBe('1024')
+        expect(typeof values[0]).toBe('string')
+      }
     })
   })
 
@@ -127,12 +136,17 @@ describe('Protobuf Attribute Extraction', () => {
         value: JSON.parse(incorrectServiceName)
       }
 
-      let extractedValue: any
+      let extractedValue: string | bigint | unknown[] | undefined
       const attr = protobufAttribute
       if (attr.value && typeof attr.value === 'object' && '$typeName' in attr.value && 'value' in attr.value) {
-        const protoValue = (attr.value as any).value
-        if (protoValue?.case === 'stringValue') {
-          extractedValue = protoValue.value
+        const attrValue = attr.value as { value: { case: string; value: unknown } }
+        const protoValue = attrValue.value
+        if (protoValue.case === 'stringValue') {
+          extractedValue = protoValue.value as string
+        } else if (protoValue.case === 'intValue') {
+          extractedValue = protoValue.value as bigint
+        } else if (protoValue.case === 'arrayValue') {
+          extractedValue = (protoValue.value as { values: unknown[] }).values
         }
       }
 

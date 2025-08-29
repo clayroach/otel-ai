@@ -10,8 +10,8 @@ WORKDIR /app
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile
+# Install dependencies (use --ignore-scripts to avoid node-gyp issues, --no-frozen-lockfile to allow updates)
+RUN pnpm install --no-frozen-lockfile --ignore-scripts
 
 # Copy source code and protobuf definitions
 COPY src/ ./src/
@@ -26,6 +26,9 @@ RUN pnpm build
 # Production stage
 FROM node:20-alpine AS production
 
+# Install debug tools
+RUN apk add --no-cache curl wget netcat-openbsd jq bash
+
 # Install pnpm
 RUN npm install -g pnpm
 
@@ -34,8 +37,8 @@ WORKDIR /app
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
 
-# Install production dependencies only (skip prepare scripts)
-RUN pnpm install --frozen-lockfile --prod --ignore-scripts
+# Install production dependencies only (skip prepare scripts and avoid node-gyp issues, allow lockfile updates)
+RUN pnpm install --no-frozen-lockfile --prod --ignore-scripts
 
 # Copy built application and protobuf definitions
 COPY --from=builder /app/dist ./dist

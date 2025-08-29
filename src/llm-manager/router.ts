@@ -1,6 +1,6 @@
 /**
  * Model Router Implementation
- * 
+ *
  * Intelligent routing of LLM requests based on task type, performance,
  * cost optimization, and availability with fallback strategies.
  */
@@ -9,27 +9,26 @@ import { Effect, Layer } from 'effect'
 import {
   ModelRouterService,
   ModelClientService,
-  LLMConfigService,
-  LLMMetricsService
+  LLMConfigService
 } from './services.js'
 import {
   LLMRequest,
-  LLMResponse,
-  LLMError,
   ModelType,
   TaskType,
-  RoutingStrategy,
   LLMConfig,
   ModelClient
 } from './types.js'
 
 /**
  * Enhanced Task-Based Routing Strategy
- * 
+ *
  * Defines preferred models for different task types based on their strengths,
  * including new AI-native tasks like market intelligence and architectural insights.
  */
-const TASK_ROUTING: Record<TaskType, { preferred: ModelType; fallback: ModelType[]; multiModel?: boolean; reasoning?: string }> = {
+const TASK_ROUTING: Record<
+  TaskType,
+  { preferred: ModelType; fallback: ModelType[]; multiModel?: boolean; reasoning?: string }
+> = {
   analysis: {
     preferred: 'claude', // Best for analytical tasks
     fallback: ['gpt', 'llama'],
@@ -71,7 +70,7 @@ const TASK_ROUTING: Record<TaskType, { preferred: ModelType; fallback: ModelType
 
 /**
  * Model Performance Tracker
- * 
+ *
  * Tracks model performance metrics for intelligent routing decisions.
  */
 interface ModelPerformance {
@@ -83,42 +82,45 @@ interface ModelPerformance {
 
 /**
  * Create Model Router
- * 
+ *
  * Creates an intelligent model router that selects optimal models based on
  * configuration, performance, and availability.
  */
-export const makeModelRouter = (config: LLMConfig, clients: {
-  gpt?: ModelClient
-  claude?: ModelClient  
-  llama?: ModelClient
-}) =>
-  Effect.gen(function* (_) {
-    
-    // Track model performance for routing decisions
-    const performanceTracker = new Map<ModelType, ModelPerformance>()
-
-    return {
+export const makeModelRouter = (
+  config: LLMConfig,
+  clients: {
+    gpt?: ModelClient
+    claude?: ModelClient
+    llama?: ModelClient
+  }
+) =>
+  Effect.succeed({
+    performanceTracker: new Map<ModelType, ModelPerformance>()
+  }).pipe(
+    Effect.map(({ performanceTracker }) => ({
       selectModel: (request: LLMRequest) =>
         Effect.gen(function* (_) {
           // If user has model preference, use it if available
           if (request.preferences?.model) {
             const preferredModel = request.preferences.model
             const isAvailable = yield* _(isModelAvailable(preferredModel, clients))
-            
+
             if (isAvailable) {
               return preferredModel
             }
-            
+
             // Log preference override
-            yield* _(Effect.log(
-              `Preferred model ${preferredModel} unavailable, falling back to routing strategy`
-            ))
+            yield* _(
+              Effect.log(
+                `Preferred model ${preferredModel} unavailable, falling back to routing strategy`
+              )
+            )
           }
 
           // Use task-based routing
           const taskRouting = TASK_ROUTING[request.taskType]
           const preferredModel = taskRouting.preferred
-          
+
           // Check if preferred model is available
           const isPreferredAvailable = yield* _(isModelAvailable(preferredModel, clients))
           if (isPreferredAvailable) {
@@ -129,102 +131,115 @@ export const makeModelRouter = (config: LLMConfig, clients: {
           for (const fallbackModel of taskRouting.fallback) {
             const isAvailable = yield* _(isModelAvailable(fallbackModel, clients))
             if (isAvailable) {
-              yield* _(Effect.log(
-                `Using fallback model ${fallbackModel} for task ${request.taskType}`
-              ))
+              yield* _(
+                Effect.log(`Using fallback model ${fallbackModel} for task ${request.taskType}`)
+              )
               return fallbackModel
             }
           }
 
           // If no models are available, fail
-          return yield* _(Effect.fail({
-            _tag: 'ModelUnavailable' as const,
-            model: 'all',
-            message: 'No available models for request'
-          }))
+          return yield* _(
+            Effect.fail({
+              _tag: 'ModelUnavailable' as const,
+              model: 'all',
+              message: 'No available models for request'
+            })
+          )
         }),
 
       routeRequest: (request: LLMRequest) =>
         Effect.gen(function* (_) {
           // Use internal selectModel function directly
-          const selectedModel = yield* _(Effect.gen(function* (_) {
-            // If user has model preference, use it if available
-            if (request.preferences?.model) {
-              const preferredModel = request.preferences.model
-              const isAvailable = yield* _(isModelAvailable(preferredModel, clients))
-              
-              if (isAvailable) {
+          const selectedModel = yield* _(
+            Effect.gen(function* (_) {
+              // If user has model preference, use it if available
+              if (request.preferences?.model) {
+                const preferredModel = request.preferences.model
+                const isAvailable = yield* _(isModelAvailable(preferredModel, clients))
+
+                if (isAvailable) {
+                  return preferredModel
+                }
+
+                // Log preference override
+                yield* _(
+                  Effect.log(
+                    `Preferred model ${preferredModel} unavailable, falling back to routing strategy`
+                  )
+                )
+              }
+
+              // Use task-based routing
+              const taskRouting = TASK_ROUTING[request.taskType]
+              const preferredModel = taskRouting.preferred
+
+              // Check if preferred model is available
+              const isPreferredAvailable = yield* _(isModelAvailable(preferredModel, clients))
+              if (isPreferredAvailable) {
                 return preferredModel
               }
-              
-              // Log preference override
-              yield* _(Effect.log(
-                `Preferred model ${preferredModel} unavailable, falling back to routing strategy`
-              ))
-            }
 
-            // Use task-based routing
-            const taskRouting = TASK_ROUTING[request.taskType]
-            const preferredModel = taskRouting.preferred
-            
-            // Check if preferred model is available
-            const isPreferredAvailable = yield* _(isModelAvailable(preferredModel, clients))
-            if (isPreferredAvailable) {
-              return preferredModel
-            }
-
-            // Try fallback models in order
-            for (const fallbackModel of taskRouting.fallback) {
-              const isAvailable = yield* _(isModelAvailable(fallbackModel, clients))
-              if (isAvailable) {
-                yield* _(Effect.log(
-                  `Using fallback model ${fallbackModel} for task ${request.taskType}`
-                ))
-                return fallbackModel
+              // Try fallback models in order
+              for (const fallbackModel of taskRouting.fallback) {
+                const isAvailable = yield* _(isModelAvailable(fallbackModel, clients))
+                if (isAvailable) {
+                  yield* _(
+                    Effect.log(`Using fallback model ${fallbackModel} for task ${request.taskType}`)
+                  )
+                  return fallbackModel
+                }
               }
-            }
 
-            // If no models are available, fail
-            return yield* _(Effect.fail({
-              _tag: 'ModelUnavailable' as const,
-              model: 'all',
-              message: 'No available models for request'
-            }))
-          }))
+              // If no models are available, fail
+              return yield* _(
+                Effect.fail({
+                  _tag: 'ModelUnavailable' as const,
+                  model: 'all',
+                  message: 'No available models for request'
+                })
+              )
+            })
+          )
 
           // Get the appropriate client
-          const modelClient = selectedModel === 'gpt' ? clients.gpt :
-                            selectedModel === 'claude' ? clients.claude :
-                            clients.llama
+          const modelClient =
+            selectedModel === 'gpt'
+              ? clients.gpt
+              : selectedModel === 'claude'
+                ? clients.claude
+                : clients.llama
 
           if (!modelClient) {
-            return yield* _(Effect.fail({
-              _tag: 'ConfigurationError' as const,
-              message: `Model ${selectedModel} client not configured`
-            }))
+            return yield* _(
+              Effect.fail({
+                _tag: 'ConfigurationError' as const,
+                message: `Model ${selectedModel} client not configured`
+              })
+            )
           }
 
           // Execute request with performance tracking
           const startTime = Date.now()
-          
+
           const response = yield* _(
             modelClient.generate(request).pipe(
               Effect.tapBoth({
                 onFailure: (error) =>
                   Effect.gen(function* (_) {
                     const latency = Date.now() - startTime
-                    yield* _(updateModelPerformance(selectedModel, latency, false, performanceTracker))
-                    yield* _(Effect.log(
-                      `Model ${selectedModel} failed: ${JSON.stringify(error)}`
-                    ))
+                    yield* _(
+                      updateModelPerformance(selectedModel, latency, false, performanceTracker)
+                    )
+                    yield* _(Effect.log(`Model ${selectedModel} failed: ${JSON.stringify(error)}`))
                   }),
-                onSuccess: (response) =>
+                onSuccess: (_response) =>
                   Effect.gen(function* (_) {
                     const latency = Date.now() - startTime
-                    yield* _(updateModelPerformance(selectedModel, latency, true, performanceTracker))
-                    yield* _(Effect.log(
-                      `Model ${selectedModel} responded in ${latency}ms`
-                    ))
+                    yield* _(
+                      updateModelPerformance(selectedModel, latency, true, performanceTracker)
+                    )
+                    yield* _(Effect.log(`Model ${selectedModel} responded in ${latency}ms`))
                   })
               })
             )
@@ -234,45 +249,47 @@ export const makeModelRouter = (config: LLMConfig, clients: {
         }),
 
       getFallbackChain: (failedModel: ModelType) =>
-        Effect.gen(function* (_) {
+        Effect.succeed((() => {
           // Find task routing that includes the failed model
           const taskRoutings = Object.entries(TASK_ROUTING)
-          
-          for (const [taskType, routing] of taskRoutings) {
+
+          for (const [, routing] of taskRoutings) {
             if (routing.preferred === failedModel || routing.fallback.includes(failedModel)) {
               // Return remaining models in fallback chain
-              const remainingModels = routing.fallback.filter(model => model !== failedModel)
+              const remainingModels = routing.fallback.filter((model) => model !== failedModel)
               if (routing.preferred !== failedModel) {
                 remainingModels.unshift(routing.preferred)
               }
               return remainingModels
             }
           }
-          
+
           // Default fallback chain excluding failed model
           const allModels: ModelType[] = ['llama', 'gpt', 'claude']
-          return allModels.filter(model => model !== failedModel)
-        }),
+          return allModels.filter((model) => model !== failedModel)
+        })()),
 
       updateModelPerformance: (model: ModelType, latencyMs: number, success: boolean) =>
         updateModelPerformance(model, latencyMs, success, performanceTracker)
-    }
-  })
+    }))
+  )
 
 /**
  * Check Model Availability
- * 
+ *
  * Checks if a specific model is configured and healthy.
  */
-const isModelAvailable = (model: ModelType, clients: {
-  gpt?: ModelClient
-  claude?: ModelClient  
-  llama?: ModelClient
-}) =>
+const isModelAvailable = (
+  model: ModelType,
+  clients: {
+    gpt?: ModelClient
+    claude?: ModelClient
+    llama?: ModelClient
+  }
+) =>
   Effect.gen(function* (_) {
-    const client = model === 'gpt' ? clients.gpt :
-                 model === 'claude' ? clients.claude :
-                 clients.llama
+    const client =
+      model === 'gpt' ? clients.gpt : model === 'claude' ? clients.claude : clients.llama
 
     if (!client) {
       return false
@@ -291,7 +308,7 @@ const isModelAvailable = (model: ModelType, clients: {
 
 /**
  * Update Model Performance
- * 
+ *
  * Updates performance tracking metrics for routing decisions.
  */
 const updateModelPerformance = (
@@ -311,7 +328,7 @@ const updateModelPerformance = (
     // Update metrics using exponential moving average
     const alpha = 0.1 // Smoothing factor
     const newRequestCount = current.requestCount + 1
-    
+
     const newPerformance: ModelPerformance = {
       averageLatency: current.averageLatency + alpha * (latencyMs - current.averageLatency),
       successRate: current.successRate + alpha * ((success ? 1 : 0) - current.successRate),
@@ -320,15 +337,17 @@ const updateModelPerformance = (
     }
 
     tracker.set(model, newPerformance)
-    
-    yield* _(Effect.log(
-      `Updated ${model} performance: ${Math.round(newPerformance.averageLatency)}ms avg, ${Math.round(newPerformance.successRate * 100)}% success`
-    ))
+
+    yield* _(
+      Effect.log(
+        `Updated ${model} performance: ${Math.round(newPerformance.averageLatency)}ms avg, ${Math.round(newPerformance.successRate * 100)}% success`
+      )
+    )
   })
 
 /**
  * Get Performance Metrics
- * 
+ *
  * Retrieves current performance metrics for all models.
  */
 export const getPerformanceMetrics = (tracker: Map<ModelType, ModelPerformance>) =>
@@ -336,7 +355,7 @@ export const getPerformanceMetrics = (tracker: Map<ModelType, ModelPerformance>)
 
 /**
  * Model Router Layer
- * 
+ *
  * Effect-TS Layer for dependency injection of the Model Router service.
  */
 export const ModelRouterLayer = Layer.effect(
@@ -345,14 +364,14 @@ export const ModelRouterLayer = Layer.effect(
     const configService = yield* _(LLMConfigService)
     const config = yield* _(configService.getConfig())
     const clientService = yield* _(ModelClientService)
-    
+
     // Convert service to simple object for router
     const clients: {
       gpt?: ModelClient
-      claude?: ModelClient  
+      claude?: ModelClient
       llama?: ModelClient
     } = {}
-    
+
     if (clientService.gpt) {
       clients.gpt = clientService.gpt
     }
@@ -362,7 +381,7 @@ export const ModelRouterLayer = Layer.effect(
     if (clientService.llama) {
       clients.llama = clientService.llama
     }
-    
+
     return yield* _(makeModelRouter(config, clients))
   })
 )

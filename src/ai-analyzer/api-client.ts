@@ -1,6 +1,6 @@
 /**
  * AI Analyzer API Client with Effect-TS Error Channels
- * 
+ *
  * Production-ready API client for AI analyzer service with proper
  * type safety, error handling, and Schema validation.
  */
@@ -24,7 +24,7 @@ const ServiceTopologySchema = Schema.Struct({
   service: Schema.String,
   type: Schema.Union(
     Schema.Literal('frontend'),
-    Schema.Literal('api'), 
+    Schema.Literal('api'),
     Schema.Literal('backend'),
     Schema.Literal('database'),
     Schema.Literal('queue'),
@@ -32,13 +32,15 @@ const ServiceTopologySchema = Schema.Struct({
     Schema.Literal('external')
   ),
   operations: Schema.Array(Schema.String),
-  dependencies: Schema.Array(Schema.Struct({
-    service: Schema.String,
-    operation: Schema.String,
-    callCount: Schema.Number,
-    avgLatencyMs: Schema.Number,
-    errorRate: Schema.Number
-  })),
+  dependencies: Schema.Array(
+    Schema.Struct({
+      service: Schema.String,
+      operation: Schema.String,
+      callCount: Schema.Number,
+      avgLatencyMs: Schema.Number,
+      errorRate: Schema.Number
+    })
+  ),
   metadata: ServiceMetadataSchema
 })
 
@@ -53,33 +55,38 @@ const AnalysisRequestSchema = Schema.Struct({
     endTime: Schema.String
   }),
   filters: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
-  config: Schema.optional(Schema.Struct({
-    llm: Schema.optional(Schema.Struct({
-      model: Schema.Union(
-        Schema.Literal('claude'),
-        Schema.Literal('gpt'),
-        Schema.Literal('llama')
+  config: Schema.optional(
+    Schema.Struct({
+      llm: Schema.optional(
+        Schema.Struct({
+          model: Schema.Union(
+            Schema.Literal('claude'),
+            Schema.Literal('gpt'),
+            Schema.Literal('llama')
+          ),
+          temperature: Schema.Number,
+          maxTokens: Schema.Number
+        })
       ),
-      temperature: Schema.Number,
-      maxTokens: Schema.Number
-    })),
-    analysis: Schema.optional(Schema.Struct({
-      timeWindowHours: Schema.Number,
-      minSpanCount: Schema.Number
-    })),
-    output: Schema.optional(Schema.Struct({
-      format: Schema.Union(
-        Schema.Literal('markdown'),
-        Schema.Literal('json')
+      analysis: Schema.optional(
+        Schema.Struct({
+          timeWindowHours: Schema.Number,
+          minSpanCount: Schema.Number
+        })
       ),
-      includeDigrams: Schema.Boolean,
-      detailLevel: Schema.Union(
-        Schema.Literal('summary'),
-        Schema.Literal('detailed'),
-        Schema.Literal('comprehensive')
+      output: Schema.optional(
+        Schema.Struct({
+          format: Schema.Union(Schema.Literal('markdown'), Schema.Literal('json')),
+          includeDigrams: Schema.Boolean,
+          detailLevel: Schema.Union(
+            Schema.Literal('summary'),
+            Schema.Literal('detailed'),
+            Schema.Literal('comprehensive')
+          )
+        })
       )
-    }))
-  }))
+    })
+  )
 })
 
 const AnalysisResponseSchema = Schema.Struct({
@@ -94,15 +101,17 @@ const AnalysisResponseSchema = Schema.Struct({
     criticalPaths: Schema.Array(Schema.Unknown),
     generatedAt: Schema.String
   }),
-  insights: Schema.Array(Schema.Struct({
-    type: Schema.String,
-    severity: Schema.String,
-    title: Schema.String,
-    description: Schema.String,
-    recommendation: Schema.String,
-    evidence: Schema.Unknown,
-    modelAnalysis: Schema.optional(Schema.Unknown)
-  })),
+  insights: Schema.Array(
+    Schema.Struct({
+      type: Schema.String,
+      severity: Schema.String,
+      title: Schema.String,
+      description: Schema.String,
+      recommendation: Schema.String,
+      evidence: Schema.Unknown,
+      modelAnalysis: Schema.optional(Schema.Unknown)
+    })
+  ),
   metadata: Schema.Struct({
     analyzedSpans: Schema.Union(Schema.String, Schema.Number),
     analysisTimeMs: Schema.Number,
@@ -120,11 +129,12 @@ export interface AIAnalyzerClient {
   readonly analyze: (
     request: typeof AnalysisRequestSchema.Type
   ) => Effect.Effect<typeof AnalysisResponseSchema.Type, APIClientError, never>
-  
-  readonly getTopology: (
-    timeRange: { startTime: string; endTime: string }
-  ) => Effect.Effect<typeof TopologyResponseSchema.Type, APIClientError, never>
-  
+
+  readonly getTopology: (timeRange: {
+    startTime: string
+    endTime: string
+  }) => Effect.Effect<typeof TopologyResponseSchema.Type, APIClientError, never>
+
   readonly health: () => Effect.Effect<{ status: string; message: string }, APIClientError, never>
 }
 
@@ -140,20 +150,21 @@ export const getServiceName = (service: { service?: string }): string => {
 }
 
 // Implementation using the shared API client with proper Effect-TS typing
-export const createAIAnalyzerClient = (baseUrl: string): Effect.Effect<AIAnalyzerClient, never, APIClientService> =>
+export const createAIAnalyzerClient = (
+  baseUrl: string
+): Effect.Effect<AIAnalyzerClient, never, APIClientService> =>
   Effect.map(APIClientService, (apiClient) => ({
-    analyze: (request) => 
-      apiClient.post(`${baseUrl}/analyze`, request, AnalysisResponseSchema),
-    
+    analyze: (request) => apiClient.post(`${baseUrl}/analyze`, request, AnalysisResponseSchema),
+
     getTopology: (timeRange) =>
       apiClient.post(`${baseUrl}/topology`, { timeRange }, TopologyResponseSchema),
-    
+
     health: () =>
       apiClient.get(
-        `${baseUrl}/health`, 
-        Schema.Struct({ 
-          status: Schema.String, 
-          message: Schema.String 
+        `${baseUrl}/health`,
+        Schema.Struct({
+          status: Schema.String,
+          message: Schema.String
         })
       )
   }))
@@ -166,16 +177,13 @@ export const AIAnalyzerClientLive = (baseUrl: string = 'http://localhost:4319/ap
   Layer.effect(
     Context.GenericTag<AIAnalyzerClient>('AIAnalyzerClient'),
     createAIAnalyzerClient(baseUrl)
-  ).pipe(
-    Layer.provide(APIClientLayer)
-  )
-
+  ).pipe(Layer.provide(APIClientLayer))
 
 // Export schemas for use in tests and other services
-export { 
+export {
   ServiceMetadataSchema,
-  ServiceTopologySchema, 
-  AnalysisRequestSchema, 
+  ServiceTopologySchema,
+  AnalysisRequestSchema,
   AnalysisResponseSchema,
-  TopologyResponseSchema 
+  TopologyResponseSchema
 }

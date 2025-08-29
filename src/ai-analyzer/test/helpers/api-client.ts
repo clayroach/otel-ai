@@ -1,14 +1,14 @@
 /**
  * Type-Safe API Client for Integration Tests
- * 
+ *
  * Eliminates "as any" usage by providing properly typed API response handling
  * with comprehensive Schema validation using Effect-TS patterns.
  */
 
 import { Schema, ParseResult } from '@effect/schema'
-import { 
-  HealthCheckResponseSchema, 
-  TopologyResponseSchema, 
+import {
+  HealthCheckResponseSchema,
+  TopologyResponseSchema,
   AnalysisResponseSchema,
   type HealthCheckResponse,
   type TopologyResponse,
@@ -35,10 +35,7 @@ export class TypedAPIClient {
   }
 
   // Type-safe topology fetch
-  async getTopology(timeRange: {
-    startTime: string
-    endTime: string
-  }): Promise<TopologyResponse> {
+  async getTopology(timeRange: { startTime: string; endTime: string }): Promise<TopologyResponse> {
     return this.makeRequest(
       `${this.baseUrl}/api/ai-analyzer/topology`,
       {
@@ -91,10 +88,10 @@ export class TypedAPIClient {
       }
 
       const rawData = await response.json()
-      
+
       // Use Effect Schema validation for comprehensive type checking
       const parseResult = Schema.decodeUnknownEither(schema)(rawData)
-      
+
       if (parseResult._tag === 'Left') {
         throw {
           _tag: 'ValidationError' as const,
@@ -108,7 +105,7 @@ export class TypedAPIClient {
       if (error && typeof error === 'object' && '_tag' in error) {
         throw error // Re-throw our typed errors
       }
-      
+
       throw {
         _tag: 'FetchError' as const,
         message: error instanceof Error ? error.message : 'Unknown fetch error',
@@ -125,39 +122,39 @@ export async function waitForTelemetryData(
   maxWaitMs = 20000
 ): Promise<TopologyResponse> {
   const startWait = Date.now()
-  
+
   while (Date.now() - startWait < maxWaitMs) {
     try {
       const endTime = new Date()
       const startTime = new Date(endTime.getTime() - 2 * 60 * 60 * 1000)
-      
+
       const topology = await client.getTopology({
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString()
       })
-      
+
       if (topology.length >= minServices) {
         console.log(`✅ Found ${topology.length} services - sufficient data available`)
         return topology
       }
-      
+
       // Wait 2 seconds before retry
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      await new Promise((resolve) => setTimeout(resolve, 2000))
     } catch (error) {
       // Continue waiting on errors
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      await new Promise((resolve) => setTimeout(resolve, 2000))
     }
   }
-  
+
   // Final attempt with extended time range
   const endTime = new Date()
   const startTime = new Date(endTime.getTime() - 4 * 60 * 60 * 1000) // Expand to 4 hours
-  
+
   const topology = await client.getTopology({
     startTime: startTime.toISOString(),
     endTime: endTime.toISOString()
   })
-  
+
   console.log(`⚠️ Final attempt: Found ${topology.length} services after ${maxWaitMs}ms wait`)
   return topology
 }
@@ -169,12 +166,12 @@ export async function waitForArchitectureData(
   maxWaitMs = 15000
 ): Promise<AnalysisResponse> {
   const startWait = Date.now()
-  
+
   while (Date.now() - startWait < maxWaitMs) {
     try {
       const endTime = new Date()
       const startTime = new Date(endTime.getTime() - 2 * 60 * 60 * 1000)
-      
+
       const analysis = await client.getAnalysis({
         type: 'architecture',
         timeRange: {
@@ -182,31 +179,32 @@ export async function waitForArchitectureData(
           endTime: endTime.toISOString()
         }
       })
-      
-      const analyzedSpans = typeof analysis.metadata.analyzedSpans === 'string' 
-        ? parseInt(analysis.metadata.analyzedSpans, 10)
-        : analysis.metadata.analyzedSpans
-        
+
+      const analyzedSpans =
+        typeof analysis.metadata.analyzedSpans === 'string'
+          ? parseInt(analysis.metadata.analyzedSpans, 10)
+          : analysis.metadata.analyzedSpans
+
       // Type guard to ensure architecture.services is an array
       const services = analysis.architecture?.services
       const serviceCount = Array.isArray(services) ? services.length : 0
-      
+
       if (analyzedSpans >= minSpans && serviceCount > 0) {
         console.log(`✅ Found ${analyzedSpans} spans and ${serviceCount} services`)
         return analysis
       }
-      
+
       // Wait 2 seconds before retry
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      await new Promise((resolve) => setTimeout(resolve, 2000))
     } catch (error) {
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      await new Promise((resolve) => setTimeout(resolve, 2000))
     }
   }
-  
+
   // Final attempt with extended time range
   const endTime = new Date()
   const startTime = new Date(endTime.getTime() - 4 * 60 * 60 * 1000)
-  
+
   const analysis = await client.getAnalysis({
     type: 'architecture',
     timeRange: {
@@ -214,15 +212,16 @@ export async function waitForArchitectureData(
       endTime: endTime.toISOString()
     }
   })
-  
-  const analyzedSpans = typeof analysis.metadata.analyzedSpans === 'string' 
-    ? parseInt(analysis.metadata.analyzedSpans, 10)
-    : analysis.metadata.analyzedSpans
-    
+
+  const analyzedSpans =
+    typeof analysis.metadata.analyzedSpans === 'string'
+      ? parseInt(analysis.metadata.analyzedSpans, 10)
+      : analysis.metadata.analyzedSpans
+
   // Type guard for final attempt logging
   const finalServices = analysis.architecture?.services
   const finalServiceCount = Array.isArray(finalServices) ? finalServices.length : 0
-  
+
   console.log(`⚠️ Final attempt: ${analyzedSpans} spans, ${finalServiceCount} services`)
   return analysis
 }
@@ -236,14 +235,15 @@ export function isValidServiceMetadata(metadata: unknown): metadata is {
   dependencies?: number
 } {
   if (!metadata || typeof metadata !== 'object') return false
-  
+
   const keys = ['avgLatencyMs', 'errorRate', 'totalSpans', 'throughput', 'dependencies']
   const metaObj = metadata as Record<string, unknown>
-  
-  return keys.every(key => 
-    !(key in metaObj) || 
-    typeof metaObj[key] === 'number' || 
-    (key === 'totalSpans' && typeof metaObj[key] === 'string')
+
+  return keys.every(
+    (key) =>
+      !(key in metaObj) ||
+      typeof metaObj[key] === 'number' ||
+      (key === 'totalSpans' && typeof metaObj[key] === 'string')
   )
 }
 

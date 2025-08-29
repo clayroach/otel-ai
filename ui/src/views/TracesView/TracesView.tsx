@@ -6,37 +6,36 @@ import {
   HistoryOutlined,
   PlayCircleOutlined,
   SaveOutlined
-} from '@ant-design/icons';
-import { Button, Card, Col, Dropdown, Row, Space, Spin, Tooltip, Typography } from 'antd';
-import React, { useCallback, useState } from 'react';
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { format } from 'sql-formatter';
-import { MonacoQueryEditor } from '../../components/MonacoEditor/MonacoQueryEditor';
-import { TimeRangeSelector } from '../../components/TimeRangeSelector/TimeRangeSelector';
-import { TraceResults } from '../../components/TraceResults/TraceResults';
-import { useClickhouseQuery, type ClickhouseQueryResult } from '../../hooks/useClickhouseQuery';
-import { useAppStore } from '../../store/appStore';
+} from '@ant-design/icons'
+import { Button, Card, Col, Dropdown, Row, Space, Spin, Tooltip, Typography } from 'antd'
+import React, { useCallback, useState } from 'react'
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
+import { format } from 'sql-formatter'
+import { MonacoQueryEditor } from '../../components/MonacoEditor/MonacoQueryEditor'
+import { TimeRangeSelector } from '../../components/TimeRangeSelector/TimeRangeSelector'
+import { TraceResults } from '../../components/TraceResults/TraceResults'
+import { useClickhouseQuery, type ClickhouseQueryResult } from '../../hooks/useClickhouseQuery'
+import { useAppStore } from '../../store/appStore'
 
 // Interface for trace data from ClickHouse matching what TraceResults expects
 interface TraceRow {
-  trace_id: string;
-  service_name: string;
-  operation_name: string;
-  duration_ms: number;
-  timestamp: string;
-  status_code: string;
-  is_error: number;
-  span_kind?: string;
-  span_id?: string;
-  parent_span_id?: string;
-  is_root?: number;
-  encoding_type?: 'json' | 'protobuf';
-  attributes?: Record<string, unknown>;
-  resource_attributes?: Record<string, unknown>;
+  trace_id: string
+  service_name: string
+  operation_name: string
+  duration_ms: number
+  timestamp: string
+  status_code: string
+  is_error: number
+  span_kind?: string
+  span_id?: string
+  parent_span_id?: string
+  is_root?: number
+  encoding_type?: 'json' | 'protobuf'
+  attributes?: Record<string, unknown>
+  resource_attributes?: Record<string, unknown>
 }
 
-
-const { Title } = Typography;
+const { Title } = Typography
 
 const DEFAULT_QUERY = `-- Query traces from simplified single-path ingestion
 SELECT 
@@ -53,17 +52,12 @@ SELECT
 FROM otel.traces 
 WHERE start_time >= subtractHours(now(), 3)
 ORDER BY start_time DESC 
-LIMIT 100`;
+LIMIT 100`
 
 export const TracesView: React.FC = () => {
-  const { 
-    activeQuery, 
-    setActiveQuery, 
-    queryHistory, 
-    addToQueryHistory 
-  } = useAppStore();
-  const [query, setQuery] = useState(activeQuery || DEFAULT_QUERY);
-  const [isRunning, setIsRunning] = useState(false);
+  const { activeQuery, setActiveQuery, queryHistory, addToQueryHistory } = useAppStore()
+  const [query, setQuery] = useState(activeQuery || DEFAULT_QUERY)
+  const [isRunning, setIsRunning] = useState(false)
 
   const {
     data: queryResults,
@@ -71,19 +65,19 @@ export const TracesView: React.FC = () => {
     error,
     refetch
   } = useClickhouseQuery(query, {
-    enabled: false, // Don't auto-run, only on explicit execution
-  });
+    enabled: false // Don't auto-run, only on explicit execution
+  })
 
   const handleRunQuery = useCallback(async () => {
-    setIsRunning(true);
-    setActiveQuery(query);
-    addToQueryHistory(query);
+    setIsRunning(true)
+    setActiveQuery(query)
+    addToQueryHistory(query)
     try {
-      await refetch();
+      await refetch()
     } finally {
-      setIsRunning(false);
+      setIsRunning(false)
     }
-  }, [query, setActiveQuery, addToQueryHistory, refetch]);
+  }, [query, setActiveQuery, addToQueryHistory, refetch])
 
   const handleFormatQuery = useCallback(() => {
     try {
@@ -91,56 +85,61 @@ export const TracesView: React.FC = () => {
       const fixedQuery = query
         .replace(/subtracthours/gi, 'subtractHours') // Fix case-sensitive function
         .replace(/substracthours/gi, 'subtractHours') // Fix common typo
-        .replace(/now\(\s*\)/gi, 'now()'); // Fix spacing in now()
-      
+        .replace(/now\(\s*\)/gi, 'now()') // Fix spacing in now()
+
       const formatted = format(fixedQuery, {
         language: 'sql',
         tabWidth: 2,
         keywordCase: 'upper',
         functionCase: 'preserve', // Keep function names as-is
         identifierCase: 'preserve', // Keep identifiers as-is
-        linesBetweenQueries: 2,
-      });
-      setQuery(formatted);
+        linesBetweenQueries: 2
+      })
+      setQuery(formatted)
     } catch (error) {
-      console.error('Error formatting SQL:', error);
+      console.error('Error formatting SQL:', error)
     }
-  }, [query]);
+  }, [query])
 
   const handleClearQuery = useCallback(() => {
-    setQuery('');
-  }, []);
+    setQuery('')
+  }, [])
 
   const handleCopyQuery = useCallback(() => {
-    navigator.clipboard.writeText(query);
-  }, [query]);
+    navigator.clipboard.writeText(query)
+  }, [query])
 
   const handleSaveQuery = useCallback(() => {
     // TODO: Implement query saving to file
-    console.log('Save query');
-  }, []);
+    console.log('Save query')
+  }, [])
 
-  const handleHistorySelect = useCallback((historyItem: { query: string; timestamp: string; description: string }) => {
-    setQuery(historyItem.query);
-    setActiveQuery(historyItem.query);
-    // Auto-run the historical query
-    setTimeout(() => {
-      handleRunQuery();
-    }, 100);
-  }, [setActiveQuery, handleRunQuery]);
+  const handleHistorySelect = useCallback(
+    (historyItem: { query: string; timestamp: string; description: string }) => {
+      setQuery(historyItem.query)
+      setActiveQuery(historyItem.query)
+      // Auto-run the historical query
+      setTimeout(() => {
+        handleRunQuery()
+      }, 100)
+    },
+    [setActiveQuery, handleRunQuery]
+  )
 
   const handleQueryChange = useCallback((value: string) => {
-    setQuery(value);
-  }, []);
+    setQuery(value)
+  }, [])
 
   return (
-    <div style={{ 
-      padding: '24px', 
-      height: '100vh', 
-      display: 'flex', 
-      flexDirection: 'column',
-      overflow: 'hidden'
-    }}>
+    <div
+      style={{
+        padding: '24px',
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden'
+      }}
+    >
       {/* Header */}
       <Row justify="space-between" align="middle" style={{ marginBottom: '16px', flexShrink: 0 }}>
         <Col>
@@ -168,9 +167,11 @@ export const TracesView: React.FC = () => {
       <PanelGroup direction="horizontal" style={{ flex: 1 }}>
         {/* Query Editor Panel */}
         <Panel defaultSize={30} minSize={20} maxSize={60}>
-          <Card 
+          <Card
             title={
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
                 <span>Query Editor</span>
                 <Space size="small">
                   {queryHistory.length > 0 && (
@@ -180,36 +181,37 @@ export const TracesView: React.FC = () => {
                           key: index,
                           label: (
                             <div style={{ maxWidth: '350px', padding: '4px 0' }}>
-                              <div style={{ 
-                                fontWeight: 'medium', 
-                                marginBottom: '2px',
-                                overflow: 'hidden', 
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap'
-                              }}>
+                              <div
+                                style={{
+                                  fontWeight: 'medium',
+                                  marginBottom: '2px',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
                                 {histItem.description}
                               </div>
-                              <div style={{ 
-                                fontSize: '11px', 
-                                color: '#888',
-                                overflow: 'hidden', 
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap'
-                              }}>
+                              <div
+                                style={{
+                                  fontSize: '11px',
+                                  color: '#888',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
                                 {histItem.timestamp}
                               </div>
                             </div>
                           ),
-                          onClick: () => handleHistorySelect(histItem),
-                        })),
+                          onClick: () => handleHistorySelect(histItem)
+                        }))
                       }}
                       trigger={['click']}
                     >
                       <Tooltip title="Query History">
-                        <Button 
-                          size="small" 
-                          icon={<HistoryOutlined />}
-                        >
+                        <Button size="small" icon={<HistoryOutlined />}>
                           History <DownOutlined />
                         </Button>
                       </Tooltip>
@@ -223,32 +225,20 @@ export const TracesView: React.FC = () => {
                     />
                   </Tooltip>
                   <Tooltip title="Copy Query">
-                    <Button
-                      size="small"
-                      icon={<CopyOutlined />}
-                      onClick={handleCopyQuery}
-                    />
+                    <Button size="small" icon={<CopyOutlined />} onClick={handleCopyQuery} />
                   </Tooltip>
                   <Tooltip title="Clear Query">
-                    <Button
-                      size="small"
-                      icon={<ClearOutlined />}
-                      onClick={handleClearQuery}
-                    />
+                    <Button size="small" icon={<ClearOutlined />} onClick={handleClearQuery} />
                   </Tooltip>
                   <Tooltip title="Save Query">
-                    <Button
-                      size="small"
-                      icon={<SaveOutlined />}
-                      onClick={handleSaveQuery}
-                    />
+                    <Button size="small" icon={<SaveOutlined />} onClick={handleSaveQuery} />
                   </Tooltip>
                 </Space>
               </div>
             }
-            style={{ 
-              height: '100%', 
-              display: 'flex', 
+            style={{
+              height: '100%',
+              display: 'flex',
               flexDirection: 'column',
               marginRight: '8px'
             }}
@@ -264,12 +254,12 @@ export const TracesView: React.FC = () => {
         </Panel>
 
         {/* Resizable Handle */}
-        <PanelResizeHandle 
+        <PanelResizeHandle
           style={{
             width: '4px',
             backgroundColor: '#d9d9d9',
             cursor: 'col-resize',
-            position: 'relative',
+            position: 'relative'
           }}
         >
           <div
@@ -285,69 +275,77 @@ export const TracesView: React.FC = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              opacity: 0.7,
+              opacity: 0.7
             }}
           >
-            <div style={{
-              width: '2px',
-              height: '16px',
-              backgroundColor: '#8c8c8c',
-              marginRight: '2px'
-            }} />
-            <div style={{
-              width: '2px',
-              height: '16px',
-              backgroundColor: '#8c8c8c'
-            }} />
+            <div
+              style={{
+                width: '2px',
+                height: '16px',
+                backgroundColor: '#8c8c8c',
+                marginRight: '2px'
+              }}
+            />
+            <div
+              style={{
+                width: '2px',
+                height: '16px',
+                backgroundColor: '#8c8c8c'
+              }}
+            />
           </div>
         </PanelResizeHandle>
 
         {/* Results Panel */}
         <Panel defaultSize={70} minSize={40}>
-          <Card 
-            title="Query Results" 
-            style={{ 
-              height: '100%', 
-              display: 'flex', 
+          <Card
+            title="Query Results"
+            style={{
+              height: '100%',
+              display: 'flex',
               flexDirection: 'column',
               marginLeft: '8px'
             }}
             styles={{ body: { flex: 1, padding: '0', overflow: 'auto' } }}
             extra={
               queryResults && (
-                <span style={{ fontSize: '12px', color: '#666' }}>
-                  {queryResults.rows} rows
-                </span>
+                <span style={{ fontSize: '12px', color: '#666' }}>{queryResults.rows} rows</span>
               )
             }
           >
             {isLoading || isRunning ? (
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                height: '100%' 
-              }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  height: '100%'
+                }}
+              >
                 <Spin size="large" />
               </div>
             ) : error ? (
-              <div style={{ 
-                padding: '24px', 
-                textAlign: 'center', 
-                color: '#ff4d4f' 
-              }}>
+              <div
+                style={{
+                  padding: '24px',
+                  textAlign: 'center',
+                  color: '#ff4d4f'
+                }}
+              >
                 Query Error: {error.message}
               </div>
             ) : queryResults ? (
               <TraceResults data={queryResults as ClickhouseQueryResult<TraceRow>} />
             ) : (
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                height: '100%',
-                color: '#666'
-              }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  height: '100%',
+                  color: '#666'
+                }}
+              >
                 Run a query to see results
               </div>
             )}
@@ -355,5 +353,5 @@ export const TracesView: React.FC = () => {
         </Panel>
       </PanelGroup>
     </div>
-  );
-};
+  )
+}

@@ -1,6 +1,6 @@
 /**
  * Conversation Storage Service Implementation
- * 
+ *
  * Simple in-memory storage for conversation contexts.
  */
 
@@ -12,7 +12,7 @@ import { ConversationStorageService } from './services.js'
  * In-Memory Conversation Storage Implementation
  */
 export const makeConversationStorageService = () =>
-  Effect.gen(function* (_) {
+  Effect.succeed((() => {
     const conversations = new Map<string, ConversationContext>()
 
     return {
@@ -25,10 +25,12 @@ export const makeConversationStorageService = () =>
         Effect.gen(function* (_) {
           const context = conversations.get(conversationId)
           if (!context) {
-            return yield* _(Effect.fail({
-              _tag: 'ConfigurationError' as const,
-              message: `Conversation ${conversationId} not found`
-            }))
+            return yield* _(
+              Effect.fail({
+                _tag: 'ConfigurationError' as const,
+                message: `Conversation ${conversationId} not found`
+              })
+            )
           }
           return context
         }),
@@ -44,7 +46,7 @@ export const makeConversationStorageService = () =>
           return limit ? contexts.slice(0, limit) : contexts
         })
     }
-  })
+  })())
 
 /**
  * Conversation Storage Layer

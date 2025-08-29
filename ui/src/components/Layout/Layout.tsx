@@ -1,30 +1,30 @@
-import React from 'react';
-import { Layout as AntLayout, Menu, Button, Typography, Space, Dropdown } from 'antd';
-import { 
-  BugOutlined, 
-  BarChartOutlined, 
-  FileTextOutlined, 
+import React from 'react'
+import { Layout as AntLayout, Menu, Button, Typography, Space, Dropdown } from 'antd'
+import {
+  BugOutlined,
+  BarChartOutlined,
+  FileTextOutlined,
   BulbOutlined,
   SettingOutlined,
   MoonOutlined,
   SunOutlined,
   MenuOutlined,
   RobotOutlined
-} from '@ant-design/icons';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAppStore } from '../../store/appStore';
+} from '@ant-design/icons'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { useAppStore } from '../../store/appStore'
 
-const { Header, Sider, Content } = AntLayout;
-const { Title } = Typography;
+const { Header, Sider, Content } = AntLayout
+const { Title } = Typography
 
 interface LayoutProps {
-  children: React.ReactNode;
+  children: React.ReactNode
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { darkMode, toggleDarkMode, sidebarCollapsed, toggleSidebar } = useAppStore();
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { darkMode, toggleDarkMode, sidebarCollapsed, toggleSidebar } = useAppStore()
 
   const menuItems = [
     {
@@ -56,8 +56,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       icon: <RobotOutlined />,
       label: 'LLM Debug',
       'data-testid': 'nav-llm-debug'
-    },
-  ];
+    }
+  ]
 
   const settingsMenu = {
     items: [
@@ -65,7 +65,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         key: 'theme',
         icon: darkMode ? <SunOutlined /> : <MoonOutlined />,
         label: darkMode ? 'Light Mode' : 'Dark Mode',
-        onClick: toggleDarkMode,
+        onClick: toggleDarkMode
       },
       {
         key: 'preferences',
@@ -73,20 +73,20 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         label: 'Preferences',
         onClick: () => {
           // TODO: Open preferences modal
-        },
-      },
-    ],
-  };
+        }
+      }
+    ]
+  }
 
   const handleMenuClick = ({ key }: { key: string }) => {
-    navigate(key);
-  };
+    navigate(key)
+  }
 
   return (
     <AntLayout style={{ height: '100vh' }}>
-      <Header 
-        style={{ 
-          padding: '0 24px', 
+      <Header
+        style={{
+          padding: '0 24px',
           background: darkMode ? '#001529' : '#fff',
           borderBottom: `1px solid ${darkMode ? '#303030' : '#f0f0f0'}`,
           display: 'flex',
@@ -99,15 +99,15 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             type="text"
             icon={<MenuOutlined />}
             onClick={toggleSidebar}
-            style={{ 
+            style={{
               fontSize: '16px',
               color: darkMode ? '#fff' : '#000'
             }}
           />
-          <Title 
-            level={4} 
-            style={{ 
-              margin: 0, 
+          <Title
+            level={4}
+            style={{
+              margin: 0,
               color: darkMode ? '#fff' : '#000'
             }}
           >
@@ -120,7 +120,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             <Button
               type="text"
               icon={<SettingOutlined />}
-              style={{ 
+              style={{
                 color: darkMode ? '#fff' : '#000'
               }}
             />
@@ -134,7 +134,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           theme={darkMode ? 'dark' : 'light'}
           width={240}
           style={{
-            background: darkMode ? '#001529' : '#fff',
+            background: darkMode ? '#001529' : '#fff'
           }}
         >
           <Menu
@@ -144,7 +144,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             onClick={handleMenuClick}
             style={{
               height: '100%',
-              borderRight: 0,
+              borderRight: 0
             }}
           />
         </Sider>
@@ -155,7 +155,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               background: darkMode ? '#141414' : '#f5f5f5',
               margin: 0,
               minHeight: 280,
-              overflow: 'auto',
+              overflow: 'auto'
             }}
           >
             {children}
@@ -163,5 +163,5 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         </AntLayout>
       </AntLayout>
     </AntLayout>
-  );
-};
+  )
+}

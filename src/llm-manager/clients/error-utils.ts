@@ -13,7 +13,7 @@ export const ensureLLMError = (error: unknown, model: string): LLMError => {
     // Already an LLMError
     return error as LLMError
   }
-  
+
   if (error instanceof Error) {
     return {
       _tag: 'NetworkError',
@@ -21,7 +21,7 @@ export const ensureLLMError = (error: unknown, model: string): LLMError => {
       message: error.message
     }
   }
-  
+
   if (typeof error === 'string') {
     return {
       _tag: 'NetworkError',
@@ -29,7 +29,7 @@ export const ensureLLMError = (error: unknown, model: string): LLMError => {
       message: error
     }
   }
-  
+
   return {
     _tag: 'NetworkError',
     model,
@@ -44,6 +44,4 @@ export const withLLMError = <A, R>(
   effect: Effect.Effect<A, unknown, R>,
   model: string
 ): Effect.Effect<A, LLMError, R> =>
-  effect.pipe(
-    Effect.mapError((error) => ensureLLMError(error, model))
-  )
+  effect.pipe(Effect.mapError((error) => ensureLLMError(error, model)))

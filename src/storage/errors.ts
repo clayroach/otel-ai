@@ -102,4 +102,3 @@ export const matchStorageError = <A>(
       return cases.TimeoutError(error)
   }
 }
-

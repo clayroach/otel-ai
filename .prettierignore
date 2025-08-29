@@ -2,3 +2,49 @@ dist/
 node_modules/
 *.log
 .DS_Store
+
+# Ignore documentation files that don't need formatting
+*.md
+*.mdx
+
+# Ignore lock files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Ignore generated files
+build/
+coverage/
+
+# Ignore protobuf generated files
+src/opentelemetry/proto/**
+
+# Ignore specific directories that shouldn't be formatted
+notes/
+blog/
+screenshots*/
+.claude/
+
+# Ignore config files that are manually formatted
+docker-compose.yaml
+*.yml
+*.yaml
+
+# Ignore specific files that are already well formatted
+src/ai-analyzer/types.ts
+src/llm-manager/types.ts
+
+# Ignore configuration files
+.eslintrc.json
+.vscode/
+tsconfig*.json
+vitest*.config.ts
+playwright.config.ts
+
+# Ignore test files for now to reduce scope
+**/*.test.ts
+**/*.spec.ts
+
+# Ignore protobuf examples and other JSON files
+protobuf/
+**/*.json

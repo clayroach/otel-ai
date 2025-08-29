@@ -12,7 +12,7 @@ console.log('🧪 Test environment setup')
 const envPath = join(process.cwd(), '.env')
 if (existsSync(envPath)) {
   const envContent = readFileSync(envPath, 'utf-8')
-  envContent.split('\n').forEach(line => {
+  envContent.split('\n').forEach((line) => {
     const [key, ...values] = line.split('=')
     if (key && values.length > 0 && !process.env[key]) {
       process.env[key] = values.join('=').trim()
@@ -26,7 +26,7 @@ if (!process.env.CLICKHOUSE_HOST) {
   process.env.CLICKHOUSE_HOST = 'localhost'
 }
 if (!process.env.CLICKHOUSE_PORT) {
-  process.env.CLICKHOUSE_PORT = '8123'
+  process.env.CLICKHOUSE_PORT = '8124'
 }
 if (!process.env.CLICKHOUSE_DATABASE) {
   process.env.CLICKHOUSE_DATABASE = 'otel'

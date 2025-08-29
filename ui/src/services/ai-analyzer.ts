@@ -1,15 +1,15 @@
 /**
  * AI Analyzer Service Integration
- * 
+ *
  * Connects the UI to the backend AI analyzer service for real-time analysis.
  */
 
-import axios from 'axios';
+import axios from 'axios'
 import type {
   AnalysisResult,
   ServiceTopology,
   ApplicationArchitecture
-} from '../views/InsightsView/mockData';
+} from '../views/InsightsView/mockData'
 
 // API client configuration
 const apiClient = axios.create({
@@ -18,25 +18,25 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json'
   }
-});
+})
 
 // Request interceptor for logging
 apiClient.interceptors.request.use(
   (config) => {
-    console.log('AI Analyzer API Request:', config.method?.toUpperCase(), config.url);
-    return config;
+    console.log('AI Analyzer API Request:', config.method?.toUpperCase(), config.url)
+    return config
   },
   (error) => Promise.reject(error)
-);
+)
 
 // Response interceptor for error handling
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.error('AI Analyzer API Error:', error.response?.data || error.message);
-    return Promise.reject(error);
+    console.error('AI Analyzer API Error:', error.response?.data || error.message)
+    return Promise.reject(error)
   }
-);
+)
 
 /**
  * AI Analyzer Service
@@ -46,8 +46,8 @@ export class AIAnalyzerService {
    * Perform a complete AI analysis
    */
   static async analyzeArchitecture(request: AnalysisRequestParams): Promise<AnalysisResult> {
-    console.log('🔍 AI Analyzer Service called with config:', request.config);
-    
+    console.log('🔍 AI Analyzer Service called with config:', request.config)
+
     const response = await apiClient.post('/ai-analyzer/analyze', {
       type: request.type,
       timeRange: {
@@ -58,9 +58,9 @@ export class AIAnalyzerService {
       config: request.config || {
         // Fallback config if none provided
         analysis: {
-          timeWindowHours: Math.abs(
-            request.timeRange.endTime.getTime() - request.timeRange.startTime.getTime()
-          ) / (1000 * 60 * 60),
+          timeWindowHours:
+            Math.abs(request.timeRange.endTime.getTime() - request.timeRange.startTime.getTime()) /
+            (1000 * 60 * 60),
           minSpanCount: 100
         },
         output: {
@@ -69,22 +69,26 @@ export class AIAnalyzerService {
           detailLevel: 'comprehensive'
         }
       }
-    });
+    })
 
     return {
       ...response.data,
       // Ensure dates are properly parsed
-      architecture: response.data.architecture ? {
-        ...response.data.architecture,
-        generatedAt: new Date(response.data.architecture.generatedAt)
-      } : undefined
-    };
+      architecture: response.data.architecture
+        ? {
+            ...response.data.architecture,
+            generatedAt: new Date(response.data.architecture.generatedAt)
+          }
+        : undefined
+    }
   }
 
   /**
    * Stream analysis results in real-time
    */
-  static async* streamAnalysis(request: AnalysisRequestParams): AsyncGenerator<string, void, unknown> {
+  static async *streamAnalysis(
+    request: AnalysisRequestParams
+  ): AsyncGenerator<string, void, unknown> {
     try {
       const response = await fetch(`http://localhost:4319/api/ai-analyzer/stream`, {
         method: 'POST',
@@ -107,77 +111,82 @@ export class AIAnalyzerService {
             streaming: true
           }
         })
-      });
+      })
 
       if (!response.ok) {
-        throw new Error(`Stream request failed: ${response.statusText}`);
+        throw new Error(`Stream request failed: ${response.statusText}`)
       }
 
       if (!response.body) {
-        throw new Error('No response body for streaming');
+        throw new Error('No response body for streaming')
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
 
       while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        const { done, value } = await reader.read()
+        if (done) break
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
+        const chunk = decoder.decode(value, { stream: true })
+        const lines = chunk.split('\n')
 
         for (const line of lines) {
           if (line.trim()) {
             try {
               // Handle Server-Sent Events format
               if (line.startsWith('data: ')) {
-                const data = line.slice(6);
+                const data = line.slice(6)
                 if (data !== '[DONE]') {
-                  yield data;
+                  yield data
                 }
               } else {
-                yield line;
+                yield line
               }
             } catch (e) {
               // If not JSON, yield as plain text
-              yield line;
+              yield line
             }
           }
         }
       }
     } catch (error) {
-      console.error('Streaming analysis error:', error);
-      throw error;
+      console.error('Streaming analysis error:', error)
+      throw error
     }
   }
 
   /**
    * Get service topology for a specific time range
    */
-  static async getServiceTopology(timeRange: { startTime: Date; endTime: Date }): Promise<ServiceTopology[]> {
+  static async getServiceTopology(timeRange: {
+    startTime: Date
+    endTime: Date
+  }): Promise<ServiceTopology[]> {
     const response = await apiClient.post('/ai-analyzer/topology', {
       timeRange: {
         startTime: timeRange.startTime.toISOString(),
         endTime: timeRange.endTime.toISOString()
       }
-    });
+    })
 
-    return response.data;
+    return response.data
   }
 
   /**
    * Generate documentation for an architecture
    */
-  static async generateDocumentation(architecture: ApplicationArchitecture): Promise<{ markdown: string }> {
+  static async generateDocumentation(
+    architecture: ApplicationArchitecture
+  ): Promise<{ markdown: string }> {
     const response = await apiClient.post('/ai-analyzer/documentation', {
       architecture: {
         ...architecture,
         generatedAt: architecture.generatedAt.toISOString()
       }
-    });
+    })
 
-    return response.data;
+    return response.data
   }
 
   /**
@@ -185,13 +194,13 @@ export class AIAnalyzerService {
    */
   static async healthCheck(): Promise<{ status: string; capabilities: string[] }> {
     try {
-      const response = await apiClient.get('/ai-analyzer/health');
-      return response.data;
+      const response = await apiClient.get('/ai-analyzer/health')
+      return response.data
     } catch (error) {
       return {
         status: 'unavailable',
         capabilities: []
-      };
+      }
     }
   }
 }
@@ -200,33 +209,33 @@ export class AIAnalyzerService {
  * Request parameters interface
  */
 export interface AnalysisRequestParams {
-  type: 'architecture' | 'dataflow' | 'dependencies' | 'insights';
+  type: 'architecture' | 'dataflow' | 'dependencies' | 'insights'
   timeRange: {
-    startTime: Date;
-    endTime: Date;
-  };
+    startTime: Date
+    endTime: Date
+  }
   filters?: {
-    services?: string[];
-    operations?: string[];
-    traceIds?: string[];
-  };
+    services?: string[]
+    operations?: string[]
+    traceIds?: string[]
+  }
   config?: {
     llm?: {
-      model: 'gpt' | 'claude' | 'llama';
-      temperature: number;
-      maxTokens: number;
-    };
+      model: 'gpt' | 'claude' | 'llama'
+      temperature: number
+      maxTokens: number
+    }
     analysis: {
-      timeWindowHours: number;
-      minSpanCount: number;
-      serviceFilterPattern?: string;
-    };
+      timeWindowHours: number
+      minSpanCount: number
+      serviceFilterPattern?: string
+    }
     output: {
-      format: 'text' | 'markdown' | 'json';
-      includeDigrams: boolean;
-      detailLevel: 'summary' | 'detailed' | 'comprehensive';
-    };
-  };
+      format: 'text' | 'markdown' | 'json'
+      includeDigrams: boolean
+      detailLevel: 'summary' | 'detailed' | 'comprehensive'
+    }
+  }
 }
 
 /**
@@ -239,10 +248,10 @@ export const useAIAnalyzer = () => {
     getServiceTopology: AIAnalyzerService.getServiceTopology,
     generateDocumentation: AIAnalyzerService.generateDocumentation,
     healthCheck: AIAnalyzerService.healthCheck
-  };
-};
+  }
+}
 
 /**
  * Default export
  */
-export default AIAnalyzerService;
+export default AIAnalyzerService

@@ -3,27 +3,27 @@
 // Infrastructure validation script
 // Tests Docker Compose services and basic connectivity
 
-const { exec } = require('child_process');
-const { promisify } = require('util');
+const { exec } = require('child_process')
+const { promisify } = require('util')
 
-const execAsync = promisify(exec);
+const execAsync = promisify(exec)
 
 async function checkService(name, healthCommand, description) {
-  console.log(`🔍 Checking ${description}...`);
+  console.log(`🔍 Checking ${description}...`)
   try {
-    const { stdout, stderr } = await execAsync(healthCommand);
-    console.log(`✅ ${name}: ${description} is healthy`);
-    return true;
+    const { stdout, stderr } = await execAsync(healthCommand)
+    console.log(`✅ ${name}: ${description} is healthy`)
+    return true
   } catch (error) {
-    console.log(`❌ ${name}: ${description} is NOT healthy`);
-    console.log(`   Error: ${error.message}`);
-    return false;
+    console.log(`❌ ${name}: ${description} is NOT healthy`)
+    console.log(`   Error: ${error.message}`)
+    return false
   }
 }
 
 async function validateInfrastructure() {
-  console.log('🏗️ Validating Docker Compose Infrastructure');
-  console.log('===========================================\n');
+  console.log('🏗️ Validating Docker Compose Infrastructure')
+  console.log('===========================================\n')
 
   const services = [
     {
@@ -46,35 +46,35 @@ async function validateInfrastructure() {
       command: 'curl -s -f http://localhost:4318/',
       description: 'OTLP HTTP receiver endpoint'
     }
-  ];
+  ]
 
-  const results = [];
+  const results = []
   for (const service of services) {
-    const healthy = await checkService(service.name, service.command, service.description);
-    results.push({ ...service, healthy });
-    console.log(''); // Add spacing
+    const healthy = await checkService(service.name, service.command, service.description)
+    results.push({ ...service, healthy })
+    console.log('') // Add spacing
   }
 
-  const allHealthy = results.every(r => r.healthy);
-  
-  console.log('📊 Infrastructure Validation Summary');
-  console.log('===================================');
-  
-  results.forEach(result => {
-    const status = result.healthy ? '✅ PASS' : '❌ FAIL';
-    console.log(`${status} ${result.name}: ${result.description}`);
-  });
-  
-  console.log('');
+  const allHealthy = results.every((r) => r.healthy)
+
+  console.log('📊 Infrastructure Validation Summary')
+  console.log('===================================')
+
+  results.forEach((result) => {
+    const status = result.healthy ? '✅ PASS' : '❌ FAIL'
+    console.log(`${status} ${result.name}: ${result.description}`)
+  })
+
+  console.log('')
   if (allHealthy) {
-    console.log('🎉 All infrastructure services are healthy and ready!');
-    console.log('✅ Ready for end-to-end telemetry testing');
-    process.exit(0);
+    console.log('🎉 All infrastructure services are healthy and ready!')
+    console.log('✅ Ready for end-to-end telemetry testing')
+    process.exit(0)
   } else {
-    console.log('⚠️  Some services are not healthy - check Docker Compose setup');
-    console.log('💡 Try: docker compose up -d && docker compose ps');
-    process.exit(1);
+    console.log('⚠️  Some services are not healthy - check Docker Compose setup')
+    console.log('💡 Try: docker compose up -d && docker compose ps')
+    process.exit(1)
   }
 }
 
-validateInfrastructure();
+validateInfrastructure()

@@ -4,7 +4,6 @@
  */
 
 import { Effect, Context, Layer, Schedule, Duration } from 'effect'
-import { Schema } from '@effect/schema'
 import { type StorageConfig, defaultStorageConfig, loadConfigFromEnv } from './config.js'
 import {
   type OTLPData,
@@ -188,7 +187,7 @@ export const ConfigServiceLive = Layer.succeed(ConfigServiceTag, {
 export const StorageLayer = ConfigServiceLive.pipe(Layer.provide(StorageServiceLive))
 
 // Convenience functions for common operations
-export namespace StorageService {
+export namespace StorageOperations {
   export const writeOTLP = (data: OTLPData) =>
     Effect.gen(function* (_) {
       const storage = yield* _(StorageServiceTag)
@@ -269,11 +268,11 @@ export const exampleUsage = () =>
       timestamp: Date.now()
     }
 
-    yield* _(StorageService.writeOTLP(sampleData))
+    yield* _(StorageOperations.writeOTLP(sampleData))
 
     // Query traces
     const traces = yield* _(
-      StorageService.queryTraces({
+      StorageOperations.queryTraces({
         timeRange: {
           start: Date.now() - 3600000, // Last hour
           end: Date.now()
@@ -283,7 +282,7 @@ export const exampleUsage = () =>
     )
 
     // Check health
-    const health = yield* _(StorageService.healthCheck())
+    const health = yield* _(StorageOperations.healthCheck())
 
     console.log(`Found ${traces.length} traces`)
     console.log(`Health: CH=${health.clickhouse}, S3=${health.s3}`)
