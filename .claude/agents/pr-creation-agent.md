@@ -40,13 +40,13 @@ You are the pr-creation-agent for comprehensive pull request creation with prope
 3. **MUST test file paths** are accessible and correct
 
 #### D. Image URL Format - CRITICAL FOR DISPLAY
-**ALWAYS use GitHub Pages URLs for images in PR descriptions:**
+**ALWAYS use GitHub raw URLs pointing to main branch for images in PR descriptions:**
 
 ```markdown
-![Description](https://clayroach.github.io/otel-ai/screenshots/YYYY-MM-DD/pr-XX-filename.png)
+![Description](https://raw.githubusercontent.com/clayroach/otel-ai/main/notes/screenshots/YYYY-MM-DD/pr-XX-filename.png)
 ```
 
-**NEVER use raw GitHub URLs or blob URLs (these break after branch deletion):**
+**NEVER use feature branch URLs or blob URLs (these break after branch deletion):**
 ```markdown
 ![Description](https://raw.githubusercontent.com/clayroach/otel-ai/BRANCH-NAME/notes/screenshots/...)  ❌ WRONG - BREAKS AFTER BRANCH DELETION
 ![Description](https://github.com/clayroach/otel-ai/blob/BRANCH-NAME/notes/screenshots/...)  ❌ WRONG - DOESN'T DISPLAY INLINE
@@ -54,7 +54,7 @@ You are the pr-creation-agent for comprehensive pull request creation with prope
 
 **Template for PR image references:**
 ```markdown
-![Screenshot Name](https://clayroach.github.io/otel-ai/screenshots/YYYY-MM-DD/pr-ACTUAL-NUMBER-description.png)
+![Screenshot Name](https://raw.githubusercontent.com/clayroach/otel-ai/main/notes/screenshots/YYYY-MM-DD/pr-ACTUAL-NUMBER-description.png)
 *Caption describing what the screenshot shows and why it's relevant*
 ```
 
@@ -114,17 +114,17 @@ You are the pr-creation-agent for comprehensive pull request creation with prope
 
 #### C. Image URL Construction - EXACT FORMULA
 **Step-by-step URL construction:**
-1. Base: `https://clayroach.github.io/otel-ai/`
-2. Path: `screenshots/YYYY-MM-DD/`
+1. Base: `https://raw.githubusercontent.com/clayroach/otel-ai/main/`
+2. Path: `notes/screenshots/YYYY-MM-DD/`
 3. File: `pr-[ACTUAL-PR-NUMBER]-[description].png`
 
 **Final URL format:**
 ```
-https://clayroach.github.io/otel-ai/screenshots/YYYY-MM-DD/pr-ACTUAL-NUMBER-description.png
+https://raw.githubusercontent.com/clayroach/otel-ai/main/notes/screenshots/YYYY-MM-DD/pr-ACTUAL-NUMBER-description.png
 ```
 
 #### D. Quality Validation - BEFORE SUBMITTING PR
-1. **Preview URLs**: Test that GitHub Pages URLs return image content (not 404) - NOTE: May take a few minutes after commit for Pages to sync
+1. **Preview URLs**: Test that GitHub raw URLs return image content (not 404) - NOTE: URLs will work once screenshots are on main branch
 2. **Verify captions**: Each image has descriptive caption explaining relevance
 3. **Check formatting**: All markdown syntax is correct
 4. **Validate claims**: Screenshots actually prove the claims made in PR description
@@ -183,8 +183,8 @@ ls notes/screenshots/$(date +%Y-%m-%d)/
 # Check if screenshots are committed
 git status
 
-# Test GitHub Pages URL accessibility (should return image data)
-curl -I "https://clayroach.github.io/otel-ai/screenshots/YYYY-MM-DD/screenshot.png"
+# Test GitHub raw URL accessibility (should return image data - will work once on main)
+curl -I "https://raw.githubusercontent.com/clayroach/otel-ai/main/notes/screenshots/YYYY-MM-DD/screenshot.png"
 ```
 
 **Start by running these verification commands, then proceed systematically through the organization and PR creation process.**
