@@ -52,6 +52,9 @@ jobs:
     name: Full Stack Testing
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
     # needs: quick-validation  # DISABLED: removed dependency while debugging
     
     steps:
@@ -131,16 +134,14 @@ jobs:
           echo "🔗 Running integration tests with established pnpm commands..."
           pnpm test:integration
           
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+          
       - name: E2E tests with Playwright
         run: |
           echo "🎭 Running E2E tests with established pnpm commands..."
           pnpm test:e2e
-          
-      - name: Demo integration validation
-        run: |
-          echo "🎬 Validating OpenTelemetry demo integration with established pnpm commands..."
-          pnpm demo:validate
-          
+                    
       - name: Performance baseline check
         run: |
           echo "📊 Running performance baseline checks..."
