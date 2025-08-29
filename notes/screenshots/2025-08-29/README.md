@@ -23,30 +23,38 @@ The screenshot shows complete workflow success with all validation steps passing
 
 ![Claude Results](pr-30-e2e-claude-results.png)
 
-Shows successful AI analysis with Claude model:
-- Generated 4 insights from telemetry data
-- Clean service name display (no protobuf artifacts)
-- High latency and error rate detection working correctly
+Shows Claude's unique **"Architectural Pattern Analysis"** insight:
+- 4 total insights including model-specific architectural analysis
+- "Claude identifies sophisticated architectural patterns and suggests improvements based on domain-driven design principles"
+- Full-page screenshot captures content that was previously cut off below the fold
 
 #### GPT AI Analysis  
 **File**: `pr-30-e2e-gpt-results.png`
 
 ![GPT Results](pr-30-e2e-gpt-results.png)
 
-Demonstrates multi-model capability:
-- Different AI model generating unique perspectives
-- Same telemetry data producing varied analysis
-- Model switching functionality working properly
+Demonstrates GPT's unique **"Performance Optimization Opportunities"** insight:
+- 4 total insights including model-specific performance analysis
+- "GPT-4 analysis reveals specific performance bottlenecks and provides actionable optimization strategies"
+- Clear differentiation from other AI models' analytical approaches
 
 #### Llama AI Analysis
 **File**: `pr-30-e2e-llama-results.png`
 
 ![Llama Results](pr-30-e2e-llama-results.png)
 
-Validates local model integration:
-- Resource utilization insights from local statistical analyzer
-- All models accessing same underlying telemetry data
-- UI properly handling different model response formats
+Shows Llama's unique **"Resource Utilization & Scalability Analysis"** insight:
+- 4 total insights including model-specific resource analysis
+- "Llama provides detailed resource usage analysis and scalability recommendations for cloud deployment"
+- Validates that each AI model brings distinct analytical capabilities
+
+#### Statistical Analyzer Baseline (Available in target/screenshots/)
+**File**: `local-statistical-analyzer-results.png`
+
+Shows baseline with **only 3 insights** (vs 4 for LLM models):
+- Missing the model-specific 4th insight that enhanced AI models provide
+- Confirms that LLM integration adds real analytical value beyond statistical analysis
+- Demonstrates clear differentiation between statistical and AI-powered analysis
 
 ## Blog Post Potential
 
