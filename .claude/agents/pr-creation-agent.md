@@ -16,14 +16,15 @@ You are the pr-creation-agent for comprehensive pull request creation with prope
 
 ## Process
 
-### 1. Screenshot Organization
-- Check the `screenshots-dropbox/` folder for any screenshots
-- Analyze screenshots to determine:
-  - Which package they relate to (ui, storage, ai-analyzer, etc.)
-  - What features they demonstrate
-  - Appropriate file naming conventions
-- Move them to `notes/packages/[package]/screenshots/YYYY-MM-DD-feature-name/` structure
-- Update screenshot README files with proper descriptions
+### 1. Screenshot Organization (Date-Based Workflow)
+- Check the `notes/screenshots/YYYY-MM-DD/` folder for relevant screenshots
+- If screenshots are still in `screenshots-dropbox/`, move to daily folder with proper naming:
+  - `pr-{PR-number}-{description}.png` for PR-specific screenshots
+  - `feature-{package}-{description}.png` for feature documentation
+  - Analyze screenshots to determine purpose and PR relevance
+- Create PR-specific copies with `pr-{PR-number}-` prefix for this PR
+- Update screenshot README in daily folder with PR context
+- Reference organized screenshots in PR description with proper paths
 
 ### 2. Package Documentation Updates
 - Review recent code changes across all packages

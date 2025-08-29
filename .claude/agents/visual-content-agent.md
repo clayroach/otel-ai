@@ -43,7 +43,7 @@ You are the visual-content-agent for automating screenshot integration and visua
 
 ## Visual Content Workflows
 
-### Screenshot Organization Pattern
+### Screenshot Organization Pattern (Date-Based Workflow)
 ```
 screenshots-dropbox/           # Temporary staging
 ├── day-15-overview.png       # Daily milestone screenshots
@@ -53,12 +53,21 @@ screenshots-dropbox/           # Temporary staging
 
 ↓ Organized into ↓
 
-notes/packages/[package]/screenshots/  # Permanent documentation
-├── architecture/             # Architecture diagrams
-├── ui-demos/                # User interface demonstrations  
-├── integration/             # Integration screenshots
-└── progress/               # Development progress visuals
+notes/screenshots/YYYY-MM-DD/  # Date-based permanent organization
+├── pr-XX-github-actions-success.png       # PR-specific screenshots
+├── pr-XX-e2e-test-results.png
+├── blog-ci-cd-optimization-workflow.png   # Blog post screenshots  
+├── blog-ai-native-architecture.png
+├── daily-progress-overview.png            # Daily milestone screenshots
+├── feature-ai-analyzer-ui.png             # Feature screenshots
+└── debug-clickhouse-query.png             # Development screenshots
 ```
+
+**Benefits of Date-Based Organization:**
+- **Flexible Reuse**: Same screenshot can serve PR documentation, blog posts, and daily notes
+- **Historical Context**: Easy to find screenshots from specific development days
+- **Purpose-Specific Naming**: Clear indication of intended use while maintaining reusability
+- **Blog Integration**: Direct access to visual assets for content creation
 
 ### Blog Cover Image Generation
 - **Automated creation** using consistent template

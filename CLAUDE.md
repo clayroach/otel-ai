@@ -687,26 +687,70 @@ pnpm run generate:test-traces
 
 ### Screenshot Workflow
 
-**Location**: `screenshots-dropbox/` - Temporary staging area for development screenshots
+**Organization Strategy**: Date-based organization with purpose-specific naming for flexible reuse across PRs, blog posts, and documentation.
 
-```bash
-# Take screenshot of new feature
-# Save directly to screenshots-dropbox/ with descriptive name
-
-# During end-of-day workflow
-Use end-day-agent  # Will help organize screenshots into package docs
-
-# Create PR with organized screenshots
-Use pr-creation-agent  # Auto-organizes and references screenshots
+#### Directory Structure
+```
+notes/screenshots/YYYY-MM-DD/
+├── pr-XX-github-actions-success.png          # PR-specific screenshots
+├── pr-XX-e2e-test-results.png
+├── blog-ci-cd-optimization-before.png        # Blog post screenshots  
+├── blog-ci-cd-optimization-after.png
+├── daily-progress-overview.png               # Daily milestone screenshots
+├── feature-ai-analyzer-ui.png                # Feature screenshots
+└── debug-clickhouse-query-results.png       # Development/debugging screenshots
 ```
 
-**File naming suggestions**:
-- `ui-feature-name.png` - UI package screenshots
-- `storage-architecture.png` - Storage package changes  
-- `day-N-feature-overview.png` - Daily milestone screenshots
-- `before-after-optimization.png` - Performance improvements
+#### Workflow Process
+```bash
+# 1. Take screenshot of new feature/result
+# Save directly to screenshots-dropbox/ with descriptive name
 
-**Workflow**: Screenshots in `screenshots-dropbox/` → Organized into `notes/packages/[package]/screenshots/` during PR creation → Referenced in documentation → Ready for blog posts
+# 2. During end-of-day workflow  
+Use end-day-agent  # Organizes screenshots into notes/screenshots/YYYY-MM-DD/
+
+# 3. Create PR with relevant screenshots
+Use pr-creation-agent  # References screenshots from daily folder with PR naming
+
+# 4. Blog content creation
+Use visual-content-agent  # Organizes screenshots for blog posts with blog naming
+```
+
+#### Naming Conventions
+
+**PR Screenshots**: `pr-{PR-number}-{description}.png`
+- `pr-49-github-actions-success.png` - CI/CD workflow success
+- `pr-49-e2e-test-claude-results.png` - Test results for specific PR
+- `pr-49-performance-comparison.png` - Performance improvements
+
+**Blog Screenshots**: `blog-{topic}-{description}.png`
+- `blog-ci-cd-optimization-workflow.png` - Blog post visual assets
+- `blog-ai-native-architecture-overview.png` - Technical deep-dive images
+- `blog-30day-progress-milestone.png` - Progress documentation
+
+**Daily Screenshots**: `daily-{description}.png`
+- `daily-progress-overview.png` - End-of-day progress summary
+- `daily-feature-demo.png` - New feature demonstrations
+- `daily-debugging-session.png` - Development process documentation
+
+**Feature Screenshots**: `feature-{package}-{description}.png`
+- `feature-ai-analyzer-multi-model.png` - Feature-specific documentation
+- `feature-storage-clickhouse-dashboard.png` - Package-level screenshots
+- `feature-ui-generator-components.png` - UI package screenshots
+
+#### Benefits of This Organization
+
+1. **Flexible Reuse**: Screenshots organized by date but named by purpose
+2. **Blog Integration**: Easy to find relevant visuals for blog posts
+3. **PR Documentation**: Clear linking between PR and visual evidence
+4. **Historical Context**: Date-based organization maintains development timeline
+5. **Mixed Usage**: Same screenshot can be referenced in PR, blog, and daily notes
+
+#### Agent Integration
+
+- **end-day-agent**: Organizes screenshots from dropbox to daily folder with appropriate naming
+- **pr-creation-agent**: References relevant screenshots from daily folder, ensures PR naming
+- **visual-content-agent**: Creates blog-optimized copies and organizes for content creation
 
 ## Important Notes
 
