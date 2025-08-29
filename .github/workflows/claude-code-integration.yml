@@ -58,6 +58,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
             
+      - name: Setup environment variables
+        run: |
+          # Copy GitHub CI environment file
+          cp .env.github .env
+          
+          # Override sensitive values from GitHub secrets
+          if [ -n "${{ secrets.OPENAI_API_KEY }}" ]; then
+            sed -i "s/OPENAI_API_KEY=placeholder_will_be_replaced_by_github_secret/OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}/g" .env
+          fi
+          
+          if [ -n "${{ secrets.CLAUDE_API_KEY }}" ]; then
+            sed -i "s/CLAUDE_API_KEY=placeholder_will_be_replaced_by_github_secret/CLAUDE_API_KEY=${{ secrets.CLAUDE_API_KEY }}/g" .env
+          fi
+          
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
         
