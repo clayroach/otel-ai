@@ -126,8 +126,12 @@ jobs:
         run: |
           echo "🎬 Starting OpenTelemetry demo for realistic telemetry data..."
           pnpm demo:up
-          echo "⏳ Waiting for demo services to generate telemetry data..."
-          sleep 45
+          echo "⏳ Waiting for demo services to start up..."
+          sleep 30
+          echo "🔍 Checking demo service health..."
+          pnpm demo:status || echo "Demo status check completed"
+          echo "⏳ Waiting for telemetry data generation..."
+          sleep 60  # Increased wait time for better telemetry data population
           
       - name: Integration tests
         run: |
