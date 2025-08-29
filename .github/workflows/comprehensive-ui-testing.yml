@@ -6,13 +6,11 @@ on:
     paths:
       - 'ui/**'
       - 'playwright.config.ts'
-      - 'package.json'
   push:
     branches: [main]
     paths:
       - 'ui/**'
       - 'playwright.config.ts'
-      - 'package.json'
   workflow_dispatch:
 
 env:
