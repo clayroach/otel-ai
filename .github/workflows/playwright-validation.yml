@@ -49,27 +49,14 @@ jobs:
             
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-        
-      - name: Start minimal backend services for E2E
-        run: |
-          echo "🚀 Starting minimal services for E2E testing..."
-          docker compose --profile dev up -d clickhouse minio
-          # Wait for essential services
-          sleep 10
-          
+                  
       - name: Start backend API
         run: |
           echo "🔧 Starting backend API server..."
           pnpm dev:rebuild:backend
           nohup pnpm dev:backend &
           sleep 5
-          
-      - name: Start frontend dev server
-        run: |
-          echo "🎨 Starting frontend dev server..."  
-          nohup pnpm dev:frontend &
-          sleep 10
-          
+                    
       - name: Verify services are running
         run: |
           echo "🔍 Checking service health..."
