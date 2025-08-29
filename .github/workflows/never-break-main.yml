@@ -141,7 +141,7 @@ jobs:
           pnpm demo:up &
           DEMO_PID=$!
           
-          # Install Playwright browsers in parallel
+          # Install Playwright browsers (optimized for main branch testing)
           echo "📥 Installing Playwright browsers..."
           pnpm exec playwright install --with-deps &
           PLAYWRIGHT_PID=$!
@@ -168,9 +168,9 @@ jobs:
           echo "🔗 Running integration tests with established pnpm commands..."
           pnpm test:integration
           
-      - name: E2E tests with Playwright
+      - name: E2E tests with Playwright (Chromium only for speed)
         run: |
-          echo "🎭 Running E2E tests with established pnpm commands..."
+          echo "🎭 Running E2E tests with Chromium only for main branch validation..."
           CI=true pnpm test:e2e
                     
       - name: Performance baseline check
