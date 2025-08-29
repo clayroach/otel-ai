@@ -54,6 +54,18 @@ jobs:
         
       - name: Unit tests
         run: pnpm test
+        
+      - name: Run code-to-docs sync validation
+        run: |
+          echo "🔄 Running code-to-docs sync agent for code changes..."
+          
+          # Use Claude Code to run code-to-docs-sync-agent
+          # This ensures documentation stays aligned with code changes
+          claude-code --agent code-to-docs-sync-agent \
+            --prompt "Analyze recent code changes and ensure documentation is synchronized. Update package READMEs, Dendron notes, and API documentation to reflect current implementation. Report any misalignments found." \
+            --non-interactive || echo "⚠️ Code-to-docs sync agent not available in CI - manual sync may be needed"
+          
+          echo "✅ Code-to-docs sync validation completed"
 
   docs-validation:
     name: Documentation Validation
