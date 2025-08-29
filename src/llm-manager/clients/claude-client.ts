@@ -142,7 +142,8 @@ export const checkClaudeHealth = (config?: Partial<ClaudeConfig>) =>
 
     if (!validatedConfig.apiKey) {
       return {
-        endpoint: validatedConfig.endpoint ?? defaultClaudeConfig.endpoint ?? 'https://api.anthropic.com',
+        endpoint:
+          validatedConfig.endpoint ?? defaultClaudeConfig.endpoint ?? 'https://api.anthropic.com',
         healthy: false,
         timestamp: Date.now(),
         error: 'No API key configured'
@@ -188,7 +189,8 @@ export const checkClaudeHealth = (config?: Partial<ClaudeConfig>) =>
           })
         )
         return {
-          endpoint: validatedConfig.endpoint ?? defaultClaudeConfig.endpoint ?? 'https://api.anthropic.com',
+          endpoint:
+            validatedConfig.endpoint ?? defaultClaudeConfig.endpoint ?? 'https://api.anthropic.com',
           healthy: false,
           timestamp: Date.now(),
           latency,
@@ -197,14 +199,16 @@ export const checkClaudeHealth = (config?: Partial<ClaudeConfig>) =>
       }
 
       return {
-        endpoint: validatedConfig.endpoint ?? defaultClaudeConfig.endpoint ?? 'https://api.anthropic.com',
+        endpoint:
+          validatedConfig.endpoint ?? defaultClaudeConfig.endpoint ?? 'https://api.anthropic.com',
         healthy: true,
         timestamp: Date.now(),
         latency
       }
     } catch (error) {
       return {
-        endpoint: validatedConfig.endpoint ?? defaultClaudeConfig.endpoint ?? 'https://api.anthropic.com',
+        endpoint:
+          validatedConfig.endpoint ?? defaultClaudeConfig.endpoint ?? 'https://api.anthropic.com',
         healthy: false,
         timestamp: Date.now(),
         error: error instanceof Error ? error.message : 'Unknown error'

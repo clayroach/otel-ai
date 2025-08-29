@@ -22,7 +22,10 @@ import { type StorageError, StorageErrorConstructors } from './errors.js'
 // Temporarily remove timeout operations to fix compilation issues
 
 export interface ClickHouseStorage {
-  readonly writeOTLP: (data: OTLPData, encodingType?: 'protobuf' | 'json') => Effect.Effect<void, StorageError>
+  readonly writeOTLP: (
+    data: OTLPData,
+    encodingType?: 'protobuf' | 'json'
+  ) => Effect.Effect<void, StorageError>
   readonly writeBatch: (data: OTLPData[]) => Effect.Effect<void, StorageError>
   readonly queryTraces: (params: QueryParams) => Effect.Effect<TraceData[], StorageError>
   readonly queryMetrics: (params: QueryParams) => Effect.Effect<MetricData[], StorageError>
@@ -54,23 +57,24 @@ export const makeClickHouseStorage = (
     yield* _(
       Effect.tryPromise({
         try: () => client.query({ query: 'SELECT 1' }),
-        catch: (error) => StorageErrorConstructors.ConnectionError(
-          `Failed to connect to ClickHouse: ${error}`,
-          error
-        )
+        catch: (error) =>
+          StorageErrorConstructors.ConnectionError(
+            `Failed to connect to ClickHouse: ${error}`,
+            error
+          )
       })
     )
 
-    const writeOTLP = (data: OTLPData, encodingType: 'protobuf' | 'json' = 'protobuf'): Effect.Effect<void, StorageError> =>
+    const writeOTLP = (
+      data: OTLPData,
+      encodingType: 'protobuf' | 'json' = 'protobuf'
+    ): Effect.Effect<void, StorageError> =>
       Effect.gen(function* (_) {
         // Validate OTLP data
         const validatedData = yield* _(
           Schema.decodeUnknown(OTLPDataSchema)(data).pipe(
             Effect.mapError((error) =>
-              StorageErrorConstructors.ValidationError(
-                'Invalid OTLP data format',
-                [error.message]
-              )
+              StorageErrorConstructors.ValidationError('Invalid OTLP data format', [error.message])
             )
           )
         )
@@ -101,7 +105,10 @@ export const makeClickHouseStorage = (
         )
       })
 
-    const writeTraces = (traces: TraceData[], encodingType: 'protobuf' | 'json' = 'protobuf'): Effect.Effect<void, StorageError> =>
+    const writeTraces = (
+      traces: TraceData[],
+      encodingType: 'protobuf' | 'json' = 'protobuf'
+    ): Effect.Effect<void, StorageError> =>
       Effect.gen(function* (_) {
         const insertQuery = `
           INSERT INTO traces (
@@ -120,10 +127,12 @@ export const makeClickHouseStorage = (
           // Convert nanoseconds to DateTime64(9) format
           // ClickHouse expects DateTime64(9) as nanoseconds since epoch
           const startTimeNs = trace.startTime
-          const endTimeNs = trace.endTime || (trace.startTime + trace.duration)
-          
-          console.log(`🔍 [Debug] Timestamp conversion for trace ${trace.traceId}: ${startTimeNs}ns`)
-          
+          const endTimeNs = trace.endTime || trace.startTime + trace.duration
+
+          console.log(
+            `🔍 [Debug] Timestamp conversion for trace ${trace.traceId}: ${startTimeNs}ns`
+          )
+
           return {
             trace_id: trace.traceId,
             span_id: trace.spanId,
@@ -310,10 +319,7 @@ export const makeClickHouseStorage = (
         const validatedParams = yield* _(
           Schema.decodeUnknown(QueryParamsSchema)(params).pipe(
             Effect.mapError((error) =>
-              StorageErrorConstructors.ValidationError(
-                'Invalid query parameters',
-                [error.message]
-              )
+              StorageErrorConstructors.ValidationError('Invalid query parameters', [error.message])
             )
           )
         )
@@ -336,14 +342,15 @@ export const makeClickHouseStorage = (
         const resultSet = yield* _(
           Effect.tryPromise({
             try: () => result.json(),
-            catch: (error) => StorageErrorConstructors.QueryError(
-              `Failed to parse query results: ${error}`,
-              query,
-              error
-            )
+            catch: (error) =>
+              StorageErrorConstructors.QueryError(
+                `Failed to parse query results: ${error}`,
+                query,
+                error
+              )
           })
         )
-        
+
         // Transform ClickHouse rows to TraceData format with validation
         return (resultSet as ClickHouseTraceRow[]).map((row) => transformClickHouseRowToTrace(row))
       })
@@ -365,15 +372,18 @@ export const makeClickHouseStorage = (
         const resultSet = yield* _(
           Effect.tryPromise({
             try: () => result.json(),
-            catch: (error) => StorageErrorConstructors.QueryError(
-              `Failed to parse metric query results: ${error}`,
-              query,
-              error
-            )
+            catch: (error) =>
+              StorageErrorConstructors.QueryError(
+                `Failed to parse metric query results: ${error}`,
+                query,
+                error
+              )
           })
         )
-        
-        return (resultSet as ClickHouseMetricRow[]).map((row) => transformClickHouseRowToMetric(row))
+
+        return (resultSet as ClickHouseMetricRow[]).map((row) =>
+          transformClickHouseRowToMetric(row)
+        )
       })
 
     const queryLogs = (params: QueryParams): Effect.Effect<LogData[], StorageError> =>
@@ -393,14 +403,15 @@ export const makeClickHouseStorage = (
         const resultSet = yield* _(
           Effect.tryPromise({
             try: () => result.json(),
-            catch: (error) => StorageErrorConstructors.QueryError(
-              `Failed to parse log query results: ${error}`,
-              query,
-              error
-            )
+            catch: (error) =>
+              StorageErrorConstructors.QueryError(
+                `Failed to parse log query results: ${error}`,
+                query,
+                error
+              )
           })
         )
-        
+
         return (resultSet as ClickHouseLogRow[]).map((row) => transformClickHouseRowToLog(row))
       })
 
@@ -421,14 +432,15 @@ export const makeClickHouseStorage = (
         const resultSet = yield* _(
           Effect.tryPromise({
             try: () => result.json(),
-            catch: (error) => StorageErrorConstructors.QueryError(
-              `Failed to parse AI query results: ${error}`,
-              query,
-              error
-            )
+            catch: (error) =>
+              StorageErrorConstructors.QueryError(
+                `Failed to parse AI query results: ${error}`,
+                query,
+                error
+              )
           })
         )
-        
+
         return transformResultSetToAIDataset(resultSet as AIResultRow[], params)
       })
 
@@ -438,10 +450,11 @@ export const makeClickHouseStorage = (
         yield* _(
           Effect.tryPromise({
             try: () => client.query({ query: 'SELECT 1 as health' }),
-            catch: (error) => StorageErrorConstructors.ConnectionError(
-              `ClickHouse health check failed: ${error}`,
-              error
-            )
+            catch: (error) =>
+              StorageErrorConstructors.ConnectionError(
+                `ClickHouse health check failed: ${error}`,
+                error
+              )
           })
         )
         return true
@@ -454,18 +467,19 @@ export const makeClickHouseStorage = (
             query: sql,
             format: 'JSONEachRow'
           })
-          const data = await result.json() as unknown[]
-          
+          const data = (await result.json()) as unknown[]
+
           // Clean up protobuf strings and convert BigInt values
-          return data.map(row => convertBigIntToNumber(cleanProtobufStrings(row)))
+          return data.map((row) => convertBigIntToNumber(cleanProtobufStrings(row)))
         },
-        catch: (error) => StorageErrorConstructors.QueryError(
-          `Raw query failed: ${String(error)}`,
-          String(error),
-          sql
-        )
+        catch: (error) =>
+          StorageErrorConstructors.QueryError(
+            `Raw query failed: ${String(error)}`,
+            String(error),
+            sql
+          )
       })
-    
+
     // Helper function to clean protobuf JSON strings
     const cleanProtobufStrings = (obj: unknown): unknown => {
       if (typeof obj === 'string') {
@@ -480,7 +494,7 @@ export const makeClickHouseStorage = (
             // Return original if parsing fails
           }
         }
-        
+
         // Handle Buffer JSON strings for trace IDs
         if (obj.includes('"type":"Buffer"') && obj.includes('"data"')) {
           try {
@@ -493,11 +507,11 @@ export const makeClickHouseStorage = (
           }
         }
       }
-      
+
       if (Array.isArray(obj)) {
-        return obj.map(item => cleanProtobufStrings(item))
+        return obj.map((item) => cleanProtobufStrings(item))
       }
-      
+
       if (obj !== null && typeof obj === 'object') {
         const cleaned: Record<string, unknown> = {}
         for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
@@ -505,20 +519,20 @@ export const makeClickHouseStorage = (
         }
         return cleaned
       }
-      
+
       return obj
     }
-    
+
     // Helper function to convert BigInt to number
     const convertBigIntToNumber = (obj: unknown): unknown => {
       if (typeof obj === 'bigint') {
         return obj > Number.MAX_SAFE_INTEGER ? parseInt(obj.toString()) : Number(obj)
       }
-      
+
       if (Array.isArray(obj)) {
-        return obj.map(item => convertBigIntToNumber(item))
+        return obj.map((item) => convertBigIntToNumber(item))
       }
-      
+
       if (obj !== null && typeof obj === 'object') {
         const converted: Record<string, unknown> = {}
         for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
@@ -526,7 +540,7 @@ export const makeClickHouseStorage = (
         }
         return converted
       }
-      
+
       return obj
     }
 
@@ -725,7 +739,9 @@ const transformResultSetToAIDataset = (
   resultSet: AIResultRow[],
   params: AIQueryParams
 ): AIDataset => ({
-  features: resultSet.map((row) => params.features.map((feature) => parseFloat(String(row[feature] ?? '0')) || 0)),
+  features: resultSet.map((row) =>
+    params.features.map((feature) => parseFloat(String(row[feature] ?? '0')) || 0)
+  ),
   metadata: {
     query: params,
     resultCount: resultSet.length

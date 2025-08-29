@@ -129,7 +129,8 @@ export const checkOpenAIHealth = (config?: Partial<OpenAIConfig>) =>
 
     if (!validatedConfig.apiKey) {
       return {
-        endpoint: validatedConfig.endpoint ?? defaultOpenAIConfig.endpoint ?? 'https://api.openai.com/v1',
+        endpoint:
+          validatedConfig.endpoint ?? defaultOpenAIConfig.endpoint ?? 'https://api.openai.com/v1',
         healthy: false,
         timestamp: Date.now(),
         error: 'No API key configured'
@@ -170,7 +171,8 @@ export const checkOpenAIHealth = (config?: Partial<OpenAIConfig>) =>
           })
         )
         return {
-          endpoint: validatedConfig.endpoint ?? defaultOpenAIConfig.endpoint ?? 'https://api.openai.com/v1',
+          endpoint:
+            validatedConfig.endpoint ?? defaultOpenAIConfig.endpoint ?? 'https://api.openai.com/v1',
           healthy: false,
           timestamp: Date.now(),
           latency,
@@ -179,14 +181,16 @@ export const checkOpenAIHealth = (config?: Partial<OpenAIConfig>) =>
       }
 
       return {
-        endpoint: validatedConfig.endpoint ?? defaultOpenAIConfig.endpoint ?? 'https://api.openai.com/v1',
+        endpoint:
+          validatedConfig.endpoint ?? defaultOpenAIConfig.endpoint ?? 'https://api.openai.com/v1',
         healthy: true,
         timestamp: Date.now(),
         latency
       }
     } catch (error) {
       return {
-        endpoint: validatedConfig.endpoint ?? defaultOpenAIConfig.endpoint ?? 'https://api.openai.com/v1',
+        endpoint:
+          validatedConfig.endpoint ?? defaultOpenAIConfig.endpoint ?? 'https://api.openai.com/v1',
         healthy: false,
         timestamp: Date.now(),
         error: error instanceof Error ? error.message : 'Unknown error'

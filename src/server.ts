@@ -8,21 +8,14 @@ import cors from 'cors'
 import { Context, Effect, Stream, Layer } from 'effect'
 import express from 'express'
 import { AIAnalyzerService } from './ai-analyzer/index.js'
-import {
-  generateInsights,
-  generateRequestId
-} from './ai-analyzer/service.js'
+import { generateInsights, generateRequestId } from './ai-analyzer/service.js'
 import {
   ExportTraceServiceRequestSchema,
   KeyValue,
   ResourceSpans,
   ScopeSpans
 } from './opentelemetry/index.js'
-import { 
-  StorageAPIClientTag, 
-  ClickHouseConfigTag,
-  StorageAPIClientLayer
-} from './storage/index.js'
+import { StorageAPIClientTag, ClickHouseConfigTag, StorageAPIClientLayer } from './storage/index.js'
 
 /**
  * Type for OpenTelemetry attribute values
@@ -199,14 +192,14 @@ app.use((req, res, next) => {
   console.log('🔍 [Debug] Path:', req.path)
   console.log('🔍 [Debug] Content-Type:', req.headers['content-type'])
   console.log('🔍 [Debug] Content-Encoding:', req.headers['content-encoding'])
-  
+
   const contentType = req.headers['content-type'] || ''
-  
+
   if (req.path.startsWith('/v1/')) {
     // For OTLP endpoints, check content-type
     if (contentType.includes('application/json')) {
       // Parse as JSON for JSON content
-      express.json({ 
+      express.json({
         limit: '10mb',
         inflate: true // Enable gzip decompression
       })(req, res, next)
@@ -261,7 +254,6 @@ const queryWithResults = async (sql: string): Promise<{ data: Record<string, unk
   )
   return { data: result as Record<string, unknown>[] }
 }
-
 
 // Initialize AI analyzer service
 let aiAnalyzer: Context.Tag.Service<typeof AIAnalyzerService> | null = null
@@ -789,7 +781,7 @@ app.post('/v1/traces', async (req, res) => {
       contentType.includes('x-protobuf') ||
       contentType === 'application/octet-stream' ||
       (Buffer.isBuffer(req.body) && req.body.length > 0 && !contentType.includes('json'))
-    
+
     // If body is already parsed as JSON object, it's definitely JSON
     const isJson = !Buffer.isBuffer(req.body) && typeof req.body === 'object' && req.body !== null
 
@@ -1111,13 +1103,20 @@ app.post('/v1/traces', async (req, res) => {
                   (resourceAttributes['service.name'] as string) ||
                   (encodingType === 'json' ? 'json-test-service' : 'unknown-service'),
                 SpanName: span.name,
-                span_kind: typeof span.kind === 'number' ? 
-                           span.kind === 1 ? 'SPAN_KIND_INTERNAL' :
-                           span.kind === 2 ? 'SPAN_KIND_SERVER' :
-                           span.kind === 3 ? 'SPAN_KIND_CLIENT' :
-                           span.kind === 4 ? 'SPAN_KIND_PRODUCER' :
-                           span.kind === 5 ? 'SPAN_KIND_CONSUMER' :
-                           'SPAN_KIND_UNSPECIFIED' : span.kind || 'SPAN_KIND_INTERNAL',
+                span_kind:
+                  typeof span.kind === 'number'
+                    ? span.kind === 1
+                      ? 'SPAN_KIND_INTERNAL'
+                      : span.kind === 2
+                        ? 'SPAN_KIND_SERVER'
+                        : span.kind === 3
+                          ? 'SPAN_KIND_CLIENT'
+                          : span.kind === 4
+                            ? 'SPAN_KIND_PRODUCER'
+                            : span.kind === 5
+                              ? 'SPAN_KIND_CONSUMER'
+                              : 'SPAN_KIND_UNSPECIFIED'
+                    : span.kind || 'SPAN_KIND_INTERNAL',
                 status_code: span.status?.code || 'STATUS_CODE_UNSET',
                 status_message: span.status?.message || '',
                 trace_state: span.traceState || '',
@@ -1151,37 +1150,59 @@ app.post('/v1/traces', async (req, res) => {
           parentSpanId: trace.parent_SpanId || undefined,
           operationName: trace.SpanName,
           startTime: new Date(trace.Timestamp).getTime() * 1000000, // Convert to nanoseconds
-          endTime: new Date(trace.end_time).getTime() * 1000000, 
+          endTime: new Date(trace.end_time).getTime() * 1000000,
           duration: trace.duration_ns,
           serviceName: trace.ServiceName,
-          statusCode: trace.status_code === 'STATUS_CODE_OK' ? 1 : 
-                     trace.status_code === 'STATUS_CODE_ERROR' ? 2 : 0,
+          statusCode:
+            trace.status_code === 'STATUS_CODE_OK'
+              ? 1
+              : trace.status_code === 'STATUS_CODE_ERROR'
+                ? 2
+                : 0,
           statusMessage: trace.status_message || undefined,
-          spanKind: typeof trace.span_kind === 'number' ? 
-                     trace.span_kind === 1 ? 'SPAN_KIND_INTERNAL' :
-                     trace.span_kind === 2 ? 'SPAN_KIND_SERVER' :
-                     trace.span_kind === 3 ? 'SPAN_KIND_CLIENT' :
-                     trace.span_kind === 4 ? 'SPAN_KIND_PRODUCER' :
-                     trace.span_kind === 5 ? 'SPAN_KIND_CONSUMER' :
-                     'SPAN_KIND_UNSPECIFIED' : String(trace.span_kind),
+          spanKind:
+            typeof trace.span_kind === 'number'
+              ? trace.span_kind === 1
+                ? 'SPAN_KIND_INTERNAL'
+                : trace.span_kind === 2
+                  ? 'SPAN_KIND_SERVER'
+                  : trace.span_kind === 3
+                    ? 'SPAN_KIND_CLIENT'
+                    : trace.span_kind === 4
+                      ? 'SPAN_KIND_PRODUCER'
+                      : trace.span_kind === 5
+                        ? 'SPAN_KIND_CONSUMER'
+                        : 'SPAN_KIND_UNSPECIFIED'
+              : String(trace.span_kind),
           attributes: Object.fromEntries(
-            Object.entries(trace.span_attributes || {}).map(([k, v]) => [k, typeof v === 'object' ? JSON.stringify(v) : String(v)])
+            Object.entries(trace.span_attributes || {}).map(([k, v]) => [
+              k,
+              typeof v === 'object' ? JSON.stringify(v) : String(v)
+            ])
           ),
           resourceAttributes: Object.fromEntries(
-            Object.entries(trace.resource_attributes || {}).map(([k, v]) => [k, typeof v === 'object' ? JSON.stringify(v) : String(v)])
+            Object.entries(trace.resource_attributes || {}).map(([k, v]) => [
+              k,
+              typeof v === 'object' ? JSON.stringify(v) : String(v)
+            ])
           ),
           events: [], // TODO: Parse events from JSON string
-          links: []   // TODO: Parse links from JSON string
+          links: [] // TODO: Parse links from JSON string
         }))
 
         // Use Storage API Client with Effect-TS pattern
         const writeResult = await Effect.runPromise(
           Effect.gen(function* (_) {
             const apiClient = yield* _(StorageAPIClientTag)
-            return yield* _(apiClient.writeOTLP({
-              traces: traceDataArray,
-              timestamp: Date.now()
-            }, encodingType))
+            return yield* _(
+              apiClient.writeOTLP(
+                {
+                  traces: traceDataArray,
+                  timestamp: Date.now()
+                },
+                encodingType
+              )
+            )
           }).pipe(
             Effect.provide(StorageLayer),
             Effect.match({
@@ -1198,7 +1219,9 @@ app.post('/v1/traces', async (req, res) => {
         )
 
         if (!writeResult.success) {
-          throw new Error(`Storage write failed: ${'error' in writeResult ? writeResult.error : 'Unknown error'}`)
+          throw new Error(
+            `Storage write failed: ${'error' in writeResult ? writeResult.error : 'Unknown error'}`
+          )
         }
       }
 
@@ -1686,7 +1709,7 @@ app.delete('/api/llm/interactions', async (_req, res) => {
 // Graceful shutdown with Effect-TS cleanup
 async function gracefulShutdown(signal: string) {
   console.log(`🛑 Received ${signal}, shutting down gracefully...`)
-  
+
   try {
     // Storage API Client connections are managed by Effect runtime
     // and will be properly disposed when the Layer is released
@@ -1694,7 +1717,7 @@ async function gracefulShutdown(signal: string) {
   } catch (error) {
     console.error('❌ Error during shutdown:', error)
   }
-  
+
   process.exit(0)
 }
 
