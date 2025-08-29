@@ -9,10 +9,20 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
     branches: [main]
+    paths-ignore:
+      - 'notes/**'
+      - 'blog/**'
+      - '*.md'
+      - 'docs/**'
   
   # Trigger on pushes to main for deployment validation
   push:
     branches: [main]
+    paths-ignore:
+      - 'notes/**'
+      - 'blog/**'
+      - '*.md'
+      - 'docs/**'
   
   # Manual workflow dispatch for testing
   workflow_dispatch:

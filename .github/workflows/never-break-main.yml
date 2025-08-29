@@ -3,8 +3,18 @@ name: Never Break Main - Comprehensive Testing
 on:
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'notes/**'
+      - 'blog/**'
+      - '*.md'
+      - 'docs/**'
   push:
     branches: [main]
+    paths-ignore:
+      - 'notes/**'
+      - 'blog/**'
+      - '*.md' 
+      - 'docs/**'
 
 env:
   NODE_VERSION: '20'

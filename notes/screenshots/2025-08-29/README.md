@@ -21,8 +21,6 @@ The screenshot shows complete workflow success with all validation steps passing
 #### Claude AI Analysis
 **File**: `claude-results.png`
 
-![Claude Results](https://raw.githubusercontent.com/clayroach/otel-ai/main/notes/screenshots/2025-08-29/claude-results.png)
-
 Shows Claude's unique **"Architectural Pattern Analysis"** insight:
 - 4 total insights including model-specific architectural analysis
 - "Claude identifies sophisticated architectural patterns and suggests improvements based on domain-driven design principles"
@@ -31,8 +29,6 @@ Shows Claude's unique **"Architectural Pattern Analysis"** insight:
 #### GPT AI Analysis  
 **File**: `gpt-results.png`
 
-![GPT Results](https://raw.githubusercontent.com/clayroach/otel-ai/main/notes/screenshots/2025-08-29/gpt-results.png)
-
 Demonstrates GPT's unique **"Performance Optimization Opportunities"** insight:
 - 4 total insights including model-specific performance analysis
 - "GPT-4 analysis reveals specific performance bottlenecks and provides actionable optimization strategies"
@@ -40,8 +36,6 @@ Demonstrates GPT's unique **"Performance Optimization Opportunities"** insight:
 
 #### Llama AI Analysis
 **File**: `llama-results.png`
-
-![Llama Results](https://raw.githubusercontent.com/clayroach/otel-ai/main/notes/screenshots/2025-08-29/llama-results.png)
 
 Shows Llama's unique **"Resource Utilization & Scalability Analysis"** insight:
 - 4 total insights including model-specific resource analysis
