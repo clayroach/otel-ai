@@ -79,7 +79,7 @@ jobs:
       - name: Install Playwright browsers
         run: |
           echo "📥 Installing Playwright browsers..."
-          pnpm exec playwright install --with-deps chromium
+          pnpm exec playwright install --with-deps
           
       - name: Verify Playwright installation
         run: |
