@@ -122,24 +122,48 @@ jobs:
           json-final-path: './target/coverage/coverage-final.json'
           vite-config-path: './vitest.config.ts'
           
-      - name: Start demo for integration tests
+      - name: Start demo and install Playwright browsers in parallel
         run: |
+          echo "🚀 Starting demo and Playwright browser installation in parallel..."
+          
+          # Start demo in background
           echo "🎬 Starting OpenTelemetry demo for realistic telemetry data..."
-          pnpm demo:up
+          pnpm demo:up &
+          DEMO_PID=$!
+          
+          # Install Playwright browsers in parallel
+          echo "📥 Installing Playwright browsers..."
+          pnpm exec playwright install --with-deps &
+          PLAYWRIGHT_PID=$!
+          
+          # Wait for both to complete
+          echo "⏳ Waiting for demo startup to complete..."
+          wait $DEMO_PID
+          echo "✅ Demo startup completed"
+          
+          echo "⏳ Waiting for Playwright installation to complete..."
+          wait $PLAYWRIGHT_PID
+          echo "✅ Playwright browser installation completed"
+          
+          # Start telemetry data generation and integration tests in parallel
           echo "⏳ Waiting for demo services to start up..."
           sleep 30
           echo "🔍 Checking demo service health..."
           pnpm demo:status || echo "Demo status check completed"
-          echo "⏳ Waiting for telemetry data generation..."
+          
+          # Run integration tests while demo generates telemetry data in parallel
+          echo "🔗 Starting integration tests while telemetry data generates..."
+          pnpm test:integration &
+          INTEGRATION_PID=$!
+          
+          # Wait for telemetry data generation
+          echo "⏳ Waiting for telemetry data generation (running in parallel with integration tests)..."
           sleep 90  # Extended wait time for CI environments where services start slower
           
-      - name: Integration tests
-        run: |
-          echo "🔗 Running integration tests with established pnpm commands..."
-          pnpm test:integration
-          
-      - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps
+          # Wait for integration tests to complete
+          echo "⏳ Waiting for integration tests to complete..."
+          wait $INTEGRATION_PID
+          echo "✅ Integration tests completed"
           
       - name: E2E tests with Playwright
         run: |
