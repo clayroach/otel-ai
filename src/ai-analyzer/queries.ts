@@ -31,6 +31,13 @@ export interface ServiceTopologyRaw {
   avg_duration_ms: number
   p95_duration_ms: number
   unique_traces: number
+  // Topology visualization extensions
+  rate_per_second: number
+  error_rate_percent: number
+  health_status: 'healthy' | 'warning' | 'degraded' | 'critical' | 'unavailable'
+  runtime_language?: string
+  runtime_name?: string
+  component?: string
 }
 
 export interface TraceFlowRaw {
@@ -90,7 +97,20 @@ export const ArchitectureQueries = {
       countIf(status_code = 'ERROR') as error_spans,
       avg(duration_ns / 1000000) as avg_duration_ms,
       quantile(0.95)(duration_ns / 1000000) as p95_duration_ms,
-      uniq(trace_id) as unique_traces
+      uniq(trace_id) as unique_traces,
+      -- Topology visualization extensions
+      count(*) / (${timeRangeHours} * 60) as rate_per_second,
+      (countIf(status_code = 'ERROR') * 100.0) / count(*) as error_rate_percent,
+      CASE 
+        WHEN (countIf(status_code = 'ERROR') * 100.0) / count(*) > 5 THEN 'critical'
+        WHEN (countIf(status_code = 'ERROR') * 100.0) / count(*) > 1 THEN 'warning'
+        WHEN quantile(0.95)(duration_ns / 1000000) > 500 THEN 'degraded'
+        WHEN quantile(0.95)(duration_ns / 1000000) > 100 THEN 'warning'
+        ELSE 'healthy'
+      END as health_status,
+      extractAll(resource_attributes, '"telemetry.sdk.language":"([^"]+)"')[1] as runtime_language,
+      extractAll(resource_attributes, '"process.runtime.name":"([^"]+)"')[1] as runtime_name,
+      extractAll(span_attributes, '"component":"([^"]+)"')[1] as component
     FROM traces
     WHERE start_time >= now() - INTERVAL ${timeRangeHours} HOUR
     GROUP BY service_name, operation_name, span_kind

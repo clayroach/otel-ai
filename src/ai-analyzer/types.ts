@@ -88,6 +88,49 @@ export const ApplicationArchitectureSchema = Schema.Struct({
   generatedAt: Schema.Union(Schema.Date, Schema.DateFromString)
 })
 
+// Topology visualization specific schemas
+export const ServiceNodeSchema = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  category: Schema.String,
+  symbolSize: Schema.Number,
+  itemStyle: Schema.Struct({
+    color: Schema.String
+  }),
+  label: Schema.Struct({
+    show: Schema.Boolean
+  }),
+  metrics: Schema.Struct({
+    rate: Schema.Number,
+    errorRate: Schema.Number,
+    duration: Schema.Number
+  }),
+  position: Schema.optional(Schema.Tuple(Schema.Number, Schema.Number))
+})
+
+export const ServiceEdgeSchema = Schema.Struct({
+  source: Schema.String,
+  target: Schema.String,
+  value: Schema.Number,
+  lineStyle: Schema.Struct({
+    width: Schema.Number,
+    color: Schema.String
+  })
+})
+
+export const TopologyVisualizationDataSchema = Schema.extend(ApplicationArchitectureSchema, Schema.Struct({
+  nodes: Schema.Array(ServiceNodeSchema),
+  edges: Schema.Array(ServiceEdgeSchema),
+  runtimeEnvironments: Schema.Array(Schema.String),
+  healthSummary: Schema.Struct({
+    healthy: Schema.Number,
+    warning: Schema.Number,
+    degraded: Schema.Number,
+    critical: Schema.Number,
+    unavailable: Schema.Number
+  })
+}))
+
 // Enhanced evidence formatting schemas for model differentiation
 export const ModelSpecificEvidenceSchema = Schema.Struct({
   format: Schema.Literal('structured', 'narrative', 'statistical'),
@@ -186,6 +229,9 @@ export type AnalysisResult = Schema.Schema.Type<typeof AnalysisResultSchema>
 export type HealthCheckResponse = Schema.Schema.Type<typeof HealthCheckResponseSchema>
 export type TopologyResponse = Schema.Schema.Type<typeof TopologyResponseSchema>
 export type AnalysisResponse = Schema.Schema.Type<typeof AnalysisResponseSchema>
+export type ServiceNode = Schema.Schema.Type<typeof ServiceNodeSchema>
+export type ServiceEdge = Schema.Schema.Type<typeof ServiceEdgeSchema>
+export type TopologyVisualizationData = Schema.Schema.Type<typeof TopologyVisualizationDataSchema>
 
 // Error ADT
 export type AnalysisError =
