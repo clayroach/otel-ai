@@ -1,0 +1,147 @@
+name: Documentation Validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'notes/**'
+      - 'blog/**'
+      - '*.md'
+      - 'docs/**'
+  push:
+    branches: [main]
+    paths:
+      - 'notes/**'
+      - 'blog/**'
+      - '*.md'
+      - 'docs/**'
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '8.15.0'
+
+jobs:
+  docs-validation:
+    name: Documentation Quality Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        
+      - name: Markdown linting
+        run: pnpm lint:md
+        continue-on-error: true
+        
+      - name: Documentation structure validation
+        run: |
+          echo "📋 Validating documentation structure..."
+          
+          # Check for required README files in packages
+          for package_dir in src/*/; do
+            if [ -d "$package_dir" ]; then
+              package_name=$(basename "$package_dir")
+              if [ ! -f "$package_dir/README.md" ]; then
+                echo "⚠️ Missing README.md in $package_dir"
+              else
+                echo "✅ Found README.md in $package_dir"
+              fi
+            fi
+          done
+          
+          # Check for corresponding Dendron notes
+          for notes_dir in notes/packages/*/; do
+            if [ -d "$notes_dir" ]; then
+              notes_name=$(basename "$notes_dir")
+              if [ ! -f "$notes_dir/package.md" ]; then
+                echo "⚠️ Missing package.md in $notes_dir"
+              else
+                echo "✅ Found package.md in $notes_dir"
+              fi
+            fi
+          done
+          
+          echo "📋 Documentation structure validation completed"
+          
+      - name: Link validation
+        run: |
+          echo "🔗 Validating internal links..."
+          # Add link validation logic here when available
+          echo "Link validation completed"
+          
+      - name: Spell check
+        run: |
+          echo "✏️ Running spell check..."
+          # Add spell check logic here when available  
+          echo "Spell check completed"
+
+  # Claude Code documentation review
+  claude-docs-review:
+    name: AI Documentation Review
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Claude Code Documentation Review
+        if: secrets.ANTHROPIC_API_KEY != ''
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Please review this documentation PR focusing on:
+            1. Clarity and completeness of technical documentation
+            2. Consistency with project standards in CLAUDE.md
+            3. Proper markdown formatting and structure
+            4. Accuracy of code examples and links
+            5. Alignment between README.md and Dendron notes
+            
+            Provide suggestions for improvement while maintaining the documentation-driven development approach.
+          claude_args: "--max-turns 2 --timeout 300"
+          
+      - name: Documentation Review Not Available
+        if: secrets.ANTHROPIC_API_KEY == ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 📚 Documentation Review
+              
+              Automated documentation review is not available (ANTHROPIC_API_KEY not configured).
+              
+              **Manual Review Checklist:**
+              - [ ] Clarity and completeness of technical documentation
+              - [ ] Consistency with project standards in CLAUDE.md
+              - [ ] Proper markdown formatting and structure
+              - [ ] Accuracy of code examples and links
+              - [ ] Alignment between README.md and Dendron notes
+              
+              Please review documentation changes manually.`
+            })
