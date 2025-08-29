@@ -107,4 +107,4 @@ jobs:
         run: |
           echo "🧹 Cleaning up services..."
           pkill -f "pnpm dev" || true
-          docker compose --profile dev down -v || true
+          docker compose --profile dev down -v || true# Auto-trigger Playwright E2E validation - Thu Aug 28 19:52:43 PDT 2025
