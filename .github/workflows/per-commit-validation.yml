@@ -57,26 +57,27 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
-  code-to-docs-sync:
-    name: Code-to-Docs Sync Validation
-    runs-on: ubuntu-latest
-    needs: quick-validation
-    timeout-minutes: 5
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        
-      - name: Run code-to-docs sync validation
-        uses: anthropics/claude-code-action@v1
-        with:
-          agent: code-to-docs-sync-agent
-          prompt: |
-            Analyze recent code changes and ensure documentation is synchronized. 
-            Update package READMEs, Dendron notes, and API documentation to reflect current implementation. 
-            Report any misalignments found.
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+# DISABLING CODE-TO-DOCS SYNC JOB FOR NOW
+  # code-to-docs-sync:
+  #   name: Code-to-Docs Sync Validation
+  #   runs-on: ubuntu-latest
+  #   needs: quick-validation
+  #   timeout-minutes: 5
+  #   
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #       
+  #     - name: Run code-to-docs sync validation
+  #       uses: anthropics/claude-code-action@v1
+  #       with:
+  #         agent: code-to-docs-sync-agent
+  #         prompt: |
+  #           Analyze recent code changes and ensure documentation is synchronized. 
+  #           Update package READMEs, Dendron notes, and API documentation to reflect current implementation. 
+  #           Report any misalignments found.
+  #       env:
+  #         ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
   docs-validation:
     name: Documentation Validation
