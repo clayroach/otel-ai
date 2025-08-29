@@ -67,11 +67,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         
-      - name: Code-to-docs sync (manual process)
-        run: |
-          echo "📝 Code-to-docs sync is a manual process using Claude Code locally"
-          echo "ℹ️  Use 'claude-code --agent code-to-docs-sync-agent' locally to sync documentation"
-          echo "✅ Skipping automated sync in CI environment"
+      - name: Run code-to-docs sync validation
+        uses: anthropics/claude-code-action@v1
+        with:
+          agent: code-to-docs-sync-agent
+          prompt: |
+            Analyze recent code changes and ensure documentation is synchronized. 
+            Update package READMEs, Dendron notes, and API documentation to reflect current implementation. 
+            Report any misalignments found.
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
   docs-validation:
     name: Documentation Validation
@@ -101,10 +106,19 @@ jobs:
           echo "📦 Installing workspace dependencies (minimal)..."
           pnpm install --frozen-lockfile --ignore-scripts
         
+      - name: Run code-to-docs sync validation
+        uses: anthropics/claude-code-action@v1
+        with:
+          agent: code-to-docs-sync-agent
+          prompt: |
+            Validate that documentation is synchronized with current codebase. 
+            Check for any misalignment between implementation and specs. 
+            Report any issues found.
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          
       - name: Documentation structure validation
         run: |
-          echo "📚 Validating documentation structure..."
-          
           echo "📚 Running fallback documentation validation..."
           
           # Fallback validation for CI environments

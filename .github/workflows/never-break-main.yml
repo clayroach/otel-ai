@@ -180,11 +180,15 @@ jobs:
           # Add performance tests here when available
           echo "Performance checks completed"
           
-      - name: Documentation sync (manual process)
-        run: |
-          echo "📝 Documentation sync is a manual process using Claude Code locally"
-          echo "ℹ️  After merging, run 'claude-code --agent code-to-docs-sync-agent' to sync docs"
-          echo "✅ Automated sync skipped in CI - manual process preferred"
+      - name: Sync documentation with code changes
+        uses: anthropics/claude-code-action@v1
+        with:
+          agent: code-to-docs-sync-agent
+          prompt: |
+            Full validation completed successfully. Analyze all code changes in this PR and ensure documentation is fully synchronized. 
+            Update package READMEs, Dendron notes, API documentation, and CLAUDE.md to reflect current implementation state.
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           
       - name: Cleanup services
         if: always()
