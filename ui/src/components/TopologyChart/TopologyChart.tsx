@@ -108,15 +108,7 @@ export const TopologyChart: React.FC<TopologyChartProps> = ({
     const nodesWithIcons = data.nodes.map(node => ({
       ...node,
       name: `${getRuntimeIcon(node.category)} ${node.name}`,
-      value: node.metrics?.rate || 1,
-      // Add emphasis state for hover
-      emphasis: {
-        focus: 'adjacency',
-        itemStyle: {
-          shadowBlur: 10,
-          shadowColor: 'rgba(0, 0, 0, 0.3)'
-        }
-      }
+      value: node.metrics?.rate || 1
     }))
 
     return {
@@ -128,7 +120,7 @@ export const TopologyChart: React.FC<TopologyChartProps> = ({
       },
       tooltip: {
         trigger: 'item',
-        formatter: (params: { dataType: string; data: ServiceNode & { source?: string; target?: string; value?: number } }) => {
+        formatter: (params: any) => {
           if (params.dataType === 'node') {
             const node = params.data as ServiceNode
             const metrics = node.metrics
@@ -195,12 +187,12 @@ export const TopologyChart: React.FC<TopologyChartProps> = ({
             opacity: 0.7
           },
           emphasis: {
-            focus: 'adjacency',
+            focus: 'adjacency' as const,
             lineStyle: {
               width: 3
             }
           }
-        }
+        } as any
       ]
     }
   }

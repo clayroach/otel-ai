@@ -157,8 +157,15 @@ Use the code-to-docs-sync-agent to ensure implementation and specs are aligned.
 
 #### Create Pull Request
 ```
+# IMPORTANT: Run these checks BEFORE using pr-creation-agent
+pnpm typecheck:all  # Ensure no TypeScript errors
+pnpm lint          # Ensure no linting issues
+
+# Then create PR (only after above pass)
 Use the pr-creation-agent to organize screenshots and create comprehensive PRs.
 ```
+
+**Note**: The pr-creation-agent has limited tools (Read, Write, Edit, Glob, Grep, LS) for safety.
 
 #### Recover Session Context
 ```

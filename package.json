@@ -33,7 +33,7 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
     "typecheck:ui": "cd ui && pnpm type-check",
-    "typecheck:all": "pnpm typecheck && pnpm typecheck:ui",
+    "typecheck:all": "pnpm typecheck && pnpm typecheck:ui && pnpm lint",
     "clean": "rimraf dist",
     "clean:all": "pnpm dev:down && docker system prune -af --volumes && rimraf dist",
     "clean:containers": "docker ps -aq | xargs -r docker rm -f 2>/dev/null || true",

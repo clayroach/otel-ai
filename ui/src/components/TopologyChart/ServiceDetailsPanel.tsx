@@ -147,7 +147,7 @@ export const ServiceDetailsPanel: React.FC<ServiceDetailsPanelProps> = ({
         offsetCenter: [0, '-10%']
       },
       data: [{
-        value: metrics.errorRate.toFixed(2)
+        value: parseFloat(metrics.errorRate.toFixed(2))
       }]
     }]
   })
