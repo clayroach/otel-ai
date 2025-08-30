@@ -46,7 +46,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
         // Transform backend data to match our expected structure
         const transformedData = {
           ...response.data,
-          nodes: response.data.nodes?.map((node: any) => ({
+          nodes: response.data.nodes?.map((node: ServiceNode) => ({
             ...node,
             // Ensure metrics have the expected structure
             metrics: node.metrics ? {
