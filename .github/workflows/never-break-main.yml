@@ -56,9 +56,6 @@ jobs:
       - name: Code quality (ESLint)
         run: pnpm lint
         
-      - name: Code formatting (Prettier)
-        run: pnpm format:check
-        
       - name: Unit tests
         run: pnpm test
 
@@ -98,6 +95,9 @@ jobs:
           echo "📦 Installing workspace dependencies (skipping optional native compilation)..."
           # Update lockfiles to match package.json, then skip post-install scripts to avoid node-gyp issues
           pnpm install --ignore-scripts
+          
+      - name: Code formatting (Prettier)
+        run: pnpm format:check
           
       - name: Build required Docker images
         run: |
