@@ -9,7 +9,7 @@ import { Badge, Card, Col, Row, Space, Tag, Typography, Divider } from 'antd'
 import type { EChartsOption, GraphSeriesOption } from 'echarts'
 import ReactECharts from 'echarts-for-react'
 import type { CallbackDataParams } from 'echarts/types/dist/shared'
-import React, { useRef, useState } from 'react'
+import React, { useRef } from 'react'
 import { generateHealthExplanation } from './healthExplanations'
 
 const { Text } = Typography
@@ -145,13 +145,7 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
   height = 600,
   filteredHealthStatuses = []
 }) => {
-  const [selectedNode, setSelectedNode] = useState<string | null>(null)
   const chartRef = useRef<ReactECharts | null>(null)
-  
-  // Log selected node (for debugging)
-  if (selectedNode) {
-    console.debug('Selected node:', selectedNode)
-  }
 
   // Process nodes to add health coloring
   const processedNodes = data.nodes.map(node => {
@@ -238,7 +232,10 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
       },
       tooltip: {
         trigger: 'item',
-        position: 'top',
+        position: function(point: number[]) {
+          // Position tooltip to bottom-left of cursor
+          return [point[0] - 10, point[1] + 10]
+        },
         confine: true,
         formatter: (params: CallbackDataParams | CallbackDataParams[]) => {
           if (!Array.isArray(params)) {
@@ -374,7 +371,6 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
 
   const onChartClick = (params: { dataType: string; data: ServiceNode }) => {
     if (params.dataType === 'node') {
-      setSelectedNode(params.data.id)
       if (onNodeClick) {
         onNodeClick(params.data)
       }
