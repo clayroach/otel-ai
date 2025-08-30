@@ -61,6 +61,29 @@ Adopt a **monolithic deployment strategy** where frontend and backend run togeth
 - Larger single container (acceptable for single-developer project)
 - Frontend and backend coupled in deployment (intentional for simplicity)
 
+## Implementation Todos (Day 18)
+
+### UI Directory Consolidation (30 minutes maximum)
+
+**Current State**: UI directory exists separately from main src structure
+**Target State**: UI moved into src/ui following project patterns
+**Time Box**: Exactly 30 minutes
+
+**Tasks:**
+- [ ] **Assess current UI directory structure and dependencies**
+- [ ] **Create src/ui directory with proper subdirectories**  
+- [ ] **Move UI source files to src/ui**
+- [ ] **Update package.json workspace configuration**
+- [ ] **Fix import paths and dependencies**
+- [ ] **Validate UI builds and runs correctly**
+- [ ] **Clean up old UI directory after validation**
+
+**Success Criteria:**
+- [ ] UI successfully moved to src/ui structure
+- [ ] Development server starts without errors
+- [ ] All UI functionality works as before
+- [ ] Project follows monolithic deployment pattern
+
 ## Future Considerations
 - Can split back to microservices if scaling needs require it
 - This approach is optimal for AI-assisted single-developer projects
