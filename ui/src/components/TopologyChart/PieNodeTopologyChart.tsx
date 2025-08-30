@@ -117,10 +117,15 @@ const getRuntimeIcon = (runtime?: string): string => {
 
 const getNodeHealthStatus = (metrics?: ServiceMetricsDetail): string => {
   if (!metrics) return 'unknown'
-  
-  const statuses = [metrics.rateStatus, metrics.errorStatus, metrics.durationStatus, metrics.otelStatus]
+
+  const statuses = [
+    metrics.rateStatus,
+    metrics.errorStatus,
+    metrics.durationStatus,
+    metrics.otelStatus
+  ]
   const maxStatus = Math.max(...statuses)
-  
+
   if (maxStatus === 2) return 'critical'
   if (maxStatus === 1) return 'warning'
   return 'healthy'
@@ -129,17 +134,22 @@ const getNodeHealthStatus = (metrics?: ServiceMetricsDetail): string => {
 // Calculate overall node health color based on metrics
 const getNodeOverallHealthColor = (metrics?: ServiceMetricsDetail): string => {
   if (!metrics) return '#8c8c8c'
-  
-  const statuses = [metrics.rateStatus, metrics.errorStatus, metrics.durationStatus, metrics.otelStatus]
+
+  const statuses = [
+    metrics.rateStatus,
+    metrics.errorStatus,
+    metrics.durationStatus,
+    metrics.otelStatus
+  ]
   const maxStatus = Math.max(...statuses)
-  
+
   if (maxStatus === 2) return '#f5222d' // Critical
   if (maxStatus === 1) return '#faad14' // Warning
   return '#52c41a' // Healthy
 }
 
-export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({ 
-  data, 
+export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
+  data,
   onNodeClick,
   onHealthFilter,
   height = 600,
@@ -148,9 +158,9 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
   const chartRef = useRef<ReactECharts | null>(null)
 
   // Process nodes to add health coloring
-  const processedNodes = data.nodes.map(node => {
+  const processedNodes = data.nodes.map((node) => {
     const healthColor = getNodeOverallHealthColor(node.metrics)
-    
+
     return {
       ...node,
       name: `${getRuntimeIcon(node.category)} ${node.name}`,
@@ -165,17 +175,18 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
   })
 
   // Filter nodes based on health status if filters are active
-  const filteredNodes = filteredHealthStatuses.length > 0 
-    ? processedNodes.filter(node => {
-        const status = getNodeHealthStatus(node.metrics)
-        return filteredHealthStatuses.includes(status)
-      })
-    : processedNodes
+  const filteredNodes =
+    filteredHealthStatuses.length > 0
+      ? processedNodes.filter((node) => {
+          const status = getNodeHealthStatus(node.metrics)
+          return filteredHealthStatuses.includes(status)
+        })
+      : processedNodes
 
   // Filter edges to only show connections between visible nodes
-  const visibleNodeIds = new Set(filteredNodes.map(n => n.id))
-  const filteredEdges = data.edges.filter(edge => 
-    visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target)
+  const visibleNodeIds = new Set(filteredNodes.map((n) => n.id))
+  const filteredEdges = data.edges.filter(
+    (edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target)
   )
 
   const getOption = (): EChartsOption => {
@@ -184,7 +195,7 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
       type: 'graph',
       layout: 'force',
       data: filteredNodes,
-      links: filteredEdges.map(edge => ({
+      links: filteredEdges.map((edge) => ({
         ...edge,
         // Add arrow to show direction
         symbol: ['none', 'arrow'] as ['none', 'arrow'],
@@ -198,7 +209,7 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
       roam: true,
       draggable: true,
       focusNodeAdjacency: true,
-      categories: data.runtimeEnvironments?.map(runtime => ({
+      categories: data.runtimeEnvironments?.map((runtime) => ({
         name: runtime,
         symbol: 'circle'
       })),
@@ -232,7 +243,7 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
       },
       tooltip: {
         trigger: 'item',
-        position: function(point: number[]) {
+        position: function (point: number[]) {
           // Position tooltip to bottom-left of cursor
           return [point[0] - 10, point[1] + 10]
         },
@@ -244,24 +255,28 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
               const nodeData = param.data as ServiceNode
               const metrics = nodeData.metrics
               const cleanName = nodeData.name?.replace(/^[^\s]+\s/, '') || 'Unknown'
-              
+
               if (!metrics) {
                 return `<div style="padding: 8px;">
                   <strong>${nodeData.name || 'Unknown'}</strong><br/>
                   No metrics available
                 </div>`
               }
-              
+
               const healthExplanation = generateHealthExplanation(cleanName, metrics)
-              const getStatusEmoji = (status: number) => 
+              const getStatusEmoji = (status: number) =>
                 status === 0 ? '✅' : status === 1 ? '⚠️' : '❌'
-              const getStatusColor = (status: string) => 
+              const getStatusColor = (status: string) =>
                 status === 'critical' ? '#ff4d4f' : status === 'warning' ? '#faad14' : '#52c41a'
-              
+
               // Simplified, more concise tooltip
-              const criticalIssues = healthExplanation.impactedMetrics.filter(m => m.status === 'critical')
-              const warningIssues = healthExplanation.impactedMetrics.filter(m => m.status === 'warning')
-              
+              const criticalIssues = healthExplanation.impactedMetrics.filter(
+                (m) => m.status === 'critical'
+              )
+              const warningIssues = healthExplanation.impactedMetrics.filter(
+                (m) => m.status === 'warning'
+              )
+
               return `
                 <div style="padding: 10px; max-width: 320px;">
                   <div style="margin-bottom: 8px;">
@@ -290,25 +305,36 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
                     </tr>
                   </table>
                   
-                  ${criticalIssues.length > 0 ? `
+                  ${
+                    criticalIssues.length > 0
+                      ? `
                     <div style="background: #fff2e8; padding: 6px; border-radius: 3px; margin-bottom: 6px;">
                       <div style="font-size: 10px; color: #d4380d; font-weight: bold;">⚠️ Critical Issues:</div>
-                      ${criticalIssues.map(i => `<div style="font-size: 10px; color: #8c5415;">• ${i.metric}: ${i.value}</div>`).join('')}
+                      ${criticalIssues.map((i) => `<div style="font-size: 10px; color: #8c5415;">• ${i.metric}: ${i.value}</div>`).join('')}
                     </div>
-                  ` : warningIssues.length > 0 ? `
+                  `
+                      : warningIssues.length > 0
+                        ? `
                     <div style="background: #fffbe6; padding: 6px; border-radius: 3px; margin-bottom: 6px;">
                       <div style="font-size: 10px; color: #d48806; font-weight: bold;">⚡ Warnings:</div>
-                      ${warningIssues.map(i => `<div style="font-size: 10px; color: #8c6516;">• ${i.metric}: ${i.value}</div>`).join('')}
+                      ${warningIssues.map((i) => `<div style="font-size: 10px; color: #8c6516;">• ${i.metric}: ${i.value}</div>`).join('')}
                     </div>
-                  ` : ''}
+                  `
+                        : ''
+                  }
                   
-                  ${healthExplanation.recommendations.length > 0 && healthExplanation.status !== 'healthy' ? `
+                  ${
+                    healthExplanation.recommendations.length > 0 &&
+                    healthExplanation.status !== 'healthy'
+                      ? `
                     <div style="border-top: 1px solid #e8e8e8; padding-top: 6px;">
                       <div style="font-size: 10px; color: #666;">
                         💡 ${healthExplanation.recommendations[0].substring(0, 80)}${healthExplanation.recommendations[0].length > 80 ? '...' : ''}
                       </div>
                     </div>
-                  ` : ''}
+                  `
+                      : ''
+                  }
                 </div>
               `
             } else if (param.dataType === 'edge' && param.data) {
@@ -317,11 +343,11 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
                 <div style="padding: 8px;">
                   <strong>${edgeData.source || 'Unknown'} → ${edgeData.target || 'Unknown'}</strong><br/>
                   Total Calls: ${edgeData.value || 0}<br/>`
-              
+
               if (edgeData.operations && edgeData.operations.length > 0) {
                 tooltip += `<div style="margin-top: 8px; font-size: 11px;">
                   <strong>Operations:</strong><br/>`
-                edgeData.operations.slice(0, 5).forEach(op => {
+                edgeData.operations.slice(0, 5).forEach((op) => {
                   tooltip += `• ${op.name}: ${op.count} calls (${op.avgDuration.toFixed(0)}ms)<br/>`
                 })
                 if (edgeData.operations.length > 5) {
@@ -329,7 +355,7 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
                 }
                 tooltip += '</div>'
               }
-              
+
               tooltip += '</div>'
               return tooltip
             }
@@ -347,10 +373,10 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
           itemHeight: 15,
           formatter: (name: string) => {
             const icons: Record<string, string> = {
-              'Rate': '📊',
-              'Errors': '⚠️',
-              'Duration': '⏱️',
-              'OTel': '📡'
+              Rate: '📊',
+              Errors: '⚠️',
+              Duration: '⏱️',
+              OTel: '📡'
             }
             return `${icons[name] || ''} ${name}`
           }
@@ -391,8 +417,8 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
               <Space size="large">
                 <Text strong>Service Health (click to filter):</Text>
                 <Badge count={data.healthSummary.healthy} showZero>
-                  <Tag 
-                    color="green" 
+                  <Tag
+                    color="green"
                     icon={<CheckCircleOutlined />}
                     style={{ cursor: 'pointer' }}
                     onClick={() => onHealthFilter && onHealthFilter('healthy')}
@@ -401,8 +427,8 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
                   </Tag>
                 </Badge>
                 <Badge count={data.healthSummary.warning} showZero>
-                  <Tag 
-                    color="yellow" 
+                  <Tag
+                    color="yellow"
                     icon={<WarningOutlined />}
                     style={{ cursor: 'pointer' }}
                     onClick={() => onHealthFilter && onHealthFilter('warning')}
@@ -411,8 +437,8 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
                   </Tag>
                 </Badge>
                 <Badge count={data.healthSummary.degraded} showZero>
-                  <Tag 
-                    color="orange" 
+                  <Tag
+                    color="orange"
                     icon={<AlertOutlined />}
                     style={{ cursor: 'pointer' }}
                     onClick={() => onHealthFilter && onHealthFilter('degraded')}
@@ -421,8 +447,8 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
                   </Tag>
                 </Badge>
                 <Badge count={data.healthSummary.critical} showZero>
-                  <Tag 
-                    color="red" 
+                  <Tag
+                    color="red"
                     icon={<HeartOutlined />}
                     style={{ cursor: 'pointer' }}
                     onClick={() => onHealthFilter && onHealthFilter('critical')}
@@ -431,8 +457,8 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
                   </Tag>
                 </Badge>
                 <Badge count={data.healthSummary.unavailable} showZero>
-                  <Tag 
-                    color="black" 
+                  <Tag
+                    color="black"
                     icon={<StopOutlined />}
                     style={{ cursor: 'pointer' }}
                     onClick={() => onHealthFilter && onHealthFilter('unavailable')}
@@ -441,11 +467,7 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
                   </Tag>
                 </Badge>
                 {filteredHealthStatuses.length > 0 && (
-                  <Tag 
-                    color="blue" 
-                    closable
-                    onClose={() => onHealthFilter && onHealthFilter('')}
-                  >
+                  <Tag color="blue" closable onClose={() => onHealthFilter && onHealthFilter('')}>
                     Clear Filter
                   </Tag>
                 )}
@@ -470,12 +492,19 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
         <Space wrap>
           <Text strong>Node Health Status:</Text>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            Node colors indicate overall health based on RED metrics (Rate, Errors, Duration) and telemetry health.
+            Node colors indicate overall health based on RED metrics (Rate, Errors, Duration) and
+            telemetry health.
           </Text>
           <Divider type="vertical" />
-          <Tag color="green" style={{ fontSize: 12 }}>🟢 Healthy</Tag>
-          <Tag color="orange" style={{ fontSize: 12 }}>🟡 Warning</Tag>
-          <Tag color="red" style={{ fontSize: 12 }}>🔴 Critical</Tag>
+          <Tag color="green" style={{ fontSize: 12 }}>
+            🟢 Healthy
+          </Tag>
+          <Tag color="orange" style={{ fontSize: 12 }}>
+            🟡 Warning
+          </Tag>
+          <Tag color="red" style={{ fontSize: 12 }}>
+            🔴 Critical
+          </Tag>
         </Space>
       </Card>
     </div>

@@ -6,9 +6,9 @@
  */
 
 import { Effect } from 'effect'
-import type { 
-  ServiceTopology, 
-  ApplicationArchitecture, 
+import type {
+  ServiceTopology,
+  ApplicationArchitecture,
   AnalysisError,
   TopologyVisualizationData,
   ServiceNode,
@@ -383,16 +383,19 @@ export const buildTopologyVisualizationData = (
   // Create nodes from services with health status
   const nodes: ServiceNode[] = []
   const nodeMap = new Map<string, ServiceNode>()
-  
+
   // Group topology data by service for aggregated metrics
-  const serviceMetrics = new Map<string, {
-    totalSpans: number
-    errorRate: number
-    p95Duration: number
-    rate: number
-    health: ServiceTopologyRaw['health_status']
-    runtime?: string
-  }>()
+  const serviceMetrics = new Map<
+    string,
+    {
+      totalSpans: number
+      errorRate: number
+      p95Duration: number
+      rate: number
+      health: ServiceTopologyRaw['health_status']
+      runtime?: string
+    }
+  >()
 
   topologyData.forEach((raw) => {
     const existing = serviceMetrics.get(raw.service_name)
@@ -411,11 +414,11 @@ export const buildTopologyVisualizationData = (
         rate: raw.rate_per_second,
         health: raw.health_status
       }
-      
+
       if (raw.runtime_language) {
         metrics.runtime = raw.runtime_language
       }
-      
+
       serviceMetrics.set(raw.service_name, metrics)
     }
   })
@@ -449,7 +452,7 @@ export const buildTopologyVisualizationData = (
   dependencyData.forEach((dep) => {
     const sourceNode = nodeMap.get(dep.service_name)
     const targetNode = nodeMap.get(dep.dependent_service)
-    
+
     if (sourceNode && targetNode) {
       edges.push({
         source: dep.service_name,
@@ -493,11 +496,9 @@ export const buildTopologyVisualizationData = (
   })
 
   // Extract unique runtime environments
-  const runtimeEnvironments = [...new Set(
-    topologyData
-      .map(t => t.runtime_language)
-      .filter((r): r is string => Boolean(r))
-  )]
+  const runtimeEnvironments = [
+    ...new Set(topologyData.map((t) => t.runtime_language).filter((r): r is string => Boolean(r)))
+  ]
 
   return {
     ...architecture,
@@ -518,14 +519,16 @@ export const discoverTopologyWithVisualization = (
 ): Effect.Effect<TopologyVisualizationData, AnalysisError, never> =>
   Effect.gen(function* (_) {
     // First, build the base application architecture
-    const architecture = yield* _(discoverApplicationTopology(topologyData, dependencyData, traceFlows))
-    
+    const architecture = yield* _(
+      discoverApplicationTopology(topologyData, dependencyData, traceFlows)
+    )
+
     // Then enhance it with visualization data
     const visualizationData = buildTopologyVisualizationData(
       topologyData,
       dependencyData,
       architecture
     )
-    
+
     return visualizationData
   })

@@ -34,24 +34,37 @@ interface ServiceDetailsPanelProps {
 
 const getHealthColor = (status: string): string => {
   switch (status) {
-    case 'healthy': return '#52c41a'
-    case 'warning': return '#faad14'
-    case 'degraded': return '#fa8c16'
-    case 'critical': return '#f5222d'
-    case 'unavailable': return '#262626'
-    default: return '#8c8c8c'
+    case 'healthy':
+      return '#52c41a'
+    case 'warning':
+      return '#faad14'
+    case 'degraded':
+      return '#fa8c16'
+    case 'critical':
+      return '#f5222d'
+    case 'unavailable':
+      return '#262626'
+    default:
+      return '#8c8c8c'
   }
 }
 
 const getServiceIcon = (type: string) => {
   switch (type) {
-    case 'api': return <ApiOutlined />
-    case 'database': return <DatabaseOutlined />
-    case 'frontend': return '🌐'
-    case 'backend': return '⚙️'
-    case 'cache': return '📦'
-    case 'queue': return '📬'
-    default: return '🔧'
+    case 'api':
+      return <ApiOutlined />
+    case 'database':
+      return <DatabaseOutlined />
+    case 'frontend':
+      return '🌐'
+    case 'backend':
+      return '⚙️'
+    case 'cache':
+      return '📦'
+    case 'queue':
+      return '📬'
+    default:
+      return '🔧'
   }
 }
 
@@ -79,77 +92,81 @@ export const ServiceDetailsPanel: React.FC<ServiceDetailsPanelProps> = ({
       type: 'value',
       show: false
     },
-    series: [{
-      data: Array.from({ length: 20 }, () => 
-        metrics.rate * (0.8 + Math.random() * 0.4)
-      ),
-      type: 'line',
-      smooth: true,
-      symbol: 'none',
-      lineStyle: {
-        color: '#1890ff',
-        width: 2
-      },
-      areaStyle: {
-        color: {
-          type: 'linear',
-          x: 0,
-          y: 0,
-          x2: 0,
-          y2: 1,
-          colorStops: [
-            { offset: 0, color: 'rgba(24, 144, 255, 0.3)' },
-            { offset: 1, color: 'rgba(24, 144, 255, 0.05)' }
-          ]
+    series: [
+      {
+        data: Array.from({ length: 20 }, () => metrics.rate * (0.8 + Math.random() * 0.4)),
+        type: 'line',
+        smooth: true,
+        symbol: 'none',
+        lineStyle: {
+          color: '#1890ff',
+          width: 2
+        },
+        areaStyle: {
+          color: {
+            type: 'linear',
+            x: 0,
+            y: 0,
+            x2: 0,
+            y2: 1,
+            colorStops: [
+              { offset: 0, color: 'rgba(24, 144, 255, 0.3)' },
+              { offset: 1, color: 'rgba(24, 144, 255, 0.05)' }
+            ]
+          }
         }
       }
-    }]
+    ]
   })
 
   // Error rate gauge chart
   const getErrorGaugeOption = (): EChartsOption => ({
-    series: [{
-      type: 'gauge',
-      startAngle: 180,
-      endAngle: 0,
-      radius: '100%',
-      center: ['50%', '70%'],
-      axisLine: {
-        lineStyle: {
-          width: 10,
-          color: [
-            [0.3, '#52c41a'],
-            [0.7, '#faad14'],
-            [1, '#f5222d']
-          ]
-        }
-      },
-      pointer: {
-        itemStyle: {
-          color: 'auto'
+    series: [
+      {
+        type: 'gauge',
+        startAngle: 180,
+        endAngle: 0,
+        radius: '100%',
+        center: ['50%', '70%'],
+        axisLine: {
+          lineStyle: {
+            width: 10,
+            color: [
+              [0.3, '#52c41a'],
+              [0.7, '#faad14'],
+              [1, '#f5222d']
+            ]
+          }
         },
-        length: '60%',
-        width: 4
-      },
-      axisTick: {
-        show: false
-      },
-      splitLine: {
-        show: false
-      },
-      axisLabel: {
-        show: false
-      },
-      detail: {
-        valueAnimation: true,
-        formatter: '{value}%',
-        fontSize: 14,
-        offsetCenter: [0, '-10%']
-      },
-      data: [{
-        value: parseFloat(metrics.errorRate.toFixed(2))
-      }]
-    }]
+        pointer: {
+          itemStyle: {
+            color: 'auto'
+          },
+          length: '60%',
+          width: 4
+        },
+        axisTick: {
+          show: false
+        },
+        splitLine: {
+          show: false
+        },
+        axisLabel: {
+          show: false
+        },
+        detail: {
+          valueAnimation: true,
+          formatter: '{value}%',
+          fontSize: 14,
+          offsetCenter: [0, '-10%']
+        },
+        data: [
+          {
+            value: parseFloat(metrics.errorRate.toFixed(2))
+          }
+        ]
+      }
+    ]
   })
 
   // Duration histogram
@@ -177,37 +194,41 @@ export const ServiceDetailsPanel: React.FC<ServiceDetailsPanelProps> = ({
         fontSize: 10
       }
     },
-    series: [{
-      data: [
-        metrics.duration * 0.5,
-        metrics.duration * 0.75,
-        metrics.duration * 0.9,
-        metrics.duration,
-        metrics.duration * 1.5
-      ],
-      type: 'bar',
-      itemStyle: {
-        color: {
-          type: 'linear',
-          x: 0,
-          y: 0,
-          x2: 0,
-          y2: 1,
-          colorStops: [
-            { offset: 0, color: '#40a9ff' },
-            { offset: 1, color: '#1890ff' }
-          ]
+    series: [
+      {
+        data: [
+          metrics.duration * 0.5,
+          metrics.duration * 0.75,
+          metrics.duration * 0.9,
+          metrics.duration,
+          metrics.duration * 1.5
+        ],
+        type: 'bar',
+        itemStyle: {
+          color: {
+            type: 'linear',
+            x: 0,
+            y: 0,
+            x2: 0,
+            y2: 1,
+            colorStops: [
+              { offset: 0, color: '#40a9ff' },
+              { offset: 1, color: '#1890ff' }
+            ]
+          }
         }
       }
-    }]
+    ]
   })
 
   return (
-    <Card 
+    <Card
       title={
         <Space>
           <span style={{ fontSize: 18 }}>{getServiceIcon(serviceType)}</span>
-          <Title level={4} style={{ margin: 0 }}>{serviceName}</Title>
+          <Title level={4} style={{ margin: 0 }}>
+            {serviceName}
+          </Title>
           <Tag color={getHealthColor(healthStatus)}>{healthStatus.toUpperCase()}</Tag>
           {runtime && <Tag>{runtime}</Tag>}
         </Space>
@@ -255,9 +276,13 @@ export const ServiceDetailsPanel: React.FC<ServiceDetailsPanelProps> = ({
               precision={0}
               prefix={<ClockCircleOutlined />}
               suffix="ms"
-              valueStyle={{ 
-                color: metrics.duration > 1000 ? '#ff4d4f' : 
-                       metrics.duration > 500 ? '#faad14' : '#52c41a' 
+              valueStyle={{
+                color:
+                  metrics.duration > 1000
+                    ? '#ff4d4f'
+                    : metrics.duration > 500
+                      ? '#faad14'
+                      : '#52c41a'
               }}
             />
             <Progress
@@ -291,8 +316,8 @@ export const ServiceDetailsPanel: React.FC<ServiceDetailsPanelProps> = ({
 
         {/* Dependencies */}
         <Col span={12}>
-          <Card 
-            size="small" 
+          <Card
+            size="small"
             title="🔗 Dependencies"
             bodyStyle={{ padding: '12px', maxHeight: 180, overflowY: 'auto' }}
           >
@@ -300,7 +325,7 @@ export const ServiceDetailsPanel: React.FC<ServiceDetailsPanelProps> = ({
               <List
                 size="small"
                 dataSource={metrics.dependencies}
-                renderItem={dep => (
+                renderItem={(dep) => (
                   <List.Item>
                     <Space style={{ width: '100%', justifyContent: 'space-between' }}>
                       <Text>{dep.service}</Text>

@@ -10,7 +10,11 @@ import { Context, Effect, Stream, Layer } from 'effect'
 import express from 'express'
 import { AIAnalyzerService } from './ai-analyzer/index.js'
 import { generateInsights, generateRequestId } from './ai-analyzer/service.js'
-import type { ServiceTopologyRaw, ServiceDependencyRaw, TraceFlowRaw } from './ai-analyzer/queries.js'
+import type {
+  ServiceTopologyRaw,
+  ServiceDependencyRaw,
+  TraceFlowRaw
+} from './ai-analyzer/queries.js'
 import {
   ExportTraceServiceRequestSchema,
   KeyValue,
@@ -639,17 +643,20 @@ app.post('/api/ai-analyzer/topology-visualization', async (req, res) => {
     const result = await runStorageQuery(
       Effect.gen(function* () {
         const storage = yield* StorageAPIClientTag
-        
+
         const topologyQuery = ArchitectureQueries.getServiceTopology(timeRangeHours)
         const dependencyQuery = ArchitectureQueries.getServiceDependencies(timeRangeHours)
         const traceFlowQuery = ArchitectureQueries.getTraceFlows(100, timeRangeHours)
 
         // Run queries in parallel
-        const [topologyData, dependencyData, traceFlows] = yield* Effect.all([
-          storage.queryRaw(topologyQuery),
-          storage.queryRaw(dependencyQuery),
-          storage.queryRaw(traceFlowQuery)
-        ], { concurrency: 3 })
+        const [topologyData, dependencyData, traceFlows] = yield* Effect.all(
+          [
+            storage.queryRaw(topologyQuery),
+            storage.queryRaw(dependencyQuery),
+            storage.queryRaw(traceFlowQuery)
+          ],
+          { concurrency: 3 }
+        )
 
         console.log(`📊 Topology data: ${topologyData.length} services found`)
         console.log(`🔗 Dependency data: ${dependencyData.length} dependencies found`)
@@ -662,7 +669,9 @@ app.post('/api/ai-analyzer/topology-visualization', async (req, res) => {
           traceFlows as TraceFlowRaw[]
         )
 
-        console.log(`✨ Generated visualization with ${visualizationData.nodes.length} nodes and ${visualizationData.edges.length} edges`)
+        console.log(
+          `✨ Generated visualization with ${visualizationData.nodes.length} nodes and ${visualizationData.edges.length} edges`
+        )
         console.log(`🎯 Health summary:`, visualizationData.healthSummary)
 
         return visualizationData

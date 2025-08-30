@@ -46,10 +46,15 @@ export function generateHealthExplanation(
       status: 'critical',
       value: `${metrics.rate.toFixed(2)} req/s`,
       threshold: 'Baseline ±50%',
-      explanation: 'Traffic has deviated significantly from normal patterns, indicating potential issues or unusual load.'
+      explanation:
+        'Traffic has deviated significantly from normal patterns, indicating potential issues or unusual load.'
     })
-    details.push(`Request rate of ${metrics.rate.toFixed(2)} req/s is critically abnormal, deviating more than 50% from baseline.`)
-    recommendations.push('Investigate traffic sources and check for DDoS attacks or service degradation')
+    details.push(
+      `Request rate of ${metrics.rate.toFixed(2)} req/s is critically abnormal, deviating more than 50% from baseline.`
+    )
+    recommendations.push(
+      'Investigate traffic sources and check for DDoS attacks or service degradation'
+    )
   } else if (metrics.rateStatus === 1) {
     impactedMetrics.push({
       metric: 'Request Rate',
@@ -58,7 +63,9 @@ export function generateHealthExplanation(
       threshold: 'Baseline ±20-50%',
       explanation: 'Traffic is moderately different from expected patterns.'
     })
-    details.push(`Request rate shows moderate deviation (${metrics.rate.toFixed(2)} req/s) from expected baseline.`)
+    details.push(
+      `Request rate shows moderate deviation (${metrics.rate.toFixed(2)} req/s) from expected baseline.`
+    )
     recommendations.push('Monitor for trending issues and prepare to scale if needed')
   } else {
     impactedMetrics.push({
@@ -77,9 +84,12 @@ export function generateHealthExplanation(
       status: 'critical',
       value: `${metrics.errorRate.toFixed(2)}%`,
       threshold: '>5%',
-      explanation: 'High error rate indicates significant service reliability issues affecting user experience.'
+      explanation:
+        'High error rate indicates significant service reliability issues affecting user experience.'
     })
-    details.push(`Critical error rate of ${metrics.errorRate.toFixed(2)}% is causing failed requests and poor user experience.`)
+    details.push(
+      `Critical error rate of ${metrics.errorRate.toFixed(2)}% is causing failed requests and poor user experience.`
+    )
     recommendations.push('Check application logs for error patterns')
     recommendations.push('Review recent deployments for potential bugs')
     recommendations.push('Verify database connections and external dependencies')
@@ -91,7 +101,9 @@ export function generateHealthExplanation(
       threshold: '1-5%',
       explanation: 'Elevated errors may impact some users but service remains mostly functional.'
     })
-    details.push(`Error rate of ${metrics.errorRate.toFixed(2)}% is elevated and should be investigated.`)
+    details.push(
+      `Error rate of ${metrics.errorRate.toFixed(2)}% is elevated and should be investigated.`
+    )
     recommendations.push('Review error logs to identify patterns')
     recommendations.push('Consider implementing retry logic for transient failures')
   } else {
@@ -111,9 +123,12 @@ export function generateHealthExplanation(
       status: 'critical',
       value: `${metrics.duration.toFixed(0)}ms`,
       threshold: '>500ms',
-      explanation: 'Response times are critically slow, severely impacting user experience and potentially causing timeouts.'
+      explanation:
+        'Response times are critically slow, severely impacting user experience and potentially causing timeouts.'
     })
-    details.push(`P95 latency of ${metrics.duration.toFixed(0)}ms is critically high, causing slow user experiences.`)
+    details.push(
+      `P95 latency of ${metrics.duration.toFixed(0)}ms is critically high, causing slow user experiences.`
+    )
     recommendations.push('Profile the application to identify performance bottlenecks')
     recommendations.push('Check database query performance and add indexes if needed')
     recommendations.push('Consider implementing caching for frequently accessed data')
@@ -123,9 +138,12 @@ export function generateHealthExplanation(
       status: 'warning',
       value: `${metrics.duration.toFixed(0)}ms`,
       threshold: '100-500ms',
-      explanation: 'Response times are slower than optimal but still acceptable for most operations.'
+      explanation:
+        'Response times are slower than optimal but still acceptable for most operations.'
     })
-    details.push(`P95 latency of ${metrics.duration.toFixed(0)}ms is higher than optimal, may impact user satisfaction.`)
+    details.push(
+      `P95 latency of ${metrics.duration.toFixed(0)}ms is higher than optimal, may impact user satisfaction.`
+    )
     recommendations.push('Optimize database queries and API calls')
     recommendations.push('Consider implementing response caching')
   } else {
@@ -145,7 +163,8 @@ export function generateHealthExplanation(
       status: 'critical',
       value: `${metrics.spanCount} spans`,
       threshold: 'Critically low',
-      explanation: 'Telemetry collection is severely impaired, limiting observability into service behavior.'
+      explanation:
+        'Telemetry collection is severely impaired, limiting observability into service behavior.'
     })
     details.push('OpenTelemetry instrumentation is critically impaired or missing spans.')
     recommendations.push('Verify OpenTelemetry SDK initialization and configuration')
@@ -156,7 +175,8 @@ export function generateHealthExplanation(
       status: 'warning',
       value: `${metrics.spanCount} spans`,
       threshold: 'Below expected',
-      explanation: 'Telemetry collection is partially degraded, some observability data may be missing.'
+      explanation:
+        'Telemetry collection is partially degraded, some observability data may be missing.'
     })
     details.push('OpenTelemetry span collection is below expected levels.')
     recommendations.push('Review sampling configuration and adjust if needed')
@@ -171,27 +191,38 @@ export function generateHealthExplanation(
   }
 
   // Determine overall status
-  const statuses = [metrics.rateStatus, metrics.errorStatus, metrics.durationStatus, metrics.otelStatus]
+  const statuses = [
+    metrics.rateStatus,
+    metrics.errorStatus,
+    metrics.durationStatus,
+    metrics.otelStatus
+  ]
   const maxStatus = Math.max(...statuses)
-  
+
   let status: HealthExplanation['status'] = 'healthy'
   let summary = ''
-  
+
   if (maxStatus === 2) {
     status = 'critical'
-    const criticalMetrics = impactedMetrics.filter(m => m.status === 'critical').map(m => m.metric)
+    const criticalMetrics = impactedMetrics
+      .filter((m) => m.status === 'critical')
+      .map((m) => m.metric)
     summary = `${serviceName} is experiencing critical issues with ${criticalMetrics.join(', ')}. Immediate action required.`
-    
+
     // Add urgent recommendations for critical status
     if (metrics.errorRate > 10) {
-      recommendations.unshift('URGENT: Consider circuit breaker activation to prevent cascade failures')
+      recommendations.unshift(
+        'URGENT: Consider circuit breaker activation to prevent cascade failures'
+      )
     }
     if (metrics.duration > 1000) {
       recommendations.unshift('URGENT: Implement request timeouts to prevent resource exhaustion')
     }
   } else if (maxStatus === 1) {
     status = 'warning'
-    const warningMetrics = impactedMetrics.filter(m => m.status === 'warning').map(m => m.metric)
+    const warningMetrics = impactedMetrics
+      .filter((m) => m.status === 'warning')
+      .map((m) => m.metric)
     summary = `${serviceName} is showing degraded performance in ${warningMetrics.join(', ')}. Monitoring recommended.`
   } else {
     status = 'healthy'
@@ -202,11 +233,15 @@ export function generateHealthExplanation(
 
   // Add contextual recommendations based on combinations
   if (metrics.errorStatus >= 1 && metrics.durationStatus >= 1) {
-    recommendations.push('Combined high errors and latency suggest infrastructure or dependency issues')
+    recommendations.push(
+      'Combined high errors and latency suggest infrastructure or dependency issues'
+    )
   }
-  
+
   if (metrics.rateStatus === 2 && metrics.errorStatus === 0) {
-    recommendations.push('High traffic with low errors indicates successful scaling - monitor resource usage')
+    recommendations.push(
+      'High traffic with low errors indicates successful scaling - monitor resource usage'
+    )
   }
 
   return {
@@ -221,23 +256,26 @@ export function generateHealthExplanation(
 /**
  * Generate a concise health summary for tooltips
  */
-export function getHealthTooltipSummary(serviceName: string, metrics?: ServiceMetricsDetail): string {
+export function getHealthTooltipSummary(
+  serviceName: string,
+  metrics?: ServiceMetricsDetail
+): string {
   const explanation = generateHealthExplanation(serviceName, metrics)
-  
+
   if (explanation.status === 'unknown') {
     return 'No metrics available'
   }
-  
-  const criticalMetrics = explanation.impactedMetrics.filter(m => m.status === 'critical')
-  const warningMetrics = explanation.impactedMetrics.filter(m => m.status === 'warning')
-  
+
+  const criticalMetrics = explanation.impactedMetrics.filter((m) => m.status === 'critical')
+  const warningMetrics = explanation.impactedMetrics.filter((m) => m.status === 'warning')
+
   if (criticalMetrics.length > 0) {
-    return `⚠️ CRITICAL: ${criticalMetrics.map(m => `${m.metric} (${m.value})`).join(', ')}`
+    return `⚠️ CRITICAL: ${criticalMetrics.map((m) => `${m.metric} (${m.value})`).join(', ')}`
   }
-  
+
   if (warningMetrics.length > 0) {
-    return `⚡ WARNING: ${warningMetrics.map(m => `${m.metric} (${m.value})`).join(', ')}`
+    return `⚡ WARNING: ${warningMetrics.map((m) => `${m.metric} (${m.value})`).join(', ')}`
   }
-  
+
   return '✅ All metrics healthy'
 }

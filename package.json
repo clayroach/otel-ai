@@ -14,7 +14,7 @@
     "dev": "tsx --watch src/index.ts",
     "start": "node dist/index.js",
     "test": "vitest run",
-    "test:coverage": "vitest --coverage",
+    "test:coverage": "vitest run --coverage",
     "test:coverage:ui": "vitest --coverage --ui",
     "test:coverage:watch": "vitest --coverage --watch",
     "test:integration": "vitest run --config vitest.integration.config.ts",

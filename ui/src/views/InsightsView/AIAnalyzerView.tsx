@@ -1053,7 +1053,7 @@ const AIAnalyzerView: React.FC = () => {
 
             {/* Force-Directed Topology Visualization Tab */}
             <TabPane tab="🌐 Topology Graph" key="topology">
-              <TopologyTab 
+              <TopologyTab
                 timeRange={timeRange ? [timeRange[0].toDate(), timeRange[1].toDate()] : undefined}
                 autoRefresh={false}
               />

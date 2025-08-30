@@ -3,14 +3,13 @@ import ReactECharts from 'echarts-for-react'
 import type { EChartsOption, GraphSeriesOption } from 'echarts'
 import type { CallbackDataParams } from 'echarts/types/dist/shared'
 import { Card, Space, Tag, Row, Col, Typography, Badge } from 'antd'
-import { 
+import {
   HeartOutlined,
   WarningOutlined,
   AlertOutlined,
   StopOutlined,
-  CheckCircleOutlined 
+  CheckCircleOutlined
 } from '@ant-design/icons'
-
 
 const { Text } = Typography
 
@@ -90,16 +89,16 @@ const getRuntimeIcon = (runtime?: string): string => {
 //   return <StopOutlined style={{ color: '#262626' }} />
 // }
 
-export const TopologyChart: React.FC<TopologyChartProps> = ({ 
-  data, 
+export const TopologyChart: React.FC<TopologyChartProps> = ({
+  data,
   onNodeClick,
-  height = 600 
+  height = 600
 }) => {
   // Track selected node for future enhancements
   const [selectedNode, setSelectedNode] = useState<string | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chartRef = useRef<any>(null)
-  
+
   // Log selected node (for debugging)
   if (selectedNode) {
     console.debug('Selected node:', selectedNode)
@@ -107,7 +106,7 @@ export const TopologyChart: React.FC<TopologyChartProps> = ({
 
   const getOption = (): EChartsOption => {
     // Transform nodes to include runtime icons in labels
-    const nodesWithIcons = data.nodes.map(node => ({
+    const nodesWithIcons = data.nodes.map((node) => ({
       ...node,
       name: `${getRuntimeIcon(node.category)} ${node.name}`,
       value: node.metrics?.rate || 1
@@ -122,7 +121,7 @@ export const TopologyChart: React.FC<TopologyChartProps> = ({
       roam: true,
       draggable: true,
       focusNodeAdjacency: true,
-      categories: data.runtimeEnvironments?.map(runtime => ({
+      categories: data.runtimeEnvironments?.map((runtime) => ({
         name: runtime,
         symbol: 'circle'
       })),
@@ -163,18 +162,25 @@ export const TopologyChart: React.FC<TopologyChartProps> = ({
           if (!Array.isArray(params)) {
             const param = params
             if (param.dataType === 'node' && param.data) {
-              const nodeData = param.data as { name?: string; metrics?: { rate: number; errorRate: number; duration: number } }
+              const nodeData = param.data as {
+                name?: string
+                metrics?: { rate: number; errorRate: number; duration: number }
+              }
               const metrics = nodeData.metrics
               return `
                 <div style="padding: 8px;">
                   <strong>${nodeData.name || 'Unknown'}</strong><br/>
-                  ${metrics ? `
+                  ${
+                    metrics
+                      ? `
                     <div style="margin-top: 8px;">
                       📊 Rate: ${metrics.rate.toFixed(2)} req/s<br/>
                       ⚠️ Error Rate: ${metrics.errorRate.toFixed(2)}%<br/>
                       ⏱️ P95 Duration: ${metrics.duration.toFixed(0)}ms
                     </div>
-                  ` : 'No metrics available'}
+                  `
+                      : 'No metrics available'
+                  }
                 </div>
               `
             } else if (param.dataType === 'edge' && param.data) {
@@ -225,19 +231,29 @@ export const TopologyChart: React.FC<TopologyChartProps> = ({
               <Space size="large">
                 <Text strong>Service Health:</Text>
                 <Badge count={data.healthSummary.healthy} showZero>
-                  <Tag color="green" icon={<CheckCircleOutlined />}>Healthy</Tag>
+                  <Tag color="green" icon={<CheckCircleOutlined />}>
+                    Healthy
+                  </Tag>
                 </Badge>
                 <Badge count={data.healthSummary.warning} showZero>
-                  <Tag color="yellow" icon={<WarningOutlined />}>Warning</Tag>
+                  <Tag color="yellow" icon={<WarningOutlined />}>
+                    Warning
+                  </Tag>
                 </Badge>
                 <Badge count={data.healthSummary.degraded} showZero>
-                  <Tag color="orange" icon={<AlertOutlined />}>Degraded</Tag>
+                  <Tag color="orange" icon={<AlertOutlined />}>
+                    Degraded
+                  </Tag>
                 </Badge>
                 <Badge count={data.healthSummary.critical} showZero>
-                  <Tag color="red" icon={<HeartOutlined />}>Critical</Tag>
+                  <Tag color="red" icon={<HeartOutlined />}>
+                    Critical
+                  </Tag>
                 </Badge>
                 <Badge count={data.healthSummary.unavailable} showZero>
-                  <Tag color="black" icon={<StopOutlined />}>Unavailable</Tag>
+                  <Tag color="black" icon={<StopOutlined />}>
+                    Unavailable
+                  </Tag>
                 </Badge>
               </Space>
             </Card>
@@ -260,7 +276,7 @@ export const TopologyChart: React.FC<TopologyChartProps> = ({
         <Card size="small" style={{ marginTop: 16 }}>
           <Space wrap>
             <Text strong>Runtime Environments:</Text>
-            {data.runtimeEnvironments.map(runtime => (
+            {data.runtimeEnvironments.map((runtime) => (
               <Tag key={runtime} style={{ fontSize: 14 }}>
                 {getRuntimeIcon(runtime)} {runtime}
               </Tag>

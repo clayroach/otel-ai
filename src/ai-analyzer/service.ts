@@ -1063,14 +1063,15 @@ const transformTracesToTopology = (
   // Finalize service calculations - convert to match expected interface
   const topologyData: ServiceTopologyRaw[] = Array.from(serviceMap.values()).map((service) => {
     const avgDuration = service.total_spans > 0 ? service.total_duration / service.total_spans : 0
-    const errorRate = service.total_spans > 0 ? (service.error_spans / service.total_spans) * 100 : 0
-    
+    const errorRate =
+      service.total_spans > 0 ? (service.error_spans / service.total_spans) * 100 : 0
+
     // Calculate health status based on error rate
     let healthStatus: ServiceTopologyRaw['health_status'] = 'healthy'
     if (errorRate > 10) healthStatus = 'critical'
     else if (errorRate > 5) healthStatus = 'degraded'
     else if (errorRate > 2) healthStatus = 'warning'
-    
+
     return {
       service_name: service.service_name,
       operation_name: service.operation_name,

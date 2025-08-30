@@ -12,7 +12,7 @@ interface TopologyTabProps {
   refreshInterval?: number
 }
 
-export const TopologyTab: React.FC<TopologyTabProps> = ({ 
+export const TopologyTab: React.FC<TopologyTabProps> = ({
   timeRange,
   autoRefresh = false,
   refreshInterval = 30000 // 30 seconds
@@ -27,7 +27,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
   const fetchTopologyData = async () => {
     setLoading(true)
     setError(null)
-    
+
     try {
       const params: { startTime?: string; endTime?: string } = {}
       if (timeRange) {
@@ -46,60 +46,75 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
         // Transform backend data to match our expected structure
         const transformedData = {
           ...response.data,
-          nodes: response.data.nodes?.map((node: ServiceNode) => ({
-            ...node,
-            // Ensure metrics have the expected structure
-            metrics: node.metrics ? {
-              rate: node.metrics.rate || 0,
-              errorRate: node.metrics.errorRate || 0,
-              duration: node.metrics.duration || 0,
-              spanCount: node.metrics.spanCount || Math.floor(node.metrics.rate * 1000) || 1000,
-              // Calculate status based on service-specific thresholds
-              // Rate status: detect anomalies (too low or too high)
-              rateStatus: node.metrics.rate < 1 ? 1 : node.metrics.rate > 200 ? 1 : 0,
-              // Error status: stricter for critical services like payment
-              errorStatus: (() => {
-                const serviceName = node.name?.toLowerCase() || ''
-                if (serviceName.includes('payment') || serviceName.includes('checkout')) {
-                  // Critical services: stricter thresholds
-                  return node.metrics.errorRate > 0.5 ? 2 : node.metrics.errorRate > 0.1 ? 1 : 0
-                } else if (serviceName.includes('recommendation') || serviceName.includes('ad')) {
-                  // Non-critical services: more lenient
-                  return node.metrics.errorRate > 10 ? 2 : node.metrics.errorRate > 5 ? 1 : 0
-                } else {
-                  // Default thresholds
-                  return node.metrics.errorRate > 5 ? 2 : node.metrics.errorRate > 1 ? 1 : 0
-                }
-              })(),
-              // Duration status: varies by service type
-              durationStatus: (() => {
-                const serviceName = node.name?.toLowerCase() || ''
-                if (serviceName.includes('database') || serviceName.includes('redis')) {
-                  // Database services: expect fast responses
-                  return node.metrics.duration > 50 ? 2 : node.metrics.duration > 20 ? 1 : 0
-                } else if (serviceName.includes('frontend') || serviceName.includes('ui')) {
-                  // Frontend services: more lenient on latency
-                  return node.metrics.duration > 1000 ? 2 : node.metrics.duration > 500 ? 1 : 0
-                } else {
-                  // Backend services: standard thresholds
-                  return node.metrics.duration > 500 ? 2 : node.metrics.duration > 200 ? 1 : 0
-                }
-              })(),
-              // OTel status: based on span count (detect collection issues)
-              otelStatus: node.metrics.spanCount < 100 ? 1 : 0
-            } : {
-              rate: 0,
-              errorRate: 0,
-              duration: 0,
-              spanCount: 0,
-              rateStatus: 0,
-              errorStatus: 0,
-              durationStatus: 0,
-              otelStatus: 0
-            }
-          })) || []
+          nodes:
+            response.data.nodes?.map((node: ServiceNode) => ({
+              ...node,
+              // Ensure metrics have the expected structure
+              metrics: node.metrics
+                ? {
+                    rate: node.metrics.rate || 0,
+                    errorRate: node.metrics.errorRate || 0,
+                    duration: node.metrics.duration || 0,
+                    spanCount:
+                      node.metrics.spanCount || Math.floor(node.metrics.rate * 1000) || 1000,
+                    // Calculate status based on service-specific thresholds
+                    // Rate status: detect anomalies (too low or too high)
+                    rateStatus: node.metrics.rate < 1 ? 1 : node.metrics.rate > 200 ? 1 : 0,
+                    // Error status: stricter for critical services like payment
+                    errorStatus: (() => {
+                      const serviceName = node.name?.toLowerCase() || ''
+                      if (serviceName.includes('payment') || serviceName.includes('checkout')) {
+                        // Critical services: stricter thresholds
+                        return node.metrics.errorRate > 0.5
+                          ? 2
+                          : node.metrics.errorRate > 0.1
+                            ? 1
+                            : 0
+                      } else if (
+                        serviceName.includes('recommendation') ||
+                        serviceName.includes('ad')
+                      ) {
+                        // Non-critical services: more lenient
+                        return node.metrics.errorRate > 10 ? 2 : node.metrics.errorRate > 5 ? 1 : 0
+                      } else {
+                        // Default thresholds
+                        return node.metrics.errorRate > 5 ? 2 : node.metrics.errorRate > 1 ? 1 : 0
+                      }
+                    })(),
+                    // Duration status: varies by service type
+                    durationStatus: (() => {
+                      const serviceName = node.name?.toLowerCase() || ''
+                      if (serviceName.includes('database') || serviceName.includes('redis')) {
+                        // Database services: expect fast responses
+                        return node.metrics.duration > 50 ? 2 : node.metrics.duration > 20 ? 1 : 0
+                      } else if (serviceName.includes('frontend') || serviceName.includes('ui')) {
+                        // Frontend services: more lenient on latency
+                        return node.metrics.duration > 1000
+                          ? 2
+                          : node.metrics.duration > 500
+                            ? 1
+                            : 0
+                      } else {
+                        // Backend services: standard thresholds
+                        return node.metrics.duration > 500 ? 2 : node.metrics.duration > 200 ? 1 : 0
+                      }
+                    })(),
+                    // OTel status: based on span count (detect collection issues)
+                    otelStatus: node.metrics.spanCount < 100 ? 1 : 0
+                  }
+                : {
+                    rate: 0,
+                    errorRate: 0,
+                    duration: 0,
+                    spanCount: 0,
+                    rateStatus: 0,
+                    errorStatus: 0,
+                    durationStatus: 0,
+                    otelStatus: 0
+                  }
+            })) || []
         }
-        
+
         console.log('Transformed topology data:', transformedData)
         setTopologyData(transformedData)
         setLastUpdated(new Date())
@@ -109,7 +124,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
       console.error('Failed to fetch topology data:', err)
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch topology data'
       setError(errorMessage)
-      
+
       // Use mock data as fallback
       setTopologyData(getMockTopologyData())
       message.warning('Using mock topology data for demonstration')
@@ -149,9 +164,9 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
       setFilteredHealthStatuses([])
     } else {
       // Toggle the status in the filter list
-      setFilteredHealthStatuses(prev => {
+      setFilteredHealthStatuses((prev) => {
         if (prev.includes(status)) {
-          return prev.filter(s => s !== status)
+          return prev.filter((s) => s !== status)
         } else {
           return [...prev, status]
         }
@@ -185,10 +200,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
 
   if (!topologyData) {
     return (
-      <Empty
-        description="No topology data available"
-        image={Empty.PRESENTED_IMAGE_SIMPLE}
-      >
+      <Empty description="No topology data available" image={Empty.PRESENTED_IMAGE_SIMPLE}>
         <Button type="primary" onClick={handleRefresh}>
           Load Topology
         </Button>
@@ -201,8 +213,8 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
       {/* Action Bar */}
       <div style={{ marginBottom: 16 }}>
         <Space>
-          <Button 
-            icon={<ReloadOutlined spin={loading} />} 
+          <Button
+            icon={<ReloadOutlined spin={loading} />}
             onClick={handleRefresh}
             disabled={loading}
           >
@@ -214,9 +226,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
             </span>
           )}
           {autoRefresh && (
-            <span style={{ color: '#52c41a', fontSize: 12 }}>
-              ⚡ Auto-refresh enabled
-            </span>
+            <span style={{ color: '#52c41a', fontSize: 12 }}>⚡ Auto-refresh enabled</span>
           )}
         </Space>
       </div>
@@ -225,7 +235,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
       <Row gutter={16} style={{ height: 'calc(100% - 50px)' }}>
         {/* Topology Chart - Takes 70% width or 100% if no node selected */}
         <Col span={selectedNode ? 16 : 24}>
-          <PieNodeTopologyChart 
+          <PieNodeTopologyChart
             data={topologyData}
             onNodeClick={handleNodeClick}
             onHealthFilter={handleHealthFilter}
@@ -240,16 +250,18 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
             <EnhancedServiceDetailsPanel
               serviceName={selectedNode.name.replace(/^[^\s]+\s/, '')} // Remove icon prefix
               serviceType={getServiceType(selectedNode)}
-              metrics={selectedNode.metrics || {
-                rate: 0,
-                errorRate: 0,
-                duration: 0,
-                spanCount: 0,
-                rateStatus: 0,
-                errorStatus: 0,
-                durationStatus: 0,
-                otelStatus: 0
-              }}
+              metrics={
+                selectedNode.metrics || {
+                  rate: 0,
+                  errorRate: 0,
+                  duration: 0,
+                  spanCount: 0,
+                  rateStatus: 0,
+                  errorStatus: 0,
+                  durationStatus: 0,
+                  otelStatus: 0
+                }
+              }
               healthStatus={getHealthStatus(selectedNode.itemStyle?.color || '#8c8c8c')}
               runtime={selectedNode.category}
             />
@@ -264,7 +276,12 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
 const getServiceType = (node: ServiceNode): string => {
   // Try to infer from node properties or default to backend
   if (node.name.includes('gateway')) return 'api'
-  if (node.name.includes('database') || node.name.includes('postgres') || node.name.includes('mysql')) return 'database'
+  if (
+    node.name.includes('database') ||
+    node.name.includes('postgres') ||
+    node.name.includes('mysql')
+  )
+    return 'database'
   if (node.name.includes('redis') || node.name.includes('cache')) return 'cache'
   if (node.name.includes('frontend') || node.name.includes('ui')) return 'frontend'
   if (node.name.includes('queue') || node.name.includes('kafka')) return 'queue'
@@ -273,12 +290,18 @@ const getServiceType = (node: ServiceNode): string => {
 
 const getHealthStatus = (color: string): string => {
   switch (color) {
-    case '#52c41a': return 'healthy'
-    case '#faad14': return 'warning'
-    case '#fa8c16': return 'degraded'
-    case '#f5222d': return 'critical'
-    case '#262626': return 'unavailable'
-    default: return 'unknown'
+    case '#52c41a':
+      return 'healthy'
+    case '#faad14':
+      return 'warning'
+    case '#fa8c16':
+      return 'degraded'
+    case '#f5222d':
+      return 'critical'
+    case '#262626':
+      return 'unavailable'
+    default:
+      return 'unknown'
   }
 }
 
