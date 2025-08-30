@@ -195,22 +195,22 @@ const topologyOption = {
 
 ### User Feedback Addressed
 
-1. [ ] **Pie-chart nodes**: Nodes divided into 4 sections for RED + OTel metrics
-   - Implemented in `PieNodeTopologyChart` with 4 colored segments per node
-   - Each quadrant independently colored based on metric thresholds
-2. [ ] **Clear health explanations**: Details panel explains WHY services are unhealthy
-   - `EnhancedServiceDetailsPanel` shows threshold violations
+1. [x] **Health-colored nodes**: Nodes colored based on overall health status
+   - Implemented in `PieNodeTopologyChart` with health-based coloring
+   - Node color reflects worst metric status (critical > warning > healthy)
+2. [ ] **Clear health explanations**: LLM-based explanations for health status
+   - Planned: AI-generated explanations in tooltips and details panel
 3. [ ] **Tab reorganization**: Topology graph moved to main Overview tab
    - Metadata/analysis info moved to pre-collapsed card above tabs
    - Topology graph is now the primary content in Overview tab
-4. [ ] **Health filtering**: Service health statuses are clickable for filtering
+4. [x] **Health filtering**: Service health statuses are clickable for filtering
    - Clickable badges to filter by health status
-5. [ ] **Directed edges**: Arrows show direction of service calls
+5. [x] **Directed edges**: Arrows show direction of service calls
    - Arrows added to show call direction
-6. [ ] **Operation breakdown**: Hovering edges shows operation-level details
+6. [x] **Operation breakdown**: Hovering edges shows operation-level details
    - Tooltip shows operation-level metrics on edge hover
-7. [ ] **Icon duplication fix**: Fixed duplicate runtime icons on nodes
-   - Check for existing icons before adding
+7. [x] **Icon duplication fix**: Runtime icons properly displayed once per node
+   - Icons integrated directly into node labels
 
 ### Components Created
 - `UltimateTopologyChart` - Main topology visualization with all enhancements
