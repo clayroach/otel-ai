@@ -8,4 +8,6 @@ TODOs:
 * Refactor server.ts to simplify
 * Code coverage should be across all integration tests and identify any code we can remove
 * Identify hardcoded values and replace with a configuration engine, which starts with reasonable defaults
-* 
+* Prettifier standard per commit
+* Coverage agent that runs all tests with coverage and identifies code that isn't used/can be removed
+* Integration tests with and without demo - use canned demo data from previous runs with timestamps updated
