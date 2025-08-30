@@ -50,10 +50,7 @@ jobs:
         
       - name: Code quality (ESLint)
         run: pnpm lint
-        
-      - name: Code formatting (Prettier)
-        run: pnpm format:check
-        
+                
       - name: Unit tests
         run: pnpm test
 

@@ -45,7 +45,7 @@
     {
       "files": ["ui/**/*"],
       "rules": {
-        "@typescript-eslint/no-explicit-any": "warn",
+        "@typescript-eslint/no-explicit-any": "error",
         "no-undef": "warn",
         "no-useless-escape": "warn",
         "no-useless-catch": "warn",

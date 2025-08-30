@@ -75,7 +75,7 @@ For comprehensive documentation, component templates, and generation patterns, s
 
 ```bash
 # Unit tests
-pnpm test:unit
+pnpm test
 
 # Integration tests (requires LLM access)
 pnpm test:integration

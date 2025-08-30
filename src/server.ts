@@ -10,6 +10,11 @@ import { Context, Effect, Stream, Layer } from 'effect'
 import express from 'express'
 import { AIAnalyzerService } from './ai-analyzer/index.js'
 import { generateInsights, generateRequestId } from './ai-analyzer/service.js'
+import type {
+  ServiceTopologyRaw,
+  ServiceDependencyRaw,
+  TraceFlowRaw
+} from './ai-analyzer/queries.js'
 import {
   ExportTraceServiceRequestSchema,
   KeyValue,
@@ -618,6 +623,68 @@ app.post('/api/ai-analyzer/topology', async (req, res) => {
     res.status(500).json({
       error: 'Topology analysis failed',
       message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// New endpoint for topology visualization with force-directed graph data
+app.post('/api/ai-analyzer/topology-visualization', async (req, res) => {
+  try {
+    console.log('🎨 AI Analyzer topology visualization endpoint hit')
+
+    const { timeRange } = req.body
+    const timeRangeHours = timeRange?.hours || 24
+
+    // Import the necessary functions
+    const { ArchitectureQueries } = await import('./ai-analyzer/queries.js')
+    const { discoverTopologyWithVisualization } = await import('./ai-analyzer/topology.js')
+
+    // Execute queries to get raw topology data using Effect
+    const result = await runStorageQuery(
+      Effect.gen(function* () {
+        const storage = yield* StorageAPIClientTag
+
+        const topologyQuery = ArchitectureQueries.getServiceTopology(timeRangeHours)
+        const dependencyQuery = ArchitectureQueries.getServiceDependencies(timeRangeHours)
+        const traceFlowQuery = ArchitectureQueries.getTraceFlows(100, timeRangeHours)
+
+        // Run queries in parallel
+        const [topologyData, dependencyData, traceFlows] = yield* Effect.all(
+          [
+            storage.queryRaw(topologyQuery),
+            storage.queryRaw(dependencyQuery),
+            storage.queryRaw(traceFlowQuery)
+          ],
+          { concurrency: 3 }
+        )
+
+        console.log(`📊 Topology data: ${topologyData.length} services found`)
+        console.log(`🔗 Dependency data: ${dependencyData.length} dependencies found`)
+        console.log(`🌊 Trace flows: ${traceFlows.length} flows found`)
+
+        // Generate visualization data with nodes and edges
+        const visualizationData = yield* discoverTopologyWithVisualization(
+          topologyData as ServiceTopologyRaw[],
+          dependencyData as ServiceDependencyRaw[],
+          traceFlows as TraceFlowRaw[]
+        )
+
+        console.log(
+          `✨ Generated visualization with ${visualizationData.nodes.length} nodes and ${visualizationData.edges.length} edges`
+        )
+        console.log(`🎯 Health summary:`, visualizationData.healthSummary)
+
+        return visualizationData
+      })
+    )
+
+    res.json(result)
+  } catch (error) {
+    console.error('❌ Topology visualization error:', error)
+    res.status(500).json({
+      error: 'Topology visualization failed',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      details: error instanceof Error ? error.stack : undefined
     })
   }
 })

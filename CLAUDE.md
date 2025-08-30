@@ -127,6 +127,7 @@ The following agents are available in `.claude/agents/`:
 - **code-to-docs-sync-agent** - Bidirectional documentation synchronization
 - **pr-creation-agent** - PR creation with screenshot organization
 - **claude-review-session-agent** - Historical context recovery and development continuity
+- **code-implementation-agent** - Transform design documents into Effect-TS code with strong typing and tests
 
 ### Agent Usage Examples
 
@@ -157,12 +158,24 @@ Use the code-to-docs-sync-agent to ensure implementation and specs are aligned.
 
 #### Create Pull Request
 ```
+# IMPORTANT: Run these checks BEFORE using pr-creation-agent
+pnpm typecheck:all  # Ensure no TypeScript errors
+pnpm lint          # Ensure no linting issues
+
+# Then create PR (only after above pass)
 Use the pr-creation-agent to organize screenshots and create comprehensive PRs.
 ```
+
+**Note**: The pr-creation-agent has limited tools (Read, Write, Edit, Glob, Grep, LS) for safety.
 
 #### Recover Session Context
 ```
 Use the claude-review-session-agent to understand recent development context and identify gaps between planned and implemented features.
+```
+
+#### Implement Features from Design Documents
+```
+Use the code-implementation-agent when you have a design document or specification and need to implement production-ready code with Effect-TS patterns, strong typing, and comprehensive tests.
 ```
 
 ### Orchestration Patterns
@@ -170,16 +183,25 @@ Use the claude-review-session-agent to understand recent development context and
 **Daily Development Workflow**:
 1. Start day → `start-day-agent` sets goals
 2. Context recovery → `claude-review-session-agent` provides historical understanding
-3. Development work with periodic `testing-agent` validation
-4. Before commits → `code-review-agent` quality check
-5. After major changes → `code-to-docs-sync-agent` alignment
-6. End day → `end-day-agent` review and content generation
+3. Feature implementation → `code-implementation-agent` for design-to-code transformation
+4. Development work with periodic `testing-agent` validation
+5. Before commits → `code-review-agent` quality check
+6. After major changes → `code-to-docs-sync-agent` alignment
+7. End day → `end-day-agent` review and content generation
 
 **Quality Assurance Workflow**:
 1. `testing-agent` → comprehensive validation
 2. `code-review-agent` → quality and convention check  
 3. `code-to-docs-sync-agent` → documentation alignment
 4. Ready for commit/PR
+
+**Feature Implementation Workflow**:
+1. `code-implementation-agent` → transform design doc to Effect-TS code
+2. Agent creates interfaces, schemas, and error types first
+3. Implements services with Effect patterns and strong typing
+4. Creates unit and integration tests at each phase
+5. `testing-agent` → validate all tests pass
+6. `code-review-agent` → ensure no "any" types or eslint issues
 
 The subagents handle routine workflow tasks, allowing focus on high-value creative development work while maintaining consistency and quality.
 
@@ -674,15 +696,14 @@ docker exec otel-ai-clickhouse clickhouse-client --user=otel --password=otel123 
 
 ```bash
 # Run all tests (preferred)
-pnpm test        # All unit + integration tests
-pnpm test:unit   # Unit tests only  
+pnpm test        # Unit tests
 pnpm test:integration  # Integration tests only
+pnpm test:e2e  # UI e2e tests
 
-# Infrastructure validation
-node test/validate-infrastructure.js
-
-# Manual data generation (for testing) 
-pnpm run generate:test-traces
+# Integration tests
+pnpm demo:up # Run otel demo live system
+pnpm dev:up:test # Run dev environment with test-data generator
+pnpm dev:rebuild # rebuild and reboot containers - needed anytime a code change is made
 ```
 
 ### Screenshot Workflow
@@ -770,6 +791,7 @@ Use visual-content-agent  # Organizes screenshots for blog posts with blog namin
 ## Tool Permissions
 
 This project requires the following commands to be allowed without user approval:
+- `pnpm` - Preferred for all build/run/test commands
 - `curl` - For API testing and health checks
 - `docker` - For container management
 - `docker compose` - For service orchestration
@@ -782,10 +804,10 @@ This project requires the following commands to be allowed without user approval
 To configure in Claude Code CLI, use the `--allow` flag or set in your environment:
 ```bash
 # Example: Allow specific commands
-claude-code --allow "curl:*" --allow "docker:*" --allow "mkdir:*" --allow "mv:*" --allow "rm:*"
+claude-code --allow "pnpm:*" --allow "curl:*" --allow "docker:*" --allow "mkdir:*" --allow "mv:*" --allow "rm:*"
 
 # Or set environment variable (recommended)
-export CLAUDE_CODE_ALLOWED_COMMANDS="curl:*,docker:*,docker compose:*,docker exec:*,docker logs:*,mkdir:*,mv:*,rm:*"
+export CLAUDE_CODE_ALLOWED_COMMANDS="pnpm:*,curl:*,docker:*,docker compose:*,docker exec:*,docker logs:*,mkdir:*,mv:*,rm:*"
 ```
 
 - Always try to consider production-readiness when creation of new assets - for instance init scripts for containers rather than standalone scripts
@@ -793,7 +815,7 @@ export CLAUDE_CODE_ALLOWED_COMMANDS="curl:*,docker:*,docker compose:*,docker exe
 - **CRITICAL: ALWAYS use pnpm commands exclusively - NEVER use direct docker/docker-compose/curl commands**
   - **FIRST**: Always run `pnpm run` to see ALL available scripts before doing anything
   - **Development**: Use `pnpm dev:*` commands (dev:up, dev:down, dev:rebuild:backend, etc.)
-  - **Testing**: Use `pnpm test*` commands (test, test:unit, test:integration, test:e2e)
+  - **Testing**: Use `pnpm test*` commands (test, test:integration, test:e2e)
   - **Demo**: Use `pnpm demo:*` commands (demo:up, demo:down, demo:setup)
   - **Cleanup**: Use `pnpm clean:*` commands for removing containers and pruning
   - **NEVER** use direct docker/docker-compose/curl/grep/find commands
