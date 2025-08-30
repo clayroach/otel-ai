@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Row, Col, Spin, Alert, Empty, Button, Space, message } from 'antd'
 import { ReloadOutlined } from '@ant-design/icons'
 import PieNodeTopologyChart from './PieNodeTopologyChart'
-import ServiceDetailsPanel from './ServiceDetailsPanel'
+import EnhancedServiceDetailsPanel from './EnhancedServiceDetailsPanel'
 import type { ServiceNode, TopologyVisualizationData } from './PieNodeTopologyChart'
 import axios from 'axios'
 
@@ -178,13 +178,18 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
         {/* Service Details Panel - 30% width when a node is selected */}
         {selectedNode && (
           <Col span={8}>
-            <ServiceDetailsPanel
+            <EnhancedServiceDetailsPanel
               serviceName={selectedNode.name.replace(/^[^\s]+\s/, '')} // Remove icon prefix
               serviceType={getServiceType(selectedNode)}
               metrics={selectedNode.metrics || {
                 rate: 0,
                 errorRate: 0,
-                duration: 0
+                duration: 0,
+                spanCount: 0,
+                rateStatus: 0,
+                errorStatus: 0,
+                durationStatus: 0,
+                otelStatus: 0
               }}
               healthStatus={getHealthStatus(selectedNode.itemStyle?.color || '#8c8c8c')}
               runtime={selectedNode.category}

@@ -201,7 +201,7 @@ const topologyOption = {
 2. [ ] **Clear health explanations**: LLM-based explanations for health status
    - Planned: AI-generated explanations in tooltips and details panel
 3. [ ] **Tab reorganization**: Topology graph moved to main Overview tab
-   - Metadata/analysis info moved to pre-collapsed card above tabs
+   - Current content that is in AI-Generated Architecture Analysis info moved to pre-collapsed card above tabs
    - Topology graph is now the primary content in Overview tab
 4. [x] **Health filtering**: Service health statuses are clickable for filtering
    - Clickable badges to filter by health status

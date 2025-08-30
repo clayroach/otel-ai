@@ -5,11 +5,12 @@ import {
   StopOutlined,
   WarningOutlined
 } from '@ant-design/icons'
-import { Badge, Card, Col, Row, Space, Tag, Typography } from 'antd'
+import { Badge, Card, Col, Row, Space, Tag, Typography, Divider } from 'antd'
 import type { EChartsOption, GraphSeriesOption } from 'echarts'
 import ReactECharts from 'echarts-for-react'
 import type { CallbackDataParams } from 'echarts/types/dist/shared'
 import React, { useRef, useState } from 'react'
+import { generateHealthExplanation } from './healthExplanations'
 
 const { Text } = Typography
 
@@ -237,12 +238,16 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
       },
       tooltip: {
         trigger: 'item',
+        position: 'top',
+        confine: true,
         formatter: (params: CallbackDataParams | CallbackDataParams[]) => {
           if (!Array.isArray(params)) {
             const param = params
             if (param.dataType === 'node' && param.data) {
               const nodeData = param.data as ServiceNode
               const metrics = nodeData.metrics
+              const cleanName = nodeData.name?.replace(/^[^\s]+\s/, '') || 'Unknown'
+              
               if (!metrics) {
                 return `<div style="padding: 8px;">
                   <strong>${nodeData.name || 'Unknown'}</strong><br/>
@@ -250,32 +255,63 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
                 </div>`
               }
               
+              const healthExplanation = generateHealthExplanation(cleanName, metrics)
               const getStatusEmoji = (status: number) => 
                 status === 0 ? '✅' : status === 1 ? '⚠️' : '❌'
+              const getStatusColor = (status: string) => 
+                status === 'critical' ? '#ff4d4f' : status === 'warning' ? '#faad14' : '#52c41a'
+              
+              // Simplified, more concise tooltip
+              const criticalIssues = healthExplanation.impactedMetrics.filter(m => m.status === 'critical')
+              const warningIssues = healthExplanation.impactedMetrics.filter(m => m.status === 'warning')
               
               return `
-                <div style="padding: 8px;">
-                  <strong>${nodeData.name || 'Unknown'}</strong><br/>
-                  <div style="margin-top: 8px;">
-                    <table style="font-size: 12px;">
-                      <tr>
-                        <td>${getStatusEmoji(metrics.rateStatus)} Rate:</td>
-                        <td style="padding-left: 10px;">${metrics.rate.toFixed(2)} req/s</td>
-                      </tr>
-                      <tr>
-                        <td>${getStatusEmoji(metrics.errorStatus)} Errors:</td>
-                        <td style="padding-left: 10px;">${metrics.errorRate.toFixed(2)}%</td>
-                      </tr>
-                      <tr>
-                        <td>${getStatusEmoji(metrics.durationStatus)} P95:</td>
-                        <td style="padding-left: 10px;">${metrics.duration.toFixed(0)}ms</td>
-                      </tr>
-                      <tr>
-                        <td>${getStatusEmoji(metrics.otelStatus)} Spans:</td>
-                        <td style="padding-left: 10px;">${metrics.spanCount}</td>
-                      </tr>
-                    </table>
+                <div style="padding: 10px; max-width: 320px;">
+                  <div style="margin-bottom: 8px;">
+                    <strong style="font-size: 13px;">${nodeData.name || 'Unknown'}</strong>
+                    <span style="margin-left: 8px; padding: 2px 6px; background: ${getStatusColor(healthExplanation.status)}; color: white; border-radius: 3px; font-size: 10px;">
+                      ${healthExplanation.status.toUpperCase()}
+                    </span>
                   </div>
+                  
+                  <table style="font-size: 11px; width: 100%; margin-bottom: 8px;">
+                    <tr>
+                      <td style="padding: 2px;">${getStatusEmoji(metrics.rateStatus)} Rate:</td>
+                      <td style="padding: 2px; text-align: right;"><strong>${metrics.rate.toFixed(1)} req/s</strong></td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 2px;">${getStatusEmoji(metrics.errorStatus)} Errors:</td>
+                      <td style="padding: 2px; text-align: right;"><strong>${metrics.errorRate.toFixed(1)}%</strong></td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 2px;">${getStatusEmoji(metrics.durationStatus)} P95:</td>
+                      <td style="padding: 2px; text-align: right;"><strong>${metrics.duration}ms</strong></td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 2px;">${getStatusEmoji(metrics.otelStatus)} Spans:</td>
+                      <td style="padding: 2px; text-align: right;"><strong>${metrics.spanCount.toLocaleString()}</strong></td>
+                    </tr>
+                  </table>
+                  
+                  ${criticalIssues.length > 0 ? `
+                    <div style="background: #fff2e8; padding: 6px; border-radius: 3px; margin-bottom: 6px;">
+                      <div style="font-size: 10px; color: #d4380d; font-weight: bold;">⚠️ Critical Issues:</div>
+                      ${criticalIssues.map(i => `<div style="font-size: 10px; color: #8c5415;">• ${i.metric}: ${i.value}</div>`).join('')}
+                    </div>
+                  ` : warningIssues.length > 0 ? `
+                    <div style="background: #fffbe6; padding: 6px; border-radius: 3px; margin-bottom: 6px;">
+                      <div style="font-size: 10px; color: #d48806; font-weight: bold;">⚡ Warnings:</div>
+                      ${warningIssues.map(i => `<div style="font-size: 10px; color: #8c6516;">• ${i.metric}: ${i.value}</div>`).join('')}
+                    </div>
+                  ` : ''}
+                  
+                  ${healthExplanation.recommendations.length > 0 && healthExplanation.status !== 'healthy' ? `
+                    <div style="border-top: 1px solid #e8e8e8; padding-top: 6px;">
+                      <div style="font-size: 10px; color: #666;">
+                        💡 ${healthExplanation.recommendations[0].substring(0, 80)}${healthExplanation.recommendations[0].length > 80 ? '...' : ''}
+                      </div>
+                    </div>
+                  ` : ''}
                 </div>
               `
             } else if (param.dataType === 'edge' && param.data) {
@@ -433,17 +469,17 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
         />
       </Card>
 
-      {/* Metric Legend */}
+      {/* Health Status Legend */}
       <Card size="small" style={{ marginTop: 16 }}>
         <Space wrap>
-          <Text strong>Quadrant Metrics:</Text>
-          <Tag style={{ fontSize: 12 }}>📊 Top-Left: Rate</Tag>
-          <Tag style={{ fontSize: 12 }}>⚠️ Top-Right: Errors</Tag>
-          <Tag style={{ fontSize: 12 }}>⏱️ Bottom-Left: Duration</Tag>
-          <Tag style={{ fontSize: 12 }}>📡 Bottom-Right: OTel Health</Tag>
+          <Text strong>Node Health Status:</Text>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            | Colors: 🟢 Healthy 🟡 Warning 🔴 Critical
+            Node colors indicate overall health based on RED metrics (Rate, Errors, Duration) and telemetry health.
           </Text>
+          <Divider type="vertical" />
+          <Tag color="green" style={{ fontSize: 12 }}>🟢 Healthy</Tag>
+          <Tag color="orange" style={{ fontSize: 12 }}>🟡 Warning</Tag>
+          <Tag color="red" style={{ fontSize: 12 }}>🔴 Critical</Tag>
         </Space>
       </Card>
     </div>
