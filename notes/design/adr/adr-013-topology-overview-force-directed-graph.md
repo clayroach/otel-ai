@@ -146,7 +146,7 @@ const topologyOption = {
 
 ## Implementation Plan & Progress Tracking
 
-### Phase 1: Data Layer Extensions ✅
+### Phase 1: Data Layer Extensions ✅ COMPLETE
 - [x] **Task 1**: Extend `ServiceTopologyRaw` interface with health and runtime fields
 - [x] **Task 2**: Add runtime environment detection to `ArchitectureQueries`  
 - [x] **Task 3**: Enhance `discoverApplicationTopology` with health status calculations
@@ -154,26 +154,77 @@ const topologyOption = {
 - [x] **Task 5**: Add call volume metrics to `buildDependencyGraph`
 - [x] **Task 6**: Create topology API endpoint using existing service structure
 
-### Phase 2: UI Components 🚧
+### Phase 2: UI Components ✅ COMPLETE
 - [x] **Task 7**: Implement `TopologyChart` component with Apache ECharts
-- [ ] **Task 8**: Add node styling (health colors, runtime icons, sizing)
-- [ ] **Task 9**: Implement edge styling (thickness based on call volume)
+- [x] **Task 8**: Add node styling (health colors, runtime icons, sizing)
+  - Implemented pie-chart style nodes with 4 quadrants for RED + OTel metrics
+  - Each quadrant color-coded based on thresholds
+- [x] **Task 9**: Implement edge styling (thickness based on call volume)
+  - Added directed arrows to edges
+  - Dynamic thickness based on call volume
+  - Operation-level breakdown on hover
 - [x] **Task 10**: Create `ServiceDetailsPanel` for metrics display
-- [ ] **Task 11**: Add R.E.D metrics charts in details panel
-- [ ] **Task 12**: Create `RuntimeLegend` with icons and filters
+- [x] **Task 11**: Add R.E.D metrics charts in details panel
+  - Enhanced panel shows clear threshold violations
+  - Explains WHY services are marked as critical/warning
+- [x] **Task 12**: Create `RuntimeLegend` with icons and filters
 
-### Phase 3: Interactivity 🚧
-- [ ] **Task 13**: Implement click handler for node selection
-- [ ] **Task 14**: Add hover tooltips for nodes and edges
+### Phase 3: Interactivity ✅ COMPLETE
+- [x] **Task 13**: Implement click handler for node selection
+- [x] **Task 14**: Add hover tooltips for nodes and edges
+  - Enhanced tooltips show operation breakdown for edges
+  - Node tooltips show all metrics with color coding
 - [x] **Task 15**: Create `TopologyTab` and integrate into `InsightsView`
 - [x] **Task 16**: Add data fetching using existing AI analyzer patterns
-- [ ] **Task 17**: Implement real-time WebSocket updates
-- [ ] **Task 18**: Add loading states and error handling
+- [x] **Task 17**: Implement real-time WebSocket updates
+  - Created `useTopologyWebSocket` hook
+  - `TopologyTabRealtime` component with WebSocket support
+- [x] **Task 18**: Add loading states and error handling
+- [x] **Task 19**: Add health status filtering
+  - Clickable health badges to filter nodes
+  - Show only services with specific health states
 
-### Phase 4: Quality Assurance 🚧
-- [x] **Task 19**: Create unit tests extending existing patterns
-- [x] **Task 20**: Add integration tests for topology visualization
-- [ ] **Task 21**: Update AI Analyzer documentation
+### Phase 4: Quality Assurance 🚧 IN PROGRESS
+- [x] **Task 20**: Create unit tests extending existing patterns
+- [x] **Task 21**: Add integration tests for topology visualization
+- [ ] **Task 22**: Update AI Analyzer documentation
+- [ ] **Task 23**: Test with live demo data to ensure all services appear
+- [ ] **Task 24**: Run type check and lint to ensure code quality
+
+## Recent Enhancements (2025-08-29)
+
+### User Feedback Addressed
+
+1. [ ] **Pie-chart nodes**: Nodes divided into 4 sections for RED + OTel metrics
+   - Implemented in `PieNodeTopologyChart` with 4 colored segments per node
+   - Each quadrant independently colored based on metric thresholds
+2. [ ] **Clear health explanations**: Details panel explains WHY services are unhealthy
+   - `EnhancedServiceDetailsPanel` shows threshold violations
+3. [ ] **Tab reorganization**: Topology graph moved to main Overview tab
+   - Metadata/analysis info moved to pre-collapsed card above tabs
+   - Topology graph is now the primary content in Overview tab
+4. [ ] **Health filtering**: Service health statuses are clickable for filtering
+   - Clickable badges to filter by health status
+5. [ ] **Directed edges**: Arrows show direction of service calls
+   - Arrows added to show call direction
+6. [ ] **Operation breakdown**: Hovering edges shows operation-level details
+   - Tooltip shows operation-level metrics on edge hover
+7. [ ] **Icon duplication fix**: Fixed duplicate runtime icons on nodes
+   - Check for existing icons before adding
+
+### Components Created
+- `UltimateTopologyChart` - Main topology visualization with all enhancements
+- `EnhancedServiceDetailsPanel` - Detailed panel with threshold explanations
+- `TopologyTabRealtime` - WebSocket-enabled real-time updates
+- `RuntimeLegend` - Filter component for runtime and health states
+- `useTopologyWebSocket` - Hook for WebSocket connections
+
+### Remaining Tasks
+- [ ] Investigate missing services from demo application
+- [ ] Test with live OpenTelemetry demo data
+- [ ] Performance optimization for large topologies (>200 services)
+- [ ] Add node clustering for better visualization at scale
+- [ ] Documentation updates
 
 ## Performance Requirements
 

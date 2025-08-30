@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { Row, Col, Spin, Alert, Empty, Button, Space, message } from 'antd'
 import { ReloadOutlined } from '@ant-design/icons'
-import TopologyChart from './TopologyChart'
+import PieNodeTopologyChart from './PieNodeTopologyChart'
 import ServiceDetailsPanel from './ServiceDetailsPanel'
-import type { ServiceNode, TopologyVisualizationData } from './TopologyChart'
+import type { ServiceNode, TopologyVisualizationData } from './PieNodeTopologyChart'
 import axios from 'axios'
 
 interface TopologyTabProps {
@@ -22,6 +22,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
   const [topologyData, setTopologyData] = useState<TopologyVisualizationData | null>(null)
   const [selectedNode, setSelectedNode] = useState<ServiceNode | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [filteredHealthStatuses, setFilteredHealthStatuses] = useState<string[]>([])
 
   const fetchTopologyData = async () => {
     setLoading(true)
@@ -81,6 +82,22 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
 
   const handleRefresh = () => {
     fetchTopologyData()
+  }
+
+  const handleHealthFilter = (status: string) => {
+    if (status === '') {
+      // Clear filter
+      setFilteredHealthStatuses([])
+    } else {
+      // Toggle the status in the filter list
+      setFilteredHealthStatuses(prev => {
+        if (prev.includes(status)) {
+          return prev.filter(s => s !== status)
+        } else {
+          return [...prev, status]
+        }
+      })
+    }
   }
 
   if (loading && !topologyData) {
@@ -149,10 +166,12 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
       <Row gutter={16} style={{ height: 'calc(100% - 50px)' }}>
         {/* Topology Chart - Takes 70% width or 100% if no node selected */}
         <Col span={selectedNode ? 16 : 24}>
-          <TopologyChart 
+          <PieNodeTopologyChart 
             data={topologyData}
             onNodeClick={handleNodeClick}
+            onHealthFilter={handleHealthFilter}
             height={selectedNode ? 500 : 600}
+            filteredHealthStatuses={filteredHealthStatuses}
           />
         </Col>
 
@@ -167,7 +186,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
                 errorRate: 0,
                 duration: 0
               }}
-              healthStatus={getHealthStatus(selectedNode.itemStyle.color)}
+              healthStatus={getHealthStatus(selectedNode.itemStyle?.color || '#8c8c8c')}
               runtime={selectedNode.category}
             />
           </Col>
@@ -205,7 +224,7 @@ const getMockTopologyData = (): TopologyVisualizationData => {
     nodes: [
       {
         id: 'frontend',
-        name: '🌐 frontend',
+        name: 'frontend',
         category: 'javascript',
         symbolSize: 50,
         itemStyle: { color: '#52c41a' },
@@ -213,12 +232,17 @@ const getMockTopologyData = (): TopologyVisualizationData => {
         metrics: {
           rate: 45.2,
           errorRate: 0.5,
-          duration: 120
+          duration: 120,
+          spanCount: 15420,
+          rateStatus: 0, // healthy
+          errorStatus: 0, // healthy
+          durationStatus: 0, // healthy
+          otelStatus: 0 // healthy
         }
       },
       {
         id: 'api-gateway',
-        name: '🐹 api-gateway',
+        name: 'api-gateway',
         category: 'go',
         symbolSize: 60,
         itemStyle: { color: '#52c41a' },
@@ -226,12 +250,17 @@ const getMockTopologyData = (): TopologyVisualizationData => {
         metrics: {
           rate: 120.5,
           errorRate: 0.8,
-          duration: 45
+          duration: 45,
+          spanCount: 32150,
+          rateStatus: 0, // healthy
+          errorStatus: 0, // healthy
+          durationStatus: 0, // healthy
+          otelStatus: 0 // healthy
         }
       },
       {
         id: 'user-service',
-        name: '☕ user-service',
+        name: 'user-service',
         category: 'java',
         symbolSize: 45,
         itemStyle: { color: '#faad14' },
@@ -239,12 +268,17 @@ const getMockTopologyData = (): TopologyVisualizationData => {
         metrics: {
           rate: 85.3,
           errorRate: 2.1,
-          duration: 180
+          duration: 180,
+          spanCount: 24850,
+          rateStatus: 0, // healthy
+          errorStatus: 1, // warning (>1% errors)
+          durationStatus: 1, // warning (>100ms)
+          otelStatus: 0 // healthy
         }
       },
       {
         id: 'payment-service',
-        name: '🐍 payment-service',
+        name: 'payment-service',
         category: 'python',
         symbolSize: 40,
         itemStyle: { color: '#f5222d' },
@@ -252,12 +286,17 @@ const getMockTopologyData = (): TopologyVisualizationData => {
         metrics: {
           rate: 25.8,
           errorRate: 8.5,
-          duration: 450
+          duration: 450,
+          spanCount: 8920,
+          rateStatus: 0, // healthy
+          errorStatus: 2, // critical (>5% errors)
+          durationStatus: 1, // warning (>100ms)
+          otelStatus: 0 // healthy
         }
       },
       {
         id: 'postgres',
-        name: '🗄️ postgres',
+        name: 'postgres',
         category: 'postgresql',
         symbolSize: 55,
         itemStyle: { color: '#52c41a' },
@@ -265,12 +304,17 @@ const getMockTopologyData = (): TopologyVisualizationData => {
         metrics: {
           rate: 450.0,
           errorRate: 0.1,
-          duration: 15
+          duration: 15,
+          spanCount: 125000,
+          rateStatus: 0, // healthy
+          errorStatus: 0, // healthy
+          durationStatus: 0, // healthy
+          otelStatus: 0 // healthy
         }
       },
       {
         id: 'redis',
-        name: '📦 redis',
+        name: 'redis',
         category: 'redis',
         symbolSize: 35,
         itemStyle: { color: '#52c41a' },
@@ -278,7 +322,12 @@ const getMockTopologyData = (): TopologyVisualizationData => {
         metrics: {
           rate: 850.5,
           errorRate: 0.01,
-          duration: 2
+          duration: 2,
+          spanCount: 235000,
+          rateStatus: 0, // healthy
+          errorStatus: 0, // healthy
+          durationStatus: 0, // healthy
+          otelStatus: 0 // healthy
         }
       }
     ],
@@ -287,7 +336,12 @@ const getMockTopologyData = (): TopologyVisualizationData => {
         source: 'frontend',
         target: 'api-gateway',
         value: 150,
-        lineStyle: { width: 3, color: '#52c41a' }
+        lineStyle: { width: 3, color: '#52c41a' },
+        operations: [
+          { name: 'GET /api/products', count: 45, errorRate: 0.001, avgDuration: 35 },
+          { name: 'GET /api/cart', count: 60, errorRate: 0.002, avgDuration: 42 },
+          { name: 'POST /api/checkout', count: 45, errorRate: 0.005, avgDuration: 55 }
+        ]
       },
       {
         source: 'api-gateway',

@@ -127,6 +127,7 @@ The following agents are available in `.claude/agents/`:
 - **code-to-docs-sync-agent** - Bidirectional documentation synchronization
 - **pr-creation-agent** - PR creation with screenshot organization
 - **claude-review-session-agent** - Historical context recovery and development continuity
+- **code-implementation-agent** - Transform design documents into Effect-TS code with strong typing and tests
 
 ### Agent Usage Examples
 
@@ -172,21 +173,35 @@ Use the pr-creation-agent to organize screenshots and create comprehensive PRs.
 Use the claude-review-session-agent to understand recent development context and identify gaps between planned and implemented features.
 ```
 
+#### Implement Features from Design Documents
+```
+Use the code-implementation-agent when you have a design document or specification and need to implement production-ready code with Effect-TS patterns, strong typing, and comprehensive tests.
+```
+
 ### Orchestration Patterns
 
 **Daily Development Workflow**:
 1. Start day → `start-day-agent` sets goals
 2. Context recovery → `claude-review-session-agent` provides historical understanding
-3. Development work with periodic `testing-agent` validation
-4. Before commits → `code-review-agent` quality check
-5. After major changes → `code-to-docs-sync-agent` alignment
-6. End day → `end-day-agent` review and content generation
+3. Feature implementation → `code-implementation-agent` for design-to-code transformation
+4. Development work with periodic `testing-agent` validation
+5. Before commits → `code-review-agent` quality check
+6. After major changes → `code-to-docs-sync-agent` alignment
+7. End day → `end-day-agent` review and content generation
 
 **Quality Assurance Workflow**:
 1. `testing-agent` → comprehensive validation
 2. `code-review-agent` → quality and convention check  
 3. `code-to-docs-sync-agent` → documentation alignment
 4. Ready for commit/PR
+
+**Feature Implementation Workflow**:
+1. `code-implementation-agent` → transform design doc to Effect-TS code
+2. Agent creates interfaces, schemas, and error types first
+3. Implements services with Effect patterns and strong typing
+4. Creates unit and integration tests at each phase
+5. `testing-agent` → validate all tests pass
+6. `code-review-agent` → ensure no "any" types or eslint issues
 
 The subagents handle routine workflow tasks, allowing focus on high-value creative development work while maintaining consistency and quality.
 
