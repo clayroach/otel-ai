@@ -90,17 +90,39 @@ Always include real, working code:
 
 ## Daily Blog Metadata
 
+### CRITICAL: Dev.to Requirements
+
+- **Maximum 4 tags only** - Dev.to rejects posts with more than 4 tags
+- **NO HYPHENS in tags** - Use underscores or single words only
+- **Valid examples**: `ai`, `typescript`, `opentelemetry`, `observability`
+- **INVALID examples**: `ai-native`, `open-telemetry`, `type-script`
+
+### Cover Image Rules
+
+- **DO NOT include cover_image field** if no actual image exists
+- **NEVER use placeholder URLs**
+- Only include if actual screenshot exists in `notes/screenshots/`
+
+### Frontmatter Template
+
 ```yaml
 ---
 title: "Day X: [Descriptive Technical Title]"
 published: false
 description: [One sentence technical description]
-tags: ai, observability, typescript, [relevant-tech]
+tags: ai, observability, typescript, [one-more]  # MAX 4, NO HYPHENS
 series: 30-Day AI-Native Observability Platform
 canonical_url: https://dev.to/clayroach/[article-slug]
-cover_image: https://github.com/clayroach/otel-ai/blob/main/notes/screenshots/[date]/[image].png?raw=true
+# cover_image: [ONLY if actual image exists]
 ---
 ```
+
+### Common Dev.to Compatible Tags
+
+- `ai`, `analytics`, `typescript`, `javascript`, `react`
+- `opentelemetry`, `observability`, `monitoring`, `devops`
+- `nodejs`, `docker`, `postgresql`, `clickhouse`
+- `testing`, `debugging`, `performance`, `architecture`
 
 ## Examples
 
