@@ -119,7 +119,7 @@ canonical_url: https://dev.to/clayroach/[article-slug]
 
 ### Common Dev.to Compatible Tags
 
-- `ai`, `analytics`, `typescript`, `javascript`, `react`
+- `ai`, `analytics`, `typescript`, `javascript`, `react`,`claude`
 - `opentelemetry`, `observability`, `monitoring`, `devops`
 - `nodejs`, `docker`, `postgresql`, `clickhouse`
 - `testing`, `debugging`, `performance`, `architecture`
