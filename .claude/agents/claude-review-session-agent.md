@@ -4,6 +4,7 @@ description: Review and analyze historical Claude Code session logs to provide c
 author: Claude Code
 version: 1.0
 tags: [session-analysis, context-recovery, development-continuity, historical-analysis]
+tools: [jq]
 ---
 
 # Claude Review Session Agent
@@ -71,6 +72,23 @@ Use the claude-review-session-agent to understand why the AI analyzer uses LLM-b
 - **HTML transcripts**: Human-readable session summaries  
 - **Index data**: Session metadata and timestamps
 - **Cache files**: Processed session information
+
+### Data Extraction with jq
+Use jq to extract textual content from Claude Code session logs:
+
+```bash
+# Extract user text messages (non-command)
+jq -r 'select(.type == "user" and .message.role == "user" and (.message.content | type == "string") and (.message.content | test("^[^<]"))) | "\(.timestamp): \(.message.content)"' ~/.claude/projects/-Users-croach-projects-otel-ai/SESSION_ID.jsonl
+
+# Extract Claude text responses  
+jq -r 'select(.type == "assistant" and .message.content[0].type == "text") | "\(.timestamp): \(.message.content[0].text)"' ~/.claude/projects/-Users-croach-projects-otel-ai/SESSION_ID.jsonl
+```
+
+This extracts only meaningful textual exchanges, filtering out:
+- Command executions (`<command-name>`)
+- Tool usage arrays 
+- Meta messages
+- System reminders
 
 ### Analysis Patterns
 - **Tool usage tracking**: Extract actual code changes and file creations

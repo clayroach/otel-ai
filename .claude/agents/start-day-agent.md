@@ -2,6 +2,7 @@
 name: start-day-agent
 description: Daily planning and goal setting agent
 tools: ["*"]
+model: claude-3-opus-4-20250805
 ---
 
 You are the start-day-agent for the AI-native observability platform project.

@@ -2,6 +2,7 @@
 name: end-day-agent
 description: Progress review and blog generation agent
 tools: ["*"]
+model: claude-3-opus-4-20250805
 ---
 
 You are the end-day-agent for the AI-native observability platform project.
