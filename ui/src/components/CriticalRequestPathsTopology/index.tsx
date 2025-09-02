@@ -270,15 +270,28 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
     message.info('Showing complete topology')
   }, [])
 
-  // Handle service click - create new tab
+  // Handle service click - create or switch to tab
   const handleServiceClick = useCallback((serviceId: string) => {
+    console.log('CriticalRequestPathsTopology - handleServiceClick called with:', serviceId)
+    
     setState(prev => {
+      console.log('Current tabs:', prev.activeTabs)
+      
       // Check if tab already exists
       const existingTab = prev.activeTabs.find(
         tab => tab.type === 'service' && tab.targetId === serviceId
       )
 
       if (existingTab) {
+        console.log('Found existing tab:', existingTab)
+        // If clicking on the currently active service tab, go back to global
+        if (prev.activeTabId === existingTab.id) {
+          return {
+            ...prev,
+            activeTabId: 'global'
+          }
+        }
+        // Otherwise switch to the existing service tab
         return {
           ...prev,
           activeTabId: existingTab.id
@@ -292,13 +305,32 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
         return prev
       }
 
+      // Get service data for the new tab
+      const service = generateMockServices().find(s => s.id === serviceId)
+      
       const newTab: AnalysisTab = {
         id: `service-${serviceId}-${Date.now()}`,
         type: 'service',
-        title: serviceId,
+        title: service?.name || serviceId,
         targetId: serviceId,
-        content: generateMockAnalysis('service', serviceId)
+        content: {
+          summary: `Service ${service?.name || serviceId} analysis`,
+          insights: [],
+          metrics: service?.metrics ? {
+            requestRate: service.metrics.rate,
+            errorRate: service.metrics.errorRate,
+            latency: {
+              p50: service.metrics.duration * 0.7,
+              p95: service.metrics.duration * 1.5,
+              p99: service.metrics.duration * 2
+            },
+            saturation: Math.floor(Math.random() * 100)
+          } : undefined,
+          serviceDetails: service // Add the actual service details
+        }
       }
+      
+      console.log('Creating new tab:', newTab)
 
       return {
         ...prev,
@@ -325,9 +357,19 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
   const handleTabClose = useCallback((tabId: string) => {
     setState(prev => {
       const newTabs = prev.activeTabs.filter(t => t.id !== tabId)
-      const newActiveId = prev.activeTabId === tabId 
-        ? (newTabs[newTabs.length - 1]?.id || 'global')
-        : prev.activeTabId
+      
+      // If closing the active tab, switch to another tab
+      let newActiveId = prev.activeTabId
+      if (prev.activeTabId === tabId) {
+        // Try to find another service tab first
+        const remainingServiceTab = newTabs.find(t => t.type === 'service')
+        if (remainingServiceTab) {
+          newActiveId = remainingServiceTab.id
+        } else {
+          // Otherwise go back to global
+          newActiveId = 'global'
+        }
+      }
 
       return {
         ...prev,

@@ -26,6 +26,7 @@ import {
   ThunderboltOutlined,
   ClockCircleOutlined
 } from '@ant-design/icons'
+import EnhancedServiceDetailsPanel from '../TopologyChart/EnhancedServiceDetailsPanel'
 import type { AnalysisTab, ServiceMetrics, PanelProps } from './types'
 
 const { Text, Paragraph } = Typography
@@ -77,51 +78,109 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
     if (!metrics) return null
 
     return (
-      <Card size="small" style={{ marginTop: 16 }}>
-        <Row gutter={16}>
-          <Col span={6}>
-            <Statistic
-              title="Request Rate"
-              value={metrics.requestRate}
-              suffix="req/s"
-              prefix={<ThunderboltOutlined />}
-            />
-          </Col>
-          <Col span={6}>
-            <Statistic
-              title="Error Rate"
-              value={metrics.errorRate}
-              suffix="%"
-              valueStyle={{ color: metrics.errorRate > 5 ? '#ff4d4f' : '#52c41a' }}
-              prefix={<WarningOutlined />}
-            />
-          </Col>
-          <Col span={6}>
-            <Statistic
-              title="P99 Latency"
-              value={metrics.latency.p99}
-              suffix="ms"
-              prefix={<ClockCircleOutlined />}
-            />
-          </Col>
-          <Col span={6}>
-            <Statistic
-              title="Saturation"
-              value={metrics.saturation}
-              suffix="%"
-              prefix={
-                <Progress
-                  type="circle"
-                  percent={metrics.saturation}
-                  width={20}
-                  strokeColor={metrics.saturation > 80 ? '#ff4d4f' : '#52c41a'}
-                  showInfo={false}
-                />
+      <>
+        {/* Main Metrics Card */}
+        <Card title="Service Metrics" size="small" style={{ marginTop: 16 }}>
+          <Row gutter={[16, 16]}>
+            <Col span={6}>
+              <Statistic
+                title="Request Rate"
+                value={metrics.requestRate}
+                suffix="req/s"
+                prefix={<ThunderboltOutlined />}
+                valueStyle={{ fontSize: '20px' }}
+              />
+            </Col>
+            <Col span={6}>
+              <Statistic
+                title="Error Rate"
+                value={metrics.errorRate.toFixed(2)}
+                suffix="%"
+                valueStyle={{ 
+                  color: metrics.errorRate > 5 ? '#ff4d4f' : metrics.errorRate > 1 ? '#faad14' : '#52c41a',
+                  fontSize: '20px'
+                }}
+                prefix={<WarningOutlined />}
+              />
+            </Col>
+            <Col span={6}>
+              <Statistic
+                title="P99 Latency"
+                value={metrics.latency.p99}
+                suffix="ms"
+                prefix={<ClockCircleOutlined />}
+                valueStyle={{ fontSize: '20px' }}
+              />
+            </Col>
+            <Col span={6}>
+              <Statistic
+                title="Saturation"
+                value={metrics.saturation}
+                suffix="%"
+                valueStyle={{ fontSize: '20px' }}
+                prefix={
+                  <Progress
+                    type="circle"
+                    percent={metrics.saturation}
+                    width={20}
+                    strokeColor={metrics.saturation > 80 ? '#ff4d4f' : '#52c41a'}
+                    showInfo={false}
+                  />
+                }
+              />
+            </Col>
+          </Row>
+          
+          {/* Latency Breakdown */}
+          <Row gutter={[16, 16]} style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #f0f0f0' }}>
+            <Col span={8}>
+              <Text type="secondary">P50 Latency</Text>
+              <div style={{ fontSize: '18px', fontWeight: 500 }}>
+                {metrics.latency.p50}ms
+              </div>
+            </Col>
+            <Col span={8}>
+              <Text type="secondary">P95 Latency</Text>
+              <div style={{ fontSize: '18px', fontWeight: 500 }}>
+                {metrics.latency.p95}ms
+              </div>
+            </Col>
+            <Col span={8}>
+              <Text type="secondary">Throughput</Text>
+              <div style={{ fontSize: '18px', fontWeight: 500 }}>
+                {(metrics.requestRate * 60).toFixed(0)}/min
+              </div>
+            </Col>
+          </Row>
+        </Card>
+
+        {/* Health Status Card */}
+        <Card title="Health Analysis" size="small" style={{ marginTop: 16 }}>
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <Alert
+              message="Service Health"
+              description={
+                metrics.errorRate > 5 
+                  ? "Critical: High error rate detected. Immediate attention required."
+                  : metrics.errorRate > 1
+                  ? "Warning: Elevated error rate. Monitor closely."
+                  : "Healthy: Service operating normally."
               }
+              type={metrics.errorRate > 5 ? "error" : metrics.errorRate > 1 ? "warning" : "success"}
+              showIcon
             />
-          </Col>
-        </Row>
-      </Card>
+            
+            {metrics.saturation > 80 && (
+              <Alert
+                message="High Saturation"
+                description="Resource utilization is high. Consider scaling."
+                type="warning"
+                showIcon
+              />
+            )}
+          </Space>
+        </Card>
+      </>
     )
   }
 
@@ -138,6 +197,60 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
       )
     }
 
+    // For service tabs, use the EnhancedServiceDetailsPanel
+    if (tab.type === 'service' && tab.content.metrics) {
+      // Determine service type based on name
+      const getServiceType = (name: string): string => {
+        const lowername = name.toLowerCase()
+        if (lowername.includes('frontend') || lowername.includes('ui')) return 'frontend'
+        if (lowername.includes('gateway') || lowername.includes('api')) return 'api'
+        if (lowername.includes('database') || lowername.includes('postgres') || lowername.includes('mysql')) return 'database'
+        if (lowername.includes('redis') || lowername.includes('cache')) return 'cache'
+        if (lowername.includes('queue') || lowername.includes('kafka')) return 'queue'
+        if (lowername.includes('payment') || lowername.includes('checkout')) return 'backend'
+        return 'backend'
+      }
+
+      // Determine runtime based on service
+      const getRuntime = (name: string): string => {
+        const lowername = name.toLowerCase()
+        if (lowername.includes('frontend')) return 'javascript'
+        if (lowername.includes('cart') || lowername.includes('checkout')) return 'dotnet'
+        if (lowername.includes('product') || lowername.includes('currency')) return 'go'
+        if (lowername.includes('recommendation')) return 'python'
+        if (lowername.includes('payment') || lowername.includes('email')) return 'java'
+        return 'nodejs'
+      }
+
+      return (
+        <EnhancedServiceDetailsPanel
+          serviceName={tab.title}
+          serviceType={getServiceType(tab.title)}
+          metrics={{
+            rate: tab.content.metrics.requestRate,
+            errorRate: tab.content.metrics.errorRate,
+            duration: tab.content.metrics.latency.p95,
+            spanCount: Math.floor(tab.content.metrics.requestRate * 60 * 5), // Estimate based on 5 min window
+            rateStatus: tab.content.metrics.requestRate > 1000 ? 2 : tab.content.metrics.requestRate > 500 ? 1 : 0,
+            errorStatus: tab.content.metrics.errorRate > 5 ? 2 : tab.content.metrics.errorRate > 1 ? 1 : 0,
+            durationStatus: tab.content.metrics.latency.p95 > 500 ? 2 : tab.content.metrics.latency.p95 > 200 ? 1 : 0,
+            otelStatus: 0,
+            // Add mock dependencies
+            dependencies: [
+              { service: 'database', callCount: Math.floor(tab.content.metrics.requestRate * 2), avgLatency: 25, errorRate: 0.1 },
+              { service: 'cache', callCount: Math.floor(tab.content.metrics.requestRate * 0.8), avgLatency: 5, errorRate: 0.01 }
+            ]
+          }}
+          healthStatus={
+            tab.content.metrics.errorRate > 5 ? 'critical' : 
+            tab.content.metrics.errorRate > 1 ? 'warning' : 'healthy'
+          }
+          runtime={getRuntime(tab.title)}
+        />
+      )
+    }
+
+    // For global tabs, use the existing analysis view
     return (
       <div style={{ padding: '16px' }}>
         <Space direction="vertical" style={{ width: '100%' }} size="large">
@@ -217,7 +330,7 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
       title={
         <Space>
           <RobotOutlined />
-          <Text strong>AI-Powered Architecture Analysis</Text>
+          <Text strong>AI Analysis</Text>
         </Space>
       }
     >

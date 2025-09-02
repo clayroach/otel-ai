@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Row, Col, Spin, Alert, Empty, Button, message } from 'antd'
 import PieNodeTopologyChart from './PieNodeTopologyChart'
-import EnhancedServiceDetailsPanel from './EnhancedServiceDetailsPanel'
 import type { ServiceNode, TopologyVisualizationData } from './PieNodeTopologyChart'
 import axios from 'axios'
 
@@ -26,7 +25,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
   refreshInterval = 30000, // 30 seconds
   data: _data,
   highlightedServices = [],
-  onServiceClick: _onServiceClick,
+  onServiceClick,
   selectedPaths: _selectedPaths = []
 }) => {
   const [loading, setLoading] = useState(false)
@@ -162,8 +161,22 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
   }, [autoRefresh, refreshInterval])
 
   const handleNodeClick = (node: ServiceNode) => {
-    console.log('Node clicked:', node)
+    console.log('TopologyTab - Node clicked:', node)
+    console.log('TopologyTab - onServiceClick prop exists?', !!onServiceClick)
     setSelectedNode(node)
+    
+    // Use the node.id which should be the clean service name
+    // Fall back to extracting from name if id is not available
+    const serviceName = node.id || node.name.replace(/^[^\s]+\s/, '')
+    console.log('TopologyTab - Using service identifier:', serviceName)
+    
+    // Call the parent's onServiceClick callback if provided
+    if (onServiceClick) {
+      console.log('TopologyTab - Calling onServiceClick with:', serviceName)
+      onServiceClick(serviceName)
+    } else {
+      console.log('TopologyTab - No onServiceClick callback provided!')
+    }
   }
 
   const handleRefresh = () => {
@@ -224,45 +237,18 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
     <div style={{ height: '100%' }}>
       {/* Action Bar - Removed Refresh button */}
 
-      {/* Main Layout */}
-      <Row gutter={16} style={{ height: 'calc(100% - 50px)' }}>
-        {/* Topology Chart - Takes 70% width or 100% if no node selected */}
-        <Col span={selectedNode ? 16 : 24}>
-          <PieNodeTopologyChart
-            data={topologyData}
-            onNodeClick={handleNodeClick}
-            onHealthFilter={handleHealthFilter}
-            height={selectedNode ? 500 : 600}
-            filteredHealthStatuses={filteredHealthStatuses}
-            highlightedServices={highlightedServices}
-            filterMode="filter"
-          />
-        </Col>
-
-        {/* Service Details Panel - 30% width when a node is selected */}
-        {selectedNode && (
-          <Col span={8}>
-            <EnhancedServiceDetailsPanel
-              serviceName={selectedNode.name.replace(/^[^\s]+\s/, '')} // Remove icon prefix
-              serviceType={getServiceType(selectedNode)}
-              metrics={
-                selectedNode.metrics || {
-                  rate: 0,
-                  errorRate: 0,
-                  duration: 0,
-                  spanCount: 0,
-                  rateStatus: 0,
-                  errorStatus: 0,
-                  durationStatus: 0,
-                  otelStatus: 0
-                }
-              }
-              healthStatus={getHealthStatus(selectedNode.itemStyle?.color || '#8c8c8c')}
-              runtime={selectedNode.category}
-            />
-          </Col>
-        )}
-      </Row>
+      {/* Main Layout - Full width topology chart */}
+      <div style={{ height: 'calc(100% - 50px)' }}>
+        <PieNodeTopologyChart
+          data={topologyData}
+          onNodeClick={handleNodeClick}
+          onHealthFilter={handleHealthFilter}
+          height={600}
+          filteredHealthStatuses={filteredHealthStatuses}
+          highlightedServices={highlightedServices}
+          filterMode="filter"
+        />
+      </div>
     </div>
   )
 }
