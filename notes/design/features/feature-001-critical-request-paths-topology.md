@@ -310,17 +310,57 @@ WS /api/v1/paths/updates
 
 ## Future Enhancements
 
+### Alternative Visualization Types (To Explore)
+
+**Note**: The current Sankey diagram provides good flow visualization, but we should explore additional visualization types for different use cases:
+
+1. **Hierarchical/Tree View**
+   - Better for showing service dependencies and parent-child relationships
+   - Could expand/collapse branches to focus on specific sub-paths
+   - Useful for understanding service hierarchy and ownership
+
+2. **DAG (Directed Acyclic Graph) Layout**
+   - More structured than force-directed, better than Sankey for complex flows
+   - Shows clear flow direction while maintaining spatial organization
+   - Better for paths with multiple parallel branches and convergence points
+
+3. **Flamegraph/Trace Details View**
+   - Similar to distributed tracing visualization
+   - Shows timing and duration information more prominently
+   - Could stack service calls to show cumulative latency
+   - Excellent for performance analysis and bottleneck identification
+
+4. **Waterfall/Gantt View**
+   - Timeline-based visualization showing request progression
+   - Clear visualization of parallel vs sequential operations
+   - Duration bars with error overlays
+   - Similar to browser network waterfall views
+
+5. **Sequence Diagram**
+   - Traditional sequence diagram showing service interactions
+   - Clear request/response patterns
+   - Good for documentation and understanding protocols
+
+**Implementation Strategy**: Create a visualization mode selector that allows users to switch between:
+- Current force-directed topology (overview mode)
+- Sankey diagram (flow volume mode)
+- DAG layout (structure mode)
+- Flamegraph (performance mode)
+- Waterfall (timing mode)
+
 ### Version 2.0
 - Path recording from production traffic
 - Automated critical path detection
 - Path performance predictions
 - Anomaly detection per path
+- **Multiple visualization modes** (implement alternative views above)
 
 ### Version 3.0
 - Path-based alerting rules
 - Automated remediation suggestions
 - Path cost analysis
 - Multi-cluster path visualization
+- **AI-suggested best visualization** based on data characteristics
 
 ## Dependencies
 

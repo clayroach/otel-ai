@@ -33,21 +33,16 @@ const AIAnalyzerView: React.FC = () => {
   // const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null) // Not used with new topology
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [analysisType, setAnalysisType] = useState<
-    'architecture' | 'dataflow' | 'dependencies' | 'insights'
-  >('architecture')
-  const [timeRange, setTimeRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([
-    dayjs().subtract(4, 'hours'),
-    dayjs()
-  ])
+  const [timeRange, setTimeRange] = useState<string>('5m') // Simple time range selector
   const [streaming, setStreaming] = useState(false)
   const [streamingContent, setStreamingContent] = useState<string>('')
-  const [useRealService, setUseRealService] = useState(true)
+  const [useRealService, setUseRealService] = useState(false) // Default to mock data
   const [serviceHealth, setServiceHealth] = useState<{
     status: string
     capabilities: string[]
   } | null>(null)
-  const [selectedModel, setSelectedModel] = useState<string>('claude')
+  const [selectedModel, setSelectedModel] = useState<string>('llama') // Default to Llama/Local
+  const [autoRefresh, setAutoRefresh] = useState<'manual' | '1m' | '5m'>('manual')
 
   const aiAnalyzer = useAIAnalyzer()
 
@@ -78,6 +73,39 @@ const AIAnalyzerView: React.FC = () => {
     checkServiceHealth()
   }, [])
 
+  // Auto-refresh effect
+  useEffect(() => {
+    if (autoRefresh === 'manual') {
+      return
+    }
+
+    const intervalMs = autoRefresh === '1m' ? 60000 : 300000 // 1 minute or 5 minutes
+    const interval = setInterval(() => {
+      performAnalysis()
+    }, intervalMs)
+
+    // Run immediately on setting auto-refresh
+    performAnalysis()
+
+    return () => clearInterval(interval)
+  }, [autoRefresh])
+
+  // Helper function to convert time range to hours
+  const getTimeRangeHours = () => {
+    switch (timeRange) {
+      case '1m': return 1/60
+      case '5m': return 5/60
+      case '15m': return 0.25
+      case '30m': return 0.5
+      case '1h': return 1
+      case '3h': return 3
+      case '6h': return 6
+      case '12h': return 12
+      case '24h': return 24
+      default: return 1
+    }
+  }
+
   const performAnalysis = async () => {
     setLoading(true)
     setError(null)
@@ -96,7 +124,7 @@ const AIAnalyzerView: React.FC = () => {
                     selectedModel === 'gpt' ? 1500 : selectedModel === 'llama' ? 1800 : 2000
                 },
                 analysis: {
-                  timeWindowHours: 4,
+                  timeWindowHours: getTimeRangeHours(),
                   minSpanCount: 100
                 },
                 output: {
@@ -107,7 +135,7 @@ const AIAnalyzerView: React.FC = () => {
               }
             : {
                 analysis: {
-                  timeWindowHours: 4,
+                  timeWindowHours: getTimeRangeHours(),
                   minSpanCount: 100
                 },
                 output: {
@@ -117,11 +145,14 @@ const AIAnalyzerView: React.FC = () => {
                 }
               }
 
+        const endTime = new Date()
+        const startTime = new Date(endTime.getTime() - getTimeRangeHours() * 60 * 60 * 1000)
+
         await aiAnalyzer.analyzeArchitecture({
-          type: analysisType,
+          type: 'architecture', // Always analyze all types
           timeRange: {
-            startTime: timeRange[0].toDate(),
-            endTime: timeRange[1].toDate()
+            startTime,
+            endTime
           },
           filters: {},
           config
@@ -134,10 +165,10 @@ const AIAnalyzerView: React.FC = () => {
       } else {
         // Fallback to mock data with model awareness
         await new Promise((resolve) => setTimeout(resolve, 2000))
-        // const result = generateMockData(analysisType, selectedModel)
+        // const result = generateMockData('architecture', selectedModel)
         // setAnalysisResult(result) // Commented out - using new topology component
         message.success(
-          `🚀 Enhanced topology analysis completed with ${selectedModel === 'local-statistical-analyzer' ? 'statistical analysis' : selectedModel + ' model'}!`
+          `🚀 Enhanced topology analysis completed with ${selectedModel === 'llama' ? 'Llama/Local' : selectedModel + ' model'}!`
         )
       }
     } catch (err) {
@@ -163,11 +194,14 @@ const AIAnalyzerView: React.FC = () => {
     try {
       if (useRealService) {
         // Use real streaming service with model selection
+        const endTime = new Date()
+        const startTime = new Date(endTime.getTime() - getTimeRangeHours() * 60 * 60 * 1000)
+        
         const stream = aiAnalyzer.streamAnalysis({
-          type: analysisType,
+          type: 'architecture', // Always analyze all types
           timeRange: {
-            startTime: timeRange[0].toDate(),
-            endTime: timeRange[1].toDate()
+            startTime,
+            endTime
           },
           config: {
             llm: {
@@ -272,131 +306,109 @@ const AIAnalyzerView: React.FC = () => {
 
   return (
     <div style={{ padding: '24px' }}>
-      <div style={{ marginBottom: '24px' }}>
-        <Title level={2}>
-          <ZapIcon style={{ marginRight: '12px', color: '#1890ff', fontSize: '28px' }} />
-          AI-Powered Architecture Analysis
-        </Title>
-        <Paragraph>
-          Leverage machine learning to analyze your OpenTelemetry data and discover architectural
-          insights, performance bottlenecks, and optimization opportunities.
-        </Paragraph>
-      </div>
 
-      {/* Analysis Controls */}
-      <Card title="Analysis Configuration" style={{ marginBottom: '24px' }}>
-        <Row gutter={16} align="middle">
-          <Col span={4}>
-            <div>
-              <Text strong>Analysis Type:</Text>
-              <Select
-                value={analysisType}
-                onChange={setAnalysisType}
-                style={{ width: '100%', marginTop: 8 }}
-                data-testid="analysis-type-selector"
-              >
-                <Select.Option value="architecture">🏗️ Architecture Overview</Select.Option>
-                <Select.Option value="dependencies">🔄 Service Dependencies</Select.Option>
-                <Select.Option value="dataflow">📊 Data Flow Analysis</Select.Option>
-                <Select.Option value="insights">💡 Performance Insights</Select.Option>
-              </Select>
-            </div>
-          </Col>
-          <Col span={4}>
-            <div>
-              <Text strong>AI Model:</Text>
+      {/* Simplified Analysis Controls - Right-aligned Box */}
+      <div style={{ 
+        marginBottom: '24px',
+        display: 'flex',
+        justifyContent: 'flex-end'
+      }}>
+        <div style={{
+          padding: '12px 16px',
+          background: '#ffffff',
+          border: '1px solid #d9d9d9',
+          borderRadius: '8px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.08)'
+        }}>
+          <Space size="middle">
+            {/* AI Model Selector */}
+            <Space size="small">
+              <Text>Model:</Text>
               <Select
                 data-testid="ai-model-selector"
                 value={selectedModel}
                 onChange={setSelectedModel}
-                style={{ width: '100%', marginTop: 8 }}
-                placeholder="Select AI Model"
+                style={{ width: '140px' }}
+                size="small"
               >
-                <Select.Option value="claude" data-testid="model-option-claude">
-                  🧠 Claude
-                </Select.Option>
-                <Select.Option value="gpt" data-testid="model-option-gpt">
-                  🤖 GPT-4
-                </Select.Option>
-                <Select.Option value="llama" data-testid="model-option-llama">
-                  🦙 Llama
-                </Select.Option>
-                <Select.Option
-                  value="local-statistical-analyzer"
-                  data-testid="model-option-statistical"
-                >
-                  🔬 Statistical Analysis
-                </Select.Option>
+                <Select.Option value="llama">🦙 Llama/Local</Select.Option>
+                <Select.Option value="claude">🧠 Claude</Select.Option>
+                <Select.Option value="gpt">🤖 GPT-4</Select.Option>
+                <Select.Option value="local-statistical-analyzer">🔬 Statistical</Select.Option>
               </Select>
-            </div>
-          </Col>
-          <Col span={6}>
-            <div>
-              <Text strong>Time Range:</Text>
-              <RangePicker
-                value={timeRange}
-                onChange={(dates) => {
-                  if (dates && dates[0] && dates[1]) {
-                    setTimeRange([dates[0], dates[1]])
-                  }
-                }}
-                showTime
-                style={{ width: '100%', marginTop: 8 }}
-                data-testid="time-range-picker"
+            </Space>
+
+            {/* Data Source Toggle */}
+            <Space size="small">
+              <Text>Data:</Text>
+              <Switch
+                checked={useRealService}
+                onChange={setUseRealService}
+                checkedChildren="Real"
+                unCheckedChildren="Mock"
+                size="small"
               />
-            </div>
-          </Col>
-          <Col span={4}>
-            <div>
-              <Space align="baseline">
-                <Text strong>Use Real Service:</Text>
-                <Switch
-                  checked={useRealService}
-                  onChange={setUseRealService}
-                  checkedChildren="Real"
-                  unCheckedChildren="Mock"
-                />
-              </Space>
               {serviceHealth && (
-                <div style={{ marginTop: 4, fontSize: '12px' }}>
-                  Status:{' '}
-                  <Tag color={serviceHealth.status === 'healthy' ? 'green' : 'red'}>
-                    {serviceHealth.status}
-                  </Tag>
-                </div>
+                <Tag 
+                  color={serviceHealth.status === 'healthy' ? 'green' : 'orange'} 
+                  style={{ marginLeft: 4 }}
+                >
+                  {serviceHealth.status === 'healthy' ? '✓' : 'Demo'}
+                </Tag>
               )}
-            </div>
-          </Col>
-          <Col span={3}>
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Button
-                type="primary"
-                icon={<AnalysisIcon />}
-                onClick={performAnalysis}
-                loading={loading}
-                block
-                size="large"
-                data-testid="analyze-button"
-              >
-                🔍 Analyze Topology
-              </Button>
             </Space>
-          </Col>
-          <Col span={3}>
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Button
-                icon={<TrendingUpIcon />}
-                onClick={performStreamingAnalysis}
-                loading={streaming}
-                block
-                size="large"
+
+            {/* Time Range Selector */}
+            <Space size="small">
+              <Text>Time:</Text>
+              <Select
+                value={timeRange}
+                onChange={setTimeRange}
+                style={{ width: '100px' }}
+                size="small"
+                data-testid="time-range-selector"
               >
-                ⚡ Stream Insights
-              </Button>
+                <Select.Option value="1m">Last 1m</Select.Option>
+                <Select.Option value="5m">Last 5m</Select.Option>
+                <Select.Option value="15m">Last 15m</Select.Option>
+                <Select.Option value="30m">Last 30m</Select.Option>
+                <Select.Option value="1h">Last 1h</Select.Option>
+                <Select.Option value="3h">Last 3h</Select.Option>
+                <Select.Option value="6h">Last 6h</Select.Option>
+                <Select.Option value="12h">Last 12h</Select.Option>
+                <Select.Option value="24h">Last 24h</Select.Option>
+              </Select>
             </Space>
-          </Col>
-        </Row>
-      </Card>
+
+            {/* Auto Refresh Selector */}
+            <Space size="small">
+              <Text>Refresh:</Text>
+              <Select
+                value={autoRefresh}
+                onChange={setAutoRefresh}
+                style={{ width: '100px' }}
+                size="small"
+              >
+                <Select.Option value="manual">Manual</Select.Option>
+                <Select.Option value="1m">Every 1m</Select.Option>
+                <Select.Option value="5m">Every 5m</Select.Option>
+              </Select>
+            </Space>
+
+            {/* Analyze Button */}
+            <Button
+              type="primary"
+              icon={<AnalysisIcon />}
+              onClick={performAnalysis}
+              loading={loading}
+              disabled={autoRefresh !== 'manual'}
+              data-testid="analyze-button"
+            >
+              Analyze
+            </Button>
+          </Space>
+        </div>
+      </div>
 
       {/* Error Display */}
       {error && (
@@ -409,8 +421,8 @@ const AIAnalyzerView: React.FC = () => {
         />
       )}
 
-      {/* Streaming Content */}
-      {streaming && (
+      {/* Streaming Content - Hidden for now as we simplified the interface */}
+      {false && streaming && (
         <Card
           title={
             <Space>
