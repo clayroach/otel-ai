@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
 import { Row, Col, Spin, Alert, Empty, Button, Space, message } from 'antd'
-import { ReloadOutlined } from '@ant-design/icons'
 import PieNodeTopologyChart from './PieNodeTopologyChart'
 import EnhancedServiceDetailsPanel from './EnhancedServiceDetailsPanel'
 import type { ServiceNode, TopologyVisualizationData } from './PieNodeTopologyChart'
@@ -204,7 +203,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
         showIcon
         action={
           <Button size="small" onClick={handleRefresh}>
-            Retry
+            Try Again
           </Button>
         }
       />
@@ -223,26 +222,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
 
   return (
     <div style={{ height: '100%' }}>
-      {/* Action Bar */}
-      <div style={{ marginBottom: 16 }}>
-        <Space>
-          <Button
-            icon={<ReloadOutlined spin={loading} />}
-            onClick={handleRefresh}
-            disabled={loading}
-          >
-            Refresh
-          </Button>
-          {lastUpdated && (
-            <span style={{ color: '#8c8c8c', fontSize: 12 }}>
-              Last updated: {lastUpdated.toLocaleTimeString()}
-            </span>
-          )}
-          {autoRefresh && (
-            <span style={{ color: '#52c41a', fontSize: 12 }}>⚡ Auto-refresh enabled</span>
-          )}
-        </Space>
-      </div>
+      {/* Action Bar - Removed Refresh button */}
 
       {/* Main Layout */}
       <Row gutter={16} style={{ height: 'calc(100% - 50px)' }}>

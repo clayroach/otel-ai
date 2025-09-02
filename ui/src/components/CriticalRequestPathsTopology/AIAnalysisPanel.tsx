@@ -7,7 +7,6 @@ import {
   Tag,
   Alert,
   Spin,
-  Button,
   Tooltip,
   Badge,
   Statistic,
@@ -19,7 +18,6 @@ import {
 import {
   GlobalOutlined,
   AppstoreOutlined,
-  ReloadOutlined,
   BulbOutlined,
   WarningOutlined,
   CheckCircleOutlined,
@@ -38,7 +36,6 @@ interface AIAnalysisPanelProps extends PanelProps {
   activeTabId: string
   onTabChange: (tabId: string) => void
   onTabClose: (tabId: string) => void
-  onRefresh: (tabId: string) => void
   loading?: boolean
   selectedModel?: 'gpt-4' | 'claude' | 'llama'
 }
@@ -48,24 +45,10 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
   activeTabId,
   onTabChange,
   onTabClose,
-  onRefresh,
   loading = false,
   selectedModel = 'claude',
   width = '100%'
 }) => {
-  const [refreshingTabs, setRefreshingTabs] = useState<Set<string>>(new Set())
-
-  const handleRefresh = async (tabId: string) => {
-    setRefreshingTabs(prev => new Set(prev).add(tabId))
-    await onRefresh(tabId)
-    setTimeout(() => {
-      setRefreshingTabs(prev => {
-        const next = new Set(prev)
-        next.delete(tabId)
-        return next
-      })
-    }, 1000)
-  }
 
   const getSeverityIcon = (severity: string) => {
     switch (severity) {
@@ -143,7 +126,6 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
   }
 
   const renderTabContent = (tab: AnalysisTab) => {
-    const isRefreshing = refreshingTabs.has(tab.id)
 
     if (!tab.content) {
       return (
@@ -223,17 +205,6 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
               ))}
             </Timeline>
           </Card>
-
-          {/* Action Buttons */}
-          <Space>
-            <Button
-              icon={<ReloadOutlined spin={isRefreshing} />}
-              onClick={() => handleRefresh(tab.id)}
-              loading={isRefreshing}
-            >
-              Refresh Analysis
-            </Button>
-          </Space>
         </Space>
       </div>
     )

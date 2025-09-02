@@ -316,32 +316,6 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
     })
   }, [])
 
-  // Handle refresh analysis
-  const handleRefreshAnalysis = useCallback(async (tabId: string) => {
-    // Simulate refresh with new data
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    setState(prev => {
-      const tabIndex = prev.activeTabs.findIndex(t => t.id === tabId)
-      if (tabIndex === -1) return prev
-
-      const tab = prev.activeTabs[tabIndex]
-      const newContent = generateMockAnalysis(tab.type, tab.targetId)
-      
-      const newTabs = [...prev.activeTabs]
-      newTabs[tabIndex] = {
-        ...tab,
-        content: newContent
-      }
-
-      return {
-        ...prev,
-        activeTabs: newTabs
-      }
-    })
-
-    message.success('Analysis refreshed')
-  }, [])
 
   // Calculate responsive column spans
   const getColSpans = () => {
@@ -400,7 +374,6 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
               activeTabId={state.activeTabId}
               onTabChange={handleTabChange}
               onTabClose={handleTabClose}
-              onRefresh={handleRefreshAnalysis}
               selectedModel="claude"
             />
           </Col>
