@@ -3,6 +3,7 @@ import { Row, Col, message } from 'antd'
 import { CriticalPathsPanel } from './CriticalPathsPanel'
 import { AIAnalysisPanel } from './AIAnalysisPanel'
 import { TopologyTab } from '../TopologyChart'
+import { PathFlowChart } from './PathFlowChart'
 import type {
   CriticalPath,
   AnalysisTab,
@@ -75,7 +76,7 @@ const generateMockPaths = (): CriticalPath[] => {
     {
       id: 'path-4',
       name: 'Shipping Calculator',
-      description: 'Calculate shipping costs and delivery times',
+      description: 'Calculate shipping costs and delivery times - HIGH ERROR RATE',
       services: ['frontend', 'shipping', 'currency'],
       edges: [
         { source: 'frontend', target: 'shipping' },
@@ -84,10 +85,10 @@ const generateMockPaths = (): CriticalPath[] => {
       metrics: {
         requestCount: 890,
         avgLatency: 2100,
-        errorRate: 0.08,
+        errorRate: 0.08,  // 8% error rate - critical
         p99Latency: 5500
       },
-      priority: 'medium',
+      priority: 'critical',  // Changed to critical due to high error rate
       lastUpdated: new Date()
     },
     {
@@ -108,6 +109,23 @@ const generateMockPaths = (): CriticalPath[] => {
       priority: 'low',
       lastUpdated: new Date()
     }
+  ]
+}
+
+const generateMockServices = () => {
+  return [
+    { id: 'frontend', name: 'Frontend', metrics: { rate: 250, errorRate: 0.001, duration: 45 } },
+    { id: 'cart', name: 'Cart Service', metrics: { rate: 180, errorRate: 0.002, duration: 120 } },
+    { id: 'checkout', name: 'Checkout Service', metrics: { rate: 150, errorRate: 0.003, duration: 200 } },
+    { id: 'payment', name: 'Payment Service', metrics: { rate: 120, errorRate: 0.005, duration: 350 } },
+    { id: 'email', name: 'Email Service', metrics: { rate: 100, errorRate: 0.001, duration: 80 } },
+    { id: 'product-catalog', name: 'Product Catalog', metrics: { rate: 450, errorRate: 0.001, duration: 65 } },
+    { id: 'recommendation', name: 'Recommendation', metrics: { rate: 320, errorRate: 0.002, duration: 150 } },
+    { id: 'ad', name: 'Ad Service', metrics: { rate: 280, errorRate: 0.008, duration: 95 } },
+    { id: 'currency', name: 'Currency Service', metrics: { rate: 200, errorRate: 0.015, duration: 55 } },
+    { id: 'shipping', name: 'Shipping Service', metrics: { rate: 85, errorRate: 0.08, duration: 2100 } },
+    { id: 'fraud-detection', name: 'Fraud Detection', metrics: { rate: 25, errorRate: 0.001, duration: 3500 } },
+    { id: 'accounting', name: 'Accounting', metrics: { rate: 15, errorRate: 0.001, duration: 450 } }
   ]
 }
 
@@ -357,16 +375,24 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
           </Col>
         )}
 
-        {/* Topology Graph */}
+        {/* Topology Graph or Path Flow Chart */}
         <Col span={colSpans.topology} style={{ height: '100%' }}>
-          <TopologyTab
-            data={null} // Will use mock data from TopologyTab
-            highlightedServices={Array.from(state.highlightedServices)}
-            onServiceClick={handleServiceClick}
-            selectedPaths={state.selectedPaths.map(id => 
-              state.availablePaths.find(p => p.id === id)
-            ).filter(Boolean) as CriticalPath[]}
-          />
+          {state.selectedPaths.length === 1 ? (
+            <PathFlowChart
+              path={state.availablePaths.find(p => p.id === state.selectedPaths[0]) || null}
+              services={generateMockServices()}
+              height={window.innerHeight - 120}
+            />
+          ) : (
+            <TopologyTab
+              data={null} // Will use mock data from TopologyTab
+              highlightedServices={Array.from(state.highlightedServices)}
+              onServiceClick={handleServiceClick}
+              selectedPaths={state.selectedPaths.map(id => 
+                state.availablePaths.find(p => p.id === id)
+              ).filter(Boolean) as CriticalPath[]}
+            />
+          )}
         </Col>
 
         {/* AI Analysis Panel */}
