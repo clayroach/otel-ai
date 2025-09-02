@@ -225,22 +225,71 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
     }
   })
 
+  // Track services with open tabs (these should stay highlighted)
+  const [servicesWithTabs, setServicesWithTabs] = useState<Set<string>>(new Set())
+
   // Handle path selection
   const handlePathSelect = useCallback((pathIds: string[]) => {
     setState(prev => {
       // Update highlighted services based on selected paths
       const highlightedServices = new Set<string>()
+      const newTabs = [...prev.activeTabs.filter(t => t.type === 'global')] // Keep global tab
+      const newServicesWithTabs = new Set<string>()
+
+      // For each selected path, add its services and create tabs
       pathIds.forEach(pathId => {
         const path = prev.availablePaths.find(p => p.id === pathId)
         if (path) {
-          path.services.forEach(service => highlightedServices.add(service))
+          path.services.forEach(serviceId => {
+            highlightedServices.add(serviceId)
+            newServicesWithTabs.add(serviceId)
+            
+            // Check if tab already exists
+            const existingTab = prev.activeTabs.find(
+              tab => tab.type === 'service' && tab.targetId === serviceId
+            )
+            
+            if (!existingTab) {
+              // Create new tab for this service
+              const service = generateMockServices().find(s => s.id === serviceId)
+              const newTab: AnalysisTab = {
+                id: `service-${serviceId}-${Date.now()}`,
+                type: 'service',
+                title: service?.name || serviceId,
+                targetId: serviceId,
+                content: {
+                  summary: `Service ${service?.name || serviceId} analysis`,
+                  insights: [],
+                  metrics: service?.metrics ? {
+                    requestRate: service.metrics.rate,
+                    errorRate: service.metrics.errorRate,
+                    latency: {
+                      p50: service.metrics.duration * 0.7,
+                      p95: service.metrics.duration * 1.5,
+                      p99: service.metrics.duration * 2
+                    },
+                    saturation: Math.floor(Math.random() * 100)
+                  } : undefined,
+                  serviceDetails: service
+                }
+              }
+              newTabs.push(newTab)
+            } else {
+              newTabs.push(existingTab)
+            }
+          })
         }
       })
+
+      // Update servicesWithTabs
+      setServicesWithTabs(newServicesWithTabs)
 
       return {
         ...prev,
         selectedPaths: pathIds,
-        highlightedServices
+        highlightedServices,
+        activeTabs: newTabs,
+        activeTabId: newTabs.length > 1 ? newTabs[1].id : 'global' // Switch to first service tab if available
       }
     })
 
@@ -254,7 +303,7 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
       message.info('Showing all services')
     } else if (pathIds.length === 1) {
       const path = state.availablePaths.find(p => p.id === pathIds[0])
-      message.success(`Filtered to: ${path?.name}`)
+      message.success(`Opened tabs for all services in: ${path?.name}`)
     } else {
       message.success(`Comparing ${pathIds.length} paths`)
     }
@@ -265,8 +314,11 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
     setState(prev => ({
       ...prev,
       selectedPaths: [],
-      highlightedServices: new Set()
+      highlightedServices: new Set(),
+      activeTabs: prev.activeTabs.filter(t => t.type === 'global'), // Keep only global tab
+      activeTabId: 'global'
     }))
+    setServicesWithTabs(new Set())
     message.info('Showing complete topology')
   }, [])
 
@@ -284,11 +336,24 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
 
       if (existingTab) {
         console.log('Found existing tab:', existingTab)
-        // If clicking on the currently active service tab, go back to global
+        // If clicking on the currently active service tab, close it and unhighlight
         if (prev.activeTabId === existingTab.id) {
+          // Remove the tab and unhighlight the service
+          const newTabs = prev.activeTabs.filter(t => t.id !== existingTab.id)
+          const newHighlighted = new Set(prev.highlightedServices)
+          newHighlighted.delete(serviceId)
+          
+          setServicesWithTabs(prev => {
+            const newSet = new Set(prev)
+            newSet.delete(serviceId)
+            return newSet
+          })
+          
           return {
             ...prev,
-            activeTabId: 'global'
+            activeTabs: newTabs,
+            activeTabId: 'global',
+            highlightedServices: newHighlighted
           }
         }
         // Otherwise switch to the existing service tab
@@ -326,16 +391,28 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
             },
             saturation: Math.floor(Math.random() * 100)
           } : undefined,
-          serviceDetails: service // Add the actual service details
+          serviceDetails: service
         }
       }
       
       console.log('Creating new tab:', newTab)
+      
+      // Add to highlighted services
+      const newHighlighted = new Set(prev.highlightedServices)
+      newHighlighted.add(serviceId)
+      
+      // Track that this service has a tab
+      setServicesWithTabs(prev => {
+        const newSet = new Set(prev)
+        newSet.add(serviceId)
+        return newSet
+      })
 
       return {
         ...prev,
         activeTabs: [...prev.activeTabs, newTab],
-        activeTabId: newTab.id
+        activeTabId: newTab.id,
+        highlightedServices: newHighlighted
       }
     })
 
@@ -356,7 +433,41 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
   // Handle tab close
   const handleTabClose = useCallback((tabId: string) => {
     setState(prev => {
+      const closedTab = prev.activeTabs.find(t => t.id === tabId)
       const newTabs = prev.activeTabs.filter(t => t.id !== tabId)
+      
+      // If closing a service tab, unhighlight that service
+      if (closedTab && closedTab.type === 'service' && closedTab.targetId) {
+        const newHighlighted = new Set(prev.highlightedServices)
+        newHighlighted.delete(closedTab.targetId)
+        
+        // Remove from servicesWithTabs
+        setServicesWithTabs(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(closedTab.targetId!)
+          return newSet
+        })
+        
+        // If closing the active tab, switch to another tab
+        let newActiveId = prev.activeTabId
+        if (prev.activeTabId === tabId) {
+          // Try to find another service tab first
+          const remainingServiceTab = newTabs.find(t => t.type === 'service')
+          if (remainingServiceTab) {
+            newActiveId = remainingServiceTab.id
+          } else {
+            // Otherwise go back to global
+            newActiveId = 'global'
+          }
+        }
+        
+        return {
+          ...prev,
+          activeTabs: newTabs,
+          activeTabId: newActiveId,
+          highlightedServices: newHighlighted
+        }
+      }
       
       // If closing the active tab, switch to another tab
       let newActiveId = prev.activeTabId
@@ -429,6 +540,7 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
             <TopologyTab
               data={null} // Will use mock data from TopologyTab
               highlightedServices={Array.from(state.highlightedServices)}
+              servicesWithTabs={Array.from(servicesWithTabs)} // Pass services that have tabs open
               onServiceClick={handleServiceClick}
               selectedPaths={state.selectedPaths.map(id => 
                 state.availablePaths.find(p => p.id === id)

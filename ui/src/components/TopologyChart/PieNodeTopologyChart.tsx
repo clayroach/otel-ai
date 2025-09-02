@@ -84,6 +84,7 @@ interface PieNodeTopologyChartProps {
   height?: number
   filteredHealthStatuses?: string[]
   highlightedServices?: string[] // Services to highlight from critical paths
+  servicesWithTabs?: string[] // Services that have tabs open (show with neighbors)
   filterMode?: 'highlight' | 'filter' // Whether to dim others or filter them out
   highlightedEdges?: Array<{ source: string; target: string }> // Edges to highlight for paths
 }
@@ -158,23 +159,50 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
   height = 600,
   filteredHealthStatuses = [],
   highlightedServices = [],
+  servicesWithTabs = [],
   filterMode = 'filter' // Default to filter mode for critical paths
 }) => {
   const chartRef = useRef<ReactECharts | null>(null)
 
+  // Calculate which nodes to show
+  let nodesToShow = new Set<string>()
+  
+  // If services have tabs open, include them and their neighbors
+  if (servicesWithTabs.length > 0) {
+    servicesWithTabs.forEach(serviceId => {
+      nodesToShow.add(serviceId)
+      // Find all edges connected to this service
+      data.edges.forEach(edge => {
+        if (edge.source === serviceId) {
+          nodesToShow.add(edge.target)
+        }
+        if (edge.target === serviceId) {
+          nodesToShow.add(edge.source)
+        }
+      })
+    })
+  }
+  
   // Filter or process nodes based on mode
   let processedNodes = data.nodes
   
-  // Apply critical path filtering if in filter mode
-  if (filterMode === 'filter' && highlightedServices.length > 0) {
-    processedNodes = processedNodes.filter(node => highlightedServices.includes(node.id))
+  // Apply filtering based on tabs and highlighted services
+  if (filterMode === 'filter') {
+    if (nodesToShow.size > 0) {
+      // If we have services with tabs, show those and neighbors
+      processedNodes = processedNodes.filter(node => nodesToShow.has(node.id))
+    } else if (highlightedServices.length > 0) {
+      // Otherwise, filter by highlighted services (from critical paths)
+      processedNodes = processedNodes.filter(node => highlightedServices.includes(node.id))
+    }
   }
   
   // Process nodes to add health coloring and highlighting
   processedNodes = processedNodes.map((node) => {
     const healthColor = getNodeOverallHealthColor(node.metrics)
-    const isHighlighted = highlightedServices.length > 0 && highlightedServices.includes(node.id)
-    const isDimmed = filterMode === 'highlight' && highlightedServices.length > 0 && !highlightedServices.includes(node.id)
+    const isServiceWithTab = servicesWithTabs.includes(node.id)
+    const isHighlighted = isServiceWithTab || (highlightedServices.length > 0 && highlightedServices.includes(node.id))
+    const isDimmed = filterMode === 'highlight' && (highlightedServices.length > 0 || servicesWithTabs.length > 0) && !isHighlighted
 
     return {
       ...node,

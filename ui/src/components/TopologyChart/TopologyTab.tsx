@@ -10,6 +10,7 @@ interface TopologyTabProps {
   refreshInterval?: number
   data?: TopologyVisualizationData | null // Allow external data to be passed
   highlightedServices?: string[] // Services to highlight
+  servicesWithTabs?: string[] // Services that have tabs open (show with neighbors)
   onServiceClick?: (serviceId: string) => void // Callback for service clicks
   selectedPaths?: Array<{
     id: string
@@ -25,6 +26,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
   refreshInterval = 30000, // 30 seconds
   data: _data,
   highlightedServices = [],
+  servicesWithTabs = [],
   onServiceClick,
   selectedPaths: _selectedPaths = []
 }) => {
@@ -246,6 +248,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
           height={600}
           filteredHealthStatuses={filteredHealthStatuses}
           highlightedServices={highlightedServices}
+          servicesWithTabs={servicesWithTabs}
           filterMode="filter"
         />
       </div>
