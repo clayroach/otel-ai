@@ -24,27 +24,29 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-/* Scrollable Lists */
-.critical-request-paths-topology .ant-list {
-  max-height: calc(100vh - 300px);
+/* Scrollable container - not the list itself */
+.critical-paths-scroll-container {
+  flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
 }
 
-.critical-request-paths-topology .ant-list::-webkit-scrollbar {
+.critical-paths-scroll-container::-webkit-scrollbar {
   width: 6px;
 }
 
-.critical-request-paths-topology .ant-list::-webkit-scrollbar-track {
+.critical-paths-scroll-container::-webkit-scrollbar-track {
   background: #f1f1f1;
   border-radius: 3px;
 }
 
-.critical-request-paths-topology .ant-list::-webkit-scrollbar-thumb {
+.critical-paths-scroll-container::-webkit-scrollbar-thumb {
   background: #888;
   border-radius: 3px;
 }
 
-.critical-request-paths-topology .ant-list::-webkit-scrollbar-thumb:hover {
+.critical-paths-scroll-container::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
 
@@ -82,7 +84,7 @@
     margin-bottom: 12px;
   }
   
-  .critical-request-paths-topology .ant-list {
+  .critical-paths-scroll-container {
     max-height: 200px;
   }
 }

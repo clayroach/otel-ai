@@ -106,13 +106,15 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
 
   return (
     <Card
-      style={{ width, height: '100%', display: 'flex', flexDirection: 'column' }}
-      bodyStyle={{ padding: '12px', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+      style={{ width, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+      bodyStyle={{ padding: '12px', flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
       title={
-        <Space>
-          <ForkOutlined />
-          <Text strong>Critical Request Paths</Text>
-          <Badge count={selectedPaths.length} style={{ backgroundColor: '#1890ff' }} />
+        <Space size="small" style={{ fontSize: '14px' }}>
+          <ForkOutlined style={{ fontSize: '14px' }} />
+          <Text strong style={{ fontSize: '14px', whiteSpace: 'nowrap' }}>Critical Paths</Text>
+          {selectedPaths.length > 0 && (
+            <Badge count={selectedPaths.length} style={{ backgroundColor: '#1890ff' }} />
+          )}
         </Space>
       }
       extra={
@@ -126,12 +128,12 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
             />
           </Tooltip>
           <Button size="small" onClick={onShowAll}>
-            Show All
+            All
           </Button>
         </Space>
       }
     >
-      <Space direction="vertical" style={{ width: '100%', marginBottom: 12 }}>
+      <Space direction="vertical" style={{ width: '100%', marginBottom: 8, flexShrink: 0 }}>
         <Search
           placeholder="Search paths..."
           size="small"
@@ -166,7 +168,7 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
         )}
       </Space>
 
-      <div style={{ flex: 1, overflow: 'auto' }}>
+      <div className="critical-paths-scroll-container">
         {filteredPaths.length === 0 ? (
           <Empty
             description="No paths found"
@@ -176,6 +178,7 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
           <List
             size="small"
             dataSource={filteredPaths}
+            style={{ overflow: 'visible' }}
             renderItem={path => (
               <List.Item
                 key={path.id}
