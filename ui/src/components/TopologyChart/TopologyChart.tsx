@@ -225,40 +225,36 @@ export const TopologyChart: React.FC<TopologyChartProps> = ({
     <div>
       {/* Health Summary Bar */}
       {data.healthSummary && (
-        <Row gutter={16} style={{ marginBottom: 16 }}>
-          <Col span={24}>
-            <Card size="small">
-              <Space size="large">
-                <Text strong>Service Health:</Text>
-                <Badge count={data.healthSummary.healthy} showZero>
-                  <Tag color="green" icon={<CheckCircleOutlined />}>
+        <div style={{ marginBottom: 8, padding: '4px 8px', background: '#fafafa', borderRadius: 4 }}>
+          <Space size="small" style={{ fontSize: 11 }}>
+            <Text strong style={{ fontSize: 11 }}>Health:</Text>
+                <Badge count={data.healthSummary.healthy} showZero size="small">
+                  <Tag color="green" icon={<CheckCircleOutlined />} style={{ fontSize: 11 }}>
                     Healthy
                   </Tag>
                 </Badge>
-                <Badge count={data.healthSummary.warning} showZero>
-                  <Tag color="yellow" icon={<WarningOutlined />}>
+                <Badge count={data.healthSummary.warning} showZero size="small">
+                  <Tag color="yellow" icon={<WarningOutlined />} style={{ fontSize: 11 }}>
                     Warning
                   </Tag>
                 </Badge>
-                <Badge count={data.healthSummary.degraded} showZero>
-                  <Tag color="orange" icon={<AlertOutlined />}>
+                <Badge count={data.healthSummary.degraded} showZero size="small">
+                  <Tag color="orange" icon={<AlertOutlined />} style={{ fontSize: 11 }}>
                     Degraded
                   </Tag>
                 </Badge>
-                <Badge count={data.healthSummary.critical} showZero>
-                  <Tag color="red" icon={<HeartOutlined />}>
+                <Badge count={data.healthSummary.critical} showZero size="small">
+                  <Tag color="red" icon={<HeartOutlined />} style={{ fontSize: 11 }}>
                     Critical
                   </Tag>
                 </Badge>
-                <Badge count={data.healthSummary.unavailable} showZero>
-                  <Tag color="black" icon={<StopOutlined />}>
-                    Unavailable
-                  </Tag>
-                </Badge>
-              </Space>
-            </Card>
-          </Col>
-        </Row>
+            <Badge count={data.healthSummary.unavailable} showZero size="small">
+              <Tag color="black" icon={<StopOutlined />} style={{ fontSize: 11 }}>
+                Unavailable
+              </Tag>
+            </Badge>
+          </Space>
+        </div>
       )}
 
       {/* Main Chart */}

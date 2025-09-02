@@ -411,70 +411,66 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
     <div>
       {/* Health Summary Bar with Clickable Filters */}
       {data.healthSummary && (
-        <Row gutter={16} style={{ marginBottom: 16 }}>
-          <Col span={24}>
-            <Card size="small">
-              <Space size="large">
-                <Text strong>Service Health (click to filter):</Text>
-                <Badge count={data.healthSummary.healthy} showZero>
-                  <Tag
+        <div style={{ marginBottom: 8, padding: '4px 8px', background: '#fafafa', borderRadius: 4 }}>
+          <Space size="small" style={{ fontSize: 11 }}>
+            <Text strong style={{ fontSize: 11 }}>Health:</Text>
+            <Badge count={data.healthSummary.healthy} showZero size="small">
+              <Tag
                     color="green"
                     icon={<CheckCircleOutlined />}
-                    style={{ cursor: 'pointer' }}
+                    style={{ cursor: 'pointer', fontSize: 11 }}
                     onClick={() => onHealthFilter && onHealthFilter('healthy')}
                   >
                     Healthy
                   </Tag>
-                </Badge>
-                <Badge count={data.healthSummary.warning} showZero>
+            </Badge>
+            <Badge count={data.healthSummary.warning} showZero size="small">
                   <Tag
                     color="yellow"
                     icon={<WarningOutlined />}
-                    style={{ cursor: 'pointer' }}
+                    style={{ cursor: 'pointer', fontSize: 11 }}
                     onClick={() => onHealthFilter && onHealthFilter('warning')}
                   >
                     Warning
                   </Tag>
-                </Badge>
-                <Badge count={data.healthSummary.degraded} showZero>
+            </Badge>
+            <Badge count={data.healthSummary.degraded} showZero size="small">
                   <Tag
                     color="orange"
                     icon={<AlertOutlined />}
-                    style={{ cursor: 'pointer' }}
+                    style={{ cursor: 'pointer', fontSize: 11 }}
                     onClick={() => onHealthFilter && onHealthFilter('degraded')}
                   >
                     Degraded
                   </Tag>
-                </Badge>
-                <Badge count={data.healthSummary.critical} showZero>
+            </Badge>
+            <Badge count={data.healthSummary.critical} showZero size="small">
                   <Tag
                     color="red"
                     icon={<HeartOutlined />}
-                    style={{ cursor: 'pointer' }}
+                    style={{ cursor: 'pointer', fontSize: 11 }}
                     onClick={() => onHealthFilter && onHealthFilter('critical')}
                   >
                     Critical
                   </Tag>
-                </Badge>
-                <Badge count={data.healthSummary.unavailable} showZero>
-                  <Tag
-                    color="black"
-                    icon={<StopOutlined />}
-                    style={{ cursor: 'pointer' }}
+            </Badge>
+            <Badge count={data.healthSummary.unavailable} showZero size="small">
+              <Tag
+                color="black"
+                icon={<StopOutlined />}
+                style={{ cursor: 'pointer', fontSize: 11 }}
                     onClick={() => onHealthFilter && onHealthFilter('unavailable')}
                   >
                     Unavailable
                   </Tag>
-                </Badge>
-                {filteredHealthStatuses.length > 0 && (
-                  <Tag color="blue" closable onClose={() => onHealthFilter && onHealthFilter('')}>
-                    Clear Filter
-                  </Tag>
-                )}
-              </Space>
-            </Card>
-          </Col>
-        </Row>
+            </Badge>
+            {filteredHealthStatuses.length > 0 && (
+              <Tag color="blue" closable onClose={() => onHealthFilter && onHealthFilter('')} style={{ fontSize: 11 }}>
+                Clear Filter
+              </Tag>
+            )}
+          </Space>
+        </div>
       )}
 
       {/* Main Chart */}
@@ -487,26 +483,15 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
         />
       </Card>
 
-      {/* Health Status Legend */}
-      <Card size="small" style={{ marginTop: 16 }}>
-        <Space wrap>
-          <Text strong>Node Health Status:</Text>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            Node colors indicate overall health based on RED metrics (Rate, Errors, Duration) and
-            telemetry health.
-          </Text>
-          <Divider type="vertical" />
-          <Tag color="green" style={{ fontSize: 12 }}>
-            🟢 Healthy
-          </Tag>
-          <Tag color="orange" style={{ fontSize: 12 }}>
-            🟡 Warning
-          </Tag>
-          <Tag color="red" style={{ fontSize: 12 }}>
-            🔴 Critical
-          </Tag>
+      {/* Health Status Legend - Inline */}
+      <div style={{ marginTop: 8, padding: '4px 8px', background: '#fafafa', borderRadius: 4, fontSize: 11 }}>
+        <Space size="small">
+          <Text style={{ fontSize: 11 }}>Node colors:</Text>
+          <span style={{ color: '#52c41a' }}>● Healthy</span>
+          <span style={{ color: '#faad14' }}>● Warning</span>
+          <span style={{ color: '#ff4d4f' }}>● Critical</span>
         </Space>
-      </Card>
+      </div>
     </div>
   )
 }
