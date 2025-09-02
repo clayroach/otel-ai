@@ -112,7 +112,7 @@ test.describe('Mock vs Real Data E2E Validation', () => {
     
     // Verify mock data is shown
     await page.waitForSelector('canvas', { timeout: 10000 })
-    let content = await page.content()
+    const content = await page.content()
     
     // Should contain mock service indicators
     expect(content.includes('mfrontend') || content.includes('mcart') || content.includes('mock')).toBeTruthy()
@@ -174,7 +174,6 @@ test.describe('Mock vs Real Data E2E Validation', () => {
     
     // Re-count services
     const liveMockCount = (liveContent.match(/m[a-z]+service/g) || []).length
-    const liveRealCount = (liveContent.match(/(?<!m)(frontend|cartservice|checkoutservice|paymentservice)/g) || []).length
     
     // In LIVE mode, should never show mock services
     if (!liveContent.includes('Error')) {

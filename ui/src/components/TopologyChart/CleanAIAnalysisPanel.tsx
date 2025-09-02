@@ -1,18 +1,15 @@
 import React, { useState } from 'react'
-import { Progress, Badge, List, Button, Space, Typography, Row, Col, Tag } from 'antd'
+import { Progress, Button, Space, Typography, Row, Col, Tag } from 'antd'
 import {
   ExclamationCircleOutlined,
   WarningOutlined,
   InfoCircleOutlined,
   CheckCircleOutlined,
-  ArrowUpOutlined,
-  ArrowDownOutlined,
-  MinusOutlined,
   AlertOutlined,
   BulbOutlined
 } from '@ant-design/icons'
 
-const { Title, Text } = Typography
+const { Text } = Typography
 
 // Types
 interface HealthMetric {
@@ -285,8 +282,7 @@ interface CleanAIAnalysisPanelProps {
 
 export const CleanAIAnalysisPanel: React.FC<CleanAIAnalysisPanelProps> = ({
   tabType = 'global',
-  serviceName,
-  serviceId
+  serviceName
 }) => {
   const [activeFilter, setActiveFilter] = useState<FilterType>('all')
 

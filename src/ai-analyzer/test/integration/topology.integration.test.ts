@@ -401,7 +401,7 @@ describe('AI Analyzer Topology Integration', () => {
         expect(analyzedSpans).toBeGreaterThan(0)
         // After running for days, we can have millions of spans - that's expected!
         expect(analyzedSpans).toBeLessThan(100000000) // Allow up to 100 million spans
-        console.log(`✅ analyzedSpans is a clean number: ${analyzedSpans.toLocaleString()}`)
+        console.log(`✅ analyzedSpans is a clean number: ${(analyzedSpans as number).toLocaleString()}`)
       }
       
       // Additional check: make sure it doesn't contain "spans" suffix unexpectedly

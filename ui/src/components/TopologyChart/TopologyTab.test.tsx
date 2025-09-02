@@ -123,10 +123,12 @@ describe('Mock vs Real Data Separation', () => {
 
       mockData.nodes.forEach((node) => {
         expect(node.metrics).toBeDefined()
-        expect(node.metrics.rate).toBeGreaterThanOrEqual(0)
-        expect(node.metrics.errorRate).toBeGreaterThanOrEqual(0)
-        expect(node.metrics.duration).toBeGreaterThanOrEqual(0)
-        expect(node.metrics.spanCount).toBeGreaterThanOrEqual(0)
+        if (node.metrics) {
+          expect(node.metrics.rate).toBeGreaterThanOrEqual(0)
+          expect(node.metrics.errorRate).toBeGreaterThanOrEqual(0)
+          expect(node.metrics.duration).toBeGreaterThanOrEqual(0)
+          expect(node.metrics.spanCount).toBeGreaterThanOrEqual(0)
+        }
       })
     })
 
@@ -145,9 +147,11 @@ describe('Mock vs Real Data Separation', () => {
       const mockData = getMockTopologyData()
 
       expect(mockData.healthSummary).toBeDefined()
-      expect(mockData.healthSummary.healthy).toBeGreaterThanOrEqual(0)
-      expect(mockData.healthSummary.warning).toBeGreaterThanOrEqual(0)
-      expect(mockData.healthSummary.critical).toBeGreaterThanOrEqual(0)
+      if (mockData.healthSummary) {
+        expect(mockData.healthSummary.healthy).toBeGreaterThanOrEqual(0)
+        expect(mockData.healthSummary.warning).toBeGreaterThanOrEqual(0)
+        expect(mockData.healthSummary.critical).toBeGreaterThanOrEqual(0)
+      }
     })
   })
 })
