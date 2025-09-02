@@ -1,13 +1,10 @@
 import React from 'react'
-import { Button, Dropdown, Space, Tag, Radio, Switch, Typography } from 'antd'
+import { Button, Dropdown, Space, Tag, Radio, Typography } from 'antd'
 import type { MenuProps } from 'antd'
 import {
   RobotOutlined,
-  ExperimentOutlined,
   CloudOutlined,
-  DesktopOutlined,
-  DatabaseOutlined,
-  ApiOutlined
+  DesktopOutlined
 } from '@ant-design/icons'
 import { useAppStore } from '../../store/appStore'
 
@@ -20,7 +17,7 @@ interface AnalysisConfigurationProps {
 export const AnalysisConfiguration: React.FC<AnalysisConfigurationProps> = ({
   darkMode = false
 }) => {
-  const { analysisModel, setAnalysisModel, useRealService, setUseRealService } = useAppStore()
+  const { analysisModel, setAnalysisModel } = useAppStore()
 
   const menuItems: MenuProps['items'] = [
     {
@@ -28,7 +25,7 @@ export const AnalysisConfiguration: React.FC<AnalysisConfigurationProps> = ({
       label: (
         <div style={{ padding: '8px 0' }}>
           <Text strong style={{ display: 'block', marginBottom: 8 }}>
-            AI Model
+            Select AI Model
           </Text>
           <Radio.Group
             value={analysisModel}
@@ -56,23 +53,6 @@ export const AnalysisConfiguration: React.FC<AnalysisConfigurationProps> = ({
               </Radio>
             </Space>
           </Radio.Group>
-        </div>
-      )
-    },
-    {
-      type: 'divider'
-    },
-    {
-      key: 'data-source',
-      label: (
-        <div style={{ padding: '8px 0' }}>
-          <Space align="center" style={{ width: '100%', justifyContent: 'space-between' }}>
-            <Space>
-              {useRealService ? <ApiOutlined /> : <DatabaseOutlined />}
-              <Text>{useRealService ? 'Live Service' : 'Mock Data'}</Text>
-            </Space>
-            <Switch checked={useRealService} onChange={setUseRealService} size="small" />
-          </Space>
         </div>
       )
     }
@@ -114,15 +94,10 @@ export const AnalysisConfiguration: React.FC<AnalysisConfigurationProps> = ({
           gap: '4px'
         }}
       >
-        <ExperimentOutlined />
+        <RobotOutlined />
         <Tag color={getModelColor()} style={{ margin: 0, fontSize: '11px' }} icon={getModelIcon()}>
           {analysisModel.toUpperCase()}
         </Tag>
-        {useRealService && (
-          <Tag color="orange" style={{ margin: 0, fontSize: '11px' }}>
-            LIVE
-          </Tag>
-        )}
       </Button>
     </Dropdown>
   )

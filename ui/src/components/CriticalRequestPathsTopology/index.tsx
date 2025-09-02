@@ -1,9 +1,10 @@
 import React, { useState, useCallback } from 'react'
-import { Row, Col, message } from 'antd'
+import { Row, Col, message, Alert } from 'antd'
 import { CriticalPathsPanel } from './CriticalPathsPanel'
 import { AIAnalysisPanel } from './AIAnalysisPanel'
 import { TopologyTab } from '../TopologyChart'
 import { PathFlowChart } from './PathFlowChart'
+import { useAppStore } from '../../store/appStore'
 import type {
   CriticalPath,
   AnalysisTab,
@@ -563,9 +564,24 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
 
   const colSpans = getColSpans()
 
+  // Get mock data state from global store
+  const { useMockData } = useAppStore()
+  
   return (
     <div className={`critical-request-paths-topology ${className}`}>
-      <Row gutter={[12, 12]} style={{ height: '100%' }}>
+      {/* Mock Data Warning Banner */}
+      {useMockData && (
+        <Alert
+          message="Demo Mode"
+          description="Currently displaying mock data for demonstration. Toggle to Live mode in the header to connect to backend."
+          type="warning"
+          showIcon
+          closable
+          style={{ marginBottom: 12 }}
+        />
+      )}
+      
+      <Row gutter={[12, 12]} style={{ height: useMockData ? 'calc(100% - 60px)' : '100%' }}>
         {/* Critical Paths Panel */}
         {colSpans.paths > 0 && (
           <Col span={colSpans.paths} style={{ height: '100%' }}>

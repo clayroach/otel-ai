@@ -17,6 +17,7 @@ import { AnalysisConfiguration } from '../AnalysisConfiguration'
 import { TimeRangeSelector } from '../GlobalControls/TimeRangeSelector'
 import { AutoRefreshSelector } from '../GlobalControls/AutoRefreshSelector'
 import { AnalyzeButton } from '../GlobalControls/AnalyzeButton'
+import { DataSourceToggle } from '../GlobalControls/DataSourceToggle'
 
 const { Header, Sider, Content } = AntLayout
 const { Title } = Typography
@@ -117,6 +118,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           >
             OTel AI Observability
           </Title>
+          <DataSourceToggle darkMode={darkMode} />
         </Space>
 
         <Space>

@@ -84,6 +84,10 @@ interface AppState {
   sidebarCollapsed: boolean
   toggleSidebar: () => void
 
+  // Data Source
+  useMockData: boolean
+  setUseMockData: (useMock: boolean) => void
+
   // Query state
   activeQuery: string
   setActiveQuery: (query: string) => void
@@ -131,6 +135,10 @@ export const useAppStore = create<AppState>()(
       // Layout
       sidebarCollapsed: false,
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+
+      // Data Source
+      useMockData: true, // Default to mock data for safety
+      setUseMockData: (useMock: boolean) => set({ useMockData: useMock }),
 
       // Query state
       activeQuery: '',
