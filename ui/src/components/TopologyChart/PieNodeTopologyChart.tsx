@@ -84,6 +84,8 @@ interface PieNodeTopologyChartProps {
   height?: number
   filteredHealthStatuses?: string[]
   highlightedServices?: string[] // Services to highlight from critical paths
+  filterMode?: 'highlight' | 'filter' // Whether to dim others or filter them out
+  highlightedEdges?: Array<{ source: string; target: string }> // Edges to highlight for paths
 }
 
 const getRuntimeIcon = (runtime?: string): string => {
@@ -155,15 +157,24 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
   onHealthFilter,
   height = 600,
   filteredHealthStatuses = [],
-  highlightedServices = []
+  highlightedServices = [],
+  filterMode = 'filter' // Default to filter mode for critical paths
 }) => {
   const chartRef = useRef<ReactECharts | null>(null)
 
+  // Filter or process nodes based on mode
+  let processedNodes = data.nodes
+  
+  // Apply critical path filtering if in filter mode
+  if (filterMode === 'filter' && highlightedServices.length > 0) {
+    processedNodes = processedNodes.filter(node => highlightedServices.includes(node.id))
+  }
+  
   // Process nodes to add health coloring and highlighting
-  const processedNodes = data.nodes.map((node) => {
+  processedNodes = processedNodes.map((node) => {
     const healthColor = getNodeOverallHealthColor(node.metrics)
     const isHighlighted = highlightedServices.length > 0 && highlightedServices.includes(node.id)
-    const isDimmed = highlightedServices.length > 0 && !highlightedServices.includes(node.id)
+    const isDimmed = filterMode === 'highlight' && highlightedServices.length > 0 && !highlightedServices.includes(node.id)
 
     return {
       ...node,
@@ -172,10 +183,10 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
         ...node.itemStyle,
         color: healthColor,
         opacity: isDimmed ? 0.3 : 1.0,
-        borderColor: isHighlighted ? '#1890ff' : healthColor,
-        borderWidth: isHighlighted ? 4 : 2,
-        shadowBlur: isHighlighted ? 15 : 0,
-        shadowColor: isHighlighted ? '#1890ff' : undefined
+        borderColor: isHighlighted && filterMode === 'highlight' ? '#1890ff' : healthColor,
+        borderWidth: isHighlighted && filterMode === 'highlight' ? 4 : 2,
+        shadowBlur: isHighlighted && filterMode === 'highlight' ? 15 : 0,
+        shadowColor: isHighlighted && filterMode === 'highlight' ? '#1890ff' : undefined
       },
       value: node.metrics?.rate || 1,
       emphasis: {

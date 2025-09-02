@@ -18,12 +18,12 @@ const generateMockPaths = (): CriticalPath[] => {
       id: 'path-1',
       name: 'Checkout Flow',
       description: 'User checkout process from cart to payment confirmation',
-      services: ['frontend', 'cartservice', 'checkoutservice', 'paymentservice', 'emailservice'],
+      services: ['frontend', 'cart', 'checkout', 'payment', 'email'],
       edges: [
-        { source: 'frontend', target: 'cartservice' },
-        { source: 'frontend', target: 'checkoutservice' },
-        { source: 'checkoutservice', target: 'paymentservice' },
-        { source: 'checkoutservice', target: 'emailservice' }
+        { source: 'frontend', target: 'cart' },
+        { source: 'frontend', target: 'checkout' },
+        { source: 'checkout', target: 'payment' },
+        { source: 'checkout', target: 'email' }
       ],
       metrics: {
         requestCount: 1250,
@@ -38,12 +38,12 @@ const generateMockPaths = (): CriticalPath[] => {
       id: 'path-2',
       name: 'Product Search',
       description: 'Product search and recommendation flow',
-      services: ['frontend', 'productcatalogservice', 'recommendationservice', 'adservice'],
+      services: ['frontend', 'product-catalog', 'recommendation', 'ad'],
       edges: [
-        { source: 'frontend', target: 'productcatalogservice' },
-        { source: 'frontend', target: 'recommendationservice' },
-        { source: 'recommendationservice', target: 'productcatalogservice' },
-        { source: 'frontend', target: 'adservice' }
+        { source: 'frontend', target: 'product-catalog' },
+        { source: 'frontend', target: 'recommendation' },
+        { source: 'recommendation', target: 'product-catalog' },
+        { source: 'frontend', target: 'ad' }
       ],
       metrics: {
         requestCount: 5420,
@@ -56,13 +56,12 @@ const generateMockPaths = (): CriticalPath[] => {
     },
     {
       id: 'path-3',
-      name: 'User Authentication',
-      description: 'User login and session management',
-      services: ['frontend', 'authservice', 'sessionservice', 'userservice'],
+      name: 'Currency Conversion',
+      description: 'Currency conversion for pricing',
+      services: ['frontend', 'currency', 'product-catalog'],
       edges: [
-        { source: 'frontend', target: 'authservice' },
-        { source: 'authservice', target: 'userservice' },
-        { source: 'authservice', target: 'sessionservice' }
+        { source: 'frontend', target: 'currency' },
+        { source: 'product-catalog', target: 'currency' }
       ],
       metrics: {
         requestCount: 3200,
@@ -77,10 +76,10 @@ const generateMockPaths = (): CriticalPath[] => {
       id: 'path-4',
       name: 'Shipping Calculator',
       description: 'Calculate shipping costs and delivery times',
-      services: ['frontend', 'shippingservice', 'currencyservice'],
+      services: ['frontend', 'shipping', 'currency'],
       edges: [
-        { source: 'frontend', target: 'shippingservice' },
-        { source: 'shippingservice', target: 'currencyservice' }
+        { source: 'frontend', target: 'shipping' },
+        { source: 'shipping', target: 'currency' }
       ],
       metrics: {
         requestCount: 890,
@@ -93,12 +92,12 @@ const generateMockPaths = (): CriticalPath[] => {
     },
     {
       id: 'path-5',
-      name: 'Inventory Update',
-      description: 'Background inventory synchronization',
-      services: ['inventoryservice', 'productcatalogservice', 'notificationservice'],
+      name: 'Fraud Detection',
+      description: 'Payment fraud detection flow',
+      services: ['payment', 'fraud-detection', 'accounting'],
       edges: [
-        { source: 'inventoryservice', target: 'productcatalogservice' },
-        { source: 'inventoryservice', target: 'notificationservice' }
+        { source: 'payment', target: 'fraud-detection' },
+        { source: 'fraud-detection', target: 'accounting' }
       ],
       metrics: {
         requestCount: 150,

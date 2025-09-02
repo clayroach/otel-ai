@@ -235,6 +235,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
             height={selectedNode ? 500 : 600}
             filteredHealthStatuses={filteredHealthStatuses}
             highlightedServices={highlightedServices}
+            filterMode="filter"
           />
         </Col>
 
