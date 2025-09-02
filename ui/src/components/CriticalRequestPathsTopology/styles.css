@@ -1,0 +1,162 @@
+.critical-request-paths-topology {
+  height: 100%;
+  width: 100%;
+  padding: 12px;
+  background: #f0f2f5;
+}
+
+.critical-request-paths-topology .ant-row {
+  height: 100%;
+}
+
+.critical-request-paths-topology .ant-col {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Panel Animations */
+.critical-request-paths-topology .ant-card {
+  transition: all 0.3s ease;
+  height: 100%;
+}
+
+.critical-request-paths-topology .ant-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Scrollable Lists */
+.critical-request-paths-topology .ant-list {
+  max-height: calc(100vh - 300px);
+  overflow-y: auto;
+}
+
+.critical-request-paths-topology .ant-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.critical-request-paths-topology .ant-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.critical-request-paths-topology .ant-list::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 3px;
+}
+
+.critical-request-paths-topology .ant-list::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Path Selection Highlighting */
+.critical-request-paths-topology .ant-list-item {
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.critical-request-paths-topology .ant-list-item:hover {
+  border-color: #1890ff;
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .critical-request-paths-topology {
+    padding: 8px;
+  }
+  
+  .critical-request-paths-topology .ant-card-body {
+    padding: 8px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .critical-request-paths-topology .ant-row {
+    flex-direction: column;
+  }
+  
+  .critical-request-paths-topology .ant-col {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
+    margin-bottom: 12px;
+  }
+  
+  .critical-request-paths-topology .ant-list {
+    max-height: 200px;
+  }
+}
+
+/* Tab Styles */
+.critical-request-paths-topology .ant-tabs-tab {
+  transition: all 0.2s;
+}
+
+.critical-request-paths-topology .ant-tabs-tab:hover {
+  color: #40a9ff;
+}
+
+.critical-request-paths-topology .ant-tabs-content {
+  height: calc(100% - 46px);
+  overflow-y: auto;
+}
+
+/* Panel Resize Handles (for future implementation) */
+.panel-resize-handle {
+  width: 4px;
+  background: #d9d9d9;
+  cursor: col-resize;
+  transition: background 0.2s;
+}
+
+.panel-resize-handle:hover {
+  background: #1890ff;
+}
+
+.panel-resize-handle:active {
+  background: #096dd9;
+}
+
+/* Loading States */
+.critical-request-paths-topology .ant-spin-container {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Service Node Highlighting in Topology */
+.topology-service-highlighted {
+  stroke: #1890ff;
+  stroke-width: 3px;
+  filter: drop-shadow(0 0 8px rgba(24, 144, 255, 0.5));
+}
+
+.topology-path-edge-highlighted {
+  stroke: #52c41a;
+  stroke-width: 2px;
+  stroke-dasharray: 5, 5;
+  animation: dash 1s linear infinite;
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .critical-request-paths-topology {
+    background: #141414;
+  }
+  
+  .critical-request-paths-topology .ant-card {
+    background: #1f1f1f;
+    border-color: #303030;
+  }
+  
+  .critical-request-paths-topology .ant-list-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+}

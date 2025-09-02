@@ -10,12 +10,25 @@ interface TopologyTabProps {
   timeRange?: [Date, Date]
   autoRefresh?: boolean
   refreshInterval?: number
+  data?: any // Allow external data to be passed
+  highlightedServices?: string[] // Services to highlight
+  onServiceClick?: (serviceId: string) => void // Callback for service clicks
+  selectedPaths?: Array<{
+    id: string
+    name: string
+    services: string[]
+    edges: Array<{ source: string; target: string }>
+  }> // Selected critical paths for visualization
 }
 
 export const TopologyTab: React.FC<TopologyTabProps> = ({
   timeRange,
   autoRefresh = false,
-  refreshInterval = 30000 // 30 seconds
+  refreshInterval = 30000, // 30 seconds
+  data: _data,
+  highlightedServices: _highlightedServices = [],
+  onServiceClick: _onServiceClick,
+  selectedPaths: _selectedPaths = []
 }) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
