@@ -53,15 +53,15 @@ export interface TopologyState {
   availablePaths: CriticalPath[]
   selectedPaths: string[]
   pathFilter: 'all' | 'critical' | 'errors' | 'slow'
-  
+
   // Graph state
   highlightedServices: Set<string>
   animationEnabled: boolean
-  
+
   // Analysis state
   activeTabs: AnalysisTab[]
   activeTabId: string
-  
+
   // UI state
   panelSizes: {
     paths: number
@@ -88,7 +88,7 @@ export interface CriticalRequestPathsTopologyProps {
   paths?: CriticalPath[]
   onPathSelect?: (pathIds: string[]) => void
   onServiceClick?: (serviceId: string) => void
-  
+
   // UI props
   defaultPanelSizes?: {
     paths?: number

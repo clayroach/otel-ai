@@ -43,10 +43,11 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
   const [filterBy, setFilterBy] = useState<'all' | 'critical' | 'errors' | 'slow'>('all')
 
   // Filter paths based on search and filter criteria
-  const filteredPaths = paths.filter(path => {
-    const matchesSearch = path.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  const filteredPaths = paths.filter((path) => {
+    const matchesSearch =
+      path.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       path.description?.toLowerCase().includes(searchTerm.toLowerCase())
-    
+
     let matchesFilter = true
     switch (filterBy) {
       case 'critical':
@@ -59,17 +60,17 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
         matchesFilter = path.metrics.p99Latency > 1000 // > 1s P99
         break
     }
-    
+
     return matchesSearch && matchesFilter
   })
 
   const handlePathClick = (pathId: string, event: React.MouseEvent) => {
     const isMultiSelect = event.metaKey || event.ctrlKey
-    
+
     if (isMultiSelect) {
       // Multi-select mode with Cmd/Ctrl key
       if (selectedPaths.includes(pathId)) {
-        onPathSelect(selectedPaths.filter(id => id !== pathId))
+        onPathSelect(selectedPaths.filter((id) => id !== pathId))
       } else {
         onPathSelect([...selectedPaths, pathId])
       }
@@ -91,11 +92,16 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
 
   const getPriorityColor = (priority: CriticalPath['priority']) => {
     switch (priority) {
-      case 'critical': return 'red'
-      case 'high': return 'orange'
-      case 'medium': return 'blue'
-      case 'low': return 'green'
-      default: return 'default'
+      case 'critical':
+        return 'red'
+      case 'high':
+        return 'orange'
+      case 'medium':
+        return 'blue'
+      case 'low':
+        return 'green'
+      default:
+        return 'default'
     }
   }
 
@@ -107,12 +113,26 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
 
   return (
     <Card
-      style={{ width, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
-      bodyStyle={{ padding: '12px', flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+      style={{
+        width,
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden'
+      }}
+      bodyStyle={{
+        padding: '12px',
+        flex: 1,
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column'
+      }}
       title={
         <Space size="small" style={{ fontSize: '14px' }}>
           <ForkOutlined style={{ fontSize: '14px' }} />
-          <Text strong style={{ fontSize: '14px', whiteSpace: 'nowrap' }}>Critical Paths</Text>
+          <Text strong style={{ fontSize: '14px', whiteSpace: 'nowrap' }}>
+            Critical Paths
+          </Text>
           {selectedPaths.length > 0 && (
             <Badge count={selectedPaths.length} style={{ backgroundColor: '#1890ff' }} />
           )}
@@ -121,12 +141,7 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
       extra={
         <Space size="small">
           {selectedPaths.length > 0 && (
-            <Button 
-              size="small" 
-              onClick={handleClearSelection}
-              type="text"
-              danger
-            >
+            <Button size="small" onClick={handleClearSelection} type="text" danger>
               Clear
             </Button>
           )}
@@ -142,7 +157,7 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
           size="small"
           prefix={<SearchOutlined />}
           value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
+          onChange={(e) => setSearchTerm(e.target.value)}
           allowClear
           suffix={
             <Tooltip title="Hold Cmd/Ctrl to select multiple paths">
@@ -152,7 +167,7 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
             </Tooltip>
           }
         />
-        
+
         <Select
           size="small"
           style={{ width: '100%' }}
@@ -170,16 +185,13 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
 
       <div className="critical-paths-scroll-container">
         {filteredPaths.length === 0 ? (
-          <Empty
-            description="No paths found"
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-          />
+          <Empty description="No paths found" image={Empty.PRESENTED_IMAGE_SIMPLE} />
         ) : (
           <List
             size="small"
             dataSource={filteredPaths}
             style={{ overflow: 'visible' }}
-            renderItem={path => (
+            renderItem={(path) => (
               <List.Item
                 key={path.id}
                 style={{
@@ -195,23 +207,21 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
                 <Space direction="vertical" style={{ width: '100%' }}>
                   <Space>
                     {getMetricIcon(path)}
-                    <Text strong style={{ flex: 1 }}>{path.name}</Text>
+                    <Text strong style={{ flex: 1 }}>
+                      {path.name}
+                    </Text>
                   </Space>
-                  
+
                   <Space wrap size={[4, 0]}>
-                    <Tag color={getPriorityColor(path.priority)}>
-                      {path.priority}
-                    </Tag>
-                    <Tag>
-                      {path.services.length} services
-                    </Tag>
+                    <Tag color={getPriorityColor(path.priority)}>{path.priority}</Tag>
+                    <Tag>{path.services.length} services</Tag>
                     <Tooltip title="Request Count">
                       <Tag icon={<ThunderboltOutlined />}>
                         {path.metrics.requestCount.toLocaleString()}/min
                       </Tag>
                     </Tooltip>
                   </Space>
-                  
+
                   <Space size="small" style={{ fontSize: '12px' }}>
                     <Tooltip title="Average Latency">
                       <Text type="secondary">
@@ -226,7 +236,7 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
                       </Tooltip>
                     )}
                   </Space>
-                  
+
                   {path.description && (
                     <Text type="secondary" style={{ fontSize: '11px' }}>
                       {path.description}

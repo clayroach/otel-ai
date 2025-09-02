@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Row, Col, Spin, Alert, Empty, Button, message } from 'antd'
+import { Spin, Alert, Empty, Button, message } from 'antd'
 import PieNodeTopologyChart from './PieNodeTopologyChart'
 import type { ServiceNode, TopologyVisualizationData } from './PieNodeTopologyChart'
 import axios from 'axios'
@@ -33,6 +33,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [topologyData, setTopologyData] = useState<TopologyVisualizationData | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
   const [selectedNode, setSelectedNode] = useState<ServiceNode | null>(null)
   // const [lastUpdated, setLastUpdated] = useState<Date | null>(null) // Not currently used
   const [filteredHealthStatuses, setFilteredHealthStatuses] = useState<string[]>([])
@@ -166,12 +167,12 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
     console.log('TopologyTab - Node clicked:', node)
     console.log('TopologyTab - onServiceClick prop exists?', !!onServiceClick)
     setSelectedNode(node)
-    
+
     // Use the node.id which should be the clean service name
     // Fall back to extracting from name if id is not available
     const serviceName = node.id || node.name.replace(/^[^\s]+\s/, '')
     console.log('TopologyTab - Using service identifier:', serviceName)
-    
+
     // Call the parent's onServiceClick callback if provided
     if (onServiceClick) {
       console.log('TopologyTab - Calling onServiceClick with:', serviceName)
@@ -256,38 +257,38 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
   )
 }
 
-// Helper functions
-const getServiceType = (node: ServiceNode): string => {
-  // Try to infer from node properties or default to backend
-  if (node.name.includes('gateway')) return 'api'
-  if (
-    node.name.includes('database') ||
-    node.name.includes('postgres') ||
-    node.name.includes('mysql')
-  )
-    return 'database'
-  if (node.name.includes('redis') || node.name.includes('cache')) return 'cache'
-  if (node.name.includes('frontend') || node.name.includes('ui')) return 'frontend'
-  if (node.name.includes('queue') || node.name.includes('kafka')) return 'queue'
-  return 'backend'
-}
+// Helper functions (commented out - not currently used)
+// const getServiceType = (node: ServiceNode): string => {
+//   // Try to infer from node properties or default to backend
+//   if (node.name.includes('gateway')) return 'api'
+//   if (
+//     node.name.includes('database') ||
+//     node.name.includes('postgres') ||
+//     node.name.includes('mysql')
+//   )
+//     return 'database'
+//   if (node.name.includes('redis') || node.name.includes('cache')) return 'cache'
+//   if (node.name.includes('frontend') || node.name.includes('ui')) return 'frontend'
+//   if (node.name.includes('queue') || node.name.includes('kafka')) return 'queue'
+//   return 'backend'
+// }
 
-const getHealthStatus = (color: string): string => {
-  switch (color) {
-    case '#52c41a':
-      return 'healthy'
-    case '#faad14':
-      return 'warning'
-    case '#fa8c16':
-      return 'degraded'
-    case '#f5222d':
-      return 'critical'
-    case '#262626':
-      return 'unavailable'
-    default:
-      return 'unknown'
-  }
-}
+// const getHealthStatus = (color: string): string => {
+//   switch (color) {
+//     case '#52c41a':
+//       return 'healthy'
+//     case '#faad14':
+//       return 'warning'
+//     case '#fa8c16':
+//       return 'degraded'
+//     case '#f5222d':
+//       return 'critical'
+//     case '#262626':
+//       return 'unavailable'
+//     default:
+//       return 'unknown'
+//   }
+// }
 
 // Mock data generator for demonstration
 const getMockTopologyData = (): TopologyVisualizationData => {
@@ -609,37 +610,142 @@ const getMockTopologyData = (): TopologyVisualizationData => {
     ],
     edges: [
       // Checkout Flow edges
-      { source: 'frontend', target: 'cartservice', value: 80, lineStyle: { width: 3, color: '#52c41a' } },
-      { source: 'frontend', target: 'checkoutservice', value: 60, lineStyle: { width: 3, color: '#faad14' } },
-      { source: 'checkoutservice', target: 'paymentservice', value: 50, lineStyle: { width: 2, color: '#f5222d' } },
-      { source: 'checkoutservice', target: 'emailservice', value: 45, lineStyle: { width: 2, color: '#52c41a' } },
-      { source: 'checkoutservice', target: 'shippingservice', value: 40, lineStyle: { width: 2, color: '#faad14' } },
-      
+      {
+        source: 'frontend',
+        target: 'cartservice',
+        value: 80,
+        lineStyle: { width: 3, color: '#52c41a' }
+      },
+      {
+        source: 'frontend',
+        target: 'checkoutservice',
+        value: 60,
+        lineStyle: { width: 3, color: '#faad14' }
+      },
+      {
+        source: 'checkoutservice',
+        target: 'paymentservice',
+        value: 50,
+        lineStyle: { width: 2, color: '#f5222d' }
+      },
+      {
+        source: 'checkoutservice',
+        target: 'emailservice',
+        value: 45,
+        lineStyle: { width: 2, color: '#52c41a' }
+      },
+      {
+        source: 'checkoutservice',
+        target: 'shippingservice',
+        value: 40,
+        lineStyle: { width: 2, color: '#faad14' }
+      },
+
       // Product Search edges
-      { source: 'frontend', target: 'productcatalogservice', value: 120, lineStyle: { width: 3, color: '#52c41a' } },
-      { source: 'frontend', target: 'recommendationservice', value: 90, lineStyle: { width: 3, color: '#faad14' } },
-      { source: 'recommendationservice', target: 'productcatalogservice', value: 85, lineStyle: { width: 2, color: '#faad14' } },
-      { source: 'frontend', target: 'adservice', value: 150, lineStyle: { width: 3, color: '#52c41a' } },
-      
+      {
+        source: 'frontend',
+        target: 'productcatalogservice',
+        value: 120,
+        lineStyle: { width: 3, color: '#52c41a' }
+      },
+      {
+        source: 'frontend',
+        target: 'recommendationservice',
+        value: 90,
+        lineStyle: { width: 3, color: '#faad14' }
+      },
+      {
+        source: 'recommendationservice',
+        target: 'productcatalogservice',
+        value: 85,
+        lineStyle: { width: 2, color: '#faad14' }
+      },
+      {
+        source: 'frontend',
+        target: 'adservice',
+        value: 150,
+        lineStyle: { width: 3, color: '#52c41a' }
+      },
+
       // User Authentication edges
-      { source: 'frontend', target: 'authservice', value: 70, lineStyle: { width: 3, color: '#52c41a' } },
-      { source: 'authservice', target: 'userservice', value: 65, lineStyle: { width: 2, color: '#52c41a' } },
-      { source: 'authservice', target: 'sessionservice', value: 68, lineStyle: { width: 2, color: '#52c41a' } },
-      
+      {
+        source: 'frontend',
+        target: 'authservice',
+        value: 70,
+        lineStyle: { width: 3, color: '#52c41a' }
+      },
+      {
+        source: 'authservice',
+        target: 'userservice',
+        value: 65,
+        lineStyle: { width: 2, color: '#52c41a' }
+      },
+      {
+        source: 'authservice',
+        target: 'sessionservice',
+        value: 68,
+        lineStyle: { width: 2, color: '#52c41a' }
+      },
+
       // Shipping Calculator edges
-      { source: 'shippingservice', target: 'currencyservice', value: 35, lineStyle: { width: 2, color: '#52c41a' } },
-      
+      {
+        source: 'shippingservice',
+        target: 'currencyservice',
+        value: 35,
+        lineStyle: { width: 2, color: '#52c41a' }
+      },
+
       // Inventory Update edges
-      { source: 'inventoryservice', target: 'productcatalogservice', value: 15, lineStyle: { width: 2, color: '#52c41a' } },
-      { source: 'inventoryservice', target: 'notificationservice', value: 12, lineStyle: { width: 2, color: '#52c41a' } },
-      
+      {
+        source: 'inventoryservice',
+        target: 'productcatalogservice',
+        value: 15,
+        lineStyle: { width: 2, color: '#52c41a' }
+      },
+      {
+        source: 'inventoryservice',
+        target: 'notificationservice',
+        value: 12,
+        lineStyle: { width: 2, color: '#52c41a' }
+      },
+
       // Database connections
-      { source: 'userservice', target: 'postgres', value: 85, lineStyle: { width: 3, color: '#52c41a' } },
-      { source: 'productcatalogservice', target: 'postgres', value: 125, lineStyle: { width: 3, color: '#52c41a' } },
-      { source: 'cartservice', target: 'redis', value: 78, lineStyle: { width: 3, color: '#52c41a' } },
-      { source: 'sessionservice', target: 'redis', value: 245, lineStyle: { width: 4, color: '#52c41a' } },
-      { source: 'paymentservice', target: 'postgres', value: 25, lineStyle: { width: 2, color: '#f5222d' } },
-      { source: 'checkoutservice', target: 'postgres', value: 32, lineStyle: { width: 2, color: '#faad14' } }
+      {
+        source: 'userservice',
+        target: 'postgres',
+        value: 85,
+        lineStyle: { width: 3, color: '#52c41a' }
+      },
+      {
+        source: 'productcatalogservice',
+        target: 'postgres',
+        value: 125,
+        lineStyle: { width: 3, color: '#52c41a' }
+      },
+      {
+        source: 'cartservice',
+        target: 'redis',
+        value: 78,
+        lineStyle: { width: 3, color: '#52c41a' }
+      },
+      {
+        source: 'sessionservice',
+        target: 'redis',
+        value: 245,
+        lineStyle: { width: 4, color: '#52c41a' }
+      },
+      {
+        source: 'paymentservice',
+        target: 'postgres',
+        value: 25,
+        lineStyle: { width: 2, color: '#f5222d' }
+      },
+      {
+        source: 'checkoutservice',
+        target: 'postgres',
+        value: 32,
+        lineStyle: { width: 2, color: '#faad14' }
+      }
     ],
     runtimeEnvironments: ['javascript', 'go', 'java', 'python', 'postgresql', 'redis'],
     healthSummary: {

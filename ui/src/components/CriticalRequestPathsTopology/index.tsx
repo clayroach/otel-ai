@@ -85,10 +85,10 @@ const generateMockPaths = (): CriticalPath[] => {
       metrics: {
         requestCount: 890,
         avgLatency: 2100,
-        errorRate: 0.08,  // 8% error rate - critical
+        errorRate: 0.08, // 8% error rate - critical
         p99Latency: 5500
       },
-      priority: 'critical',  // Changed to critical due to high error rate
+      priority: 'critical', // Changed to critical due to high error rate
       lastUpdated: new Date()
     },
     {
@@ -116,74 +116,115 @@ const generateMockServices = () => {
   return [
     { id: 'frontend', name: 'Frontend', metrics: { rate: 250, errorRate: 0.001, duration: 45 } },
     { id: 'cart', name: 'Cart Service', metrics: { rate: 180, errorRate: 0.002, duration: 120 } },
-    { id: 'checkout', name: 'Checkout Service', metrics: { rate: 150, errorRate: 0.003, duration: 200 } },
-    { id: 'payment', name: 'Payment Service', metrics: { rate: 120, errorRate: 0.005, duration: 350 } },
+    {
+      id: 'checkout',
+      name: 'Checkout Service',
+      metrics: { rate: 150, errorRate: 0.003, duration: 200 }
+    },
+    {
+      id: 'payment',
+      name: 'Payment Service',
+      metrics: { rate: 120, errorRate: 0.005, duration: 350 }
+    },
     { id: 'email', name: 'Email Service', metrics: { rate: 100, errorRate: 0.001, duration: 80 } },
-    { id: 'product-catalog', name: 'Product Catalog', metrics: { rate: 450, errorRate: 0.001, duration: 65 } },
-    { id: 'recommendation', name: 'Recommendation', metrics: { rate: 320, errorRate: 0.002, duration: 150 } },
+    {
+      id: 'product-catalog',
+      name: 'Product Catalog',
+      metrics: { rate: 450, errorRate: 0.001, duration: 65 }
+    },
+    {
+      id: 'recommendation',
+      name: 'Recommendation',
+      metrics: { rate: 320, errorRate: 0.002, duration: 150 }
+    },
     { id: 'ad', name: 'Ad Service', metrics: { rate: 280, errorRate: 0.008, duration: 95 } },
-    { id: 'currency', name: 'Currency Service', metrics: { rate: 200, errorRate: 0.015, duration: 55 } },
-    { id: 'shipping', name: 'Shipping Service', metrics: { rate: 85, errorRate: 0.08, duration: 2100 } },
-    { id: 'fraud-detection', name: 'Fraud Detection', metrics: { rate: 25, errorRate: 0.001, duration: 3500 } },
+    {
+      id: 'currency',
+      name: 'Currency Service',
+      metrics: { rate: 200, errorRate: 0.015, duration: 55 }
+    },
+    {
+      id: 'shipping',
+      name: 'Shipping Service',
+      metrics: { rate: 85, errorRate: 0.08, duration: 2100 }
+    },
+    {
+      id: 'fraud-detection',
+      name: 'Fraud Detection',
+      metrics: { rate: 25, errorRate: 0.001, duration: 3500 }
+    },
     { id: 'accounting', name: 'Accounting', metrics: { rate: 15, errorRate: 0.001, duration: 450 } }
   ]
 }
 
-const generateMockAnalysis = (type: 'global' | 'service', targetId?: string): AnalysisTab['content'] => {
-  const insights = type === 'global' ? [
-    {
-      id: 'insight-1',
-      type: 'architecture' as const,
-      title: 'Service Coupling Detected',
-      description: 'The checkout service has high coupling with 4 downstream services. Consider implementing an event-driven architecture to reduce direct dependencies.',
-      severity: 'warning' as const
-    },
-    {
-      id: 'insight-2',
-      type: 'performance' as const,
-      title: 'Shipping Service Bottleneck',
-      description: 'The shipping service shows P99 latency of 5.5s, significantly impacting the checkout flow. Database query optimization recommended.',
-      severity: 'critical' as const
-    },
-    {
-      id: 'insight-3',
-      type: 'recommendation' as const,
-      title: 'Implement Circuit Breaker',
-      description: 'Add circuit breaker pattern between frontend and payment service to handle failures gracefully.',
-      severity: 'info' as const
-    }
-  ] : [
-    {
-      id: 'insight-s1',
-      type: 'performance' as const,
-      title: `${targetId} Response Time Analysis`,
-      description: `Service ${targetId} shows 95th percentile latency of 450ms. Consider caching frequently accessed data.`,
-      severity: 'warning' as const
-    },
-    {
-      id: 'insight-s2',
-      type: 'error' as const,
-      title: 'Intermittent Connection Failures',
-      description: `Detected 2.3% connection timeout rate to downstream services. Review connection pool settings.`,
-      severity: 'warning' as const
-    }
-  ]
+const generateMockAnalysis = (
+  type: 'global' | 'service',
+  targetId?: string
+): AnalysisTab['content'] => {
+  const insights =
+    type === 'global'
+      ? [
+          {
+            id: 'insight-1',
+            type: 'architecture' as const,
+            title: 'Service Coupling Detected',
+            description:
+              'The checkout service has high coupling with 4 downstream services. Consider implementing an event-driven architecture to reduce direct dependencies.',
+            severity: 'warning' as const
+          },
+          {
+            id: 'insight-2',
+            type: 'performance' as const,
+            title: 'Shipping Service Bottleneck',
+            description:
+              'The shipping service shows P99 latency of 5.5s, significantly impacting the checkout flow. Database query optimization recommended.',
+            severity: 'critical' as const
+          },
+          {
+            id: 'insight-3',
+            type: 'recommendation' as const,
+            title: 'Implement Circuit Breaker',
+            description:
+              'Add circuit breaker pattern between frontend and payment service to handle failures gracefully.',
+            severity: 'info' as const
+          }
+        ]
+      : [
+          {
+            id: 'insight-s1',
+            type: 'performance' as const,
+            title: `${targetId} Response Time Analysis`,
+            description: `Service ${targetId} shows 95th percentile latency of 450ms. Consider caching frequently accessed data.`,
+            severity: 'warning' as const
+          },
+          {
+            id: 'insight-s2',
+            type: 'error' as const,
+            title: 'Intermittent Connection Failures',
+            description: `Detected 2.3% connection timeout rate to downstream services. Review connection pool settings.`,
+            severity: 'warning' as const
+          }
+        ]
 
   return {
-    summary: type === 'global' 
-      ? 'System analysis reveals 3 critical paths with performance bottlenecks. The shipping service is the primary concern with P99 latency exceeding 5 seconds.'
-      : `Service ${targetId} handles ${Math.floor(Math.random() * 5000 + 1000)} requests per minute with 99.7% success rate. Performance optimization opportunities identified.`,
+    summary:
+      type === 'global'
+        ? 'System analysis reveals 3 critical paths with performance bottlenecks. The shipping service is the primary concern with P99 latency exceeding 5 seconds.'
+        : `Service ${targetId} handles ${Math.floor(Math.random() * 5000 + 1000)} requests per minute with 99.7% success rate. Performance optimization opportunities identified.`,
     insights,
-    metrics: type === 'service' ? {
-      requestRate: Math.floor(Math.random() * 100 + 50),
-      errorRate: Math.random() * 5,
-      latency: {
-        p50: Math.floor(Math.random() * 100 + 50),
-        p95: Math.floor(Math.random() * 300 + 150),
-        p99: Math.floor(Math.random() * 500 + 300)
-      },
-      saturation: Math.floor(Math.random() * 100)
-    } : undefined
+    metrics:
+      type === 'service'
+        ? {
+            requestRate: Math.floor(Math.random() * 100 + 50),
+            errorRate: Math.random() * 5,
+            latency: {
+              p50: Math.floor(Math.random() * 100 + 50),
+              p95: Math.floor(Math.random() * 300 + 150),
+              p99: Math.floor(Math.random() * 500 + 300)
+            },
+            saturation: Math.floor(Math.random() * 100)
+          }
+        : undefined
   }
 }
 
@@ -229,93 +270,97 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
   const [servicesWithTabs, setServicesWithTabs] = useState<Set<string>>(new Set())
 
   // Handle path selection
-  const handlePathSelect = useCallback((pathIds: string[]) => {
-    setState(prev => {
-      // Update highlighted services based on selected paths
-      const highlightedServices = new Set<string>()
-      const newTabs = [...prev.activeTabs.filter(t => t.type === 'global')] // Keep global tab
-      const newServicesWithTabs = new Set<string>()
+  const handlePathSelect = useCallback(
+    (pathIds: string[]) => {
+      setState((prev) => {
+        // Update highlighted services based on selected paths
+        const highlightedServices = new Set<string>()
+        const newTabs = [...prev.activeTabs.filter((t) => t.type === 'global')] // Keep global tab
+        const newServicesWithTabs = new Set<string>()
 
-      // For each selected path, add its services and create tabs
-      pathIds.forEach(pathId => {
-        const path = prev.availablePaths.find(p => p.id === pathId)
-        if (path) {
-          path.services.forEach(serviceId => {
-            highlightedServices.add(serviceId)
-            newServicesWithTabs.add(serviceId)
-            
-            // Check if tab already exists
-            const existingTab = prev.activeTabs.find(
-              tab => tab.type === 'service' && tab.targetId === serviceId
-            )
-            
-            if (!existingTab) {
-              // Create new tab for this service
-              const service = generateMockServices().find(s => s.id === serviceId)
-              const newTab: AnalysisTab = {
-                id: `service-${serviceId}-${Date.now()}`,
-                type: 'service',
-                title: service?.name || serviceId,
-                targetId: serviceId,
-                content: {
-                  summary: `Service ${service?.name || serviceId} analysis`,
-                  insights: [],
-                  metrics: service?.metrics ? {
-                    requestRate: service.metrics.rate,
-                    errorRate: service.metrics.errorRate,
-                    latency: {
-                      p50: service.metrics.duration * 0.7,
-                      p95: service.metrics.duration * 1.5,
-                      p99: service.metrics.duration * 2
-                    },
-                    saturation: Math.floor(Math.random() * 100)
-                  } : undefined,
-                  serviceDetails: service
+        // For each selected path, add its services and create tabs
+        pathIds.forEach((pathId) => {
+          const path = prev.availablePaths.find((p) => p.id === pathId)
+          if (path) {
+            path.services.forEach((serviceId) => {
+              highlightedServices.add(serviceId)
+              newServicesWithTabs.add(serviceId)
+
+              // Check if tab already exists
+              const existingTab = prev.activeTabs.find(
+                (tab) => tab.type === 'service' && tab.targetId === serviceId
+              )
+
+              if (!existingTab) {
+                // Create new tab for this service
+                const service = generateMockServices().find((s) => s.id === serviceId)
+                const newTab: AnalysisTab = {
+                  id: `service-${serviceId}-${Date.now()}`,
+                  type: 'service',
+                  title: service?.name || serviceId,
+                  targetId: serviceId,
+                  content: {
+                    summary: `Service ${service?.name || serviceId} analysis`,
+                    insights: [],
+                    metrics: service?.metrics
+                      ? {
+                          requestRate: service.metrics.rate,
+                          errorRate: service.metrics.errorRate,
+                          latency: {
+                            p50: service.metrics.duration * 0.7,
+                            p95: service.metrics.duration * 1.5,
+                            p99: service.metrics.duration * 2
+                          },
+                          saturation: Math.floor(Math.random() * 100)
+                        }
+                      : undefined
+                  }
                 }
+                newTabs.push(newTab)
+              } else {
+                newTabs.push(existingTab)
               }
-              newTabs.push(newTab)
-            } else {
-              newTabs.push(existingTab)
-            }
-          })
+            })
+          }
+        })
+
+        // Update servicesWithTabs
+        setServicesWithTabs(newServicesWithTabs)
+
+        return {
+          ...prev,
+          selectedPaths: pathIds,
+          highlightedServices,
+          activeTabs: newTabs,
+          activeTabId: newTabs.length > 1 ? newTabs[1].id : 'global' // Switch to first service tab if available
         }
       })
 
-      // Update servicesWithTabs
-      setServicesWithTabs(newServicesWithTabs)
-
-      return {
-        ...prev,
-        selectedPaths: pathIds,
-        highlightedServices,
-        activeTabs: newTabs,
-        activeTabId: newTabs.length > 1 ? newTabs[1].id : 'global' // Switch to first service tab if available
+      // Call props callback if provided
+      if (propsOnPathSelect) {
+        propsOnPathSelect(pathIds)
       }
-    })
 
-    // Call props callback if provided
-    if (propsOnPathSelect) {
-      propsOnPathSelect(pathIds)
-    }
-
-    // Show feedback
-    if (pathIds.length === 0) {
-      message.info('Showing all services')
-    } else if (pathIds.length === 1) {
-      const path = state.availablePaths.find(p => p.id === pathIds[0])
-      message.success(`Opened tabs for all services in: ${path?.name}`)
-    } else {
-      message.success(`Comparing ${pathIds.length} paths`)
-    }
-  }, [state.availablePaths, propsOnPathSelect])
+      // Show feedback
+      if (pathIds.length === 0) {
+        message.info('Showing all services')
+      } else if (pathIds.length === 1) {
+        const path = state.availablePaths.find((p) => p.id === pathIds[0])
+        message.success(`Opened tabs for all services in: ${path?.name}`)
+      } else {
+        message.success(`Comparing ${pathIds.length} paths`)
+      }
+    },
+    [state.availablePaths, propsOnPathSelect]
+  )
 
   // Handle show all paths
   const handleShowAll = useCallback(() => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       selectedPaths: [],
       highlightedServices: new Set(),
-      activeTabs: prev.activeTabs.filter(t => t.type === 'global'), // Keep only global tab
+      activeTabs: prev.activeTabs.filter((t) => t.type === 'global'), // Keep only global tab
       activeTabId: 'global'
     }))
     setServicesWithTabs(new Set())
@@ -323,108 +368,112 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
   }, [])
 
   // Handle service click - create or switch to tab
-  const handleServiceClick = useCallback((serviceId: string) => {
-    console.log('CriticalRequestPathsTopology - handleServiceClick called with:', serviceId)
-    
-    setState(prev => {
-      console.log('Current tabs:', prev.activeTabs)
-      
-      // Check if tab already exists
-      const existingTab = prev.activeTabs.find(
-        tab => tab.type === 'service' && tab.targetId === serviceId
-      )
+  const handleServiceClick = useCallback(
+    (serviceId: string) => {
+      console.log('CriticalRequestPathsTopology - handleServiceClick called with:', serviceId)
 
-      if (existingTab) {
-        console.log('Found existing tab:', existingTab)
-        // If clicking on the currently active service tab, close it and unhighlight
-        if (prev.activeTabId === existingTab.id) {
-          // Remove the tab and unhighlight the service
-          const newTabs = prev.activeTabs.filter(t => t.id !== existingTab.id)
-          const newHighlighted = new Set(prev.highlightedServices)
-          newHighlighted.delete(serviceId)
-          
-          setServicesWithTabs(prev => {
-            const newSet = new Set(prev)
-            newSet.delete(serviceId)
-            return newSet
-          })
-          
+      setState((prev) => {
+        console.log('Current tabs:', prev.activeTabs)
+
+        // Check if tab already exists
+        const existingTab = prev.activeTabs.find(
+          (tab) => tab.type === 'service' && tab.targetId === serviceId
+        )
+
+        if (existingTab) {
+          console.log('Found existing tab:', existingTab)
+          // If clicking on the currently active service tab, close it and unhighlight
+          if (prev.activeTabId === existingTab.id) {
+            // Remove the tab and unhighlight the service
+            const newTabs = prev.activeTabs.filter((t) => t.id !== existingTab.id)
+            const newHighlighted = new Set(prev.highlightedServices)
+            newHighlighted.delete(serviceId)
+
+            setServicesWithTabs((prev) => {
+              const newSet = new Set(prev)
+              newSet.delete(serviceId)
+              return newSet
+            })
+
+            return {
+              ...prev,
+              activeTabs: newTabs,
+              activeTabId: 'global',
+              highlightedServices: newHighlighted
+            }
+          }
+          // Otherwise switch to the existing service tab
           return {
             ...prev,
-            activeTabs: newTabs,
-            activeTabId: 'global',
-            highlightedServices: newHighlighted
+            activeTabId: existingTab.id
           }
         }
-        // Otherwise switch to the existing service tab
+
+        // Create new tab (max 5 service tabs)
+        const serviceTabs = prev.activeTabs.filter((t) => t.type === 'service')
+        if (serviceTabs.length >= 5) {
+          message.warning('Maximum 5 service tabs allowed. Please close a tab first.')
+          return prev
+        }
+
+        // Get service data for the new tab
+        const service = generateMockServices().find((s) => s.id === serviceId)
+
+        const newTab: AnalysisTab = {
+          id: `service-${serviceId}-${Date.now()}`,
+          type: 'service',
+          title: service?.name || serviceId,
+          targetId: serviceId,
+          content: {
+            summary: `Service ${service?.name || serviceId} analysis`,
+            insights: [],
+            metrics: service?.metrics
+              ? {
+                  requestRate: service.metrics.rate,
+                  errorRate: service.metrics.errorRate,
+                  latency: {
+                    p50: service.metrics.duration * 0.7,
+                    p95: service.metrics.duration * 1.5,
+                    p99: service.metrics.duration * 2
+                  },
+                  saturation: Math.floor(Math.random() * 100)
+                }
+              : undefined
+          }
+        }
+
+        console.log('Creating new tab:', newTab)
+
+        // Add to highlighted services
+        const newHighlighted = new Set(prev.highlightedServices)
+        newHighlighted.add(serviceId)
+
+        // Track that this service has a tab
+        setServicesWithTabs((prev) => {
+          const newSet = new Set(prev)
+          newSet.add(serviceId)
+          return newSet
+        })
+
         return {
           ...prev,
-          activeTabId: existingTab.id
+          activeTabs: [...prev.activeTabs, newTab],
+          activeTabId: newTab.id,
+          highlightedServices: newHighlighted
         }
-      }
-
-      // Create new tab (max 5 service tabs)
-      const serviceTabs = prev.activeTabs.filter(t => t.type === 'service')
-      if (serviceTabs.length >= 5) {
-        message.warning('Maximum 5 service tabs allowed. Please close a tab first.')
-        return prev
-      }
-
-      // Get service data for the new tab
-      const service = generateMockServices().find(s => s.id === serviceId)
-      
-      const newTab: AnalysisTab = {
-        id: `service-${serviceId}-${Date.now()}`,
-        type: 'service',
-        title: service?.name || serviceId,
-        targetId: serviceId,
-        content: {
-          summary: `Service ${service?.name || serviceId} analysis`,
-          insights: [],
-          metrics: service?.metrics ? {
-            requestRate: service.metrics.rate,
-            errorRate: service.metrics.errorRate,
-            latency: {
-              p50: service.metrics.duration * 0.7,
-              p95: service.metrics.duration * 1.5,
-              p99: service.metrics.duration * 2
-            },
-            saturation: Math.floor(Math.random() * 100)
-          } : undefined,
-          serviceDetails: service
-        }
-      }
-      
-      console.log('Creating new tab:', newTab)
-      
-      // Add to highlighted services
-      const newHighlighted = new Set(prev.highlightedServices)
-      newHighlighted.add(serviceId)
-      
-      // Track that this service has a tab
-      setServicesWithTabs(prev => {
-        const newSet = new Set(prev)
-        newSet.add(serviceId)
-        return newSet
       })
 
-      return {
-        ...prev,
-        activeTabs: [...prev.activeTabs, newTab],
-        activeTabId: newTab.id,
-        highlightedServices: newHighlighted
+      // Call props callback if provided
+      if (propsOnServiceClick) {
+        propsOnServiceClick(serviceId)
       }
-    })
-
-    // Call props callback if provided
-    if (propsOnServiceClick) {
-      propsOnServiceClick(serviceId)
-    }
-  }, [propsOnServiceClick])
+    },
+    [propsOnServiceClick]
+  )
 
   // Handle tab change
   const handleTabChange = useCallback((tabId: string) => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       activeTabId: tabId
     }))
@@ -432,27 +481,29 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
 
   // Handle tab close
   const handleTabClose = useCallback((tabId: string) => {
-    setState(prev => {
-      const closedTab = prev.activeTabs.find(t => t.id === tabId)
-      const newTabs = prev.activeTabs.filter(t => t.id !== tabId)
-      
+    setState((prev) => {
+      const closedTab = prev.activeTabs.find((t) => t.id === tabId)
+      const newTabs = prev.activeTabs.filter((t) => t.id !== tabId)
+
       // If closing a service tab, unhighlight that service
       if (closedTab && closedTab.type === 'service' && closedTab.targetId) {
         const newHighlighted = new Set(prev.highlightedServices)
         newHighlighted.delete(closedTab.targetId)
-        
+
         // Remove from servicesWithTabs
-        setServicesWithTabs(prev => {
+        setServicesWithTabs((prev) => {
           const newSet = new Set(prev)
-          newSet.delete(closedTab.targetId!)
+          if (closedTab.targetId) {
+            newSet.delete(closedTab.targetId)
+          }
           return newSet
         })
-        
+
         // If closing the active tab, switch to another tab
         let newActiveId = prev.activeTabId
         if (prev.activeTabId === tabId) {
           // Try to find another service tab first
-          const remainingServiceTab = newTabs.find(t => t.type === 'service')
+          const remainingServiceTab = newTabs.find((t) => t.type === 'service')
           if (remainingServiceTab) {
             newActiveId = remainingServiceTab.id
           } else {
@@ -460,7 +511,7 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
             newActiveId = 'global'
           }
         }
-        
+
         return {
           ...prev,
           activeTabs: newTabs,
@@ -468,12 +519,12 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
           highlightedServices: newHighlighted
         }
       }
-      
+
       // If closing the active tab, switch to another tab
       let newActiveId = prev.activeTabId
       if (prev.activeTabId === tabId) {
         // Try to find another service tab first
-        const remainingServiceTab = newTabs.find(t => t.type === 'service')
+        const remainingServiceTab = newTabs.find((t) => t.type === 'service')
         if (remainingServiceTab) {
           newActiveId = remainingServiceTab.id
         } else {
@@ -490,7 +541,6 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
     })
   }, [])
 
-
   // Calculate responsive column spans
   const getColSpans = () => {
     if (state.isPanelCollapsed.paths && state.isPanelCollapsed.analysis) {
@@ -502,12 +552,12 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
     if (state.isPanelCollapsed.analysis) {
       return { paths: 4, topology: 20, analysis: 0 }
     }
-    
+
     // Default proportions: 15% | 55% | 30%
     return {
-      paths: 4,    // ~16.7% (4/24)
+      paths: 4, // ~16.7% (4/24)
       topology: 13, // ~54.2% (13/24)
-      analysis: 7   // ~29.1% (7/24)
+      analysis: 7 // ~29.1% (7/24)
     }
   }
 
@@ -532,7 +582,7 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
         <Col span={colSpans.topology} style={{ height: '100%' }}>
           {state.selectedPaths.length === 1 ? (
             <PathFlowChart
-              path={state.availablePaths.find(p => p.id === state.selectedPaths[0]) || null}
+              path={state.availablePaths.find((p) => p.id === state.selectedPaths[0]) || null}
               services={generateMockServices()}
               height={window.innerHeight - 120}
             />
@@ -542,9 +592,11 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
               highlightedServices={Array.from(state.highlightedServices)}
               servicesWithTabs={Array.from(servicesWithTabs)} // Pass services that have tabs open
               onServiceClick={handleServiceClick}
-              selectedPaths={state.selectedPaths.map(id => 
-                state.availablePaths.find(p => p.id === id)
-              ).filter(Boolean) as CriticalPath[]}
+              selectedPaths={
+                state.selectedPaths
+                  .map((id) => state.availablePaths.find((p) => p.id === id))
+                  .filter(Boolean) as CriticalPath[]
+              }
             />
           )}
         </Col>

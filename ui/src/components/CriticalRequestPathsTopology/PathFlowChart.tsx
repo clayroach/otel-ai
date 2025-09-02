@@ -18,11 +18,7 @@ interface PathFlowChartProps {
   height?: number
 }
 
-export const PathFlowChart: React.FC<PathFlowChartProps> = ({ 
-  path, 
-  services,
-  height = 600 
-}) => {
+export const PathFlowChart: React.FC<PathFlowChartProps> = ({ path, services, height = 600 }) => {
   if (!path) {
     return (
       <Card style={{ height: '100%' }}>
@@ -34,14 +30,14 @@ export const PathFlowChart: React.FC<PathFlowChartProps> = ({
   // Create a Sankey diagram option with request volume as line width
   const getSankeyOption = (): EChartsOption => {
     // Build nodes for Sankey
-    const nodes = path.services.map((serviceId, index) => {
-      const service = services.find(s => s.id === serviceId)
+    const nodes = path.services.map((serviceId, _index) => {
+      const service = services.find((s) => s.id === serviceId)
       return {
         name: serviceId,
         label: {
           show: true,
           formatter: service?.name || serviceId,
-          position: 'right'
+          position: 'right' as const
         },
         itemStyle: {
           color: getServiceColor(service?.metrics?.errorRate || 0),
@@ -52,19 +48,19 @@ export const PathFlowChart: React.FC<PathFlowChartProps> = ({
     })
 
     // Build links for Sankey with request volume as value and error rate as color
-    const links = path.edges.map(edge => {
-      const sourceService = services.find(s => s.id === edge.source)
-      const targetService = services.find(s => s.id === edge.target)
+    const links = path.edges.map((edge) => {
+      const sourceService = services.find((s) => s.id === edge.source)
+      const targetService = services.find((s) => s.id === edge.target)
       // Use the minimum rate between source and target as the flow volume
       const volume = Math.min(
         sourceService?.metrics?.rate || 100,
         targetService?.metrics?.rate || 100
       )
-      
+
       // Use the target service's error rate to determine link color
       const errorRate = targetService?.metrics?.errorRate || 0
       const linkColor = getServiceColor(errorRate)
-      
+
       return {
         source: edge.source,
         target: edge.target,
@@ -97,12 +93,17 @@ export const PathFlowChart: React.FC<PathFlowChartProps> = ({
       },
       tooltip: {
         trigger: 'item',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         formatter: (params: any) => {
           if (params.dataType === 'node') {
-            const service = services.find(s => s.id === params.name)
+            const service = services.find((s) => s.id === params.name)
             if (service?.metrics) {
-              const healthStatus = service.metrics.errorRate > 0.05 ? '🔴 Critical' : 
-                                  service.metrics.errorRate > 0.01 ? '🟡 Warning' : '🟢 Healthy'
+              const healthStatus =
+                service.metrics.errorRate > 0.05
+                  ? '🔴 Critical'
+                  : service.metrics.errorRate > 0.01
+                    ? '🟡 Warning'
+                    : '🟢 Healthy'
               return `
                 <b>${service.name}</b> ${healthStatus}<br/>
                 <hr style="margin: 4px 0; border-color: #ddd"/>
@@ -113,11 +114,11 @@ export const PathFlowChart: React.FC<PathFlowChartProps> = ({
             }
             return params.name
           } else if (params.dataType === 'edge') {
-            const sourceService = services.find(s => s.id === params.data.source)
-            const targetService = services.find(s => s.id === params.data.target)
+            const sourceService = services.find((s) => s.id === params.data.source)
+            const targetService = services.find((s) => s.id === params.data.target)
             const errorRate = params.data.errorRate || 0
-            const errorStatus = errorRate > 0.05 ? '🔴 Critical' : 
-                               errorRate > 0.01 ? '🟡 Warning' : '🟢 Healthy'
+            const errorStatus =
+              errorRate > 0.05 ? '🔴 Critical' : errorRate > 0.01 ? '🟡 Warning' : '🟢 Healthy'
             return `
               <b>Flow: ${sourceService?.name || params.data.source} → ${targetService?.name || params.data.target}</b><br/>
               <hr style="margin: 4px 0; border-color: #ddd"/>
@@ -132,7 +133,6 @@ export const PathFlowChart: React.FC<PathFlowChartProps> = ({
       series: [
         {
           type: 'sankey',
-          layout: 'none',
           emphasis: {
             focus: 'adjacency'
           },
@@ -159,37 +159,38 @@ export const PathFlowChart: React.FC<PathFlowChartProps> = ({
   }
 
   // Alternative: Create a hierarchical left-to-right graph
-  const getFlowGraphOption = (): EChartsOption => {
+  /* const _getFlowGraphOption = (): EChartsOption => {
     // Calculate positions for nodes in a left-to-right layout
     const nodePositions = new Map<string, { x: number; y: number }>()
     const levels = new Map<string, number>()
-    
+
     // Determine levels for each node
     const calculateLevels = () => {
       // Start nodes (no incoming edges)
       const incomingEdges = new Map<string, number>()
-      path.services.forEach(s => incomingEdges.set(s, 0))
-      path.edges.forEach(e => {
+      path.services.forEach((s) => incomingEdges.set(s, 0))
+      path.edges.forEach((e) => {
         incomingEdges.set(e.target, (incomingEdges.get(e.target) || 0) + 1)
       })
-      
+
       // Find start nodes
       const queue: string[] = []
-      path.services.forEach(s => {
+      path.services.forEach((s) => {
         if (incomingEdges.get(s) === 0) {
           levels.set(s, 0)
           queue.push(s)
         }
       })
-      
+
       // BFS to assign levels
       while (queue.length > 0) {
-        const current = queue.shift()!
+        const current = queue.shift()
+        if (!current) continue
         const currentLevel = levels.get(current) || 0
-        
+
         path.edges
-          .filter(e => e.source === current)
-          .forEach(e => {
+          .filter((e) => e.source === current)
+          .forEach((e) => {
             if (!levels.has(e.target)) {
               levels.set(e.target, currentLevel + 1)
               queue.push(e.target)
@@ -197,13 +198,13 @@ export const PathFlowChart: React.FC<PathFlowChartProps> = ({
           })
       }
     }
-    
+
     calculateLevels()
-    
+
     // Position nodes based on levels
     const maxLevel = Math.max(...Array.from(levels.values()))
     const levelCounts = new Map<number, number>()
-    
+
     levels.forEach((level, nodeId) => {
       const count = levelCounts.get(level) || 0
       const x = (level / Math.max(maxLevel, 1)) * 80 + 10
@@ -211,13 +212,13 @@ export const PathFlowChart: React.FC<PathFlowChartProps> = ({
       nodePositions.set(nodeId, { x, y })
       levelCounts.set(level, count + 1)
     })
-    
+
     // Build nodes for graph
-    const nodes = path.services.map(serviceId => {
-      const service = services.find(s => s.id === serviceId)
+    const nodes = path.services.map((serviceId) => {
+      const service = services.find((s) => s.id === serviceId)
       const pos = nodePositions.get(serviceId) || { x: 50, y: 50 }
       const level = levels.get(serviceId) || 0
-      
+
       return {
         id: serviceId,
         name: service?.name || serviceId,
@@ -233,7 +234,8 @@ export const PathFlowChart: React.FC<PathFlowChartProps> = ({
         },
         label: {
           show: true,
-          formatter: (params: any) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+          formatter: (_params: any) => {
             const name = service?.name || serviceId
             return level === 0 ? `▶ ${name}` : name
           },
@@ -241,9 +243,9 @@ export const PathFlowChart: React.FC<PathFlowChartProps> = ({
         }
       }
     })
-    
+
     // Build edges
-    const edges = path.edges.map(edge => ({
+    const edges = path.edges.map((edge) => ({
       source: edge.source,
       target: edge.target,
       symbol: ['none', 'arrow'],
@@ -254,7 +256,7 @@ export const PathFlowChart: React.FC<PathFlowChartProps> = ({
         curveness: 0.2
       }
     }))
-    
+
     return {
       title: {
         text: `Flow: ${path.name}`,
@@ -263,9 +265,10 @@ export const PathFlowChart: React.FC<PathFlowChartProps> = ({
       },
       tooltip: {
         trigger: 'item',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         formatter: (params: any) => {
           if (params.dataType === 'node') {
-            const service = services.find(s => s.id === params.data.id)
+            const service = services.find((s) => s.id === params.data.id)
             if (service?.metrics) {
               return `
                 <b>${service.name}</b><br/>
@@ -321,7 +324,7 @@ export const PathFlowChart: React.FC<PathFlowChartProps> = ({
         }
       ]
     }
-  }
+  } */
 
   const getServiceColor = (errorRate: number): string => {
     if (errorRate > 0.05) return '#ff4d4f' // >5% errors - red
@@ -332,8 +335,8 @@ export const PathFlowChart: React.FC<PathFlowChartProps> = ({
   // Use Sankey diagram for better flow visualization with request volumes
   return (
     <div style={{ height: '100%', width: '100%' }}>
-      <ReactECharts 
-        option={getSankeyOption()} 
+      <ReactECharts
+        option={getSankeyOption()}
         style={{ height: height, width: '100%' }}
         notMerge={true}
         lazyUpdate={true}

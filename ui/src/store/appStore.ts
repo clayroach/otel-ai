@@ -109,6 +109,16 @@ interface AppState {
     end: string
   }
   setTimeRange: (start: string, end: string) => void
+
+  // Analysis Configuration
+  analysisModel: 'llama' | 'claude' | 'gpt-4'
+  setAnalysisModel: (model: 'llama' | 'claude' | 'gpt-4') => void
+  useRealService: boolean
+  setUseRealService: (useReal: boolean) => void
+  analysisTimeRange: string
+  setAnalysisTimeRange: (range: string) => void
+  autoRefresh: 'manual' | '1m' | '5m'
+  setAutoRefresh: (refresh: 'manual' | '1m' | '5m') => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -163,7 +173,17 @@ export const useAppStore = create<AppState>()(
         start: new Date(Date.now() - 60 * 60 * 1000).toISOString(), // 1 hour ago
         end: new Date().toISOString()
       },
-      setTimeRange: (start: string, end: string) => set({ timeRange: { start, end } })
+      setTimeRange: (start: string, end: string) => set({ timeRange: { start, end } }),
+
+      // Analysis Configuration
+      analysisModel: 'llama',
+      setAnalysisModel: (model: 'llama' | 'claude' | 'gpt-4') => set({ analysisModel: model }),
+      useRealService: false,
+      setUseRealService: (useReal: boolean) => set({ useRealService: useReal }),
+      analysisTimeRange: '5m',
+      setAnalysisTimeRange: (range: string) => set({ analysisTimeRange: range }),
+      autoRefresh: 'manual',
+      setAutoRefresh: (refresh: 'manual' | '1m' | '5m') => set({ autoRefresh: refresh })
     }),
     {
       name: 'otel-ai-app-storage',

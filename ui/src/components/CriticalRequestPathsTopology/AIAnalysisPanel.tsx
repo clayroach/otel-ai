@@ -50,7 +50,6 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
   selectedModel = 'claude',
   width = '100%'
 }) => {
-
   const getSeverityIcon = (severity: string) => {
     switch (severity) {
       case 'critical':
@@ -66,11 +65,16 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
 
   const getInsightTypeColor = (type: string) => {
     switch (type) {
-      case 'performance': return 'blue'
-      case 'error': return 'red'
-      case 'architecture': return 'purple'
-      case 'recommendation': return 'green'
-      default: return 'default'
+      case 'performance':
+        return 'blue'
+      case 'error':
+        return 'red'
+      case 'architecture':
+        return 'purple'
+      case 'recommendation':
+        return 'green'
+      default:
+        return 'default'
     }
   }
 
@@ -96,8 +100,13 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
                 title="Error Rate"
                 value={metrics.errorRate.toFixed(2)}
                 suffix="%"
-                valueStyle={{ 
-                  color: metrics.errorRate > 5 ? '#ff4d4f' : metrics.errorRate > 1 ? '#faad14' : '#52c41a',
+                valueStyle={{
+                  color:
+                    metrics.errorRate > 5
+                      ? '#ff4d4f'
+                      : metrics.errorRate > 1
+                        ? '#faad14'
+                        : '#52c41a',
                   fontSize: '20px'
                 }}
                 prefix={<WarningOutlined />}
@@ -130,20 +139,19 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
               />
             </Col>
           </Row>
-          
+
           {/* Latency Breakdown */}
-          <Row gutter={[16, 16]} style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #f0f0f0' }}>
+          <Row
+            gutter={[16, 16]}
+            style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #f0f0f0' }}
+          >
             <Col span={8}>
               <Text type="secondary">P50 Latency</Text>
-              <div style={{ fontSize: '18px', fontWeight: 500 }}>
-                {metrics.latency.p50}ms
-              </div>
+              <div style={{ fontSize: '18px', fontWeight: 500 }}>{metrics.latency.p50}ms</div>
             </Col>
             <Col span={8}>
               <Text type="secondary">P95 Latency</Text>
-              <div style={{ fontSize: '18px', fontWeight: 500 }}>
-                {metrics.latency.p95}ms
-              </div>
+              <div style={{ fontSize: '18px', fontWeight: 500 }}>{metrics.latency.p95}ms</div>
             </Col>
             <Col span={8}>
               <Text type="secondary">Throughput</Text>
@@ -160,16 +168,16 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
             <Alert
               message="Service Health"
               description={
-                metrics.errorRate > 5 
-                  ? "Critical: High error rate detected. Immediate attention required."
+                metrics.errorRate > 5
+                  ? 'Critical: High error rate detected. Immediate attention required.'
                   : metrics.errorRate > 1
-                  ? "Warning: Elevated error rate. Monitor closely."
-                  : "Healthy: Service operating normally."
+                    ? 'Warning: Elevated error rate. Monitor closely.'
+                    : 'Healthy: Service operating normally.'
               }
-              type={metrics.errorRate > 5 ? "error" : metrics.errorRate > 1 ? "warning" : "success"}
+              type={metrics.errorRate > 5 ? 'error' : metrics.errorRate > 1 ? 'warning' : 'success'}
               showIcon
             />
-            
+
             {metrics.saturation > 80 && (
               <Alert
                 message="High Saturation"
@@ -185,7 +193,6 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
   }
 
   const renderTabContent = (tab: AnalysisTab) => {
-
     if (!tab.content) {
       return (
         <div style={{ textAlign: 'center', padding: '40px' }}>
@@ -204,7 +211,12 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
         const lowername = name.toLowerCase()
         if (lowername.includes('frontend') || lowername.includes('ui')) return 'frontend'
         if (lowername.includes('gateway') || lowername.includes('api')) return 'api'
-        if (lowername.includes('database') || lowername.includes('postgres') || lowername.includes('mysql')) return 'database'
+        if (
+          lowername.includes('database') ||
+          lowername.includes('postgres') ||
+          lowername.includes('mysql')
+        )
+          return 'database'
         if (lowername.includes('redis') || lowername.includes('cache')) return 'cache'
         if (lowername.includes('queue') || lowername.includes('kafka')) return 'queue'
         if (lowername.includes('payment') || lowername.includes('checkout')) return 'backend'
@@ -231,19 +243,43 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
             errorRate: tab.content.metrics.errorRate,
             duration: tab.content.metrics.latency.p95,
             spanCount: Math.floor(tab.content.metrics.requestRate * 60 * 5), // Estimate based on 5 min window
-            rateStatus: tab.content.metrics.requestRate > 1000 ? 2 : tab.content.metrics.requestRate > 500 ? 1 : 0,
-            errorStatus: tab.content.metrics.errorRate > 5 ? 2 : tab.content.metrics.errorRate > 1 ? 1 : 0,
-            durationStatus: tab.content.metrics.latency.p95 > 500 ? 2 : tab.content.metrics.latency.p95 > 200 ? 1 : 0,
+            rateStatus:
+              tab.content.metrics.requestRate > 1000
+                ? 2
+                : tab.content.metrics.requestRate > 500
+                  ? 1
+                  : 0,
+            errorStatus:
+              tab.content.metrics.errorRate > 5 ? 2 : tab.content.metrics.errorRate > 1 ? 1 : 0,
+            durationStatus:
+              tab.content.metrics.latency.p95 > 500
+                ? 2
+                : tab.content.metrics.latency.p95 > 200
+                  ? 1
+                  : 0,
             otelStatus: 0,
             // Add mock dependencies
             dependencies: [
-              { service: 'database', callCount: Math.floor(tab.content.metrics.requestRate * 2), avgLatency: 25, errorRate: 0.1 },
-              { service: 'cache', callCount: Math.floor(tab.content.metrics.requestRate * 0.8), avgLatency: 5, errorRate: 0.01 }
+              {
+                service: 'database',
+                callCount: Math.floor(tab.content.metrics.requestRate * 2),
+                avgLatency: 25,
+                errorRate: 0.1
+              },
+              {
+                service: 'cache',
+                callCount: Math.floor(tab.content.metrics.requestRate * 0.8),
+                avgLatency: 5,
+                errorRate: 0.01
+              }
             ]
           }}
           healthStatus={
-            tab.content.metrics.errorRate > 5 ? 'critical' : 
-            tab.content.metrics.errorRate > 1 ? 'warning' : 'healthy'
+            tab.content.metrics.errorRate > 5
+              ? 'critical'
+              : tab.content.metrics.errorRate > 1
+                ? 'warning'
+                : 'healthy'
           }
           runtime={getRuntime(tab.title)}
         />
@@ -290,20 +326,21 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
             bodyStyle={{ maxHeight: '400px', overflow: 'auto' }}
           >
             <Timeline mode="left">
-              {tab.content.insights.map(insight => (
+              {tab.content.insights.map((insight) => (
                 <Timeline.Item
                   key={insight.id}
                   dot={getSeverityIcon(insight.severity)}
                   color={
-                    insight.severity === 'critical' ? 'red' :
-                    insight.severity === 'warning' ? 'orange' : 'green'
+                    insight.severity === 'critical'
+                      ? 'red'
+                      : insight.severity === 'warning'
+                        ? 'orange'
+                        : 'green'
                   }
                 >
                   <Space direction="vertical" style={{ width: '100%' }}>
                     <Space>
-                      <Tag color={getInsightTypeColor(insight.type)}>
-                        {insight.type}
-                      </Tag>
+                      <Tag color={getInsightTypeColor(insight.type)}>{insight.type}</Tag>
                       <Text strong>{insight.title}</Text>
                     </Space>
                     <Paragraph
@@ -355,15 +392,11 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
           }}
           style={{ height: '100%' }}
         >
-          {tabs.map(tab => (
+          {tabs.map((tab) => (
             <TabPane
               tab={
                 <Space size="small">
-                  {tab.type === 'global' ? (
-                    <GlobalOutlined />
-                  ) : (
-                    <AppstoreOutlined />
-                  )}
+                  {tab.type === 'global' ? <GlobalOutlined /> : <AppstoreOutlined />}
                   <span>{tab.title}</span>
                   {tab.type === 'service' && (
                     <Tooltip title="Service Analysis">

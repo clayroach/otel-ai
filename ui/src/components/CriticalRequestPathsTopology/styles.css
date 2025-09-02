@@ -66,7 +66,7 @@
   .critical-request-paths-topology {
     padding: 8px;
   }
-  
+
   .critical-request-paths-topology .ant-card-body {
     padding: 8px !important;
   }
@@ -76,14 +76,14 @@
   .critical-request-paths-topology .ant-row {
     flex-direction: column;
   }
-  
+
   .critical-request-paths-topology .ant-col {
     width: 100% !important;
     max-width: 100% !important;
     flex: 0 0 100% !important;
     margin-bottom: 12px;
   }
-  
+
   .critical-paths-scroll-container {
     max-height: 200px;
   }
@@ -152,12 +152,12 @@
   .critical-request-paths-topology {
     background: #141414;
   }
-  
+
   .critical-request-paths-topology .ant-card {
     background: #1f1f1f;
     border-color: #303030;
   }
-  
+
   .critical-request-paths-topology .ant-list-item:hover {
     background: rgba(255, 255, 255, 0.08);
   }
