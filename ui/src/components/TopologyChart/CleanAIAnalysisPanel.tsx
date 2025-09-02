@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Progress, Badge, List, Button, Space, Typography, Row, Col, Tag } from 'antd';
-import { 
+import React, { useState } from 'react'
+import { Progress, Badge, List, Button, Space, Typography, Row, Col, Tag } from 'antd'
+import {
   ExclamationCircleOutlined,
   WarningOutlined,
   InfoCircleOutlined,
@@ -10,43 +10,44 @@ import {
   MinusOutlined,
   AlertOutlined,
   BulbOutlined
-} from '@ant-design/icons';
+} from '@ant-design/icons'
 
-const { Title, Text } = Typography;
+const { Title, Text } = Typography
 
 // Types
 interface HealthMetric {
-  name: 'Performance' | 'Security' | 'Reliability';
-  value: number;
-  description: string;
+  name: 'Performance' | 'Security' | 'Reliability'
+  value: number
+  description: string
 }
 
 interface Issue {
-  id: string;
-  title: string;
-  description: string;
-  category: 'bottleneck' | 'anomaly' | 'optimization' | 'security' | 'reliability';
-  severity: 'high' | 'critical' | 'warning' | 'medium' | 'low';
-  confidence: number;
-  affected: string[];
-  recommendation?: string;
-  timestamp: string;
+  id: string
+  title: string
+  description: string
+  category: 'bottleneck' | 'anomaly' | 'optimization' | 'security' | 'reliability'
+  severity: 'high' | 'critical' | 'warning' | 'medium' | 'low'
+  confidence: number
+  affected: string[]
+  recommendation?: string
+  timestamp: string
 }
 
-type FilterType = 'all' | 'bottleneck' | 'anomaly' | 'optimization' | 'security' | 'reliability';
+type FilterType = 'all' | 'bottleneck' | 'anomaly' | 'optimization' | 'security' | 'reliability'
 
 // Mock data for global view
 const globalHealthMetrics: HealthMetric[] = [
   { name: 'Performance', value: 78, description: 'Performance' },
   { name: 'Security', value: 85, description: 'Security' },
   { name: 'Reliability', value: 92, description: 'Reliability' }
-];
+]
 
 const globalIssues: Issue[] = [
   {
     id: '1',
     title: 'Database Connection Pool Exhaustion',
-    description: 'PostgreSQL connection pool is frequently reaching capacity, causing request queueing',
+    description:
+      'PostgreSQL connection pool is frequently reaching capacity, causing request queueing',
     category: 'bottleneck',
     severity: 'high',
     confidence: 92,
@@ -76,15 +77,15 @@ const globalIssues: Issue[] = [
     recommendation: 'Implement Redis caching for user profile data with 15-minute TTL',
     timestamp: '3:00:00 AM'
   }
-];
+]
 
 // Function to generate service-specific issues dynamically
 const generateServiceIssues = (serviceName: string): Issue[] => {
-  const serviceId = serviceName.toLowerCase().replace(/\s+/g, '-');
-  
+  const serviceId = serviceName.toLowerCase().replace(/\s+/g, '-')
+
   // Generate different issues based on service name characteristics
-  const issues: Issue[] = [];
-  
+  const issues: Issue[] = []
+
   // Feature flag services (like flagd)
   if (serviceName.toLowerCase().includes('flag')) {
     issues.push(
@@ -110,10 +111,13 @@ const generateServiceIssues = (serviceName: string): Issue[] => {
         recommendation: 'Sync flag configurations across environments',
         timestamp: '12 min ago'
       }
-    );
+    )
   }
   // Payment/checkout services
-  else if (serviceName.toLowerCase().includes('payment') || serviceName.toLowerCase().includes('checkout')) {
+  else if (
+    serviceName.toLowerCase().includes('payment') ||
+    serviceName.toLowerCase().includes('checkout')
+  ) {
     issues.push(
       {
         id: `${serviceId}-1`,
@@ -137,7 +141,7 @@ const generateServiceIssues = (serviceName: string): Issue[] => {
         recommendation: 'Disable debug logging in production and audit log files',
         timestamp: '8 min ago'
       }
-    );
+    )
   }
   // Cart services
   else if (serviceName.toLowerCase().includes('cart')) {
@@ -164,10 +168,13 @@ const generateServiceIssues = (serviceName: string): Issue[] => {
         recommendation: 'Implement cart data compression or increase Redis memory allocation',
         timestamp: '30 min ago'
       }
-    );
+    )
   }
   // Frontend services
-  else if (serviceName.toLowerCase().includes('frontend') || serviceName.toLowerCase().includes('ui')) {
+  else if (
+    serviceName.toLowerCase().includes('frontend') ||
+    serviceName.toLowerCase().includes('ui')
+  ) {
     issues.push(
       {
         id: `${serviceId}-1`,
@@ -191,10 +198,13 @@ const generateServiceIssues = (serviceName: string): Issue[] => {
         recommendation: 'Reserve space for dynamic content and optimize font loading',
         timestamp: '25 min ago'
       }
-    );
+    )
   }
   // Product/catalog services
-  else if (serviceName.toLowerCase().includes('product') || serviceName.toLowerCase().includes('catalog')) {
+  else if (
+    serviceName.toLowerCase().includes('product') ||
+    serviceName.toLowerCase().includes('catalog')
+  ) {
     issues.push(
       {
         id: `${serviceId}-1`,
@@ -218,7 +228,7 @@ const generateServiceIssues = (serviceName: string): Issue[] => {
         recommendation: 'Review CDN cache headers and implement image optimization',
         timestamp: '18 min ago'
       }
-    );
+    )
   }
   // Default/generic service issues
   else {
@@ -245,114 +255,118 @@ const generateServiceIssues = (serviceName: string): Issue[] => {
         recommendation: 'Review connection pool settings and implement proper cleanup',
         timestamp: '22 min ago'
       }
-    );
+    )
   }
-  
-  return issues;
-};
+
+  return issues
+}
 
 // Function to generate service-specific metrics
 const generateServiceMetrics = (serviceName: string): HealthMetric[] => {
   // Generate pseudo-random but consistent metrics based on service name
-  const hash = serviceName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  
-  const performance = 60 + (hash % 35); // 60-94
-  const security = 70 + (hash % 25); // 70-94
-  const reliability = 65 + ((hash * 2) % 30); // 65-94
-  
+  const hash = serviceName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+
+  const performance = 60 + (hash % 35) // 60-94
+  const security = 70 + (hash % 25) // 70-94
+  const reliability = 65 + ((hash * 2) % 30) // 65-94
+
   return [
     { name: 'Performance', value: performance, description: 'Performance' },
     { name: 'Security', value: security, description: 'Security' },
     { name: 'Reliability', value: reliability, description: 'Reliability' }
-  ];
-};
-
-interface CleanAIAnalysisPanelProps {
-  tabType?: 'global' | 'service';
-  serviceName?: string;
-  serviceId?: string;
+  ]
 }
 
-export const CleanAIAnalysisPanel: React.FC<CleanAIAnalysisPanelProps> = ({ 
-  tabType = 'global', 
+interface CleanAIAnalysisPanelProps {
+  tabType?: 'global' | 'service'
+  serviceName?: string
+  serviceId?: string
+}
+
+export const CleanAIAnalysisPanel: React.FC<CleanAIAnalysisPanelProps> = ({
+  tabType = 'global',
   serviceName,
-  serviceId 
+  serviceId
 }) => {
-  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [activeFilter, setActiveFilter] = useState<FilterType>('all')
 
   // Get the appropriate data based on tab type
-  const healthMetrics = tabType === 'service' && serviceName 
-    ? generateServiceMetrics(serviceName)
-    : globalHealthMetrics;
-  const mockIssues = tabType === 'service' && serviceName 
-    ? generateServiceIssues(serviceName)
-    : globalIssues;
+  const healthMetrics =
+    tabType === 'service' && serviceName ? generateServiceMetrics(serviceName) : globalHealthMetrics
+  const mockIssues =
+    tabType === 'service' && serviceName ? generateServiceIssues(serviceName) : globalIssues
 
   // Filter issues based on selected filter
-  const filteredIssues = mockIssues.filter(issue => {
-    if (activeFilter === 'all') return true;
-    return issue.category === activeFilter;
-  });
+  const filteredIssues = mockIssues.filter((issue) => {
+    if (activeFilter === 'all') return true
+    return issue.category === activeFilter
+  })
 
   // Get color for health metric
   const getHealthColor = (value: number): string => {
-    if (value >= 85) return '#52c41a'; // green
-    if (value >= 70) return '#1890ff'; // blue
-    return '#ff4d4f'; // red
-  };
+    if (value >= 85) return '#52c41a' // green
+    if (value >= 70) return '#1890ff' // blue
+    return '#ff4d4f' // red
+  }
 
   // Get severity color and label
   const getSeverityStyle = (severity: string) => {
     switch (severity) {
       case 'critical':
-        return { color: '#fff', backgroundColor: '#ff4d4f', label: 'CRITICAL' };
+        return { color: '#fff', backgroundColor: '#ff4d4f', label: 'CRITICAL' }
       case 'high':
-        return { color: '#fff', backgroundColor: '#ff7a45', label: 'HIGH' };
+        return { color: '#fff', backgroundColor: '#ff7a45', label: 'HIGH' }
       case 'warning':
-        return { color: '#fff', backgroundColor: '#faad14', label: 'WARNING' };
+        return { color: '#fff', backgroundColor: '#faad14', label: 'WARNING' }
       case 'medium':
-        return { color: '#fff', backgroundColor: '#1890ff', label: 'MEDIUM' };
+        return { color: '#fff', backgroundColor: '#1890ff', label: 'MEDIUM' }
       case 'low':
-        return { color: '#666', backgroundColor: '#f0f0f0', label: 'LOW' };
+        return { color: '#666', backgroundColor: '#f0f0f0', label: 'LOW' }
       default:
-        return { color: '#666', backgroundColor: '#f0f0f0', label: 'INFO' };
+        return { color: '#666', backgroundColor: '#f0f0f0', label: 'INFO' }
     }
-  };
+  }
 
   // Get category icon
   const getCategoryIcon = (category: string, severity: string) => {
-    const isHighSeverity = severity === 'critical' || severity === 'high';
-    
+    const isHighSeverity = severity === 'critical' || severity === 'high'
+
     switch (category) {
       case 'bottleneck':
-        return <AlertOutlined style={{ color: isHighSeverity ? '#ff7a45' : '#faad14', fontSize: '16px' }} />;
+        return (
+          <AlertOutlined
+            style={{ color: isHighSeverity ? '#ff7a45' : '#faad14', fontSize: '16px' }}
+          />
+        )
       case 'anomaly':
-        return <ExclamationCircleOutlined style={{ color: '#ff4d4f', fontSize: '16px' }} />;
+        return <ExclamationCircleOutlined style={{ color: '#ff4d4f', fontSize: '16px' }} />
       case 'optimization':
-        return <BulbOutlined style={{ color: '#faad14', fontSize: '16px' }} />;
+        return <BulbOutlined style={{ color: '#faad14', fontSize: '16px' }} />
       case 'security':
-        return <WarningOutlined style={{ color: '#ff7a45', fontSize: '16px' }} />;
+        return <WarningOutlined style={{ color: '#ff7a45', fontSize: '16px' }} />
       case 'reliability':
-        return <InfoCircleOutlined style={{ color: '#722ed1', fontSize: '16px' }} />;
+        return <InfoCircleOutlined style={{ color: '#722ed1', fontSize: '16px' }} />
       default:
-        return <CheckCircleOutlined style={{ color: '#52c41a', fontSize: '16px' }} />;
+        return <CheckCircleOutlined style={{ color: '#52c41a', fontSize: '16px' }} />
     }
-  };
+  }
 
   // Count issues by category
   const issueCounts = {
     all: mockIssues.length,
-    bottleneck: mockIssues.filter(i => i.category === 'bottleneck').length,
-    anomaly: mockIssues.filter(i => i.category === 'anomaly').length,
-    optimization: mockIssues.filter(i => i.category === 'optimization').length,
-    security: mockIssues.filter(i => i.category === 'security').length,
-    reliability: mockIssues.filter(i => i.category === 'reliability').length
-  };
+    bottleneck: mockIssues.filter((i) => i.category === 'bottleneck').length,
+    anomaly: mockIssues.filter((i) => i.category === 'anomaly').length,
+    optimization: mockIssues.filter((i) => i.category === 'optimization').length,
+    security: mockIssues.filter((i) => i.category === 'security').length,
+    reliability: mockIssues.filter((i) => i.category === 'reliability').length
+  }
 
   // Count critical issues and optimizations
-  const criticalCount = mockIssues.filter(i => i.severity === 'critical' || i.severity === 'high').length;
-  const optimizationCount = mockIssues.filter(i => i.category === 'optimization').length;
-  
+  const criticalCount = mockIssues.filter(
+    (i) => i.severity === 'critical' || i.severity === 'high'
+  ).length
+  const optimizationCount = mockIssues.filter((i) => i.category === 'optimization').length
+
   // Get service-specific or global summary
   const getSummaryText = () => {
     if (tabType === 'service' && serviceName) {
@@ -360,36 +374,42 @@ export const CleanAIAnalysisPanel: React.FC<CleanAIAnalysisPanelProps> = ({
         health: `${serviceName} operational`,
         issues: `${criticalCount} critical issues`,
         optimizations: `${optimizationCount} optimizations`
-      };
+      }
     }
     return {
       health: '10/12 services healthy',
       issues: `${criticalCount} critical issues`,
       optimizations: `${optimizationCount} optimizations`
-    };
-  };
+    }
+  }
 
   return (
-    <div style={{ 
-      height: '100%',
-      backgroundColor: '#ffffff',
-      display: 'flex',
-      flexDirection: 'column'
-    }}>
+    <div
+      style={{
+        height: '100%',
+        backgroundColor: '#ffffff',
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+    >
       {/* Content - No header needed */}
-      <div style={{ 
-        flex: 1,
-        overflowY: 'auto',
-        padding: '16px'
-      }}>
+      <div
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '16px'
+        }}
+      >
         {/* System Health Scores Section - No title */}
         <div style={{ marginBottom: '20px' }}>
           <Row gutter={[8, 8]}>
             {healthMetrics.map((metric) => (
               <Col span={8} key={metric.name}>
-                <div style={{ 
-                  textAlign: 'center'
-                }}>
+                <div
+                  style={{
+                    textAlign: 'center'
+                  }}
+                >
                   <Progress
                     type="circle"
                     percent={metric.value}
@@ -397,39 +417,45 @@ export const CleanAIAnalysisPanel: React.FC<CleanAIAnalysisPanelProps> = ({
                     strokeColor={getHealthColor(metric.value)}
                     strokeWidth={6}
                     format={(percent) => (
-                      <span style={{ 
-                        fontSize: '14px',
-                        fontWeight: 600,
-                        color: '#1f2937'
-                      }}>
+                      <span
+                        style={{
+                          fontSize: '14px',
+                          fontWeight: 600,
+                          color: '#1f2937'
+                        }}
+                      >
                         {percent}%
                       </span>
                     )}
                   />
-                  <div style={{ 
-                    marginTop: '4px',
-                    fontSize: '11px',
-                    color: '#6b7280',
-                    fontWeight: 500
-                  }}>
+                  <div
+                    style={{
+                      marginTop: '4px',
+                      fontSize: '11px',
+                      color: '#6b7280',
+                      fontWeight: 500
+                    }}
+                  >
                     {metric.description}
                   </div>
                 </div>
               </Col>
             ))}
           </Row>
-          
+
           {/* Summary Stats - Inline */}
-          <div style={{ 
-            marginTop: '12px',
-            fontSize: '11px',
-            color: '#6b7280',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            paddingLeft: '4px',
-            paddingRight: '4px'
-          }}>
+          <div
+            style={{
+              marginTop: '12px',
+              fontSize: '11px',
+              color: '#6b7280',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingLeft: '4px',
+              paddingRight: '4px'
+            }}
+          >
             <span>{getSummaryText().health}</span>
             <span>{getSummaryText().issues}</span>
             <span>{getSummaryText().optimizations}</span>
@@ -441,66 +467,66 @@ export const CleanAIAnalysisPanel: React.FC<CleanAIAnalysisPanelProps> = ({
           {/* Section Header with Filters */}
           <div style={{ marginBottom: '16px' }}>
             <Space size={4} wrap style={{ marginBottom: '12px' }}>
-              <Button 
+              <Button
                 size="small"
                 type={activeFilter === 'all' ? 'primary' : 'default'}
                 onClick={() => setActiveFilter('all')}
-                style={{ 
+                style={{
                   fontSize: '11px',
                   height: '24px'
                 }}
               >
                 All Issues ({issueCounts.all})
               </Button>
-              <Button 
+              <Button
                 size="small"
                 type={activeFilter === 'bottleneck' ? 'primary' : 'default'}
                 onClick={() => setActiveFilter('bottleneck')}
-                style={{ 
+                style={{
                   fontSize: '11px',
                   height: '24px'
                 }}
               >
                 Bottlenecks ({issueCounts.bottleneck})
               </Button>
-              <Button 
+              <Button
                 size="small"
                 type={activeFilter === 'anomaly' ? 'primary' : 'default'}
                 onClick={() => setActiveFilter('anomaly')}
-                style={{ 
+                style={{
                   fontSize: '11px',
                   height: '24px'
                 }}
               >
                 Anomalies ({issueCounts.anomaly})
               </Button>
-              <Button 
+              <Button
                 size="small"
                 type={activeFilter === 'optimization' ? 'primary' : 'default'}
                 onClick={() => setActiveFilter('optimization')}
-                style={{ 
+                style={{
                   fontSize: '11px',
                   height: '24px'
                 }}
               >
                 Optimizations ({issueCounts.optimization})
               </Button>
-              <Button 
+              <Button
                 size="small"
                 type={activeFilter === 'security' ? 'primary' : 'default'}
                 onClick={() => setActiveFilter('security')}
-                style={{ 
+                style={{
                   fontSize: '11px',
                   height: '24px'
                 }}
               >
                 Security ({issueCounts.security})
               </Button>
-              <Button 
+              <Button
                 size="small"
                 type={activeFilter === 'reliability' ? 'primary' : 'default'}
                 onClick={() => setActiveFilter('reliability')}
-                style={{ 
+                style={{
                   fontSize: '11px',
                   height: '24px'
                 }}
@@ -513,12 +539,12 @@ export const CleanAIAnalysisPanel: React.FC<CleanAIAnalysisPanelProps> = ({
           {/* Issues List */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {filteredIssues.map((issue) => {
-              const severityStyle = getSeverityStyle(issue.severity);
-              
+              const severityStyle = getSeverityStyle(issue.severity)
+
               return (
-                <div 
+                <div
                   key={issue.id}
-                  style={{ 
+                  style={{
                     padding: '12px',
                     backgroundColor: '#ffffff',
                     borderRadius: '6px',
@@ -528,39 +554,46 @@ export const CleanAIAnalysisPanel: React.FC<CleanAIAnalysisPanelProps> = ({
                     width: '100%'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = '#d1d5db';
-                    e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+                    e.currentTarget.style.borderColor = '#d1d5db'
+                    e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)'
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = '#e5e7eb';
-                    e.currentTarget.style.boxShadow = 'none';
+                    e.currentTarget.style.borderColor = '#e5e7eb'
+                    e.currentTarget.style.boxShadow = 'none'
                   }}
                 >
                   {/* Header with icon and severity */}
-                  <div style={{ 
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: '10px',
-                    marginBottom: '8px'
-                  }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '10px',
+                      marginBottom: '8px'
+                    }}
+                  >
                     <div style={{ marginTop: '2px' }}>
                       {getCategoryIcon(issue.category, issue.severity)}
                     </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ 
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        marginBottom: '4px'
-                      }}>
-                        <Text strong style={{ 
-                          fontSize: '13px',
-                          color: '#1f2937'
-                        }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginBottom: '4px'
+                        }}
+                      >
+                        <Text
+                          strong
+                          style={{
+                            fontSize: '13px',
+                            color: '#1f2937'
+                          }}
+                        >
                           {issue.title}
                         </Text>
-                        <Tag 
-                          style={{ 
+                        <Tag
+                          style={{
                             ...severityStyle,
                             fontSize: '10px',
                             padding: '0 6px',
@@ -572,30 +605,34 @@ export const CleanAIAnalysisPanel: React.FC<CleanAIAnalysisPanelProps> = ({
                           {severityStyle.label}
                         </Tag>
                       </div>
-                      
-                      <Text style={{ 
-                        fontSize: '12px',
-                        color: '#6b7280',
-                        display: 'block',
-                        marginBottom: '8px',
-                        lineHeight: 1.4
-                      }}>
+
+                      <Text
+                        style={{
+                          fontSize: '12px',
+                          color: '#6b7280',
+                          display: 'block',
+                          marginBottom: '8px',
+                          lineHeight: 1.4
+                        }}
+                      >
                         {issue.description}
                       </Text>
-                      
+
                       {/* Affected services */}
-                      <div style={{ 
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        marginBottom: '8px',
-                        flexWrap: 'wrap'
-                      }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          marginBottom: '8px',
+                          flexWrap: 'wrap'
+                        }}
+                      >
                         <Text style={{ fontSize: '11px', color: '#6b7280' }}>Affected:</Text>
                         {issue.affected.map((service, idx) => (
-                          <Tag 
+                          <Tag
                             key={idx}
-                            style={{ 
+                            style={{
                               fontSize: '10px',
                               backgroundColor: '#f3f4f6',
                               border: '1px solid #e5e7eb',
@@ -608,56 +645,64 @@ export const CleanAIAnalysisPanel: React.FC<CleanAIAnalysisPanelProps> = ({
                           </Tag>
                         ))}
                       </div>
-                      
+
                       {/* Recommendation */}
                       {issue.recommendation && (
-                        <div style={{ 
-                          marginBottom: '8px',
-                          padding: '6px 8px',
-                          backgroundColor: '#f9fafb',
-                          borderRadius: '4px',
-                          borderLeft: '3px solid #1890ff'
-                        }}>
-                          <Text style={{ 
-                            fontSize: '11px',
-                            color: '#374151',
-                            fontWeight: 500,
-                            display: 'block',
-                            marginBottom: '2px'
-                          }}>
+                        <div
+                          style={{
+                            marginBottom: '8px',
+                            padding: '6px 8px',
+                            backgroundColor: '#f9fafb',
+                            borderRadius: '4px',
+                            borderLeft: '3px solid #1890ff'
+                          }}
+                        >
+                          <Text
+                            style={{
+                              fontSize: '11px',
+                              color: '#374151',
+                              fontWeight: 500,
+                              display: 'block',
+                              marginBottom: '2px'
+                            }}
+                          >
                             Recommendation:
                           </Text>
-                          <Text style={{ 
-                            fontSize: '11px',
-                            color: '#6b7280',
-                            display: 'block'
-                          }}>
+                          <Text
+                            style={{
+                              fontSize: '11px',
+                              color: '#6b7280',
+                              display: 'block'
+                            }}
+                          >
                             {issue.recommendation}
                           </Text>
                         </div>
                       )}
-                      
+
                       {/* Footer with confidence and timestamp */}
-                      <div style={{ 
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        fontSize: '10px',
-                        color: '#9ca3af'
-                      }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          fontSize: '10px',
+                          color: '#9ca3af'
+                        }}
+                      >
                         <span>{issue.confidence}% confidence</span>
                         <span>{issue.timestamp}</span>
                       </div>
                     </div>
                   </div>
                 </div>
-              );
+              )
             })}
           </div>
         </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default CleanAIAnalysisPanel;
+export default CleanAIAnalysisPanel

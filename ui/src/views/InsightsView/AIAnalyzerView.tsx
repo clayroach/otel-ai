@@ -36,11 +36,15 @@ const AIAnalyzerView: React.FC = () => {
   // Use global store for analysis configuration
   const {
     analysisModel: selectedModel,
-    useRealService,
-    setUseRealService,
+    useMockData,
+    setUseMockData,
     analysisTimeRange: timeRange,
     autoRefresh
   } = useAppStore()
+
+  // Convert to useRealService for consistency with existing code
+  const useRealService = !useMockData
+  const setUseRealService = (value: boolean) => setUseMockData(!value)
 
   const aiAnalyzer = useAIAnalyzer()
 
@@ -131,11 +135,12 @@ const AIAnalyzerView: React.FC = () => {
         // Use real AI analyzer service with model selection
         const config = {
           llm: {
-            model: (selectedModel === 'gpt-4' ? 'gpt' : selectedModel) as 'claude' | 'llama' | 'gpt',
-            temperature:
-              selectedModel === 'gpt-4' ? 0.5 : selectedModel === 'llama' ? 0.8 : 0.7,
-            maxTokens:
-              selectedModel === 'gpt-4' ? 1500 : selectedModel === 'llama' ? 1800 : 2000
+            model: (selectedModel === 'gpt-4' ? 'gpt' : selectedModel) as
+              | 'claude'
+              | 'llama'
+              | 'gpt',
+            temperature: selectedModel === 'gpt-4' ? 0.5 : selectedModel === 'llama' ? 0.8 : 0.7,
+            maxTokens: selectedModel === 'gpt-4' ? 1500 : selectedModel === 'llama' ? 1800 : 2000
           },
           analysis: {
             timeWindowHours: getTimeRangeHours(),
@@ -162,9 +167,7 @@ const AIAnalyzerView: React.FC = () => {
         })
 
         // setAnalysisResult(result) // Commented out - using new topology component
-        message.success(
-          `🎯 Real topology analysis completed using ${selectedModel} model!`
-        )
+        message.success(`🎯 Real topology analysis completed using ${selectedModel} model!`)
       } else {
         // Fallback to mock data with model awareness
         await new Promise((resolve) => setTimeout(resolve, 2000))
@@ -179,11 +182,16 @@ const AIAnalyzerView: React.FC = () => {
       setError(
         `Failed to perform analysis: ${err instanceof Error ? err.message : 'Unknown error'}`
       )
-      message.error('Analysis failed - falling back to mock data')
 
-      // Fallback to mock data on error
-      // const result = generateMockData(analysisType, selectedModel)
-      // setAnalysisResult(result) // Commented out - using new topology component
+      if (useRealService) {
+        // When LIVE mode is on, never fall back to mock data
+        message.error('Analysis failed - please check service connection')
+        // Do NOT set mock data - let the error state show
+      } else {
+        // Only in mock mode, indicate we're using mock data
+        message.info('Using mock data for demonstration')
+        // Mock data is handled by the topology component itself
+      }
     } finally {
       setLoading(false)
     }
@@ -353,7 +361,9 @@ const AIAnalyzerView: React.FC = () => {
                 color: '#2c3e50'
               }}
             >
-              {'Initializing topology analysis...\n🔍 Scanning service dependencies...\n📊 Processing telemetry data...'}
+              {
+                'Initializing topology analysis...\n🔍 Scanning service dependencies...\n📊 Processing telemetry data...'
+              }
             </div>
             <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Spin size="small" />

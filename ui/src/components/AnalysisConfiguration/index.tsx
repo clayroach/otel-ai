@@ -1,11 +1,7 @@
 import React from 'react'
 import { Button, Dropdown, Space, Tag, Radio, Typography } from 'antd'
 import type { MenuProps } from 'antd'
-import {
-  RobotOutlined,
-  CloudOutlined,
-  DesktopOutlined
-} from '@ant-design/icons'
+import { RobotOutlined, CloudOutlined, DesktopOutlined } from '@ant-design/icons'
 import { useAppStore } from '../../store/appStore'
 
 const { Text } = Typography

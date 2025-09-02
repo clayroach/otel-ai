@@ -8,23 +8,23 @@ interface DataSourceIndicatorProps {
   style?: React.CSSProperties
 }
 
-export const DataSourceIndicator: React.FC<DataSourceIndicatorProps> = ({ 
-  isUsingMockData, 
+export const DataSourceIndicator: React.FC<DataSourceIndicatorProps> = ({
+  isUsingMockData,
   dataSource,
-  style 
+  style
 }) => {
   if (isUsingMockData) {
     return (
       <Tooltip title="This component is displaying mock/demo data for demonstration purposes">
-        <Tag 
-          icon={<ExperimentOutlined />} 
+        <Tag
+          icon={<ExperimentOutlined />}
           color="warning"
-          style={{ 
+          style={{
             position: 'absolute',
             top: 8,
             right: 8,
             zIndex: 10,
-            ...style 
+            ...style
           }}
         >
           MOCK DATA
@@ -35,15 +35,15 @@ export const DataSourceIndicator: React.FC<DataSourceIndicatorProps> = ({
 
   return (
     <Tooltip title={`Connected to: ${dataSource || 'Backend API'}`}>
-      <Tag 
-        icon={<DatabaseOutlined />} 
+      <Tag
+        icon={<DatabaseOutlined />}
         color="success"
-        style={{ 
+        style={{
           position: 'absolute',
           top: 8,
           right: 8,
           zIndex: 10,
-          ...style 
+          ...style
         }}
       >
         LIVE DATA

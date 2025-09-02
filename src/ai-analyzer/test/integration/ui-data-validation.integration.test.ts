@@ -87,7 +87,7 @@ describe('UI Data Validation Integration', () => {
       
       // Validate this won't create the weird concatenation UI issue
       expect(analyzedSpans).toBeGreaterThan(0)
-      expect(analyzedSpans).toBeLessThan(1000000)
+      expect(analyzedSpans).toBeLessThan(100000000) // Allow up to 100 million spans
       
       console.log(`✅ analyzedSpans will display cleanly: "${analyzedSpans}spans"`)
       

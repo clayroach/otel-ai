@@ -566,7 +566,7 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
 
   // Get mock data state from global store
   const { useMockData } = useAppStore()
-  
+
   return (
     <div className={`critical-request-paths-topology ${className}`}>
       {/* Mock Data Warning Banner */}
@@ -580,7 +580,7 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
           style={{ marginBottom: 12 }}
         />
       )}
-      
+
       <Row gutter={[12, 12]} style={{ height: useMockData ? 'calc(100% - 60px)' : '100%' }}>
         {/* Critical Paths Panel */}
         {colSpans.paths > 0 && (

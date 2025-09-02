@@ -344,20 +344,20 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
                   
                   <table style="font-size: 11px; width: 100%; margin-bottom: 8px;">
                     <tr>
-                      <td style="padding: 2px;">${getStatusEmoji(metrics.rateStatus)} Rate:</td>
-                      <td style="padding: 2px; text-align: right;"><strong>${metrics.rate.toFixed(1)} req/s</strong></td>
+                      <td style="padding: 2px;">${getStatusEmoji(metrics.rateStatus || 0)} Rate:</td>
+                      <td style="padding: 2px; text-align: right;"><strong>${(metrics.rate || 0).toFixed(1)} req/s</strong></td>
                     </tr>
                     <tr>
-                      <td style="padding: 2px;">${getStatusEmoji(metrics.errorStatus)} Errors:</td>
-                      <td style="padding: 2px; text-align: right;"><strong>${metrics.errorRate.toFixed(1)}%</strong></td>
+                      <td style="padding: 2px;">${getStatusEmoji(metrics.errorStatus || 0)} Errors:</td>
+                      <td style="padding: 2px; text-align: right;"><strong>${(metrics.errorRate || 0).toFixed(1)}%</strong></td>
                     </tr>
                     <tr>
-                      <td style="padding: 2px;">${getStatusEmoji(metrics.durationStatus)} P95:</td>
-                      <td style="padding: 2px; text-align: right;"><strong>${metrics.duration}ms</strong></td>
+                      <td style="padding: 2px;">${getStatusEmoji(metrics.durationStatus || 0)} P95:</td>
+                      <td style="padding: 2px; text-align: right;"><strong>${metrics.duration || 0}ms</strong></td>
                     </tr>
                     <tr>
-                      <td style="padding: 2px;">${getStatusEmoji(metrics.otelStatus)} Spans:</td>
-                      <td style="padding: 2px; text-align: right;"><strong>${metrics.spanCount.toLocaleString()}</strong></td>
+                      <td style="padding: 2px;">${getStatusEmoji(metrics.otelStatus || 0)} Spans:</td>
+                      <td style="padding: 2px; text-align: right;"><strong>${(metrics.spanCount || 0).toLocaleString()}</strong></td>
                     </tr>
                   </table>
                   
@@ -452,9 +452,19 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
   }
 
   const onChartClick = (params: { dataType: string; data: ServiceNode }) => {
+    console.log('[PieNodeTopologyChart] Click event:', {
+      dataType: params.dataType,
+      hasData: !!params.data,
+      nodeId: params.data?.id,
+      nodeName: params.data?.name
+    })
+
     if (params.dataType === 'node') {
       if (onNodeClick) {
+        console.log('[PieNodeTopologyChart] Calling onNodeClick with node:', params.data)
         onNodeClick(params.data)
+      } else {
+        console.log('[PieNodeTopologyChart] No onNodeClick handler provided')
       }
     }
   }

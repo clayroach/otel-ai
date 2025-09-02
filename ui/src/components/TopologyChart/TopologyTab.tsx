@@ -3,6 +3,7 @@ import { Spin, Alert, Empty, Button, message } from 'antd'
 import PieNodeTopologyChart from './PieNodeTopologyChart'
 import type { ServiceNode, TopologyVisualizationData } from './PieNodeTopologyChart'
 import axios from 'axios'
+import { useAppStore } from '../../store/appStore'
 
 interface TopologyTabProps {
   timeRange?: [Date, Date]
@@ -38,11 +39,39 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
   // const [lastUpdated, setLastUpdated] = useState<Date | null>(null) // Not currently used
   const [filteredHealthStatuses, setFilteredHealthStatuses] = useState<string[]>([])
 
+  // Get LIVE mode setting from global store
+  // IMPORTANT: The UI toggle uses useMockData, so we need to invert it to get useRealService
+  const { useMockData } = useAppStore()
+  const useRealService = !useMockData // LIVE mode is when NOT using mock data
+
+  // Debug: Log the current LIVE mode state
+  useEffect(() => {
+    console.log(
+      '[TopologyTab] Component mounted/updated, useMockData:',
+      useMockData,
+      'useRealService:',
+      useRealService
+    )
+  }, [useMockData, useRealService])
+
   const fetchTopologyData = async () => {
+    console.log('[TopologyTab] fetchTopologyData called, useRealService:', useRealService)
     setLoading(true)
     setError(null)
 
     try {
+      // If not in LIVE mode, use mock data directly
+      if (!useRealService) {
+        console.log('[TopologyTab] LIVE is OFF - loading mock data')
+        await new Promise((resolve) => setTimeout(resolve, 1000)) // Simulate loading
+        setTopologyData(getMockTopologyData())
+        message.info('Using mock topology data for demonstration')
+        return
+      }
+
+      console.log('[TopologyTab] LIVE is ON - attempting to fetch real data')
+
+      // Only make API call when in LIVE mode
       const params: { startTime?: string; endTime?: string } = {}
       if (timeRange) {
         params.startTime = timeRange[0].toISOString()
@@ -57,6 +86,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
       )
 
       if (response.data) {
+        console.log('[TopologyTab] Raw backend response nodes:', response.data.nodes?.slice(0, 3))
         // Transform backend data to match our expected structure
         const transformedData = {
           ...response.data,
@@ -129,28 +159,137 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
             })) || []
         }
 
-        console.log('Transformed topology data:', transformedData)
+        console.log(
+          '[TopologyTab] Transformed topology data nodes (first 3):',
+          transformedData.nodes?.slice(0, 3)
+        )
+        console.log('[TopologyTab] Total nodes:', transformedData.nodes?.length)
         setTopologyData(transformedData)
         // setLastUpdated(new Date())
         message.success('Topology data updated successfully')
       }
     } catch (err) {
-      console.error('Failed to fetch topology data:', err)
+      console.error('[TopologyTab] Failed to fetch topology data:', err)
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch topology data'
       setError(errorMessage)
 
-      // Use mock data as fallback
-      setTopologyData(getMockTopologyData())
-      message.warning('Using mock topology data for demonstration')
+      if (useRealService) {
+        // When LIVE mode is on, never fall back to mock data
+        console.log('[TopologyTab] LIVE is ON - NOT falling back to mock data')
+        setTopologyData(null) // Explicitly clear any data
+        message.error('Failed to fetch topology data - please check service connection')
+        // Do NOT set mock data - let the error state show
+      } else {
+        // Only use mock data when NOT in LIVE mode
+        console.log('[TopologyTab] LIVE is OFF - falling back to mock data')
+        setTopologyData(getMockTopologyData())
+        message.info('Using mock topology data for demonstration')
+      }
     } finally {
       setLoading(false)
     }
   }
 
-  // Initial fetch
+  // Initial fetch and refetch when LIVE mode changes
   useEffect(() => {
-    fetchTopologyData()
-  }, [timeRange])
+    const isLiveMode = !useMockData
+    console.log(
+      '[TopologyTab] useEffect triggered, useMockData:',
+      useMockData,
+      'isLiveMode:',
+      isLiveMode
+    )
+
+    const loadData = async () => {
+      setLoading(true)
+      setError(null)
+      setTopologyData(null) // Clear existing data
+
+      try {
+        if (useMockData) {
+          console.log('[TopologyTab] Loading mock data (DEMO mode is ON)')
+          await new Promise((resolve) => setTimeout(resolve, 1000))
+          setTopologyData(getMockTopologyData())
+          message.info('Using mock topology data for demonstration')
+        } else {
+          console.log('[TopologyTab] Fetching real data (LIVE mode is ON)')
+          const params: { startTime?: string; endTime?: string } = {}
+          if (timeRange) {
+            params.startTime = timeRange[0].toISOString()
+            params.endTime = timeRange[1].toISOString()
+          }
+
+          const response = await axios.post(
+            'http://localhost:4319/api/ai-analyzer/topology-visualization',
+            { timeRange: params }
+          )
+
+          if (response.data) {
+            console.log(
+              '[TopologyTab] useEffect - Raw backend nodes:',
+              response.data.nodes?.slice(0, 3)
+            )
+            // Transform and set data - ensure nodes have all required properties
+            const transformedData = {
+              nodes:
+                response.data.nodes?.map((node: ServiceNode) => ({
+                  ...node,
+                  // Ensure node has id and name
+                  id: node.id || node.name,
+                  name: node.name || node.id,
+                  // Preserve all other properties
+                  category: node.category,
+                  symbolSize: node.symbolSize,
+                  itemStyle: node.itemStyle,
+                  label: node.label,
+                  metrics: node.metrics || {
+                    rate: 0,
+                    errorRate: 0,
+                    duration: 0,
+                    spanCount: 0,
+                    rateStatus: 0,
+                    errorStatus: 0,
+                    durationStatus: 0,
+                    otelStatus: 0
+                  }
+                })) || [],
+              edges: response.data.edges || [],
+              runtimeEnvironments: response.data.runtimeEnvironments || [],
+              healthSummary: response.data.healthSummary || {
+                healthy: 0,
+                warning: 0,
+                degraded: 0,
+                critical: 0,
+                unavailable: 0
+              }
+            }
+            console.log(
+              '[TopologyTab] useEffect - Transformed nodes:',
+              transformedData.nodes?.slice(0, 3)
+            )
+            setTopologyData(transformedData)
+            message.success('Topology data updated successfully')
+          }
+        }
+      } catch (err) {
+        console.error('[TopologyTab] Error loading data:', err)
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch topology data'
+        setError(errorMessage)
+
+        if (!useMockData) {
+          console.log('[TopologyTab] LIVE mode error - showing error state')
+          setTopologyData(null)
+          message.error('Failed to fetch topology data - please check service connection')
+        } else {
+          console.log('[TopologyTab] Mock mode error - this should not happen')
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
+  }, [timeRange, useMockData])
 
   // Auto-refresh
   useEffect(() => {
@@ -164,8 +303,17 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
   }, [autoRefresh, refreshInterval])
 
   const handleNodeClick = (node: ServiceNode) => {
-    console.log('TopologyTab - Node clicked:', node)
+    console.log(
+      'TopologyTab - Node clicked:',
+      JSON.stringify({
+        id: node.id,
+        name: node.name,
+        category: node.category,
+        hasMetrics: !!node.metrics
+      })
+    )
     console.log('TopologyTab - onServiceClick prop exists?', !!onServiceClick)
+    console.log('TopologyTab - useMockData:', useMockData)
     setSelectedNode(node)
 
     // Use the node.id which should be the clean service name
@@ -183,6 +331,10 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
   }
 
   const handleRefresh = () => {
+    console.log('[TopologyTab] Manual refresh triggered, useRealService:', useRealService)
+    // Trigger re-render with current LIVE state
+    setTopologyData(null)
+    setError(null)
     fetchTopologyData()
   }
 
@@ -236,6 +388,39 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
     )
   }
 
+  // CRITICAL: Final safety check - never show mock data when LIVE is ON
+  const dataToDisplay =
+    useRealService && topologyData && isMockData(topologyData) ? null : topologyData
+
+  // If LIVE is ON and we detected mock data, show an error
+  if (useRealService && topologyData && isMockData(topologyData)) {
+    console.error('[TopologyTab] CRITICAL: Mock data detected when LIVE is ON!')
+    return (
+      <Alert
+        message="Data Integrity Error"
+        description="Mock data detected when LIVE mode is enabled. Please refresh the page."
+        type="error"
+        showIcon
+        action={
+          <Button size="small" onClick={handleRefresh}>
+            Refresh
+          </Button>
+        }
+      />
+    )
+  }
+
+  // Don't render chart if no data
+  if (!dataToDisplay) {
+    return (
+      <Empty description="No topology data available" image={Empty.PRESENTED_IMAGE_SIMPLE}>
+        <Button type="primary" onClick={handleRefresh}>
+          Load Topology
+        </Button>
+      </Empty>
+    )
+  }
+
   return (
     <div style={{ height: '100%' }}>
       {/* Action Bar - Removed Refresh button */}
@@ -243,7 +428,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
       {/* Main Layout - Full width topology chart */}
       <div style={{ height: 'calc(100% - 50px)' }}>
         <PieNodeTopologyChart
-          data={topologyData}
+          data={dataToDisplay}
           onNodeClick={handleNodeClick}
           onHealthFilter={handleHealthFilter}
           height={600}
@@ -255,6 +440,12 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
       </div>
     </div>
   )
+}
+
+// Helper function to detect mock data
+function isMockData(data: TopologyVisualizationData): boolean {
+  // Check if any node has a name starting with 'm'
+  return data.nodes.some((node) => node.name.startsWith('m'))
 }
 
 // Helper functions (commented out - not currently used)
@@ -291,13 +482,13 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
 // }
 
 // Mock data generator for demonstration
-const getMockTopologyData = (): TopologyVisualizationData => {
+export const getMockTopologyData = (): TopologyVisualizationData => {
   return {
     nodes: [
       // Frontend service
       {
-        id: 'frontend',
-        name: 'frontend',
+        id: 'mfrontend',
+        name: 'mfrontend',
         category: 'javascript',
         symbolSize: 50,
         itemStyle: { color: '#52c41a' },
@@ -315,8 +506,8 @@ const getMockTopologyData = (): TopologyVisualizationData => {
       },
       // Checkout Flow services
       {
-        id: 'cartservice',
-        name: 'cartservice',
+        id: 'mcartservice',
+        name: 'mcartservice',
         category: 'csharp',
         symbolSize: 45,
         itemStyle: { color: '#52c41a' },
@@ -333,8 +524,8 @@ const getMockTopologyData = (): TopologyVisualizationData => {
         }
       },
       {
-        id: 'checkoutservice',
-        name: 'checkoutservice',
+        id: 'mcheckoutservice',
+        name: 'mcheckoutservice',
         category: 'go',
         symbolSize: 48,
         itemStyle: { color: '#faad14' },
@@ -351,8 +542,8 @@ const getMockTopologyData = (): TopologyVisualizationData => {
         }
       },
       {
-        id: 'paymentservice',
-        name: 'paymentservice',
+        id: 'mpaymentservice',
+        name: 'mpaymentservice',
         category: 'nodejs',
         symbolSize: 40,
         itemStyle: { color: '#f5222d' },
@@ -369,8 +560,8 @@ const getMockTopologyData = (): TopologyVisualizationData => {
         }
       },
       {
-        id: 'emailservice',
-        name: 'emailservice',
+        id: 'memailservice',
+        name: 'memailservice',
         category: 'python',
         symbolSize: 38,
         itemStyle: { color: '#52c41a' },
@@ -388,8 +579,8 @@ const getMockTopologyData = (): TopologyVisualizationData => {
       },
       // Product Search services
       {
-        id: 'productcatalogservice',
-        name: 'productcatalogservice',
+        id: 'mproductcatalogservice',
+        name: 'mproductcatalogservice',
         category: 'go',
         symbolSize: 46,
         itemStyle: { color: '#52c41a' },
@@ -406,8 +597,8 @@ const getMockTopologyData = (): TopologyVisualizationData => {
         }
       },
       {
-        id: 'recommendationservice',
-        name: 'recommendationservice',
+        id: 'mrecommendationservice',
+        name: 'mrecommendationservice',
         category: 'python',
         symbolSize: 42,
         itemStyle: { color: '#faad14' },
@@ -424,8 +615,8 @@ const getMockTopologyData = (): TopologyVisualizationData => {
         }
       },
       {
-        id: 'adservice',
-        name: 'adservice',
+        id: 'madservice',
+        name: 'madservice',
         category: 'java',
         symbolSize: 40,
         itemStyle: { color: '#52c41a' },
@@ -443,8 +634,8 @@ const getMockTopologyData = (): TopologyVisualizationData => {
       },
       // User Authentication services
       {
-        id: 'authservice',
-        name: 'authservice',
+        id: 'mauthservice',
+        name: 'mauthservice',
         category: 'rust',
         symbolSize: 44,
         itemStyle: { color: '#52c41a' },
@@ -461,8 +652,8 @@ const getMockTopologyData = (): TopologyVisualizationData => {
         }
       },
       {
-        id: 'sessionservice',
-        name: 'sessionservice',
+        id: 'msessionservice',
+        name: 'msessionservice',
         category: 'redis',
         symbolSize: 38,
         itemStyle: { color: '#52c41a' },
@@ -479,8 +670,8 @@ const getMockTopologyData = (): TopologyVisualizationData => {
         }
       },
       {
-        id: 'userservice',
-        name: 'userservice',
+        id: 'muserservice',
+        name: 'muserservice',
         category: 'nodejs',
         symbolSize: 45,
         itemStyle: { color: '#52c41a' },
@@ -498,8 +689,8 @@ const getMockTopologyData = (): TopologyVisualizationData => {
       },
       // Shipping services
       {
-        id: 'shippingservice',
-        name: 'shippingservice',
+        id: 'mshippingservice',
+        name: 'mshippingservice',
         category: 'rust',
         symbolSize: 41,
         itemStyle: { color: '#f5222d' },
@@ -516,8 +707,8 @@ const getMockTopologyData = (): TopologyVisualizationData => {
         }
       },
       {
-        id: 'currencyservice',
-        name: 'currencyservice',
+        id: 'mcurrencyservice',
+        name: 'mcurrencyservice',
         category: 'nodejs',
         symbolSize: 36,
         itemStyle: { color: '#52c41a' },
@@ -535,8 +726,8 @@ const getMockTopologyData = (): TopologyVisualizationData => {
       },
       // Background services
       {
-        id: 'inventoryservice',
-        name: 'inventoryservice',
+        id: 'minventoryservice',
+        name: 'minventoryservice',
         category: 'java',
         symbolSize: 43,
         itemStyle: { color: '#52c41a' },
@@ -553,8 +744,8 @@ const getMockTopologyData = (): TopologyVisualizationData => {
         }
       },
       {
-        id: 'notificationservice',
-        name: 'notificationservice',
+        id: 'mnotificationservice',
+        name: 'mnotificationservice',
         category: 'python',
         symbolSize: 37,
         itemStyle: { color: '#52c41a' },
@@ -572,8 +763,8 @@ const getMockTopologyData = (): TopologyVisualizationData => {
       },
       // Data stores
       {
-        id: 'postgres',
-        name: 'postgres',
+        id: 'mpostgres',
+        name: 'mpostgres',
         category: 'postgresql',
         symbolSize: 55,
         itemStyle: { color: '#52c41a' },
@@ -590,8 +781,8 @@ const getMockTopologyData = (): TopologyVisualizationData => {
         }
       },
       {
-        id: 'redis',
-        name: 'redis',
+        id: 'mredis',
+        name: 'mredis',
         category: 'redis',
         symbolSize: 35,
         itemStyle: { color: '#52c41a' },
@@ -611,138 +802,138 @@ const getMockTopologyData = (): TopologyVisualizationData => {
     edges: [
       // Checkout Flow edges
       {
-        source: 'frontend',
-        target: 'cartservice',
+        source: 'mfrontend',
+        target: 'mcartservice',
         value: 80,
         lineStyle: { width: 3, color: '#52c41a' }
       },
       {
-        source: 'frontend',
-        target: 'checkoutservice',
+        source: 'mfrontend',
+        target: 'mcheckoutservice',
         value: 60,
         lineStyle: { width: 3, color: '#faad14' }
       },
       {
-        source: 'checkoutservice',
-        target: 'paymentservice',
+        source: 'mcheckoutservice',
+        target: 'mpaymentservice',
         value: 50,
         lineStyle: { width: 2, color: '#f5222d' }
       },
       {
-        source: 'checkoutservice',
-        target: 'emailservice',
+        source: 'mcheckoutservice',
+        target: 'memailservice',
         value: 45,
         lineStyle: { width: 2, color: '#52c41a' }
       },
       {
-        source: 'checkoutservice',
-        target: 'shippingservice',
+        source: 'mcheckoutservice',
+        target: 'mshippingservice',
         value: 40,
         lineStyle: { width: 2, color: '#faad14' }
       },
 
       // Product Search edges
       {
-        source: 'frontend',
-        target: 'productcatalogservice',
+        source: 'mfrontend',
+        target: 'mproductcatalogservice',
         value: 120,
         lineStyle: { width: 3, color: '#52c41a' }
       },
       {
-        source: 'frontend',
-        target: 'recommendationservice',
+        source: 'mfrontend',
+        target: 'mrecommendationservice',
         value: 90,
         lineStyle: { width: 3, color: '#faad14' }
       },
       {
-        source: 'recommendationservice',
-        target: 'productcatalogservice',
+        source: 'mrecommendationservice',
+        target: 'mproductcatalogservice',
         value: 85,
         lineStyle: { width: 2, color: '#faad14' }
       },
       {
-        source: 'frontend',
-        target: 'adservice',
+        source: 'mfrontend',
+        target: 'madservice',
         value: 150,
         lineStyle: { width: 3, color: '#52c41a' }
       },
 
       // User Authentication edges
       {
-        source: 'frontend',
-        target: 'authservice',
+        source: 'mfrontend',
+        target: 'mauthservice',
         value: 70,
         lineStyle: { width: 3, color: '#52c41a' }
       },
       {
-        source: 'authservice',
-        target: 'userservice',
+        source: 'mauthservice',
+        target: 'muserservice',
         value: 65,
         lineStyle: { width: 2, color: '#52c41a' }
       },
       {
-        source: 'authservice',
-        target: 'sessionservice',
+        source: 'mauthservice',
+        target: 'msessionservice',
         value: 68,
         lineStyle: { width: 2, color: '#52c41a' }
       },
 
       // Shipping Calculator edges
       {
-        source: 'shippingservice',
-        target: 'currencyservice',
+        source: 'mshippingservice',
+        target: 'mcurrencyservice',
         value: 35,
         lineStyle: { width: 2, color: '#52c41a' }
       },
 
       // Inventory Update edges
       {
-        source: 'inventoryservice',
-        target: 'productcatalogservice',
+        source: 'minventoryservice',
+        target: 'mproductcatalogservice',
         value: 15,
         lineStyle: { width: 2, color: '#52c41a' }
       },
       {
-        source: 'inventoryservice',
-        target: 'notificationservice',
+        source: 'minventoryservice',
+        target: 'mnotificationservice',
         value: 12,
         lineStyle: { width: 2, color: '#52c41a' }
       },
 
       // Database connections
       {
-        source: 'userservice',
-        target: 'postgres',
+        source: 'muserservice',
+        target: 'mpostgres',
         value: 85,
         lineStyle: { width: 3, color: '#52c41a' }
       },
       {
-        source: 'productcatalogservice',
-        target: 'postgres',
+        source: 'mproductcatalogservice',
+        target: 'mpostgres',
         value: 125,
         lineStyle: { width: 3, color: '#52c41a' }
       },
       {
-        source: 'cartservice',
-        target: 'redis',
+        source: 'mcartservice',
+        target: 'mredis',
         value: 78,
         lineStyle: { width: 3, color: '#52c41a' }
       },
       {
-        source: 'sessionservice',
-        target: 'redis',
+        source: 'msessionservice',
+        target: 'mredis',
         value: 245,
         lineStyle: { width: 4, color: '#52c41a' }
       },
       {
-        source: 'paymentservice',
-        target: 'postgres',
+        source: 'mpaymentservice',
+        target: 'mpostgres',
         value: 25,
         lineStyle: { width: 2, color: '#f5222d' }
       },
       {
-        source: 'checkoutservice',
-        target: 'postgres',
+        source: 'mcheckoutservice',
+        target: 'mpostgres',
         value: 32,
         lineStyle: { width: 2, color: '#faad14' }
       }

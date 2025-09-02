@@ -393,13 +393,15 @@ describe('AI Analyzer Topology Integration', () => {
       if (typeof analyzedSpans === 'string') {
         const parsed = parseInt(analyzedSpans, 10)
         expect(parsed).toBeGreaterThan(0)
-        expect(parsed).toBeLessThan(1000000) // Should be reasonable, not a massive BigInt
-        console.log(`✅ analyzedSpans is a clean number: ${analyzedSpans}`)
+        // After running for days, we can have millions of spans - that's expected!
+        expect(parsed).toBeLessThan(100000000) // Allow up to 100 million spans
+        console.log(`✅ analyzedSpans is a clean number: ${parsed.toLocaleString()}`)
       } else {
         expect(typeof analyzedSpans).toBe('number')
         expect(analyzedSpans).toBeGreaterThan(0)
-        expect(analyzedSpans).toBeLessThan(1000000)
-        console.log(`✅ analyzedSpans is a clean number: ${analyzedSpans}`)
+        // After running for days, we can have millions of spans - that's expected!
+        expect(analyzedSpans).toBeLessThan(100000000) // Allow up to 100 million spans
+        console.log(`✅ analyzedSpans is a clean number: ${analyzedSpans.toLocaleString()}`)
       }
       
       // Additional check: make sure it doesn't contain "spans" suffix unexpectedly

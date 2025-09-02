@@ -3,7 +3,7 @@ class AnalysisEventBus {
   private listeners: Set<() => void> = new Set()
 
   public triggerAnalysis() {
-    this.listeners.forEach(callback => callback())
+    this.listeners.forEach((callback) => callback())
   }
 
   public onAnalyze(callback: () => void) {

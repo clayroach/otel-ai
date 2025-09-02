@@ -1,14 +1,5 @@
 import React from 'react'
-import {
-  Card,
-  Tabs,
-  Typography,
-  Space,
-  Alert,
-  Tooltip,
-  Badge,
-  Spin
-} from 'antd'
+import { Card, Tabs, Typography, Space, Alert, Tooltip, Badge, Spin } from 'antd'
 import {
   GlobalOutlined,
   AppstoreOutlined,
@@ -124,11 +115,7 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
 
     // For global overview tab, use the Clean AI Analysis Panel
     return (
-      <CleanAIAnalysisPanel 
-        tabType={tab.type}
-        serviceName={tab.title}
-        serviceId={tab.targetId}
-      />
+      <CleanAIAnalysisPanel tabType={tab.type} serviceName={tab.title} serviceId={tab.targetId} />
     )
   }
 
