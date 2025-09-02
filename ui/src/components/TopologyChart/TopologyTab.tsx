@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Row, Col, Spin, Alert, Empty, Button, Space, message } from 'antd'
+import { Row, Col, Spin, Alert, Empty, Button, message } from 'antd'
 import PieNodeTopologyChart from './PieNodeTopologyChart'
 import EnhancedServiceDetailsPanel from './EnhancedServiceDetailsPanel'
 import type { ServiceNode, TopologyVisualizationData } from './PieNodeTopologyChart'
@@ -9,7 +9,7 @@ interface TopologyTabProps {
   timeRange?: [Date, Date]
   autoRefresh?: boolean
   refreshInterval?: number
-  data?: any // Allow external data to be passed
+  data?: TopologyVisualizationData | null // Allow external data to be passed
   highlightedServices?: string[] // Services to highlight
   onServiceClick?: (serviceId: string) => void // Callback for service clicks
   selectedPaths?: Array<{
@@ -25,7 +25,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
   autoRefresh = false,
   refreshInterval = 30000, // 30 seconds
   data: _data,
-  highlightedServices: _highlightedServices = [],
+  highlightedServices = [],
   onServiceClick: _onServiceClick,
   selectedPaths: _selectedPaths = []
 }) => {
@@ -33,7 +33,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
   const [error, setError] = useState<string | null>(null)
   const [topologyData, setTopologyData] = useState<TopologyVisualizationData | null>(null)
   const [selectedNode, setSelectedNode] = useState<ServiceNode | null>(null)
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  // const [lastUpdated, setLastUpdated] = useState<Date | null>(null) // Not currently used
   const [filteredHealthStatuses, setFilteredHealthStatuses] = useState<string[]>([])
 
   const fetchTopologyData = async () => {
@@ -129,7 +129,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
 
         console.log('Transformed topology data:', transformedData)
         setTopologyData(transformedData)
-        setLastUpdated(new Date())
+        // setLastUpdated(new Date())
         message.success('Topology data updated successfully')
       }
     } catch (err) {
@@ -234,6 +234,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
             onHealthFilter={handleHealthFilter}
             height={selectedNode ? 500 : 600}
             filteredHealthStatuses={filteredHealthStatuses}
+            highlightedServices={highlightedServices}
           />
         </Col>
 
@@ -302,6 +303,7 @@ const getHealthStatus = (color: string): string => {
 const getMockTopologyData = (): TopologyVisualizationData => {
   return {
     nodes: [
+      // Frontend service
       {
         id: 'frontend',
         name: 'frontend',
@@ -314,52 +316,53 @@ const getMockTopologyData = (): TopologyVisualizationData => {
           errorRate: 0.5,
           duration: 120,
           spanCount: 15420,
-          rateStatus: 0, // healthy
-          errorStatus: 0, // healthy
-          durationStatus: 0, // healthy
-          otelStatus: 0 // healthy
+          rateStatus: 0,
+          errorStatus: 0,
+          durationStatus: 0,
+          otelStatus: 0
         }
       },
+      // Checkout Flow services
       {
-        id: 'api-gateway',
-        name: 'api-gateway',
-        category: 'go',
-        symbolSize: 60,
+        id: 'cartservice',
+        name: 'cartservice',
+        category: 'csharp',
+        symbolSize: 45,
         itemStyle: { color: '#52c41a' },
         label: { show: true },
         metrics: {
-          rate: 120.5,
-          errorRate: 0.8,
-          duration: 45,
-          spanCount: 32150,
-          rateStatus: 0, // healthy
-          errorStatus: 0, // healthy
-          durationStatus: 0, // healthy
-          otelStatus: 0 // healthy
+          rate: 78.3,
+          errorRate: 0.3,
+          duration: 85,
+          spanCount: 21450,
+          rateStatus: 0,
+          errorStatus: 0,
+          durationStatus: 0,
+          otelStatus: 0
         }
       },
       {
-        id: 'user-service',
-        name: 'user-service',
-        category: 'java',
-        symbolSize: 45,
+        id: 'checkoutservice',
+        name: 'checkoutservice',
+        category: 'go',
+        symbolSize: 48,
         itemStyle: { color: '#faad14' },
         label: { show: true },
         metrics: {
-          rate: 85.3,
-          errorRate: 2.1,
-          duration: 180,
-          spanCount: 24850,
-          rateStatus: 0, // healthy
-          errorStatus: 1, // warning (>1% errors)
-          durationStatus: 1, // warning (>100ms)
-          otelStatus: 0 // healthy
+          rate: 32.5,
+          errorRate: 1.2,
+          duration: 250,
+          spanCount: 8920,
+          rateStatus: 0,
+          errorStatus: 1,
+          durationStatus: 1,
+          otelStatus: 0
         }
       },
       {
-        id: 'payment-service',
-        name: 'payment-service',
-        category: 'python',
+        id: 'paymentservice',
+        name: 'paymentservice',
+        category: 'nodejs',
         symbolSize: 40,
         itemStyle: { color: '#f5222d' },
         label: { show: true },
@@ -367,13 +370,216 @@ const getMockTopologyData = (): TopologyVisualizationData => {
           rate: 25.8,
           errorRate: 8.5,
           duration: 450,
-          spanCount: 8920,
-          rateStatus: 0, // healthy
-          errorStatus: 2, // critical (>5% errors)
-          durationStatus: 1, // warning (>100ms)
-          otelStatus: 0 // healthy
+          spanCount: 7080,
+          rateStatus: 0,
+          errorStatus: 2,
+          durationStatus: 1,
+          otelStatus: 0
         }
       },
+      {
+        id: 'emailservice',
+        name: 'emailservice',
+        category: 'python',
+        symbolSize: 38,
+        itemStyle: { color: '#52c41a' },
+        label: { show: true },
+        metrics: {
+          rate: 18.2,
+          errorRate: 0.1,
+          duration: 95,
+          spanCount: 4990,
+          rateStatus: 0,
+          errorStatus: 0,
+          durationStatus: 0,
+          otelStatus: 0
+        }
+      },
+      // Product Search services
+      {
+        id: 'productcatalogservice',
+        name: 'productcatalogservice',
+        category: 'go',
+        symbolSize: 46,
+        itemStyle: { color: '#52c41a' },
+        label: { show: true },
+        metrics: {
+          rate: 125.5,
+          errorRate: 0.2,
+          duration: 35,
+          spanCount: 34400,
+          rateStatus: 0,
+          errorStatus: 0,
+          durationStatus: 0,
+          otelStatus: 0
+        }
+      },
+      {
+        id: 'recommendationservice',
+        name: 'recommendationservice',
+        category: 'python',
+        symbolSize: 42,
+        itemStyle: { color: '#faad14' },
+        label: { show: true },
+        metrics: {
+          rate: 89.3,
+          errorRate: 2.8,
+          duration: 380,
+          spanCount: 24480,
+          rateStatus: 0,
+          errorStatus: 1,
+          durationStatus: 1,
+          otelStatus: 0
+        }
+      },
+      {
+        id: 'adservice',
+        name: 'adservice',
+        category: 'java',
+        symbolSize: 40,
+        itemStyle: { color: '#52c41a' },
+        label: { show: true },
+        metrics: {
+          rate: 156.8,
+          errorRate: 0.5,
+          duration: 22,
+          spanCount: 42990,
+          rateStatus: 0,
+          errorStatus: 0,
+          durationStatus: 0,
+          otelStatus: 0
+        }
+      },
+      // User Authentication services
+      {
+        id: 'authservice',
+        name: 'authservice',
+        category: 'rust',
+        symbolSize: 44,
+        itemStyle: { color: '#52c41a' },
+        label: { show: true },
+        metrics: {
+          rate: 67.2,
+          errorRate: 0.8,
+          duration: 55,
+          spanCount: 18420,
+          rateStatus: 0,
+          errorStatus: 0,
+          durationStatus: 0,
+          otelStatus: 0
+        }
+      },
+      {
+        id: 'sessionservice',
+        name: 'sessionservice',
+        category: 'redis',
+        symbolSize: 38,
+        itemStyle: { color: '#52c41a' },
+        label: { show: true },
+        metrics: {
+          rate: 245.5,
+          errorRate: 0.01,
+          duration: 3,
+          spanCount: 67260,
+          rateStatus: 0,
+          errorStatus: 0,
+          durationStatus: 0,
+          otelStatus: 0
+        }
+      },
+      {
+        id: 'userservice',
+        name: 'userservice',
+        category: 'nodejs',
+        symbolSize: 45,
+        itemStyle: { color: '#52c41a' },
+        label: { show: true },
+        metrics: {
+          rate: 85.3,
+          errorRate: 0.4,
+          duration: 125,
+          spanCount: 23380,
+          rateStatus: 0,
+          errorStatus: 0,
+          durationStatus: 0,
+          otelStatus: 0
+        }
+      },
+      // Shipping services
+      {
+        id: 'shippingservice',
+        name: 'shippingservice',
+        category: 'rust',
+        symbolSize: 41,
+        itemStyle: { color: '#f5222d' },
+        label: { show: true },
+        metrics: {
+          rate: 12.3,
+          errorRate: 5.2,
+          duration: 1850,
+          spanCount: 3370,
+          rateStatus: 0,
+          errorStatus: 2,
+          durationStatus: 2,
+          otelStatus: 0
+        }
+      },
+      {
+        id: 'currencyservice',
+        name: 'currencyservice',
+        category: 'nodejs',
+        symbolSize: 36,
+        itemStyle: { color: '#52c41a' },
+        label: { show: true },
+        metrics: {
+          rate: 342.1,
+          errorRate: 0.02,
+          duration: 8,
+          spanCount: 93810,
+          rateStatus: 0,
+          errorStatus: 0,
+          durationStatus: 0,
+          otelStatus: 0
+        }
+      },
+      // Background services
+      {
+        id: 'inventoryservice',
+        name: 'inventoryservice',
+        category: 'java',
+        symbolSize: 43,
+        itemStyle: { color: '#52c41a' },
+        label: { show: true },
+        metrics: {
+          rate: 8.5,
+          errorRate: 0.1,
+          duration: 2200,
+          spanCount: 2330,
+          rateStatus: 0,
+          errorStatus: 0,
+          durationStatus: 1,
+          otelStatus: 0
+        }
+      },
+      {
+        id: 'notificationservice',
+        name: 'notificationservice',
+        category: 'python',
+        symbolSize: 37,
+        itemStyle: { color: '#52c41a' },
+        label: { show: true },
+        metrics: {
+          rate: 22.7,
+          errorRate: 0.3,
+          duration: 145,
+          spanCount: 6220,
+          rateStatus: 0,
+          errorStatus: 0,
+          durationStatus: 0,
+          otelStatus: 0
+        }
+      },
+      // Data stores
       {
         id: 'postgres',
         name: 'postgres',
@@ -386,10 +592,10 @@ const getMockTopologyData = (): TopologyVisualizationData => {
           errorRate: 0.1,
           duration: 15,
           spanCount: 125000,
-          rateStatus: 0, // healthy
-          errorStatus: 0, // healthy
-          durationStatus: 0, // healthy
-          otelStatus: 0 // healthy
+          rateStatus: 0,
+          errorStatus: 0,
+          durationStatus: 0,
+          otelStatus: 0
         }
       },
       {
@@ -404,61 +610,46 @@ const getMockTopologyData = (): TopologyVisualizationData => {
           errorRate: 0.01,
           duration: 2,
           spanCount: 235000,
-          rateStatus: 0, // healthy
-          errorStatus: 0, // healthy
-          durationStatus: 0, // healthy
-          otelStatus: 0 // healthy
+          rateStatus: 0,
+          errorStatus: 0,
+          durationStatus: 0,
+          otelStatus: 0
         }
       }
     ],
     edges: [
-      {
-        source: 'frontend',
-        target: 'api-gateway',
-        value: 150,
-        lineStyle: { width: 3, color: '#52c41a' },
-        operations: [
-          { name: 'GET /api/products', count: 45, errorRate: 0.001, avgDuration: 35 },
-          { name: 'GET /api/cart', count: 60, errorRate: 0.002, avgDuration: 42 },
-          { name: 'POST /api/checkout', count: 45, errorRate: 0.005, avgDuration: 55 }
-        ]
-      },
-      {
-        source: 'api-gateway',
-        target: 'user-service',
-        value: 120,
-        lineStyle: { width: 3, color: '#faad14' }
-      },
-      {
-        source: 'api-gateway',
-        target: 'payment-service',
-        value: 50,
-        lineStyle: { width: 2, color: '#f5222d' }
-      },
-      {
-        source: 'user-service',
-        target: 'postgres',
-        value: 200,
-        lineStyle: { width: 4, color: '#52c41a' }
-      },
-      {
-        source: 'payment-service',
-        target: 'postgres',
-        value: 80,
-        lineStyle: { width: 2, color: '#52c41a' }
-      },
-      {
-        source: 'user-service',
-        target: 'redis',
-        value: 300,
-        lineStyle: { width: 4, color: '#52c41a' }
-      },
-      {
-        source: 'api-gateway',
-        target: 'redis',
-        value: 150,
-        lineStyle: { width: 3, color: '#52c41a' }
-      }
+      // Checkout Flow edges
+      { source: 'frontend', target: 'cartservice', value: 80, lineStyle: { width: 3, color: '#52c41a' } },
+      { source: 'frontend', target: 'checkoutservice', value: 60, lineStyle: { width: 3, color: '#faad14' } },
+      { source: 'checkoutservice', target: 'paymentservice', value: 50, lineStyle: { width: 2, color: '#f5222d' } },
+      { source: 'checkoutservice', target: 'emailservice', value: 45, lineStyle: { width: 2, color: '#52c41a' } },
+      { source: 'checkoutservice', target: 'shippingservice', value: 40, lineStyle: { width: 2, color: '#faad14' } },
+      
+      // Product Search edges
+      { source: 'frontend', target: 'productcatalogservice', value: 120, lineStyle: { width: 3, color: '#52c41a' } },
+      { source: 'frontend', target: 'recommendationservice', value: 90, lineStyle: { width: 3, color: '#faad14' } },
+      { source: 'recommendationservice', target: 'productcatalogservice', value: 85, lineStyle: { width: 2, color: '#faad14' } },
+      { source: 'frontend', target: 'adservice', value: 150, lineStyle: { width: 3, color: '#52c41a' } },
+      
+      // User Authentication edges
+      { source: 'frontend', target: 'authservice', value: 70, lineStyle: { width: 3, color: '#52c41a' } },
+      { source: 'authservice', target: 'userservice', value: 65, lineStyle: { width: 2, color: '#52c41a' } },
+      { source: 'authservice', target: 'sessionservice', value: 68, lineStyle: { width: 2, color: '#52c41a' } },
+      
+      // Shipping Calculator edges
+      { source: 'shippingservice', target: 'currencyservice', value: 35, lineStyle: { width: 2, color: '#52c41a' } },
+      
+      // Inventory Update edges
+      { source: 'inventoryservice', target: 'productcatalogservice', value: 15, lineStyle: { width: 2, color: '#52c41a' } },
+      { source: 'inventoryservice', target: 'notificationservice', value: 12, lineStyle: { width: 2, color: '#52c41a' } },
+      
+      // Database connections
+      { source: 'userservice', target: 'postgres', value: 85, lineStyle: { width: 3, color: '#52c41a' } },
+      { source: 'productcatalogservice', target: 'postgres', value: 125, lineStyle: { width: 3, color: '#52c41a' } },
+      { source: 'cartservice', target: 'redis', value: 78, lineStyle: { width: 3, color: '#52c41a' } },
+      { source: 'sessionservice', target: 'redis', value: 245, lineStyle: { width: 4, color: '#52c41a' } },
+      { source: 'paymentservice', target: 'postgres', value: 25, lineStyle: { width: 2, color: '#f5222d' } },
+      { source: 'checkoutservice', target: 'postgres', value: 32, lineStyle: { width: 2, color: '#faad14' } }
     ],
     runtimeEnvironments: ['javascript', 'go', 'java', 'python', 'postgresql', 'redis'],
     healthSummary: {

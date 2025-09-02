@@ -10,7 +10,6 @@ import {
   Input,
   Select,
   Button,
-  Checkbox,
   Empty
 } from 'antd'
 import {
@@ -19,8 +18,7 @@ import {
   ForkOutlined,
   ClockCircleOutlined,
   WarningOutlined,
-  ThunderboltOutlined,
-  UnorderedListOutlined
+  ThunderboltOutlined
 } from '@ant-design/icons'
 import type { CriticalPath, PanelProps } from './types'
 
@@ -43,7 +41,6 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterBy, setFilterBy] = useState<'all' | 'critical' | 'errors' | 'slow'>('all')
-  const [multiSelectMode, setMultiSelectMode] = useState(false)
 
   // Filter paths based on search and filter criteria
   const filteredPaths = paths.filter(path => {
@@ -66,26 +63,30 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
     return matchesSearch && matchesFilter
   })
 
-  const handlePathClick = (pathId: string) => {
-    if (multiSelectMode) {
-      // Toggle selection in multi-select mode
+  const handlePathClick = (pathId: string, event: React.MouseEvent) => {
+    const isMultiSelect = event.metaKey || event.ctrlKey
+    
+    if (isMultiSelect) {
+      // Multi-select mode with Cmd/Ctrl key
       if (selectedPaths.includes(pathId)) {
         onPathSelect(selectedPaths.filter(id => id !== pathId))
       } else {
         onPathSelect([...selectedPaths, pathId])
       }
     } else {
-      // Single selection mode
-      onPathSelect([pathId])
+      // Single select mode - toggle selection
+      if (selectedPaths.includes(pathId) && selectedPaths.length === 1) {
+        // Clicking the only selected path deselects it
+        onPathSelect([])
+      } else {
+        // Select only this path
+        onPathSelect([pathId])
+      }
     }
   }
 
-  const handleSelectAll = () => {
-    if (selectedPaths.length === filteredPaths.length) {
-      onPathSelect([])
-    } else {
-      onPathSelect(filteredPaths.map(p => p.id))
-    }
+  const handleClearSelection = () => {
+    onPathSelect([])
   }
 
   const getPriorityColor = (priority: CriticalPath['priority']) => {
@@ -119,14 +120,16 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
       }
       extra={
         <Space size="small">
-          <Tooltip title={multiSelectMode ? 'Multi-select mode' : 'Single-select mode'}>
-            <Button
-              size="small"
-              type={multiSelectMode ? 'primary' : 'default'}
-              icon={<UnorderedListOutlined />}
-              onClick={() => setMultiSelectMode(!multiSelectMode)}
-            />
-          </Tooltip>
+          {selectedPaths.length > 0 && (
+            <Button 
+              size="small" 
+              onClick={handleClearSelection}
+              type="text"
+              danger
+            >
+              Clear
+            </Button>
+          )}
           <Button size="small" onClick={onShowAll}>
             All
           </Button>
@@ -141,6 +144,13 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
           allowClear
+          suffix={
+            <Tooltip title="Hold Cmd/Ctrl to select multiple paths">
+              <Text type="secondary" style={{ fontSize: '11px' }}>
+                ⌘+Click
+              </Text>
+            </Tooltip>
+          }
         />
         
         <Select
@@ -156,16 +166,6 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
           <Select.Option value="errors">High Errors</Select.Option>
           <Select.Option value="slow">Slow Paths</Select.Option>
         </Select>
-
-        {multiSelectMode && filteredPaths.length > 0 && (
-          <Checkbox
-            checked={selectedPaths.length === filteredPaths.length}
-            indeterminate={selectedPaths.length > 0 && selectedPaths.length < filteredPaths.length}
-            onChange={handleSelectAll}
-          >
-            Select All ({filteredPaths.length})
-          </Checkbox>
-        )}
       </Space>
 
       <div className="critical-paths-scroll-container">
@@ -190,16 +190,10 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
                   marginBottom: '4px',
                   transition: 'all 0.2s'
                 }}
-                onClick={() => handlePathClick(path.id)}
+                onClick={(e) => handlePathClick(path.id, e)}
               >
                 <Space direction="vertical" style={{ width: '100%' }}>
                   <Space>
-                    {multiSelectMode && (
-                      <Checkbox
-                        checked={selectedPaths.includes(path.id)}
-                        onClick={e => e.stopPropagation()}
-                      />
-                    )}
                     {getMetricIcon(path)}
                     <Text strong style={{ flex: 1 }}>{path.name}</Text>
                   </Space>

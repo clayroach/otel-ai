@@ -6,7 +6,7 @@ import {
   Space,
   Spin,
   Alert,
-  Tabs,
+  // Tabs, // Not used with new topology
   Tag,
   Row,
   Col,
@@ -22,7 +22,7 @@ import {
 } from '@ant-design/icons'
 // import ReactMarkdown from 'react-markdown'; // Commented out - not available
 import dayjs from 'dayjs'
-import { type AnalysisResult, generateMockData } from './mockData'
+// import { type AnalysisResult, generateMockData } from './mockData' // Not used with new topology
 import { useAIAnalyzer } from '../../services/ai-analyzer'
 import { CriticalRequestPathsTopology } from '../../components/CriticalRequestPathsTopology'
 
@@ -117,7 +117,7 @@ const AIAnalyzerView: React.FC = () => {
                 }
               }
 
-        const result = await aiAnalyzer.analyzeArchitecture({
+        await aiAnalyzer.analyzeArchitecture({
           type: analysisType,
           timeRange: {
             startTime: timeRange[0].toDate(),
@@ -127,15 +127,15 @@ const AIAnalyzerView: React.FC = () => {
           config
         })
 
-        setAnalysisResult(result)
+        // setAnalysisResult(result) // Commented out - using new topology component
         message.success(
           `🎯 Real topology analysis completed using ${selectedModel === 'local-statistical-analyzer' ? 'statistical analysis' : selectedModel + ' model'}!`
         )
       } else {
         // Fallback to mock data with model awareness
         await new Promise((resolve) => setTimeout(resolve, 2000))
-        const result = generateMockData(analysisType, selectedModel)
-        setAnalysisResult(result)
+        // const result = generateMockData(analysisType, selectedModel)
+        // setAnalysisResult(result) // Commented out - using new topology component
         message.success(
           `🚀 Enhanced topology analysis completed with ${selectedModel === 'local-statistical-analyzer' ? 'statistical analysis' : selectedModel + ' model'}!`
         )
@@ -148,8 +148,8 @@ const AIAnalyzerView: React.FC = () => {
       message.error('Analysis failed - falling back to mock data')
 
       // Fallback to mock data on error
-      const result = generateMockData(analysisType, selectedModel)
-      setAnalysisResult(result)
+      // const result = generateMockData(analysisType, selectedModel)
+      // setAnalysisResult(result) // Commented out - using new topology component
     } finally {
       setLoading(false)
     }
@@ -194,7 +194,7 @@ const AIAnalyzerView: React.FC = () => {
         }
       } else {
         // Mock streaming for demo with model awareness
-        const fullText = generateMockData(analysisType, selectedModel).summary
+        const fullText = 'Mock streaming analysis result for demonstration purposes.' // generateMockData(analysisType, selectedModel).summary
         const words = fullText.split(' ')
 
         for (let i = 0; i < words.length; i++) {
@@ -207,7 +207,7 @@ const AIAnalyzerView: React.FC = () => {
       setError(`Streaming failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
 
       // Fallback to mock streaming
-      const fullText = generateMockData(analysisType, selectedModel).summary
+      const fullText = 'Mock streaming analysis result for demonstration purposes.' // generateMockData(analysisType, selectedModel).summary
       const words = fullText.split(' ')
 
       for (let i = 0; i < words.length; i++) {

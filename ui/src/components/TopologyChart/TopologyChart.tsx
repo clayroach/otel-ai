@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react'
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption, GraphSeriesOption } from 'echarts'
 import type { CallbackDataParams } from 'echarts/types/dist/shared'
-import { Card, Space, Tag, Row, Col, Typography, Badge } from 'antd'
+import { Card, Space, Tag, Typography, Badge } from 'antd'
 import {
   HeartOutlined,
   WarningOutlined,

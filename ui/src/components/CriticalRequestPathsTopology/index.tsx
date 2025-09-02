@@ -197,7 +197,11 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
       }
     ],
     activeTabId: 'global',
-    panelSizes: defaultPanelSizes as any,
+    panelSizes: {
+      paths: defaultPanelSizes.paths || 15,
+      topology: defaultPanelSizes.topology || 55,
+      analysis: defaultPanelSizes.analysis || 30
+    },
     isPanelCollapsed: {
       paths: false,
       analysis: false

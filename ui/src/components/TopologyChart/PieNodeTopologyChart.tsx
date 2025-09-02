@@ -5,7 +5,7 @@ import {
   StopOutlined,
   WarningOutlined
 } from '@ant-design/icons'
-import { Badge, Card, Col, Row, Space, Tag, Typography, Divider } from 'antd'
+import { Badge, Card, Space, Tag, Typography } from 'antd'
 import type { EChartsOption, GraphSeriesOption } from 'echarts'
 import ReactECharts from 'echarts-for-react'
 import type { CallbackDataParams } from 'echarts/types/dist/shared'
@@ -83,6 +83,7 @@ interface PieNodeTopologyChartProps {
   onHealthFilter?: (status: string) => void
   height?: number
   filteredHealthStatuses?: string[]
+  highlightedServices?: string[] // Services to highlight from critical paths
 }
 
 const getRuntimeIcon = (runtime?: string): string => {
@@ -153,13 +154,16 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
   onNodeClick,
   onHealthFilter,
   height = 600,
-  filteredHealthStatuses = []
+  filteredHealthStatuses = [],
+  highlightedServices = []
 }) => {
   const chartRef = useRef<ReactECharts | null>(null)
 
-  // Process nodes to add health coloring
+  // Process nodes to add health coloring and highlighting
   const processedNodes = data.nodes.map((node) => {
     const healthColor = getNodeOverallHealthColor(node.metrics)
+    const isHighlighted = highlightedServices.length > 0 && highlightedServices.includes(node.id)
+    const isDimmed = highlightedServices.length > 0 && !highlightedServices.includes(node.id)
 
     return {
       ...node,
@@ -167,10 +171,19 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
       itemStyle: {
         ...node.itemStyle,
         color: healthColor,
-        borderColor: healthColor,
-        borderWidth: 2
+        opacity: isDimmed ? 0.3 : 1.0,
+        borderColor: isHighlighted ? '#1890ff' : healthColor,
+        borderWidth: isHighlighted ? 4 : 2,
+        shadowBlur: isHighlighted ? 15 : 0,
+        shadowColor: isHighlighted ? '#1890ff' : undefined
       },
-      value: node.metrics?.rate || 1
+      value: node.metrics?.rate || 1,
+      emphasis: {
+        disabled: isDimmed,
+        itemStyle: {
+          opacity: isDimmed ? 0.3 : 1.0
+        }
+      }
     }
   })
 
