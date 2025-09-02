@@ -83,7 +83,7 @@ export interface PanelProps {
   onCollapse?: (collapsed: boolean) => void
 }
 
-export interface CriticalRequestPathsTopologyProps {
+export interface ServiceTopologyProps {
   // Data props
   paths?: CriticalPath[]
   onPathSelect?: (pathIds: string[]) => void

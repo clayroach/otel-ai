@@ -353,7 +353,7 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
                     </tr>
                     <tr>
                       <td style="padding: 2px;">${getStatusEmoji(metrics.durationStatus || 0)} P95:</td>
-                      <td style="padding: 2px; text-align: right;"><strong>${metrics.duration || 0}ms</strong></td>
+                      <td style="padding: 2px; text-align: right;"><strong>${(metrics.duration || 0).toFixed(2)} ms</strong></td>
                     </tr>
                     <tr>
                       <td style="padding: 2px;">${getStatusEmoji(metrics.otelStatus || 0)} Spans:</td>

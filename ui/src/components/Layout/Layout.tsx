@@ -53,7 +53,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     {
       key: '/insights',
       icon: <BulbOutlined />,
-      label: 'AI Insights',
+      label: 'Service Topology',
       'data-testid': 'nav-insights'
     },
     {

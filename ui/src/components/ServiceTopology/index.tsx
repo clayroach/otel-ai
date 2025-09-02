@@ -2,15 +2,10 @@ import React, { useState, useCallback } from 'react'
 import { Row, Col, message, Alert } from 'antd'
 import { CriticalPathsPanel } from './CriticalPathsPanel'
 import { AIAnalysisPanel } from './AIAnalysisPanel'
-import { TopologyTab } from '../TopologyChart'
+import { ServiceTopologyGraph } from './ServiceTopologyGraph'
 import { PathFlowChart } from './PathFlowChart'
 import { useAppStore } from '../../store/appStore'
-import type {
-  CriticalPath,
-  AnalysisTab,
-  TopologyState,
-  CriticalRequestPathsTopologyProps
-} from './types'
+import type { CriticalPath, AnalysisTab, TopologyState, ServiceTopologyProps } from './types'
 import './styles.css'
 
 // Mock data generator for demonstration
@@ -229,7 +224,7 @@ const generateMockAnalysis = (
   }
 }
 
-export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopologyProps> = ({
+export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
   paths: propsPaths,
   onPathSelect: propsOnPathSelect,
   onServiceClick: propsOnServiceClick,
@@ -603,8 +598,8 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
               height={window.innerHeight - 120}
             />
           ) : (
-            <TopologyTab
-              data={null} // Will use mock data from TopologyTab
+            <ServiceTopologyGraph
+              data={null} // Will use mock data from ServiceTopologyGraph
               highlightedServices={Array.from(state.highlightedServices)}
               servicesWithTabs={Array.from(servicesWithTabs)} // Pass services that have tabs open
               onServiceClick={handleServiceClick}
@@ -634,4 +629,4 @@ export const CriticalRequestPathsTopology: React.FC<CriticalRequestPathsTopology
   )
 }
 
-export default CriticalRequestPathsTopology
+export default ServiceTopology

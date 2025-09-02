@@ -6,8 +6,8 @@ import {
   InfoCircleOutlined,
   RobotOutlined
 } from '@ant-design/icons'
-import CleanAIAnalysisPanel from '../TopologyChart/CleanAIAnalysisPanel'
-import EnhancedServiceDetailsPanel from '../TopologyChart/EnhancedServiceDetailsPanel'
+import CleanAIAnalysisPanel from './CleanAIAnalysisPanel'
+import EnhancedServiceDetailsPanel from './EnhancedServiceDetailsPanel'
 import type { AnalysisTab, PanelProps } from './types'
 
 const { Text } = Typography
