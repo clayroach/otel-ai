@@ -4,32 +4,22 @@ import {
   Tabs,
   Typography,
   Space,
-  Tag,
   Alert,
-  Spin,
   Tooltip,
   Badge,
-  Statistic,
-  Row,
-  Col,
-  Progress,
-  Timeline
+  Spin
 } from 'antd'
 import {
   GlobalOutlined,
   AppstoreOutlined,
-  BulbOutlined,
-  WarningOutlined,
-  CheckCircleOutlined,
   InfoCircleOutlined,
-  RobotOutlined,
-  ThunderboltOutlined,
-  ClockCircleOutlined
+  RobotOutlined
 } from '@ant-design/icons'
+import CleanAIAnalysisPanel from '../TopologyChart/CleanAIAnalysisPanel'
 import EnhancedServiceDetailsPanel from '../TopologyChart/EnhancedServiceDetailsPanel'
-import type { AnalysisTab, ServiceMetrics, PanelProps } from './types'
+import type { AnalysisTab, PanelProps } from './types'
 
-const { Text, Paragraph } = Typography
+const { Text } = Typography
 const { TabPane } = Tabs
 
 interface AIAnalysisPanelProps extends PanelProps {
@@ -47,165 +37,11 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
   onTabChange,
   onTabClose,
   loading = false,
-  selectedModel = 'claude',
   width = '100%'
 }) => {
-  const getSeverityIcon = (severity: string) => {
-    switch (severity) {
-      case 'critical':
-        return <WarningOutlined style={{ color: '#ff4d4f' }} />
-      case 'warning':
-        return <InfoCircleOutlined style={{ color: '#faad14' }} />
-      case 'info':
-        return <CheckCircleOutlined style={{ color: '#52c41a' }} />
-      default:
-        return <BulbOutlined style={{ color: '#1890ff' }} />
-    }
-  }
-
-  const getInsightTypeColor = (type: string) => {
-    switch (type) {
-      case 'performance':
-        return 'blue'
-      case 'error':
-        return 'red'
-      case 'architecture':
-        return 'purple'
-      case 'recommendation':
-        return 'green'
-      default:
-        return 'default'
-    }
-  }
-
-  const renderMetrics = (metrics?: ServiceMetrics) => {
-    if (!metrics) return null
-
-    return (
-      <>
-        {/* Main Metrics Card */}
-        <Card title="Service Metrics" size="small" style={{ marginTop: 16 }}>
-          <Row gutter={[16, 16]}>
-            <Col span={6}>
-              <Statistic
-                title="Request Rate"
-                value={metrics.requestRate}
-                suffix="req/s"
-                prefix={<ThunderboltOutlined />}
-                valueStyle={{ fontSize: '20px' }}
-              />
-            </Col>
-            <Col span={6}>
-              <Statistic
-                title="Error Rate"
-                value={metrics.errorRate.toFixed(2)}
-                suffix="%"
-                valueStyle={{
-                  color:
-                    metrics.errorRate > 5
-                      ? '#ff4d4f'
-                      : metrics.errorRate > 1
-                        ? '#faad14'
-                        : '#52c41a',
-                  fontSize: '20px'
-                }}
-                prefix={<WarningOutlined />}
-              />
-            </Col>
-            <Col span={6}>
-              <Statistic
-                title="P99 Latency"
-                value={metrics.latency.p99}
-                suffix="ms"
-                prefix={<ClockCircleOutlined />}
-                valueStyle={{ fontSize: '20px' }}
-              />
-            </Col>
-            <Col span={6}>
-              <Statistic
-                title="Saturation"
-                value={metrics.saturation}
-                suffix="%"
-                valueStyle={{ fontSize: '20px' }}
-                prefix={
-                  <Progress
-                    type="circle"
-                    percent={metrics.saturation}
-                    width={20}
-                    strokeColor={metrics.saturation > 80 ? '#ff4d4f' : '#52c41a'}
-                    showInfo={false}
-                  />
-                }
-              />
-            </Col>
-          </Row>
-
-          {/* Latency Breakdown */}
-          <Row
-            gutter={[16, 16]}
-            style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #f0f0f0' }}
-          >
-            <Col span={8}>
-              <Text type="secondary">P50 Latency</Text>
-              <div style={{ fontSize: '18px', fontWeight: 500 }}>{metrics.latency.p50}ms</div>
-            </Col>
-            <Col span={8}>
-              <Text type="secondary">P95 Latency</Text>
-              <div style={{ fontSize: '18px', fontWeight: 500 }}>{metrics.latency.p95}ms</div>
-            </Col>
-            <Col span={8}>
-              <Text type="secondary">Throughput</Text>
-              <div style={{ fontSize: '18px', fontWeight: 500 }}>
-                {(metrics.requestRate * 60).toFixed(0)}/min
-              </div>
-            </Col>
-          </Row>
-        </Card>
-
-        {/* Health Status Card */}
-        <Card title="Health Analysis" size="small" style={{ marginTop: 16 }}>
-          <Space direction="vertical" style={{ width: '100%' }}>
-            <Alert
-              message="Service Health"
-              description={
-                metrics.errorRate > 5
-                  ? 'Critical: High error rate detected. Immediate attention required.'
-                  : metrics.errorRate > 1
-                    ? 'Warning: Elevated error rate. Monitor closely.'
-                    : 'Healthy: Service operating normally.'
-              }
-              type={metrics.errorRate > 5 ? 'error' : metrics.errorRate > 1 ? 'warning' : 'success'}
-              showIcon
-            />
-
-            {metrics.saturation > 80 && (
-              <Alert
-                message="High Saturation"
-                description="Resource utilization is high. Consider scaling."
-                type="warning"
-                showIcon
-              />
-            )}
-          </Space>
-        </Card>
-      </>
-    )
-  }
-
   const renderTabContent = (tab: AnalysisTab) => {
-    if (!tab.content) {
-      return (
-        <div style={{ textAlign: 'center', padding: '40px' }}>
-          <Spin size="large" />
-          <Paragraph style={{ marginTop: 16 }}>
-            Analyzing {tab.type === 'service' ? 'service' : 'system'}...
-          </Paragraph>
-        </div>
-      )
-    }
-
-    // For service tabs, use the EnhancedServiceDetailsPanel
-    if (tab.type === 'service' && tab.content.metrics) {
+    // For service tabs with metrics, use the EnhancedServiceDetailsPanel
+    if (tab.type === 'service' && tab.content?.metrics) {
       // Determine service type based on name
       const getServiceType = (name: string): string => {
         const lowername = name.toLowerCase()
@@ -252,9 +88,9 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
             errorStatus:
               tab.content.metrics.errorRate > 5 ? 2 : tab.content.metrics.errorRate > 1 ? 1 : 0,
             durationStatus:
-              tab.content.metrics.latency.p95 > 500
+              tab.content.metrics.latency.p99 > 500
                 ? 2
-                : tab.content.metrics.latency.p95 > 200
+                : tab.content.metrics.latency.p99 > 200
                   ? 1
                   : 0,
             otelStatus: 0,
@@ -286,77 +122,13 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
       )
     }
 
-    // For global tabs, use the existing analysis view
+    // For global overview tab, use the Clean AI Analysis Panel
     return (
-      <div style={{ padding: '16px' }}>
-        <Space direction="vertical" style={{ width: '100%' }} size="large">
-          {/* AI Model Badge */}
-          <div style={{ textAlign: 'right' }}>
-            <Tag icon={<RobotOutlined />} color="blue">
-              Powered by {selectedModel}
-            </Tag>
-          </div>
-
-          {/* Summary Section */}
-          <Card
-            title={
-              <Space>
-                {tab.type === 'global' ? <GlobalOutlined /> : <AppstoreOutlined />}
-                <Text strong>Analysis Summary</Text>
-              </Space>
-            }
-            size="small"
-          >
-            <Paragraph>{tab.content.summary}</Paragraph>
-          </Card>
-
-          {/* Metrics (for service tabs) */}
-          {tab.type === 'service' && renderMetrics(tab.content.metrics)}
-
-          {/* Insights Timeline */}
-          <Card
-            title={
-              <Space>
-                <BulbOutlined />
-                <Text strong>Key Insights</Text>
-                <Badge count={tab.content.insights.length} style={{ backgroundColor: '#1890ff' }} />
-              </Space>
-            }
-            size="small"
-            bodyStyle={{ maxHeight: '400px', overflow: 'auto' }}
-          >
-            <Timeline mode="left">
-              {tab.content.insights.map((insight) => (
-                <Timeline.Item
-                  key={insight.id}
-                  dot={getSeverityIcon(insight.severity)}
-                  color={
-                    insight.severity === 'critical'
-                      ? 'red'
-                      : insight.severity === 'warning'
-                        ? 'orange'
-                        : 'green'
-                  }
-                >
-                  <Space direction="vertical" style={{ width: '100%' }}>
-                    <Space>
-                      <Tag color={getInsightTypeColor(insight.type)}>{insight.type}</Tag>
-                      <Text strong>{insight.title}</Text>
-                    </Space>
-                    <Paragraph
-                      style={{ margin: 0 }}
-                      type="secondary"
-                      ellipsis={{ rows: 3, expandable: true }}
-                    >
-                      {insight.description}
-                    </Paragraph>
-                  </Space>
-                </Timeline.Item>
-              ))}
-            </Timeline>
-          </Card>
-        </Space>
-      </div>
+      <CleanAIAnalysisPanel 
+        tabType={tab.type}
+        serviceName={tab.title}
+        serviceId={tab.targetId}
+      />
     )
   }
 
