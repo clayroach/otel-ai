@@ -34,7 +34,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
   const [error, setError] = useState<string | null>(null)
   const [topologyData, setTopologyData] = useState<TopologyVisualizationData | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
-  const [selectedNode, setSelectedNode] = useState<ServiceNode | null>(null)
+  const [_selectedNode, setSelectedNode] = useState<ServiceNode | null>(null)
   // const [lastUpdated, setLastUpdated] = useState<Date | null>(null) // Not currently used
   const [filteredHealthStatuses, setFilteredHealthStatuses] = useState<string[]>([])
 

@@ -22,13 +22,13 @@ const { Text } = Typography
 const AIAnalyzerView: React.FC = () => {
   // const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null) // Not used with new topology
   // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
-  const [loading, setLoading] = useState(false)
+  const [_loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Streaming functionality - disabled for now
   // const [streaming, setStreaming] = useState(false)
   // const [streamingContent, setStreamingContent] = useState<string>('')
   // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
-  const [serviceHealth, setServiceHealth] = useState<{
+  const [_serviceHealth, setServiceHealth] = useState<{
     status: string
     capabilities: string[]
   } | null>(null)
