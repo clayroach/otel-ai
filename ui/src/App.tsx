@@ -34,7 +34,7 @@ const AppContent: React.FC = () => {
         <Route path="/traces" element={<TracesView />} />
         <Route path="/metrics" element={<MetricsView />} />
         <Route path="/logs" element={<LogsView />} />
-        <Route path="/insights" element={<ServiceTopologyView />} />
+        <Route path="/servicetopology" element={<ServiceTopologyView />} />
         <Route path="/llm-debug" element={<LLMDebugView />} />
       </Routes>
     </Layout>

@@ -127,6 +127,7 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
         display: 'flex',
         flexDirection: 'column'
       }}
+      data-testid="critical-paths-panel"
       title={
         <Space size="small" style={{ fontSize: '14px' }}>
           <ForkOutlined style={{ fontSize: '14px' }} />
@@ -134,7 +135,11 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
             Critical Paths
           </Text>
           {selectedPaths.length > 0 && (
-            <Badge count={selectedPaths.length} style={{ backgroundColor: '#1890ff' }} />
+            <Badge
+              count={selectedPaths.length}
+              style={{ backgroundColor: '#1890ff' }}
+              data-testid="selected-paths-count"
+            />
           )}
         </Space>
       }

@@ -51,10 +51,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       'data-testid': 'nav-logs'
     },
     {
-      key: '/insights',
+      key: '/servicetopology',
       icon: <BulbOutlined />,
       label: 'Service Topology',
-      'data-testid': 'nav-insights'
+      'data-testid': 'nav-servicetopology'
     },
     {
       key: '/llm-debug',

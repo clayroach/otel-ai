@@ -123,6 +123,7 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
     <Card
       style={{ width, height: '100%' }}
       bodyStyle={{ padding: '12px', height: '100%' }}
+      data-testid="ai-analysis-panel"
       title={
         <Space>
           <RobotOutlined />
@@ -137,6 +138,7 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
           type="info"
           showIcon
           icon={<InfoCircleOutlined />}
+          data-testid="no-analysis-alert"
         />
       ) : (
         <Tabs
@@ -150,6 +152,7 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
             }
           }}
           style={{ height: '100%' }}
+          data-testid="analysis-tabs"
         >
           {tabs.map((tab) => (
             <TabPane

@@ -563,7 +563,10 @@ export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
   const { useMockData } = useAppStore()
 
   return (
-    <div className={`critical-request-paths-topology ${className}`}>
+    <div
+      className={`critical-request-paths-topology ${className}`}
+      data-testid="service-topology-container"
+    >
       {/* Mock Data Warning Banner */}
       {useMockData && (
         <Alert
@@ -573,13 +576,14 @@ export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
           showIcon
           closable
           style={{ marginBottom: 12 }}
+          data-testid="demo-mode-alert"
         />
       )}
 
       <Row gutter={[12, 12]} style={{ height: useMockData ? 'calc(100% - 60px)' : '100%' }}>
         {/* Critical Paths Panel */}
         {colSpans.paths > 0 && (
-          <Col span={colSpans.paths} style={{ height: '100%' }}>
+          <Col span={colSpans.paths} style={{ height: '100%' }} data-testid="critical-paths-column">
             <CriticalPathsPanel
               paths={state.availablePaths}
               selectedPaths={state.selectedPaths}
@@ -590,7 +594,11 @@ export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
         )}
 
         {/* Topology Graph or Path Flow Chart */}
-        <Col span={colSpans.topology} style={{ height: '100%' }}>
+        <Col
+          span={colSpans.topology}
+          style={{ height: '100%' }}
+          data-testid="topology-graph-column"
+        >
           {state.selectedPaths.length === 1 ? (
             <PathFlowChart
               path={state.availablePaths.find((p) => p.id === state.selectedPaths[0]) || null}
@@ -614,7 +622,7 @@ export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
 
         {/* AI Analysis Panel */}
         {colSpans.analysis > 0 && (
-          <Col span={colSpans.analysis} style={{ height: '100%' }}>
+          <Col span={colSpans.analysis} style={{ height: '100%' }} data-testid="ai-analysis-column">
             <AIAnalysisPanel
               tabs={state.activeTabs}
               activeTabId={state.activeTabId}
