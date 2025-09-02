@@ -106,8 +106,8 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
 
   return (
     <Card
-      style={{ width, height: '100%' }}
-      bodyStyle={{ padding: '12px', height: '100%', display: 'flex', flexDirection: 'column' }}
+      style={{ width, height: '100%', display: 'flex', flexDirection: 'column' }}
+      bodyStyle={{ padding: '12px', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
       title={
         <Space>
           <ForkOutlined />
