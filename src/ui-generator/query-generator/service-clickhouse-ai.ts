@@ -85,7 +85,7 @@ export const CriticalPathQueryGeneratorClickHouseAILive = Layer.effect(
             goal: 'Correlate performance with resource metrics'
           }
         ]
-        
+
         // Limit to 2 scenarios in test environment to speed up tests
         const analysisScenarios = isTestEnv ? allScenarios.slice(0, 2) : allScenarios
 

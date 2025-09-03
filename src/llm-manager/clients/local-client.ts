@@ -75,7 +75,10 @@ interface OpenAIStreamChunk {
  * Priority: modelPath > model > default
  */
 const getModelName = (config: Record<string, unknown>): string => {
-  return (config.modelPath || config.model || process.env.LLM_SQL_MODEL_1 || 'sqlcoder-7b-2') as string
+  return (config.modelPath ||
+    config.model ||
+    process.env.LLM_SQL_MODEL_1 ||
+    'sqlcoder-7b-2') as string
 }
 
 /**
@@ -183,7 +186,8 @@ export const makeLocalModelClient = (
         const configAny = config as Record<string, unknown>
         const configWithModel = {
           ...config,
-          model: configAny.modelPath || configAny.model || process.env.LLM_SQL_MODEL_1 || 'sqlcoder-7b-2'
+          model:
+            configAny.modelPath || configAny.model || process.env.LLM_SQL_MODEL_1 || 'sqlcoder-7b-2'
         }
 
         const validatedConfig = yield* _(
