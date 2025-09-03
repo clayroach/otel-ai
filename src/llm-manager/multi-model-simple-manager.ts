@@ -110,7 +110,7 @@ export const createMultiModelSimpleLLMManager = (config?: Partial<LLMConfig>) =>
       process.env.LLM_GENERAL_MODEL_1?.includes('gpt') &&
       !process.env.LLM_GENERAL_MODEL_1?.includes('gpt-oss')
         ? process.env.LLM_GENERAL_MODEL_1
-        : 'gpt-4.1-2025-04-14'
+        : 'gpt-3.5-turbo'
 
     return Effect.tryPromise({
       try: async () => {

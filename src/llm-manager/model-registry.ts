@@ -286,8 +286,8 @@ export const MODEL_REGISTRY: Record<string, ModelMetadata> = {
     notes: 'Claude 3.7 Sonnet - Latest Anthropic model with improved capabilities.'
   },
 
-  'gpt-4.1-2025-04-14': {
-    id: 'gpt-4.1-2025-04-14',
+  'gpt-3.5-turbo': {
+    id: 'gpt-3.5-turbo',
     displayName: 'GPT-4.1 Latest',
     provider: 'openai',
     type: 'general',

@@ -60,7 +60,7 @@ const loadConfigFromEnv = (): Effect.Effect<LLMConfig, LLMError, never> =>
     if (gptApiKey) {
       baseConfig.models.gpt = {
         apiKey: gptApiKey,
-        model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
+        model: process.env.LLM_GENERAL_MODEL_2 || process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
         maxTokens: parseInt(process.env.OPENAI_MAX_TOKENS || '4096'),
         temperature: parseFloat(process.env.OPENAI_TEMPERATURE || '0.7'),
         endpoint: process.env.OPENAI_ENDPOINT
@@ -72,7 +72,7 @@ const loadConfigFromEnv = (): Effect.Effect<LLMConfig, LLMError, never> =>
     if (claudeApiKey) {
       baseConfig.models.claude = {
         apiKey: claudeApiKey,
-        model: process.env.CLAUDE_MODEL || 'claude-3-7-sonnet-20250219',
+        model: process.env.LLM_GENERAL_MODEL_1 || process.env.CLAUDE_MODEL || 'claude-3-7-sonnet-20250219',
         maxTokens: parseInt(process.env.CLAUDE_MAX_TOKENS || '4096'),
         temperature: parseFloat(process.env.CLAUDE_TEMPERATURE || '0.7'),
         endpoint: process.env.CLAUDE_ENDPOINT

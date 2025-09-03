@@ -355,9 +355,18 @@ describe("Multi-Model Query Generation", () => {
         }
       })
       
-      // Assertions
-      const successfulQueries = results.filter(r => r.success && r.valid)
-      expect(successfulQueries.length).toBeGreaterThan(0)
+      // Assertions - ALL enabled models should generate valid SQL
+      const failedModels = results.filter(r => !r.success || !r.valid)
+      if (failedModels.length > 0) {
+        console.log('\n❌ Failed models:')
+        failedModels.forEach(r => {
+          console.log(`   - ${r.modelId}: ${r.error || 'Invalid SQL'}`)
+        })
+      }
+      
+      // Expect ALL models to succeed
+      expect(failedModels.length).toBe(0)
+      expect(results.every(r => r.success && r.valid)).toBe(true)
     })
     
     it("should handle different analysis goals consistently", async () => {

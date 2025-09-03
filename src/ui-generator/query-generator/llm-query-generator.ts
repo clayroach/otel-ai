@@ -305,7 +305,8 @@ export const generateQueryWithLLM = (
       model: modelName,
       maxTokens: modelConfig.maxTokens || 4000,
       temperature: request.preferences?.temperature || 0,
-      timeout: 30000
+      timeout: 30000,
+      endpoint: 'https://api.openai.com/v1'
     })
     generateEffect = openaiClient.generate(request)
   } else {
