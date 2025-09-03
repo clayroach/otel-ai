@@ -96,21 +96,22 @@ export const CriticalPathQueryGeneratorLLMLive = Layer.effect(
 // Helper to create a generator with custom analysis goal
 export const generateCustomQuery = (
   path: CriticalPath,
-  analysisGoal: string,
-  storage: ReturnType<typeof StorageAPIClientTag["Type"]>
-): Effect.Effect<GeneratedQueryWithThunk, Error, never> => {
-  return pipe(
-    generateQueryWithLLM(path, analysisGoal),
-    Effect.map(query => ({
-      ...query,
+  analysisGoal: string
+): Effect.Effect<GeneratedQueryWithThunk, Error, StorageAPIClientTag> => {
+  return Effect.gen(function* () {
+    const storage = yield* StorageAPIClientTag
+    const baseQuery = yield* generateQueryWithLLM(path, analysisGoal)
+    
+    const queryWithThunk: GeneratedQueryWithThunk = {
+      ...baseQuery,
       executeThunk: () => pipe(
         Effect.gen(function* () {
           const startTime = Date.now()
-          const result = yield* storage.queryRaw(query.sql)
+          const result = yield* storage.queryRaw(baseQuery.sql)
           const executionTimeMs = Date.now() - startTime
           
           return {
-            queryId: query.id,
+            queryId: baseQuery.id,
             data: result as Array<Record<string, unknown>>,
             executionTimeMs,
             rowCount: result.length,
@@ -119,7 +120,7 @@ export const generateCustomQuery = (
         }),
         Effect.catchAll((error: StorageError) => 
           Effect.succeed({
-            queryId: query.id,
+            queryId: baseQuery.id,
             data: [],
             executionTimeMs: 0,
             rowCount: 0,
@@ -127,6 +128,8 @@ export const generateCustomQuery = (
           } satisfies QueryResult)
         )
       )
-    }))
-  )
+    }
+    
+    return queryWithThunk
+  })
 }

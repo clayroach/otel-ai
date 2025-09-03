@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest"
 import { Effect, Layer } from "effect"
+import { CriticalPath } from "../../query-generator/types"
 import {
-  CriticalPath,
   CriticalPathQueryGeneratorLLMTag,
   CriticalPathQueryGeneratorLLMLive
 } from "../../query-generator/service-llm"
@@ -114,9 +114,10 @@ const expectedQueryPatterns = {
 
 describe("LLM Query Generator", () => {
   describe("Query Generation with Mock LLM", () => {
-    // Mock LLM that returns predictable queries
-    const mockLLMManager = {
-      generate: (request: any) => {
+    // Mock LLM that returns predictable queries (defined but not used directly in these tests)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
+    const _mockLLMManager = {
+      generate: (request: { prompt: string }) => {
         // Parse the analysis goal from the prompt
         const isLatency = request.prompt.includes("latency patterns")
         const isError = request.prompt.includes("error patterns")

@@ -233,8 +233,22 @@ export const generateQueryWithLLM = (
     llmManager.generate(request),
     Effect.map(response => {
       try {
-        // Parse the LLM response as JSON
-        const parsed = JSON.parse(response.content) as LLMQueryResponse & { insights?: string }
+        // Extract JSON from response, handling markdown code blocks
+        let content = response.content.trim()
+        
+        // Remove markdown code blocks if present
+        if (content.startsWith("```json")) {
+          content = content.substring(7) // Remove ```json
+        } else if (content.startsWith("```")) {
+          content = content.substring(3) // Remove ```
+        }
+        
+        if (content.endsWith("```")) {
+          content = content.substring(0, content.length - 3) // Remove trailing ```
+        }
+        
+        // Parse the cleaned JSON
+        const parsed = JSON.parse(content.trim()) as LLMQueryResponse & { insights?: string }
         
         // Validate the generated SQL
         if (!validateGeneratedSQL(parsed.sql)) {
