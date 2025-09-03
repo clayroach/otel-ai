@@ -5,7 +5,7 @@
  * why certain models (like GPT-3.5-turbo) are failing validation.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it } from 'vitest'
 import { Effect } from 'effect'
 import { makeClaudeClient } from '../../../llm-manager/clients/claude-client.js'
 import { makeOpenAIClient } from '../../../llm-manager/clients/openai-client.js'
@@ -163,7 +163,7 @@ Generate a query that shows p95 latency for each service in the critical path.`
       if (result.content.includes('```')) {
         console.log('\n⚠️  Response contains markdown blocks')
         const jsonMatch = result.content.match(/```json\s*([\s\S]*?)```/i)
-        if (jsonMatch) {
+        if (jsonMatch && jsonMatch[1]) {
           console.log('Found JSON in markdown block, trying to parse...')
           try {
             const parsed = JSON.parse(jsonMatch[1])

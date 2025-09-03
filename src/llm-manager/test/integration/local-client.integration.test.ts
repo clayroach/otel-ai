@@ -37,7 +37,7 @@ describe('Local Model Client Integration', () => {
       expect(data.data).toBeDefined()
       expect(Array.isArray(data.data)).toBe(true)
       
-      console.log('Available models:', data.data.map((m: any) => m.id))
+      console.log('Available models:', data.data.map((m: { id: string }) => m.id))
     })
 
     it.skipIf(!isLMStudioAvailable)('should handle health check', async () => {

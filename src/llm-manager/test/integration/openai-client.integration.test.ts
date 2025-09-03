@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest'
-import { Effect, Stream, pipe } from 'effect'
+import { Effect, Stream } from 'effect'
 import { makeOpenAIClient, defaultOpenAIConfig } from '../../clients/openai-client.js'
 import type { LLMRequest } from '../../types.js'
 
@@ -93,13 +93,13 @@ describe('OpenAI Client Integration', () => {
       console.log('GPT JSON response:', result.content)
       
       // Try to parse as JSON
-      let parsed: any
+      let parsed: { message?: string; number?: number }
       try {
         parsed = JSON.parse(result.content)
       } catch (e) {
         // GPT might wrap in markdown, try to extract
         const jsonMatch = result.content.match(/```(?:json)?\s*([\s\S]*?)```/)
-        if (jsonMatch) {
+        if (jsonMatch && jsonMatch[1]) {
           parsed = JSON.parse(jsonMatch[1])
         } else {
           // Try without markdown
@@ -170,13 +170,13 @@ Generate a query for p95 latency analysis.`
       console.log('GPT ClickHouse response:', result.content)
       
       // Parse response
-      let parsed: any
+      let parsed: { sql?: string; description?: string }
       try {
         parsed = JSON.parse(result.content)
       } catch (e) {
         // Try extracting from markdown
         const jsonMatch = result.content.match(/```(?:json)?\s*([\s\S]*?)```/)
-        if (jsonMatch) {
+        if (jsonMatch && jsonMatch[1]) {
           parsed = JSON.parse(jsonMatch[1])
         } else {
           throw new Error(`Failed to parse response as JSON: ${result.content}`)
@@ -261,7 +261,7 @@ Generate a query for p95 latency analysis.`
         temperature: 0,
         timeout: 5000
         // Intentionally missing endpoint
-      } as any)
+      } as Parameters<typeof makeOpenAIClient>[0])
 
       const request: LLMRequest = {
         prompt: 'Test',

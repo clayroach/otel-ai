@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest'
-import { Effect, Stream, pipe } from 'effect'
+import { Effect, Stream } from 'effect'
 import { makeClaudeClient, defaultClaudeConfig } from '../../clients/claude-client.js'
 import type { LLMRequest } from '../../types.js'
 
@@ -89,7 +89,7 @@ describe('Claude Client Integration', () => {
       console.log('Claude JSON response:', result.content)
       
       // Try to parse as JSON
-      let parsed: any
+      let parsed: { message?: string }
       try {
         parsed = JSON.parse(result.content)
         expect(parsed).toBeDefined()
@@ -97,7 +97,7 @@ describe('Claude Client Integration', () => {
       } catch (e) {
         // Claude might wrap in markdown, try to extract
         const jsonMatch = result.content.match(/```(?:json)?\s*([\s\S]*?)```/)
-        if (jsonMatch) {
+        if (jsonMatch && jsonMatch[1]) {
           parsed = JSON.parse(jsonMatch[1])
           expect(parsed.message).toBeDefined()
         } else {
