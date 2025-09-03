@@ -85,7 +85,7 @@ export const makeLocalModelClient = (config: LocalModelConfig | Record<string, u
       const configAny = config as Record<string, unknown>
       const configWithModel = {
         ...config,
-        model: configAny.model || configAny.modelPath || 'openai/gpt-oss-20b'
+        model: configAny.model || configAny.modelPath || 'sqlcoder-7b-2'
       }
 
       // Validate configuration
@@ -294,7 +294,7 @@ export const makeLocalModelClient = (config: LocalModelConfig | Record<string, u
       const configAny = config as Record<string, unknown>
       const configWithModel = {
         ...config,
-        model: configAny.model || configAny.modelPath || 'openai/gpt-oss-20b'
+        model: configAny.model || configAny.modelPath || 'sqlcoder-7b-2'
       }
 
       const validatedConfig = yield* _(
@@ -334,7 +334,7 @@ export const makeLocalModelClient = (config: LocalModelConfig | Record<string, u
  */
 export const defaultLocalConfig: LocalModelConfig = {
   endpoint: 'http://localhost:1234/v1', // LM Studio default
-  model: 'openai/gpt-oss-20b', // Default JSON-capable model
+  model: 'sqlcoder-7b-2', // Default model (fast SQL generation)
   maxTokens: 4096,
   temperature: 0.7,
   contextLength: 4096,

@@ -20,6 +20,9 @@ const LLMQueryResponseSchema = Schema.Struct({
 
 type LLMQueryResponse = Schema.Schema.Type<typeof LLMQueryResponseSchema>
 
+// Single configuration point for default model
+export const DEFAULT_MODEL = "sqlcoder-7b-2" // Change this line to switch models globally
+
 // Check if we're using a SQL-specific model
 const isSQLSpecificModel = (model: string): boolean => {
   return model.toLowerCase().includes('sqlcoder')
@@ -224,7 +227,7 @@ export const generateQueryWithLLM = (
   analysisGoal: string,
   llmConfig?: { endpoint?: string; model?: string }
 ): Effect.Effect<GeneratedQuery, Error, never> => {
-  const modelName = llmConfig?.model || "openai/gpt-oss-20b" // Default to JSON-capable model
+  const modelName = llmConfig?.model || DEFAULT_MODEL
   const llmManager = createSimpleLLMManager({
     models: {
       llama: {
@@ -369,7 +372,7 @@ export const generateQueryWithSQLModel = (
 ): Effect.Effect<GeneratedQuery, Error, never> => {
   return generateQueryWithLLM(path, analysisGoal, {
     endpoint: endpoint || "http://localhost:1234/v1",
-    model: "sqlcoder-7b-2" // Use SQL-optimized model for speed
+    model: "sqlcoder-7b-2" // Explicitly use SQL model when needed
   })
 }
 
