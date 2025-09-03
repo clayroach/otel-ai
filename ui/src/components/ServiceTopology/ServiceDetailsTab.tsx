@@ -10,7 +10,7 @@ import {
   CloseCircleOutlined,
   BulbOutlined
 } from '@ant-design/icons'
-import type { ServiceMetricsDetail } from './PieNodeTopologyChart'
+import type { ServiceMetricsDetail } from './ServiceTopologyGraph'
 import { generateHealthExplanation } from './healthExplanations'
 
 const { Title, Text } = Typography
@@ -25,7 +25,7 @@ interface ServiceMetrics extends ServiceMetricsDetail {
   }>
 }
 
-interface EnhancedServiceDetailsPanelProps {
+interface ServiceDetailsTabProps {
   serviceName: string
   serviceType: string
   metrics: ServiceMetrics
@@ -80,7 +80,7 @@ const getMetricStatusIcon = (status: 'healthy' | 'warning' | 'critical') => {
   }
 }
 
-export const EnhancedServiceDetailsPanel: React.FC<EnhancedServiceDetailsPanelProps> = ({
+export const ServiceDetailsTab: React.FC<ServiceDetailsTabProps> = ({
   serviceName,
   serviceType,
   metrics,
@@ -199,12 +199,12 @@ export const EnhancedServiceDetailsPanel: React.FC<EnhancedServiceDetailsPanelPr
         </Space>
       }
       style={{ height: '100%', overflowY: 'auto' }}
-      bodyStyle={{ padding: '12px' }}
+      styles={{ body: { padding: '12px' } }}
     >
       {/* R.E.D Metrics Charts - NOW AT THE TOP */}
       <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
         <Col span={8}>
-          <Card size="small" title="📈 Rate" bodyStyle={{ padding: '8px' }}>
+          <Card size="small" title="📈 Rate" styles={{ body: { padding: '8px' } }}>
             <Statistic
               value={metrics.rate}
               precision={1}
@@ -229,7 +229,7 @@ export const EnhancedServiceDetailsPanel: React.FC<EnhancedServiceDetailsPanelPr
         </Col>
 
         <Col span={8}>
-          <Card size="small" title="⚠️ Errors" bodyStyle={{ padding: '8px' }}>
+          <Card size="small" title="⚠️ Errors" styles={{ body: { padding: '8px' } }}>
             <div style={{ height: 80 }}>
               <ReactECharts
                 option={getErrorGaugeOption()}
@@ -244,7 +244,7 @@ export const EnhancedServiceDetailsPanel: React.FC<EnhancedServiceDetailsPanelPr
         </Col>
 
         <Col span={8}>
-          <Card size="small" title="⏱️ P95" bodyStyle={{ padding: '8px' }}>
+          <Card size="small" title="⏱️ P95" styles={{ body: { padding: '8px' } }}>
             <Statistic
               value={metrics.duration}
               precision={0}
@@ -300,7 +300,7 @@ export const EnhancedServiceDetailsPanel: React.FC<EnhancedServiceDetailsPanelPr
           size="small"
           title="⚡ Issues Detected"
           style={{ marginBottom: 12 }}
-          bodyStyle={{ padding: '8px' }}
+          styles={{ body: { padding: '8px' } }}
         >
           <List
             size="small"
@@ -339,7 +339,7 @@ export const EnhancedServiceDetailsPanel: React.FC<EnhancedServiceDetailsPanelPr
             </Space>
           }
           style={{ marginBottom: 12 }}
-          bodyStyle={{ padding: '8px' }}
+          styles={{ body: { padding: '8px' } }}
         >
           {healthExplanation.recommendations.slice(0, 2).map((rec, idx) => (
             <div key={idx} style={{ marginBottom: 4 }}>
@@ -352,7 +352,7 @@ export const EnhancedServiceDetailsPanel: React.FC<EnhancedServiceDetailsPanelPr
       {/* Additional Stats - Compact Grid */}
       <Row gutter={[8, 8]}>
         <Col span={12}>
-          <Card size="small" bodyStyle={{ padding: '8px' }}>
+          <Card size="small" styles={{ body: { padding: '8px' } }}>
             <Statistic
               title="Total Spans"
               value={metrics.spanCount || 0}
@@ -361,7 +361,7 @@ export const EnhancedServiceDetailsPanel: React.FC<EnhancedServiceDetailsPanelPr
           </Card>
         </Col>
         <Col span={12}>
-          <Card size="small" bodyStyle={{ padding: '8px' }}>
+          <Card size="small" styles={{ body: { padding: '8px' } }}>
             <Statistic
               title="Success Rate"
               value={100 - metrics.errorRate}
@@ -376,4 +376,4 @@ export const EnhancedServiceDetailsPanel: React.FC<EnhancedServiceDetailsPanelPr
   )
 }
 
-export default EnhancedServiceDetailsPanel
+export default ServiceDetailsTab

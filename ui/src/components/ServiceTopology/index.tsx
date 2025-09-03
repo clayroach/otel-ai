@@ -2,8 +2,8 @@ import React, { useState, useCallback } from 'react'
 import { Row, Col, message, Alert } from 'antd'
 import { CriticalPathsPanel } from './CriticalPathsPanel'
 import { AIAnalysisPanel } from './AIAnalysisPanel'
-import { ServiceTopologyGraph } from './ServiceTopologyGraph'
-import { PathFlowChart } from './PathFlowChart'
+import { ServiceTopologyPanel } from './ServiceTopologyPanel'
+import { PathFlowChartPanel } from './PathFlowChartPanel'
 import { useAppStore } from '../../store/appStore'
 import type { CriticalPath, AnalysisTab, TopologyState, ServiceTopologyProps } from './types'
 import './styles.css'
@@ -600,14 +600,14 @@ export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
           data-testid="topology-graph-column"
         >
           {state.selectedPaths.length === 1 ? (
-            <PathFlowChart
+            <PathFlowChartPanel
               path={state.availablePaths.find((p) => p.id === state.selectedPaths[0]) || null}
               services={generateMockServices()}
               height={window.innerHeight - 120}
             />
           ) : (
-            <ServiceTopologyGraph
-              data={null} // Will use mock data from ServiceTopologyGraph
+            <ServiceTopologyPanel
+              data={null} // Will use mock data from ServiceTopologyPanel
               highlightedServices={Array.from(state.highlightedServices)}
               servicesWithTabs={Array.from(servicesWithTabs)} // Pass services that have tabs open
               onServiceClick={handleServiceClick}

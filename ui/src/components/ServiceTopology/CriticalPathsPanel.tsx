@@ -120,12 +120,14 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
         flexDirection: 'column',
         overflow: 'hidden'
       }}
-      bodyStyle={{
-        padding: '12px',
-        flex: 1,
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column'
+      styles={{
+        body: {
+          padding: '12px',
+          flex: 1,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column'
+        }
       }}
       data-testid="critical-paths-panel"
       title={

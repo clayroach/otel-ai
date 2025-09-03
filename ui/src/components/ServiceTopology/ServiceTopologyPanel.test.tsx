@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getMockTopologyData } from './ServiceTopologyGraph'
-import type { ServiceNode, ServiceEdge } from './PieNodeTopologyChart'
+import { getMockTopologyData } from './ServiceTopologyPanel'
+import type { ServiceNode, ServiceEdge } from './ServiceTopologyGraph'
 
 // This test file validates that mock and real data are properly separated
 

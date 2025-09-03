@@ -6,8 +6,8 @@ import {
   InfoCircleOutlined,
   RobotOutlined
 } from '@ant-design/icons'
-import CleanAIAnalysisPanel from './CleanAIAnalysisPanel'
-import EnhancedServiceDetailsPanel from './EnhancedServiceDetailsPanel'
+import AllServicesTab from './AllServicesTab'
+import ServiceDetailsTab from './ServiceDetailsTab'
 import type { AnalysisTab, PanelProps } from './types'
 
 const { Text } = Typography
@@ -62,7 +62,7 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
       }
 
       return (
-        <EnhancedServiceDetailsPanel
+        <ServiceDetailsTab
           serviceName={tab.title}
           serviceType={getServiceType(tab.title)}
           metrics={{
@@ -113,16 +113,14 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
       )
     }
 
-    // For global overview tab, use the Clean AI Analysis Panel
-    return (
-      <CleanAIAnalysisPanel tabType={tab.type} serviceName={tab.title} serviceId={tab.targetId} />
-    )
+    // For global overview tab, use the All Services Tab
+    return <AllServicesTab tabType={tab.type} serviceName={tab.title} serviceId={tab.targetId} />
   }
 
   return (
     <Card
       style={{ width, height: '100%' }}
-      bodyStyle={{ padding: '12px', height: '100%' }}
+      styles={{ body: { padding: '12px', height: '100%' } }}
       data-testid="ai-analysis-panel"
       title={
         <Space>

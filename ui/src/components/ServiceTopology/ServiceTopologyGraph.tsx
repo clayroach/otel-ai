@@ -1,985 +1,575 @@
-import React, { useState, useEffect } from 'react'
-import { Spin, Alert, Empty, Button, message } from 'antd'
-import PieNodeTopologyChart from './PieNodeTopologyChart'
-import type { ServiceNode, TopologyVisualizationData } from './PieNodeTopologyChart'
-import axios from 'axios'
-import { useAppStore } from '../../store/appStore'
+import {
+  AlertOutlined,
+  CheckCircleOutlined,
+  HeartOutlined,
+  StopOutlined,
+  WarningOutlined
+} from '@ant-design/icons'
+import { Badge, Space, Tag, Typography } from 'antd'
+import type { EChartsOption, GraphSeriesOption } from 'echarts'
+import ReactECharts from 'echarts-for-react'
+import type { CallbackDataParams } from 'echarts/types/dist/shared'
+import React, { useRef } from 'react'
+import { generateHealthExplanation } from './healthExplanations'
+
+const { Text } = Typography
+
+export interface ServiceMetricsDetail {
+  rate: number
+  errorRate: number
+  duration: number
+  spanCount: number
+  // Threshold status for each metric (0=healthy, 1=warning, 2=critical)
+  rateStatus: number
+  errorStatus: number
+  durationStatus: number
+  otelStatus: number
+}
+
+export interface ServiceNode {
+  id: string
+  name: string
+  category?: string
+  symbolSize: number
+  itemStyle?: {
+    color?: string
+  }
+  label?: {
+    show: boolean
+  }
+  metrics?: ServiceMetricsDetail
+  // Pie chart data for the node
+  pieData?: Array<{
+    value: number
+    itemStyle: { color: string }
+  }>
+}
+
+export interface ServiceEdge {
+  source: string
+  target: string
+  value: number
+  lineStyle: {
+    width: number
+    color: string
+    type?: string | number[]
+    curveness?: number
+  }
+  // Operation-level breakdown
+  operations?: Array<{
+    name: string
+    count: number
+    errorRate: number
+    avgDuration: number
+  }>
+}
+
+export interface TopologyVisualizationData {
+  nodes: ServiceNode[]
+  edges: ServiceEdge[]
+  runtimeEnvironments?: string[]
+  healthSummary?: {
+    healthy: number
+    warning: number
+    degraded: number
+    critical: number
+    unavailable: number
+  }
+}
 
 interface ServiceTopologyGraphProps {
-  timeRange?: [Date, Date]
-  autoRefresh?: boolean
-  refreshInterval?: number
-  data?: TopologyVisualizationData | null // Allow external data to be passed
-  highlightedServices?: string[] // Services to highlight
+  data: TopologyVisualizationData
+  onNodeClick?: (node: ServiceNode) => void
+  onHealthFilter?: (status: string) => void
+  height?: number
+  filteredHealthStatuses?: string[]
+  highlightedServices?: string[] // Services to highlight from critical paths
   servicesWithTabs?: string[] // Services that have tabs open (show with neighbors)
-  onServiceClick?: (serviceId: string) => void // Callback for service clicks
-  selectedPaths?: Array<{
-    id: string
-    name: string
-    services: string[]
-    edges: Array<{ source: string; target: string }>
-  }> // Selected critical paths for visualization
+  filterMode?: 'highlight' | 'filter' // Whether to dim others or filter them out
+  highlightedEdges?: Array<{ source: string; target: string }> // Edges to highlight for paths
 }
 
-export const ServiceTopologyGraph: React.FC<ServiceTopologyGraphProps> = ({
-  timeRange,
-  autoRefresh = false,
-  refreshInterval = 30000, // 30 seconds
-  data: _data,
-  highlightedServices = [],
-  servicesWithTabs = [],
-  onServiceClick,
-  selectedPaths: _selectedPaths = []
-}) => {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [topologyData, setTopologyData] = useState<TopologyVisualizationData | null>(null)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
-  const [_selectedNode, setSelectedNode] = useState<ServiceNode | null>(null)
-  // const [lastUpdated, setLastUpdated] = useState<Date | null>(null) // Not currently used
-  const [filteredHealthStatuses, setFilteredHealthStatuses] = useState<string[]>([])
-
-  // Get LIVE mode setting from global store
-  // IMPORTANT: The UI toggle uses useMockData, so we need to invert it to get useRealService
-  const { useMockData } = useAppStore()
-  const useRealService = !useMockData // LIVE mode is when NOT using mock data
-
-  // Debug: Log the current LIVE mode state
-  useEffect(() => {
-    console.log(
-      '[ServiceTopologyGraph] Component mounted/updated, useMockData:',
-      useMockData,
-      'useRealService:',
-      useRealService
-    )
-  }, [useMockData, useRealService])
-
-  const fetchTopologyData = async () => {
-    console.log('[ServiceTopologyGraph] fetchTopologyData called, useRealService:', useRealService)
-    setLoading(true)
-    setError(null)
-
-    try {
-      // If not in LIVE mode, use mock data directly
-      if (!useRealService) {
-        console.log('[ServiceTopologyGraph] LIVE is OFF - loading mock data')
-        await new Promise((resolve) => setTimeout(resolve, 1000)) // Simulate loading
-        setTopologyData(getMockTopologyData())
-        message.info('Using mock topology data for demonstration')
-        return
-      }
-
-      console.log('[ServiceTopologyGraph] LIVE is ON - attempting to fetch real data')
-
-      // Only make API call when in LIVE mode
-      const params: { startTime?: string; endTime?: string } = {}
-      if (timeRange) {
-        params.startTime = timeRange[0].toISOString()
-        params.endTime = timeRange[1].toISOString()
-      }
-
-      const response = await axios.post(
-        'http://localhost:4319/api/ai-analyzer/topology-visualization',
-        {
-          timeRange: params
-        }
-      )
-
-      if (response.data) {
-        console.log(
-          '[ServiceTopologyGraph] Raw backend response nodes:',
-          response.data.nodes?.slice(0, 3)
-        )
-
-        // Calculate max rate for node sizing
-        const maxRate = response.data.nodes
-          ? Math.max(...response.data.nodes.map((n: ServiceNode) => n.metrics?.rate || 0))
-          : 100
-
-        // Transform backend data to match our expected structure
-        const transformedData = {
-          ...response.data,
-          nodes:
-            response.data.nodes?.map((node: ServiceNode) => ({
-              ...node,
-              symbolSize: calculateNodeSize(node.metrics?.rate || 0, maxRate),
-              // Ensure metrics have the expected structure
-              metrics: node.metrics
-                ? {
-                    rate: node.metrics.rate || 0,
-                    errorRate: node.metrics.errorRate || 0,
-                    duration: node.metrics.duration || 0,
-                    spanCount:
-                      node.metrics.spanCount || Math.floor(node.metrics.rate * 60 * 5) || 1000, // Estimate based on 5 min window if not provided
-                    // Calculate status based on service-specific thresholds
-                    // Rate status: detect anomalies (too low or too high)
-                    rateStatus: node.metrics.rate < 1 ? 1 : node.metrics.rate > 200 ? 1 : 0,
-                    // Error status: stricter for critical services like payment
-                    errorStatus: (() => {
-                      const serviceName = node.name?.toLowerCase() || ''
-                      if (serviceName.includes('payment') || serviceName.includes('checkout')) {
-                        // Critical services: stricter thresholds
-                        return node.metrics.errorRate > 0.5
-                          ? 2
-                          : node.metrics.errorRate > 0.1
-                            ? 1
-                            : 0
-                      } else if (
-                        serviceName.includes('recommendation') ||
-                        serviceName.includes('ad')
-                      ) {
-                        // Non-critical services: more lenient
-                        return node.metrics.errorRate > 10 ? 2 : node.metrics.errorRate > 5 ? 1 : 0
-                      } else {
-                        // Default thresholds
-                        return node.metrics.errorRate > 5 ? 2 : node.metrics.errorRate > 1 ? 1 : 0
-                      }
-                    })(),
-                    // Duration status: varies by service type
-                    durationStatus: (() => {
-                      const serviceName = node.name?.toLowerCase() || ''
-                      if (serviceName.includes('database') || serviceName.includes('redis')) {
-                        // Database services: expect fast responses
-                        return node.metrics.duration > 50 ? 2 : node.metrics.duration > 20 ? 1 : 0
-                      } else if (serviceName.includes('frontend') || serviceName.includes('ui')) {
-                        // Frontend services: more lenient on latency
-                        return node.metrics.duration > 1000
-                          ? 2
-                          : node.metrics.duration > 500
-                            ? 1
-                            : 0
-                      } else {
-                        // Backend services: standard thresholds
-                        return node.metrics.duration > 500 ? 2 : node.metrics.duration > 200 ? 1 : 0
-                      }
-                    })(),
-                    // OTel status: based on span count (detect collection issues)
-                    otelStatus: node.metrics.spanCount < 100 ? 1 : 0
-                  }
-                : {
-                    rate: 0,
-                    errorRate: 0,
-                    duration: 0,
-                    spanCount: 0,
-                    rateStatus: 0,
-                    errorStatus: 0,
-                    durationStatus: 0,
-                    otelStatus: 0
-                  }
-            })) || []
-        }
-
-        console.log(
-          '[ServiceTopologyGraph] Transformed topology data nodes (first 3):',
-          transformedData.nodes?.slice(0, 3)
-        )
-        console.log('[ServiceTopologyGraph] Total nodes:', transformedData.nodes?.length)
-        setTopologyData(transformedData)
-        // setLastUpdated(new Date())
-        message.success('Topology data updated successfully')
-      }
-    } catch (err) {
-      console.error('[ServiceTopologyGraph] Failed to fetch topology data:', err)
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch topology data'
-      setError(errorMessage)
-
-      if (useRealService) {
-        // When LIVE mode is on, never fall back to mock data
-        console.log('[ServiceTopologyGraph] LIVE is ON - NOT falling back to mock data')
-        setTopologyData(null) // Explicitly clear any data
-        message.error('Failed to fetch topology data - please check service connection')
-        // Do NOT set mock data - let the error state show
-      } else {
-        // Only use mock data when NOT in LIVE mode
-        console.log('[ServiceTopologyGraph] LIVE is OFF - falling back to mock data')
-        setTopologyData(getMockTopologyData())
-        message.info('Using mock topology data for demonstration')
-      }
-    } finally {
-      setLoading(false)
-    }
+const getRuntimeIcon = (runtime?: string): string => {
+  const iconMap: Record<string, string> = {
+    go: '🐹',
+    java: '☕',
+    python: '🐍',
+    javascript: '⚡',
+    nodejs: '⚡',
+    csharp: '🔷',
+    dotnet: '🔷',
+    ruby: '💎',
+    php: '🐘',
+    rust: '🦀',
+    postgresql: '🗄️',
+    redis: '📦',
+    kafka: '📬',
+    elasticsearch: '🔎'
   }
-
-  // Initial fetch and refetch when LIVE mode changes
-  useEffect(() => {
-    const isLiveMode = !useMockData
-    console.log(
-      '[ServiceTopologyGraph] useEffect triggered, useMockData:',
-      useMockData,
-      'isLiveMode:',
-      isLiveMode
-    )
-
-    const loadData = async () => {
-      setLoading(true)
-      setError(null)
-      setTopologyData(null) // Clear existing data
-
-      try {
-        if (useMockData) {
-          console.log('[ServiceTopologyGraph] Loading mock data (DEMO mode is ON)')
-          await new Promise((resolve) => setTimeout(resolve, 1000))
-          setTopologyData(getMockTopologyData())
-          message.info('Using mock topology data for demonstration')
-        } else {
-          console.log('[ServiceTopologyGraph] Fetching real data (LIVE mode is ON)')
-          const params: { startTime?: string; endTime?: string } = {}
-          if (timeRange) {
-            params.startTime = timeRange[0].toISOString()
-            params.endTime = timeRange[1].toISOString()
-          }
-
-          const response = await axios.post(
-            'http://localhost:4319/api/ai-analyzer/topology-visualization',
-            { timeRange: params }
-          )
-
-          if (response.data) {
-            console.log(
-              '[ServiceTopologyGraph] useEffect - Raw backend nodes:',
-              response.data.nodes?.slice(0, 3)
-            )
-            // Transform and set data - ensure nodes have all required properties
-            const transformedData = {
-              nodes:
-                response.data.nodes?.map((node: ServiceNode) => ({
-                  ...node,
-                  // Ensure node has id and name
-                  id: node.id || node.name,
-                  name: node.name || node.id,
-                  // Preserve all other properties
-                  category: node.category,
-                  symbolSize: node.symbolSize,
-                  itemStyle: node.itemStyle,
-                  label: node.label,
-                  metrics: node.metrics || {
-                    rate: 0,
-                    errorRate: 0,
-                    duration: 0,
-                    spanCount: 0,
-                    rateStatus: 0,
-                    errorStatus: 0,
-                    durationStatus: 0,
-                    otelStatus: 0
-                  }
-                })) || [],
-              edges: response.data.edges || [],
-              runtimeEnvironments: response.data.runtimeEnvironments || [],
-              healthSummary: response.data.healthSummary || {
-                healthy: 0,
-                warning: 0,
-                degraded: 0,
-                critical: 0,
-                unavailable: 0
-              }
-            }
-            console.log(
-              '[ServiceTopologyGraph] useEffect - Transformed nodes:',
-              transformedData.nodes?.slice(0, 3)
-            )
-            setTopologyData(transformedData)
-            message.success('Topology data updated successfully')
-          }
-        }
-      } catch (err) {
-        console.error('[ServiceTopologyGraph] Error loading data:', err)
-        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch topology data'
-        setError(errorMessage)
-
-        if (!useMockData) {
-          console.log('[ServiceTopologyGraph] LIVE mode error - showing error state')
-          setTopologyData(null)
-          message.error('Failed to fetch topology data - please check service connection')
-        } else {
-          console.log('[ServiceTopologyGraph] Mock mode error - this should not happen')
-        }
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadData()
-  }, [timeRange, useMockData])
-
-  // Auto-refresh
-  useEffect(() => {
-    if (autoRefresh && refreshInterval > 0) {
-      const interval = setInterval(() => {
-        fetchTopologyData()
-      }, refreshInterval)
-
-      return () => clearInterval(interval)
-    }
-  }, [autoRefresh, refreshInterval])
-
-  const handleNodeClick = (node: ServiceNode) => {
-    console.log(
-      'TopologyTab - Node clicked:',
-      JSON.stringify({
-        id: node.id,
-        name: node.name,
-        category: node.category,
-        hasMetrics: !!node.metrics
-      })
-    )
-    console.log('TopologyTab - onServiceClick prop exists?', !!onServiceClick)
-    console.log('TopologyTab - useMockData:', useMockData)
-    setSelectedNode(node)
-
-    // Use the node.id which should be the clean service name
-    // Fall back to extracting from name if id is not available
-    const serviceName = node.id || node.name.replace(/^[^\s]+\s/, '')
-    console.log('TopologyTab - Using service identifier:', serviceName)
-
-    // Call the parent's onServiceClick callback if provided
-    if (onServiceClick) {
-      console.log('TopologyTab - Calling onServiceClick with:', serviceName)
-      onServiceClick(serviceName)
-    } else {
-      console.log('TopologyTab - No onServiceClick callback provided!')
-    }
-  }
-
-  const handleRefresh = () => {
-    console.log('[ServiceTopologyGraph] Manual refresh triggered, useRealService:', useRealService)
-    // Trigger re-render with current LIVE state
-    setTopologyData(null)
-    setError(null)
-    fetchTopologyData()
-  }
-
-  const handleHealthFilter = (status: string) => {
-    if (status === '') {
-      // Clear filter
-      setFilteredHealthStatuses([])
-    } else {
-      // Toggle the status in the filter list
-      setFilteredHealthStatuses((prev) => {
-        if (prev.includes(status)) {
-          return prev.filter((s) => s !== status)
-        } else {
-          return [...prev, status]
-        }
-      })
-    }
-  }
-
-  if (loading && !topologyData) {
-    return (
-      <div style={{ textAlign: 'center', padding: '50px' }}>
-        <Spin size="large" tip="Loading topology data..." />
-      </div>
-    )
-  }
-
-  if (error && !topologyData) {
-    return (
-      <Alert
-        message="Error Loading Topology"
-        description={error}
-        type="error"
-        showIcon
-        action={
-          <Button size="small" onClick={handleRefresh}>
-            Try Again
-          </Button>
-        }
-      />
-    )
-  }
-
-  if (!topologyData) {
-    return (
-      <Empty description="No topology data available" image={Empty.PRESENTED_IMAGE_SIMPLE}>
-        <Button type="primary" onClick={handleRefresh}>
-          Load Topology
-        </Button>
-      </Empty>
-    )
-  }
-
-  // CRITICAL: Final safety check - never show mock data when LIVE is ON
-  const dataToDisplay =
-    useRealService && topologyData && isMockData(topologyData) ? null : topologyData
-
-  // If LIVE is ON and we detected mock data, show an error
-  if (useRealService && topologyData && isMockData(topologyData)) {
-    console.error('[ServiceTopologyGraph] CRITICAL: Mock data detected when LIVE is ON!')
-    return (
-      <Alert
-        message="Data Integrity Error"
-        description="Mock data detected when LIVE mode is enabled. Please refresh the page."
-        type="error"
-        showIcon
-        action={
-          <Button size="small" onClick={handleRefresh}>
-            Refresh
-          </Button>
-        }
-      />
-    )
-  }
-
-  // Don't render chart if no data
-  if (!dataToDisplay) {
-    return (
-      <Empty description="No topology data available" image={Empty.PRESENTED_IMAGE_SIMPLE}>
-        <Button type="primary" onClick={handleRefresh}>
-          Load Topology
-        </Button>
-      </Empty>
-    )
-  }
-
-  return (
-    <div style={{ height: '100%' }}>
-      {/* Action Bar - Removed Refresh button */}
-
-      {/* Main Layout - Full width topology chart */}
-      <div style={{ height: 'calc(100% - 50px)' }}>
-        <PieNodeTopologyChart
-          data={dataToDisplay}
-          onNodeClick={handleNodeClick}
-          onHealthFilter={handleHealthFilter}
-          height={600}
-          filteredHealthStatuses={filteredHealthStatuses}
-          highlightedServices={highlightedServices}
-          servicesWithTabs={servicesWithTabs}
-          filterMode="filter"
-        />
-      </div>
-    </div>
-  )
+  return iconMap[runtime?.toLowerCase() || ''] || '🔥'
 }
 
-// Helper function to detect mock data
-function isMockData(data: TopologyVisualizationData): boolean {
-  // Check if any node has a name starting with 'm'
-  return data.nodes.some((node) => node.name.startsWith('m'))
-}
-
-// Helper functions (commented out - not currently used)
-// const getServiceType = (node: ServiceNode): string => {
-//   // Try to infer from node properties or default to backend
-//   if (node.name.includes('gateway')) return 'api'
-//   if (
-//     node.name.includes('database') ||
-//     node.name.includes('postgres') ||
-//     node.name.includes('mysql')
-//   )
-//     return 'database'
-//   if (node.name.includes('redis') || node.name.includes('cache')) return 'cache'
-//   if (node.name.includes('frontend') || node.name.includes('ui')) return 'frontend'
-//   if (node.name.includes('queue') || node.name.includes('kafka')) return 'queue'
-//   return 'backend'
-// }
-
-// const getHealthStatus = (color: string): string => {
-//   switch (color) {
-//     case '#52c41a':
-//       return 'healthy'
-//     case '#faad14':
-//       return 'warning'
-//     case '#fa8c16':
-//       return 'degraded'
-//     case '#f5222d':
-//       return 'critical'
-//     case '#262626':
-//       return 'unavailable'
-//     default:
-//       return 'unknown'
+// Used in tooltip to show metric status colors
+// const getMetricColor = (status: number): string => {
+//   switch (status) {
+//     case 0: return '#52c41a' // Healthy
+//     case 1: return '#faad14' // Warning
+//     case 2: return '#f5222d' // Critical
+//     default: return '#8c8c8c' // Unknown
 //   }
 // }
 
-// Helper function to calculate node size based on Rate metric
-const calculateNodeSize = (rate: number, maxRate: number): number => {
-  const minSize = 30
-  const maxSize = 80
-  if (!rate || !maxRate || maxRate === 0) return minSize
+const getNodeHealthStatus = (metrics?: ServiceMetricsDetail): string => {
+  if (!metrics) return 'unknown'
 
-  // Logarithmic scaling for better visual distribution
-  const normalizedRate = Math.log(rate + 1) / Math.log(maxRate + 1)
-  return Math.round(minSize + (maxSize - minSize) * normalizedRate)
+  const statuses = [
+    metrics.rateStatus,
+    metrics.errorStatus,
+    metrics.durationStatus,
+    metrics.otelStatus
+  ]
+  const maxStatus = Math.max(...statuses)
+
+  if (maxStatus === 2) return 'critical'
+  if (maxStatus === 1) return 'warning'
+  return 'healthy'
 }
 
-// Mock data generator for demonstration
-export const getMockTopologyData = (): TopologyVisualizationData => {
-  // First define all nodes with their metrics
-  const nodesWithMetrics = [
-    // Frontend service
-    {
-      id: 'mfrontend',
-      name: 'mfrontend',
-      category: 'javascript',
-      symbolSize: 50,
-      itemStyle: { color: '#52c41a' },
-      label: { show: true },
-      metrics: {
-        rate: 45.2,
-        errorRate: 0.5,
-        duration: 120,
-        spanCount: 15420,
-        rateStatus: 0,
-        errorStatus: 0,
-        durationStatus: 0,
-        otelStatus: 0
-      }
-    },
-    // Checkout Flow services
-    {
-      id: 'mcartservice',
-      name: 'mcartservice',
-      category: 'csharp',
-      symbolSize: 45,
-      itemStyle: { color: '#52c41a' },
-      label: { show: true },
-      metrics: {
-        rate: 78.3,
-        errorRate: 0.3,
-        duration: 85,
-        spanCount: 21450,
-        rateStatus: 0,
-        errorStatus: 0,
-        durationStatus: 0,
-        otelStatus: 0
-      }
-    },
-    {
-      id: 'mcheckoutservice',
-      name: 'mcheckoutservice',
-      category: 'go',
-      symbolSize: 48,
-      itemStyle: { color: '#faad14' },
-      label: { show: true },
-      metrics: {
-        rate: 32.5,
-        errorRate: 1.2,
-        duration: 250,
-        spanCount: 8920,
-        rateStatus: 0,
-        errorStatus: 1,
-        durationStatus: 1,
-        otelStatus: 0
-      }
-    },
-    {
-      id: 'mpaymentservice',
-      name: 'mpaymentservice',
-      category: 'nodejs',
-      symbolSize: 40,
-      itemStyle: { color: '#f5222d' },
-      label: { show: true },
-      metrics: {
-        rate: 25.8,
-        errorRate: 8.5,
-        duration: 450,
-        spanCount: 7080,
-        rateStatus: 0,
-        errorStatus: 2,
-        durationStatus: 1,
-        otelStatus: 0
-      }
-    },
-    {
-      id: 'memailservice',
-      name: 'memailservice',
-      category: 'python',
-      symbolSize: 38,
-      itemStyle: { color: '#52c41a' },
-      label: { show: true },
-      metrics: {
-        rate: 18.2,
-        errorRate: 0.1,
-        duration: 95,
-        spanCount: 4990,
-        rateStatus: 0,
-        errorStatus: 0,
-        durationStatus: 0,
-        otelStatus: 0
-      }
-    },
-    // Product Search services
-    {
-      id: 'mproductcatalogservice',
-      name: 'mproductcatalogservice',
-      category: 'go',
-      symbolSize: 46,
-      itemStyle: { color: '#52c41a' },
-      label: { show: true },
-      metrics: {
-        rate: 125.5,
-        errorRate: 0.2,
-        duration: 35,
-        spanCount: 34400,
-        rateStatus: 0,
-        errorStatus: 0,
-        durationStatus: 0,
-        otelStatus: 0
-      }
-    },
-    {
-      id: 'mrecommendationservice',
-      name: 'mrecommendationservice',
-      category: 'python',
-      symbolSize: 42,
-      itemStyle: { color: '#faad14' },
-      label: { show: true },
-      metrics: {
-        rate: 89.3,
-        errorRate: 2.8,
-        duration: 380,
-        spanCount: 24480,
-        rateStatus: 0,
-        errorStatus: 1,
-        durationStatus: 1,
-        otelStatus: 0
-      }
-    },
-    {
-      id: 'madservice',
-      name: 'madservice',
-      category: 'java',
-      symbolSize: 40,
-      itemStyle: { color: '#52c41a' },
-      label: { show: true },
-      metrics: {
-        rate: 156.8,
-        errorRate: 0.5,
-        duration: 22,
-        spanCount: 42990,
-        rateStatus: 0,
-        errorStatus: 0,
-        durationStatus: 0,
-        otelStatus: 0
-      }
-    },
-    // User Authentication services
-    {
-      id: 'mauthservice',
-      name: 'mauthservice',
-      category: 'rust',
-      symbolSize: 44,
-      itemStyle: { color: '#52c41a' },
-      label: { show: true },
-      metrics: {
-        rate: 67.2,
-        errorRate: 0.8,
-        duration: 55,
-        spanCount: 18420,
-        rateStatus: 0,
-        errorStatus: 0,
-        durationStatus: 0,
-        otelStatus: 0
-      }
-    },
-    {
-      id: 'msessionservice',
-      name: 'msessionservice',
-      category: 'redis',
-      symbolSize: 38,
-      itemStyle: { color: '#52c41a' },
-      label: { show: true },
-      metrics: {
-        rate: 245.5,
-        errorRate: 0.01,
-        duration: 3,
-        spanCount: 67260,
-        rateStatus: 0,
-        errorStatus: 0,
-        durationStatus: 0,
-        otelStatus: 0
-      }
-    },
-    {
-      id: 'muserservice',
-      name: 'muserservice',
-      category: 'nodejs',
-      symbolSize: 45,
-      itemStyle: { color: '#52c41a' },
-      label: { show: true },
-      metrics: {
-        rate: 85.3,
-        errorRate: 0.4,
-        duration: 125,
-        spanCount: 23380,
-        rateStatus: 0,
-        errorStatus: 0,
-        durationStatus: 0,
-        otelStatus: 0
-      }
-    },
-    // Shipping services
-    {
-      id: 'mshippingservice',
-      name: 'mshippingservice',
-      category: 'rust',
-      symbolSize: 41,
-      itemStyle: { color: '#f5222d' },
-      label: { show: true },
-      metrics: {
-        rate: 12.3,
-        errorRate: 5.2,
-        duration: 1850,
-        spanCount: 3370,
-        rateStatus: 0,
-        errorStatus: 2,
-        durationStatus: 2,
-        otelStatus: 0
-      }
-    },
-    {
-      id: 'mcurrencyservice',
-      name: 'mcurrencyservice',
-      category: 'nodejs',
-      symbolSize: 36,
-      itemStyle: { color: '#52c41a' },
-      label: { show: true },
-      metrics: {
-        rate: 342.1,
-        errorRate: 0.02,
-        duration: 8,
-        spanCount: 93810,
-        rateStatus: 0,
-        errorStatus: 0,
-        durationStatus: 0,
-        otelStatus: 0
-      }
-    },
-    // Background services
-    {
-      id: 'minventoryservice',
-      name: 'minventoryservice',
-      category: 'java',
-      symbolSize: 43,
-      itemStyle: { color: '#52c41a' },
-      label: { show: true },
-      metrics: {
-        rate: 8.5,
-        errorRate: 0.1,
-        duration: 2200,
-        spanCount: 2330,
-        rateStatus: 0,
-        errorStatus: 0,
-        durationStatus: 1,
-        otelStatus: 0
-      }
-    },
-    {
-      id: 'mnotificationservice',
-      name: 'mnotificationservice',
-      category: 'python',
-      symbolSize: 37,
-      itemStyle: { color: '#52c41a' },
-      label: { show: true },
-      metrics: {
-        rate: 22.7,
-        errorRate: 0.3,
-        duration: 145,
-        spanCount: 6220,
-        rateStatus: 0,
-        errorStatus: 0,
-        durationStatus: 0,
-        otelStatus: 0
-      }
-    },
-    // Data stores
-    {
-      id: 'mpostgres',
-      name: 'mpostgres',
-      category: 'postgresql',
-      symbolSize: 55,
-      itemStyle: { color: '#52c41a' },
-      label: { show: true },
-      metrics: {
-        rate: 450.0,
-        errorRate: 0.1,
-        duration: 15,
-        spanCount: 125000,
-        rateStatus: 0,
-        errorStatus: 0,
-        durationStatus: 0,
-        otelStatus: 0
-      }
-    },
-    {
-      id: 'mredis',
-      name: 'mredis',
-      category: 'redis',
-      symbolSize: 35,
-      itemStyle: { color: '#52c41a' },
-      label: { show: true },
-      metrics: {
-        rate: 850.5,
-        errorRate: 0.01,
-        duration: 2,
-        spanCount: 235000,
-        rateStatus: 0,
-        errorStatus: 0,
-        durationStatus: 0,
-        otelStatus: 0
-      }
-    }
+// Calculate overall node health color based on metrics
+const getNodeOverallHealthColor = (metrics?: ServiceMetricsDetail): string => {
+  if (!metrics) return '#8c8c8c'
+
+  const statuses = [
+    metrics.rateStatus,
+    metrics.errorStatus,
+    metrics.durationStatus,
+    metrics.otelStatus
   ]
+  const maxStatus = Math.max(...statuses)
 
-  // Calculate max rate for node sizing
-  const maxRate = Math.max(...nodesWithMetrics.map((n) => n.metrics.rate))
+  if (maxStatus === 2) return '#f5222d' // Critical
+  if (maxStatus === 1) return '#faad14' // Warning
+  return '#52c41a' // Healthy
+}
 
-  // Apply calculated symbolSize to each node
-  const nodes = nodesWithMetrics.map((node) => ({
-    ...node,
-    symbolSize: calculateNodeSize(node.metrics.rate, maxRate)
-  }))
+export const ServiceTopologyGraph: React.FC<ServiceTopologyGraphProps> = ({
+  data,
+  onNodeClick,
+  onHealthFilter,
+  filteredHealthStatuses = [],
+  highlightedServices = [],
+  servicesWithTabs = [],
+  filterMode = 'filter' // Default to filter mode for critical paths
+}) => {
+  const chartRef = useRef<ReactECharts | null>(null)
 
-  return {
-    nodes,
-    edges: [
-      // Checkout Flow edges
-      {
-        source: 'mfrontend',
-        target: 'mcartservice',
-        value: 80,
-        lineStyle: { width: 3, color: '#52c41a' }
-      },
-      {
-        source: 'mfrontend',
-        target: 'mcheckoutservice',
-        value: 60,
-        lineStyle: { width: 3, color: '#faad14' }
-      },
-      {
-        source: 'mcheckoutservice',
-        target: 'mpaymentservice',
-        value: 50,
-        lineStyle: { width: 2, color: '#f5222d' }
-      },
-      {
-        source: 'mcheckoutservice',
-        target: 'memailservice',
-        value: 45,
-        lineStyle: { width: 2, color: '#52c41a' }
-      },
-      {
-        source: 'mcheckoutservice',
-        target: 'mshippingservice',
-        value: 40,
-        lineStyle: { width: 2, color: '#faad14' }
-      },
+  // Calculate which nodes to show
+  const nodesToShow = new Set<string>()
 
-      // Product Search edges
-      {
-        source: 'mfrontend',
-        target: 'mproductcatalogservice',
-        value: 120,
-        lineStyle: { width: 3, color: '#52c41a' }
-      },
-      {
-        source: 'mfrontend',
-        target: 'mrecommendationservice',
-        value: 90,
-        lineStyle: { width: 3, color: '#faad14' }
-      },
-      {
-        source: 'mrecommendationservice',
-        target: 'mproductcatalogservice',
-        value: 85,
-        lineStyle: { width: 2, color: '#faad14' }
-      },
-      {
-        source: 'mfrontend',
-        target: 'madservice',
-        value: 150,
-        lineStyle: { width: 3, color: '#52c41a' }
-      },
+  // If services have tabs open, include them and their neighbors
+  if (servicesWithTabs.length > 0) {
+    servicesWithTabs.forEach((serviceId) => {
+      nodesToShow.add(serviceId)
+      // Find all edges connected to this service
+      data.edges.forEach((edge) => {
+        if (edge.source === serviceId) {
+          nodesToShow.add(edge.target)
+        }
+        if (edge.target === serviceId) {
+          nodesToShow.add(edge.source)
+        }
+      })
+    })
+  }
 
-      // User Authentication edges
-      {
-        source: 'mfrontend',
-        target: 'mauthservice',
-        value: 70,
-        lineStyle: { width: 3, color: '#52c41a' }
-      },
-      {
-        source: 'mauthservice',
-        target: 'muserservice',
-        value: 65,
-        lineStyle: { width: 2, color: '#52c41a' }
-      },
-      {
-        source: 'mauthservice',
-        target: 'msessionservice',
-        value: 68,
-        lineStyle: { width: 2, color: '#52c41a' }
-      },
+  // Filter or process nodes based on mode
+  let processedNodes = data.nodes
 
-      // Shipping Calculator edges
-      {
-        source: 'mshippingservice',
-        target: 'mcurrencyservice',
-        value: 35,
-        lineStyle: { width: 2, color: '#52c41a' }
-      },
-
-      // Inventory Update edges
-      {
-        source: 'minventoryservice',
-        target: 'mproductcatalogservice',
-        value: 15,
-        lineStyle: { width: 2, color: '#52c41a' }
-      },
-      {
-        source: 'minventoryservice',
-        target: 'mnotificationservice',
-        value: 12,
-        lineStyle: { width: 2, color: '#52c41a' }
-      },
-
-      // Database connections
-      {
-        source: 'muserservice',
-        target: 'mpostgres',
-        value: 85,
-        lineStyle: { width: 3, color: '#52c41a' }
-      },
-      {
-        source: 'mproductcatalogservice',
-        target: 'mpostgres',
-        value: 125,
-        lineStyle: { width: 3, color: '#52c41a' }
-      },
-      {
-        source: 'mcartservice',
-        target: 'mredis',
-        value: 78,
-        lineStyle: { width: 3, color: '#52c41a' }
-      },
-      {
-        source: 'msessionservice',
-        target: 'mredis',
-        value: 245,
-        lineStyle: { width: 4, color: '#52c41a' }
-      },
-      {
-        source: 'mpaymentservice',
-        target: 'mpostgres',
-        value: 25,
-        lineStyle: { width: 2, color: '#f5222d' }
-      },
-      {
-        source: 'mcheckoutservice',
-        target: 'mpostgres',
-        value: 32,
-        lineStyle: { width: 2, color: '#faad14' }
-      }
-    ],
-    runtimeEnvironments: ['javascript', 'go', 'java', 'python', 'postgresql', 'redis'],
-    healthSummary: {
-      healthy: 4,
-      warning: 1,
-      degraded: 0,
-      critical: 1,
-      unavailable: 0
+  // Apply filtering based on tabs and highlighted services
+  if (filterMode === 'filter') {
+    if (nodesToShow.size > 0) {
+      // If we have services with tabs, show those and neighbors
+      processedNodes = processedNodes.filter((node) => nodesToShow.has(node.id))
+    } else if (highlightedServices.length > 0) {
+      // Otherwise, filter by highlighted services (from critical paths)
+      processedNodes = processedNodes.filter((node) => highlightedServices.includes(node.id))
     }
   }
+
+  // Process nodes to add health coloring and highlighting
+  processedNodes = processedNodes.map((node) => {
+    const healthColor = getNodeOverallHealthColor(node.metrics)
+    const isServiceWithTab = servicesWithTabs.includes(node.id)
+    const isHighlighted =
+      isServiceWithTab || (highlightedServices.length > 0 && highlightedServices.includes(node.id))
+    const isDimmed =
+      filterMode === 'highlight' &&
+      (highlightedServices.length > 0 || servicesWithTabs.length > 0) &&
+      !isHighlighted
+
+    return {
+      ...node,
+      name: `${getRuntimeIcon(node.category)} ${node.name}`,
+      itemStyle: {
+        ...node.itemStyle,
+        color: healthColor,
+        opacity: isDimmed ? 0.3 : 1.0,
+        borderColor: isHighlighted && filterMode === 'highlight' ? '#1890ff' : healthColor,
+        borderWidth: isHighlighted && filterMode === 'highlight' ? 4 : 2,
+        shadowBlur: isHighlighted && filterMode === 'highlight' ? 15 : 0,
+        shadowColor: isHighlighted && filterMode === 'highlight' ? '#1890ff' : undefined
+      },
+      value: node.metrics?.rate || 1,
+      emphasis: {
+        disabled: isDimmed,
+        itemStyle: {
+          opacity: isDimmed ? 0.3 : 1.0
+        }
+      }
+    }
+  })
+
+  // Filter nodes based on health status if filters are active
+  const filteredNodes =
+    filteredHealthStatuses.length > 0
+      ? processedNodes.filter((node) => {
+          const status = getNodeHealthStatus(node.metrics)
+          return filteredHealthStatuses.includes(status)
+        })
+      : processedNodes
+
+  // Filter edges to only show connections between visible nodes
+  const visibleNodeIds = new Set(filteredNodes.map((n) => n.id))
+  const filteredEdges = data.edges.filter(
+    (edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target)
+  )
+
+  const getOption = (): EChartsOption => {
+    const graphSeries: GraphSeriesOption = {
+      name: 'Service Topology',
+      type: 'graph',
+      layout: 'force',
+      data: filteredNodes,
+      links: filteredEdges.map((edge) => ({
+        ...edge,
+        // Add arrow to show direction
+        symbol: ['none', 'arrow'] as ['none', 'arrow'],
+        symbolSize: [0, 10] as [number, number],
+        lineStyle: {
+          ...edge.lineStyle,
+          curveness: 0.3,
+          type: edge.lineStyle.type as 'solid' | 'dashed' | 'dotted' | undefined
+        }
+      })),
+      roam: true,
+      draggable: true,
+      focusNodeAdjacency: true,
+      categories: data.runtimeEnvironments?.map((runtime) => ({
+        name: runtime,
+        symbol: 'circle'
+      })),
+      force: {
+        repulsion: 400,
+        gravity: 0.1,
+        edgeLength: [100, 250],
+        friction: 0.6
+      },
+      label: {
+        show: true,
+        position: 'bottom',
+        formatter: '{b}',
+        fontSize: 11,
+        distance: 8
+      },
+      emphasis: {
+        focus: 'adjacency' as const,
+        lineStyle: {
+          width: 4
+        }
+      }
+    }
+
+    return {
+      tooltip: {
+        trigger: 'item',
+        position: function (point: number[]) {
+          // Position tooltip to bottom-left of cursor
+          return [point[0] - 10, point[1] + 10]
+        },
+        confine: true,
+        formatter: (params: CallbackDataParams | CallbackDataParams[]) => {
+          if (!Array.isArray(params)) {
+            const param = params
+            if (param.dataType === 'node' && param.data) {
+              const nodeData = param.data as ServiceNode
+              const metrics = nodeData.metrics
+              const cleanName = nodeData.name?.replace(/^[^\s]+\s/, '') || 'Unknown'
+
+              if (!metrics) {
+                return `<div style="padding: 8px;">
+                  <strong>${nodeData.name || 'Unknown'}</strong><br/>
+                  No metrics available
+                </div>`
+              }
+
+              const healthExplanation = generateHealthExplanation(cleanName, metrics)
+              const getStatusEmoji = (status: number) =>
+                status === 0 ? '✅' : status === 1 ? '⚠️' : '❌'
+              const getStatusColor = (status: string) =>
+                status === 'critical' ? '#ff4d4f' : status === 'warning' ? '#faad14' : '#52c41a'
+
+              // Simplified, more concise tooltip
+              const criticalIssues = healthExplanation.impactedMetrics.filter(
+                (m) => m.status === 'critical'
+              )
+              const warningIssues = healthExplanation.impactedMetrics.filter(
+                (m) => m.status === 'warning'
+              )
+
+              return `
+                <div style="padding: 10px; max-width: 320px;">
+                  <div style="margin-bottom: 8px;">
+                    <strong style="font-size: 13px;">${nodeData.name || 'Unknown'}</strong>
+                    <span style="margin-left: 8px; padding: 2px 6px; background: ${getStatusColor(healthExplanation.status)}; color: white; border-radius: 3px; font-size: 10px;">
+                      ${healthExplanation.status.toUpperCase()}
+                    </span>
+                  </div>
+                  
+                  <table style="font-size: 11px; width: 100%; margin-bottom: 8px;">
+                    <tr>
+                      <td style="padding: 2px;">${getStatusEmoji(metrics.rateStatus || 0)} Rate:</td>
+                      <td style="padding: 2px; text-align: right;"><strong>${(metrics.rate || 0).toFixed(1)} req/s</strong></td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 2px;">${getStatusEmoji(metrics.errorStatus || 0)} Errors:</td>
+                      <td style="padding: 2px; text-align: right;"><strong>${(metrics.errorRate || 0).toFixed(1)}%</strong></td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 2px;">${getStatusEmoji(metrics.durationStatus || 0)} P95:</td>
+                      <td style="padding: 2px; text-align: right;"><strong>${(metrics.duration || 0).toFixed(2)} ms</strong></td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 2px;">${getStatusEmoji(metrics.otelStatus || 0)} Spans:</td>
+                      <td style="padding: 2px; text-align: right;"><strong>${(metrics.spanCount || 0).toLocaleString()}</strong></td>
+                    </tr>
+                  </table>
+                  
+                  ${
+                    criticalIssues.length > 0
+                      ? `
+                    <div style="background: #fff2e8; padding: 6px; border-radius: 3px; margin-bottom: 6px;">
+                      <div style="font-size: 10px; color: #d4380d; font-weight: bold;">⚠️ Critical Issues:</div>
+                      ${criticalIssues.map((i) => `<div style="font-size: 10px; color: #8c5415;">• ${i.metric}: ${i.value}</div>`).join('')}
+                    </div>
+                  `
+                      : warningIssues.length > 0
+                        ? `
+                    <div style="background: #fffbe6; padding: 6px; border-radius: 3px; margin-bottom: 6px;">
+                      <div style="font-size: 10px; color: #d48806; font-weight: bold;">⚡ Warnings:</div>
+                      ${warningIssues.map((i) => `<div style="font-size: 10px; color: #8c6516;">• ${i.metric}: ${i.value}</div>`).join('')}
+                    </div>
+                  `
+                        : ''
+                  }
+                  
+                  ${
+                    healthExplanation.recommendations.length > 0 &&
+                    healthExplanation.status !== 'healthy'
+                      ? `
+                    <div style="border-top: 1px solid #e8e8e8; padding-top: 6px;">
+                      <div style="font-size: 10px; color: #666;">
+                        💡 ${healthExplanation.recommendations[0].substring(0, 80)}${healthExplanation.recommendations[0].length > 80 ? '...' : ''}
+                      </div>
+                    </div>
+                  `
+                      : ''
+                  }
+                </div>
+              `
+            } else if (param.dataType === 'edge' && param.data) {
+              const edgeData = param.data as ServiceEdge
+              let tooltip = `
+                <div style="padding: 8px;">
+                  <strong>${edgeData.source || 'Unknown'} → ${edgeData.target || 'Unknown'}</strong><br/>
+                  Total Calls: ${edgeData.value || 0}<br/>`
+
+              if (edgeData.operations && edgeData.operations.length > 0) {
+                tooltip += `<div style="margin-top: 8px; font-size: 11px;">
+                  <strong>Operations:</strong><br/>`
+                edgeData.operations.slice(0, 5).forEach((op) => {
+                  tooltip += `• ${op.name}: ${op.count} calls (${op.avgDuration.toFixed(0)}ms)<br/>`
+                })
+                if (edgeData.operations.length > 5) {
+                  tooltip += `<em>... and ${edgeData.operations.length - 5} more</em>`
+                }
+                tooltip += '</div>'
+              }
+
+              tooltip += '</div>'
+              return tooltip
+            }
+          }
+          return ''
+        }
+      },
+      legend: [
+        {
+          data: ['Rate', 'Errors', 'Duration', 'OTel'],
+          orient: 'horizontal',
+          left: 'center',
+          bottom: 20,
+          itemWidth: 15,
+          itemHeight: 15,
+          formatter: (name: string) => {
+            const icons: Record<string, string> = {
+              Rate: '📊',
+              Errors: '⚠️',
+              Duration: '⏱️',
+              OTel: '📡'
+            }
+            return `${icons[name] || ''} ${name}`
+          }
+        },
+        {
+          data: data.runtimeEnvironments || [],
+          orient: 'vertical',
+          left: 'left',
+          top: 'center',
+          formatter: (name: string) => `${getRuntimeIcon(name)} ${name}`
+        }
+      ],
+      animationDuration: 1500,
+      animationEasingUpdate: 'quinticInOut',
+      series: [graphSeries]
+    }
+  }
+
+  const onChartClick = (params: { dataType: string; data: ServiceNode }) => {
+    console.log('[ServiceTopologyPanel] Click event:', {
+      dataType: params.dataType,
+      hasData: !!params.data,
+      nodeId: params.data?.id,
+      nodeName: params.data?.name
+    })
+
+    if (params.dataType === 'node') {
+      if (onNodeClick) {
+        console.log('[ServiceTopologyPanel] Calling onNodeClick with node:', params.data)
+        onNodeClick(params.data)
+      } else {
+        console.log('[ServiceTopologyPanel] No onNodeClick handler provided')
+      }
+    }
+  }
+
+  const onEvents = {
+    click: onChartClick
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Health Summary Bar with Clickable Filters */}
+      {data.healthSummary && (
+        <div
+          style={{ marginBottom: 8, padding: '4px 8px', background: '#fafafa', borderRadius: 4 }}
+        >
+          <Space size="small" style={{ fontSize: 11 }}>
+            <Text strong style={{ fontSize: 11 }}>
+              Health:
+            </Text>
+            <Badge count={data.healthSummary.healthy} showZero size="small">
+              <Tag
+                color="green"
+                icon={<CheckCircleOutlined />}
+                style={{ cursor: 'pointer', fontSize: 11 }}
+                onClick={() => onHealthFilter && onHealthFilter('healthy')}
+              >
+                Healthy
+              </Tag>
+            </Badge>
+            <Badge count={data.healthSummary.warning} showZero size="small">
+              <Tag
+                color="yellow"
+                icon={<WarningOutlined />}
+                style={{ cursor: 'pointer', fontSize: 11 }}
+                onClick={() => onHealthFilter && onHealthFilter('warning')}
+              >
+                Warning
+              </Tag>
+            </Badge>
+            <Badge count={data.healthSummary.degraded} showZero size="small">
+              <Tag
+                color="orange"
+                icon={<AlertOutlined />}
+                style={{ cursor: 'pointer', fontSize: 11 }}
+                onClick={() => onHealthFilter && onHealthFilter('degraded')}
+              >
+                Degraded
+              </Tag>
+            </Badge>
+            <Badge count={data.healthSummary.critical} showZero size="small">
+              <Tag
+                color="red"
+                icon={<HeartOutlined />}
+                style={{ cursor: 'pointer', fontSize: 11 }}
+                onClick={() => onHealthFilter && onHealthFilter('critical')}
+              >
+                Critical
+              </Tag>
+            </Badge>
+            <Badge count={data.healthSummary.unavailable} showZero size="small">
+              <Tag
+                color="black"
+                icon={<StopOutlined />}
+                style={{ cursor: 'pointer', fontSize: 11 }}
+                onClick={() => onHealthFilter && onHealthFilter('unavailable')}
+              >
+                Unavailable
+              </Tag>
+            </Badge>
+            {filteredHealthStatuses.length > 0 && (
+              <Tag
+                color="blue"
+                closable
+                onClose={() => onHealthFilter && onHealthFilter('')}
+                style={{ fontSize: 11 }}
+              >
+                Clear Filter
+              </Tag>
+            )}
+          </Space>
+        </div>
+      )}
+
+      {/* Main Chart */}
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <ReactECharts
+          ref={chartRef}
+          option={getOption()}
+          style={{ height: '100%', width: '100%', flex: 1 }}
+          onEvents={onEvents}
+        />
+      </div>
+
+      {/* Health Status Legend - Inline */}
+      <div
+        style={{
+          marginTop: 8,
+          padding: '4px 8px',
+          background: '#fafafa',
+          borderRadius: 4,
+          fontSize: 11
+        }}
+      >
+        <Space size="small">
+          <Text style={{ fontSize: 11 }}>Node colors:</Text>
+          <span style={{ color: '#52c41a' }}>● Healthy</span>
+          <span style={{ color: '#faad14' }}>● Warning</span>
+          <span style={{ color: '#ff4d4f' }}>● Critical</span>
+        </Space>
+      </div>
+    </div>
+  )
 }
 
 export default ServiceTopologyGraph
