@@ -4,7 +4,7 @@ import {
   BugOutlined,
   BarChartOutlined,
   FileTextOutlined,
-  BulbOutlined,
+  ApartmentOutlined,
   SettingOutlined,
   MoonOutlined,
   SunOutlined,
@@ -13,6 +13,11 @@ import {
 } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAppStore } from '../../store/appStore'
+import { AnalysisConfiguration } from '../AnalysisConfiguration'
+import { TimeRangeSelector } from '../GlobalControls/TimeRangeSelector'
+import { AutoRefreshSelector } from '../GlobalControls/AutoRefreshSelector'
+import { AnalyzeButton } from '../GlobalControls/AnalyzeButton'
+import { DataSourceToggle } from '../GlobalControls/DataSourceToggle'
 
 const { Header, Sider, Content } = AntLayout
 const { Title } = Typography
@@ -27,6 +32,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { darkMode, toggleDarkMode, sidebarCollapsed, toggleSidebar } = useAppStore()
 
   const menuItems = [
+    {
+      key: '/servicetopology',
+      icon: <ApartmentOutlined />,
+      label: 'Service Topology',
+      'data-testid': 'nav-servicetopology'
+    },
     {
       key: '/traces',
       icon: <BugOutlined />,
@@ -44,12 +55,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       icon: <FileTextOutlined />,
       label: 'Logs',
       'data-testid': 'nav-logs'
-    },
-    {
-      key: '/insights',
-      icon: <BulbOutlined />,
-      label: 'AI Insights',
-      'data-testid': 'nav-insights'
     },
     {
       key: '/llm-debug',
@@ -113,9 +118,14 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           >
             OTel AI Observability
           </Title>
+          <DataSourceToggle darkMode={darkMode} />
         </Space>
 
         <Space>
+          <AnalysisConfiguration darkMode={darkMode} />
+          <TimeRangeSelector darkMode={darkMode} />
+          <AutoRefreshSelector darkMode={darkMode} />
+          <AnalyzeButton darkMode={darkMode} />
           <Dropdown menu={settingsMenu} placement="bottomRight">
             <Button
               type="text"

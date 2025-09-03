@@ -94,12 +94,12 @@ This distributed application follows a microservices pattern with 8 core service
       'Modern microservices-based e-commerce platform with React frontend, Kong API gateway, and distributed backend services',
     services: [
       {
-        service: 'frontend-web',
+        service: 'mfrontend-web',
         type: 'frontend',
         operations: ['page-load', 'api-call', 'user-interaction'],
         dependencies: [
           {
-            service: 'api-gateway',
+            service: 'mapi-gateway',
             operation: 'api-request',
             callCount: 15000,
             avgLatencyMs: 45,
@@ -115,19 +115,19 @@ This distributed application follows a microservices pattern with 8 core service
         }
       },
       {
-        service: 'api-gateway',
+        service: 'mapi-gateway',
         type: 'api',
         operations: ['route', 'auth', 'rate-limit'],
         dependencies: [
           {
-            service: 'user-service',
+            service: 'muser-service',
             operation: 'get-user',
             callCount: 8000,
             avgLatencyMs: 85,
             errorRate: 0.003
           },
           {
-            service: 'order-service',
+            service: 'morder-service',
             operation: 'create-order',
             callCount: 3000,
             avgLatencyMs: 150,
@@ -143,19 +143,19 @@ This distributed application follows a microservices pattern with 8 core service
         }
       },
       {
-        service: 'user-service',
+        service: 'muser-service',
         type: 'backend',
         operations: ['get-user', 'create-user', 'update-profile'],
         dependencies: [
           {
-            service: 'postgres-db',
+            service: 'mpostgres-db',
             operation: 'query',
             callCount: 8500,
             avgLatencyMs: 25,
             errorRate: 0.001
           },
           {
-            service: 'redis-cache',
+            service: 'mredis-cache',
             operation: 'get',
             callCount: 6000,
             avgLatencyMs: 3,
@@ -171,19 +171,19 @@ This distributed application follows a microservices pattern with 8 core service
         }
       },
       {
-        service: 'order-service',
+        service: 'morder-service',
         type: 'backend',
         operations: ['create-order', 'get-orders', 'cancel-order'],
         dependencies: [
           {
-            service: 'postgres-db',
+            service: 'mpostgres-db',
             operation: 'transaction',
             callCount: 3200,
             avgLatencyMs: 45,
             errorRate: 0.002
           },
           {
-            service: 'payment-service',
+            service: 'mpayment-service',
             operation: 'process-payment',
             callCount: 2800,
             avgLatencyMs: 250,
@@ -199,19 +199,19 @@ This distributed application follows a microservices pattern with 8 core service
         }
       },
       {
-        service: 'payment-service',
+        service: 'mpayment-service',
         type: 'backend',
         operations: ['process-payment', 'refund', 'validate-card'],
         dependencies: [
           {
-            service: 'stripe-api',
+            service: 'mstripe-api',
             operation: 'charge',
             callCount: 2800,
             avgLatencyMs: 180,
             errorRate: 0.01
           },
           {
-            service: 'postgres-db',
+            service: 'mpostgres-db',
             operation: 'insert',
             callCount: 2900,
             avgLatencyMs: 20,
@@ -227,7 +227,7 @@ This distributed application follows a microservices pattern with 8 core service
         }
       },
       {
-        service: 'postgres-db',
+        service: 'mpostgres-db',
         type: 'database',
         operations: ['SELECT', 'INSERT', 'UPDATE', 'BEGIN TRANSACTION'],
         dependencies: [],
@@ -240,7 +240,7 @@ This distributed application follows a microservices pattern with 8 core service
         }
       },
       {
-        service: 'redis-cache',
+        service: 'mredis-cache',
         type: 'cache',
         operations: ['GET', 'SET', 'DEL', 'EXPIRE'],
         dependencies: [],
@@ -253,7 +253,7 @@ This distributed application follows a microservices pattern with 8 core service
         }
       },
       {
-        service: 'stripe-api',
+        service: 'mstripe-api',
         type: 'external',
         operations: ['charge', 'refund', 'webhook'],
         dependencies: [],
@@ -268,50 +268,50 @@ This distributed application follows a microservices pattern with 8 core service
     ],
     dataFlows: [
       {
-        from: 'frontend-web',
-        to: 'api-gateway',
+        from: 'mfrontend-web',
+        to: 'mapi-gateway',
         operation: 'api-request',
         volume: 15000,
         latency: { p50: 45, p95: 120, p99: 200 }
       },
       {
-        from: 'api-gateway',
-        to: 'user-service',
+        from: 'mapi-gateway',
+        to: 'muser-service',
         operation: 'get-user',
         volume: 8000,
         latency: { p50: 85, p95: 180, p99: 300 }
       },
       {
-        from: 'api-gateway',
-        to: 'order-service',
+        from: 'mapi-gateway',
+        to: 'morder-service',
         operation: 'create-order',
         volume: 3000,
         latency: { p50: 150, p95: 350, p99: 500 }
       },
       {
-        from: 'user-service',
-        to: 'postgres-db',
+        from: 'muser-service',
+        to: 'mpostgres-db',
         operation: 'query',
         volume: 8500,
         latency: { p50: 25, p95: 60, p99: 120 }
       },
       {
-        from: 'user-service',
-        to: 'redis-cache',
+        from: 'muser-service',
+        to: 'mredis-cache',
         operation: 'get',
         volume: 6000,
         latency: { p50: 3, p95: 8, p99: 15 }
       },
       {
-        from: 'order-service',
-        to: 'payment-service',
+        from: 'morder-service',
+        to: 'mpayment-service',
         operation: 'process-payment',
         volume: 2800,
         latency: { p50: 250, p95: 500, p99: 800 }
       },
       {
-        from: 'payment-service',
-        to: 'stripe-api',
+        from: 'mpayment-service',
+        to: 'mstripe-api',
         operation: 'charge',
         volume: 2800,
         latency: { p50: 180, p95: 400, p99: 600 }
@@ -320,19 +320,25 @@ This distributed application follows a microservices pattern with 8 core service
     criticalPaths: [
       {
         name: 'User Registration Flow',
-        services: ['frontend-web', 'api-gateway', 'user-service', 'postgres-db'],
+        services: ['mfrontend-web', 'mapi-gateway', 'muser-service', 'mpostgres-db'],
         avgLatencyMs: 195,
         errorRate: 0.003
       },
       {
         name: 'Order Checkout Flow',
-        services: ['frontend-web', 'api-gateway', 'order-service', 'payment-service', 'stripe-api'],
+        services: [
+          'mfrontend-web',
+          'mapi-gateway',
+          'morder-service',
+          'mpayment-service',
+          'mstripe-api'
+        ],
         avgLatencyMs: 485,
         errorRate: 0.012
       },
       {
         name: 'User Profile Lookup',
-        services: ['frontend-web', 'api-gateway', 'user-service', 'redis-cache'],
+        services: ['mfrontend-web', 'mapi-gateway', 'muser-service', 'mredis-cache'],
         avgLatencyMs: 133,
         errorRate: 0.002
       }

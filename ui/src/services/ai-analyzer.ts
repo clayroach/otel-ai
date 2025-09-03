@@ -9,7 +9,7 @@ import type {
   AnalysisResult,
   ServiceTopology,
   ApplicationArchitecture
-} from '../views/InsightsView/mockData'
+} from '../views/ServiceTopologyView/mockData'
 
 // API client configuration
 const apiClient = axios.create({

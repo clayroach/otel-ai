@@ -205,24 +205,76 @@ const result = data.value // type-safe access
 }
 ```
 
-## Implementation Checklist
+## Feature-Based Implementation System
+
+### Feature Document Structure
+All features MUST have a design document in `notes/design/features/feature-XXX-name.md` with:
+- Implementation checklist with status tracking
+- Session recovery checkpoint system
+- File modification tracking
+- Blocker documentation
+
+### Session Recovery Process
+When starting work on a feature:
+1. **Check feature document** for last session state
+2. **Review modified files** to understand current implementation
+3. **Continue from last checkpoint** using pending tasks
+4. **Update status indicators** as work progresses
+
+### Status Indicators
+- ⬜ Not Started
+- 🟦 In Progress (include current file/task)
+- ✅ Completed (include verification method)
+- ❌ Blocked (include blocker description)
+- 🔄 Needs Rework (include reason)
+
+### Implementation Checklist Template
 
 For each feature implementation:
-- [ ] Read and understand design document
-- [ ] Define all interfaces with Context.Tag
-- [ ] Create Schema definitions for data models
-- [ ] **🚨 MANDATORY USER APPROVAL**: Present implementation plan and get explicit approval before writing any code
-- [ ] Implement service with Effect.gen
-- [ ] Handle all errors with tagged unions
-- [ ] Create unit tests with mocked dependencies
-- [ ] Create integration tests for APIs
-- [ ] Validate no "any" types or type assertions
-- [ ] Ensure tsconfig strict mode compliance
-- [ ] Run eslint and fix all issues
-- [ ] Document public APIs with JSDoc
-- [ ] **VERIFY WITH USER**: Show the implementation and confirm it works before proceeding
-- [ ] **TEST IN BROWSER**: Ensure UI components are actually rendered and visible
-- [ ] **GET USER CONFIRMATION**: Ask "Does this look correct? Should I proceed to the next task?"
+- [ ] ⬜ Read feature design document in `notes/design/features/`
+- [ ] ⬜ Check session recovery checkpoint for previous work
+- [ ] ⬜ Define all interfaces with Context.Tag
+- [ ] ⬜ Create Schema definitions for data models
+- [ ] ⬜ **🚨 MANDATORY USER APPROVAL**: Present implementation plan
+- [ ] ⬜ Implement Phase 1 tasks from feature document
+- [ ] ⬜ Update checkpoint with Phase 1 completion status
+- [ ] ⬜ Create unit tests for Phase 1 components
+- [ ] ⬜ Implement Phase 2 tasks from feature document
+- [ ] ⬜ Update checkpoint with Phase 2 completion status
+- [ ] ⬜ Create integration tests for Phase 2
+- [ ] ⬜ Continue through all phases in feature document
+- [ ] ⬜ Validate no "any" types or type assertions
+- [ ] ⬜ Ensure tsconfig strict mode compliance
+- [ ] ⬜ Run eslint and fix all issues
+- [ ] ⬜ Document public APIs with JSDoc
+- [ ] ⬜ **VERIFY WITH USER**: Show implementation and confirm
+- [ ] ⬜ **TEST IN BROWSER**: Ensure UI components render
+- [ ] ⬜ **UPDATE FEATURE DOC**: Mark phases complete with commit hash
+- [ ] ⬜ **GET USER CONFIRMATION**: "Should I proceed to next phase?"
+
+### Checkpoint Update Format
+After each work session, update the feature document:
+```yaml
+last_session:
+  timestamp: YYYY-MM-DDTHH:MM:SSZ
+  current_phase: "Phase X: Name"
+  current_task: "Specific task being worked on"
+  completed_tasks:
+    - "Task 1 ✅"
+    - "Task 2 ✅"
+  files_modified:
+    - path/to/file1.tsx
+    - path/to/file2.ts
+  pending_tasks:
+    - "Next task to complete"
+  blockers:
+    - description: "Blocker if any"
+      resolution: "How to resolve"
+  notes: "Important context for next session"
+  verification:
+    - "pnpm test passed"
+    - "UI renders correctly at localhost:5173"
+```
 
 ## 🚨 MANDATORY USER APPROVAL PROCESS
 

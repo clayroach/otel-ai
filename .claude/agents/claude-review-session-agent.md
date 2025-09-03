@@ -77,11 +77,20 @@ Use the claude-review-session-agent to understand why the AI analyzer uses LLM-b
 Use jq to extract textual content from Claude Code session logs:
 
 ```bash
+# Find most recent session files
+find "/Users/croach/.claude/projects/-Users-croach-projects-otel-ai" -name "*.jsonl" -exec stat -f "%m %N" {} \; | sort -rn | head -5 | cut -d' ' -f2
+
 # Extract user text messages (non-command)
 jq -r 'select(.type == "user" and .message.role == "user" and (.message.content | type == "string") and (.message.content | test("^[^<]"))) | "\(.timestamp): \(.message.content)"' ~/.claude/projects/-Users-croach-projects-otel-ai/SESSION_ID.jsonl
 
 # Extract Claude text responses  
 jq -r 'select(.type == "assistant" and .message.content[0].type == "text") | "\(.timestamp): \(.message.content[0].text)"' ~/.claude/projects/-Users-croach-projects-otel-ai/SESSION_ID.jsonl
+
+# Search for specific topics across sessions
+for session in $(find "/Users/croach/.claude/projects/-Users-croach-projects-otel-ai" -name "*.jsonl" -exec stat -f "%m %N" {} \; | sort -rn | head -10 | cut -d' ' -f2); do 
+  echo "=== Session: $(basename $session) ==="
+  jq -r 'select(.message.content | tostring | test("SEARCH_TERM"; "i")) | "\(.timestamp): \(.message.content | tostring | .[0:500])"' "$session" | head -5
+done
 ```
 
 This extracts only meaningful textual exchanges, filtering out:
