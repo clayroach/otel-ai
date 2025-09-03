@@ -172,6 +172,9 @@ jobs:
         run: |
           echo "🔗 Running integration tests with established pnpm commands..."
           pnpm test:integration
+        env:
+          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           
       - name: E2E tests with Playwright (Chromium only for speed)
         run: |

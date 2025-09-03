@@ -13,23 +13,46 @@ import { Effect, Stream } from 'effect'
 import { makeLocalModelClient, defaultLocalConfig, checkLocalModelHealth } from '../../clients/local-client.js'
 import type { LLMRequest } from '../../types.js'
 
+// Check LM Studio availability at module load time for skipIf
+let isLMStudioAvailable = await (async () => {
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 500)
+    const response = await fetch('http://localhost:1234/v1/models', {
+      signal: controller.signal
+    })
+    clearTimeout(timeout)
+    return response.ok
+  } catch {
+    return false
+  }
+})()
+
 describe('Local Model Client Integration', () => {
-  let isLMStudioAvailable = false
   
   beforeAll(async () => {
-    // Check if LM Studio is running
+    // Do the proper async check
     try {
       const health = await Effect.runPromise(checkLocalModelHealth())
-      isLMStudioAvailable = health.healthy
+      const actuallyAvailable = health.healthy
+      
+      if (!actuallyAvailable && isLMStudioAvailable) {
+        // Sync check was wrong, update
+        isLMStudioAvailable = false
+      } else if (actuallyAvailable && !isLMStudioAvailable) {
+        // Sync check failed but async succeeded - too late to unskip tests
+        console.log('⚠️  LM Studio is available but tests were already skipped due to timing')
+      }
+      
+      if (!actuallyAvailable) {
+        console.log('⏭️  Skipping local model tests - LM Studio not running at http://localhost:1234')
+      } else {
+        console.log('✅ LM Studio detected at http://localhost:1234')
+      }
     } catch (error) {
       // LM Studio not available - this is expected in CI
       isLMStudioAvailable = false
-    }
-    
-    if (!isLMStudioAvailable) {
       console.log('⏭️  Skipping local model tests - LM Studio not running at http://localhost:1234')
-    } else {
-      console.log('✅ LM Studio detected at http://localhost:1234')
     }
   })
 

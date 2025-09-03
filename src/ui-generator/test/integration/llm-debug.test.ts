@@ -42,17 +42,13 @@ Generate a query that shows p95 latency for each service in the critical path.`
     }
   }
 
-  it('should debug Claude response', async () => {
-    if (!process.env.CLAUDE_API_KEY) {
-      console.log('⏭️  Skipping Claude test - no API key')
-      return
-    }
+  it.skipIf(!process.env.CLAUDE_API_KEY)('should debug Claude response', async () => {
 
     console.log('\n🔍 Testing Claude-3-7-sonnet-20250219')
     console.log('━'.repeat(60))
     
     const client = makeClaudeClient({
-      apiKey: process.env.CLAUDE_API_KEY,
+      apiKey: process.env.CLAUDE_API_KEY || '',
       model: 'claude-3-7-sonnet-20250219',
       maxTokens: 1000,
       temperature: 0,
@@ -93,21 +89,18 @@ Generate a query that shows p95 latency for each service in the critical path.`
     }
   })
 
-  it('should debug GPT-3.5-turbo response', async () => {
-    if (!process.env.OPENAI_API_KEY) {
-      console.log('⏭️  Skipping GPT test - no API key')
-      return
-    }
+  it.skipIf(!process.env.OPENAI_API_KEY)('should debug GPT-3.5-turbo response', async () => {
 
     console.log('\n🔍 Testing GPT-3.5-turbo')
     console.log('━'.repeat(60))
     
     const client = makeOpenAIClient({
-      apiKey: process.env.OPENAI_API_KEY,
+      apiKey: process.env.OPENAI_API_KEY || '',
       model: 'gpt-3.5-turbo',
       maxTokens: 1000,
       temperature: 0,
-      timeout: 30000
+      timeout: 30000,
+      endpoint: 'https://api.openai.com/v1'
     })
 
     const result = await Effect.runPromise(
@@ -220,21 +213,18 @@ Generate a query that shows p95 latency for each service in the critical path.`
     }
   })
 
-  it('should compare prompts that work vs fail', async () => {
-    if (!process.env.OPENAI_API_KEY) {
-      console.log('⏭️  Skipping comparison test - no API key')
-      return
-    }
+  it.skipIf(!process.env.OPENAI_API_KEY)('should compare prompts that work vs fail', async () => {
 
     console.log('\n🔬 Testing different prompt strategies with GPT-3.5-turbo')
     console.log('━'.repeat(60))
     
     const client = makeOpenAIClient({
-      apiKey: process.env.OPENAI_API_KEY,
+      apiKey: process.env.OPENAI_API_KEY || '',
       model: 'gpt-3.5-turbo',
       maxTokens: 1000,
       temperature: 0,
-      timeout: 30000
+      timeout: 30000,
+      endpoint: 'https://api.openai.com/v1'
     })
 
     // Strategy 1: Explicit table name

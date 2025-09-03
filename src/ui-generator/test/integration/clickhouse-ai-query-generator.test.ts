@@ -21,42 +21,45 @@ const testPath: CriticalPath = {
   }
 }
 
+// Check availability at module load time for skipIf
+const isAvailable = (() => {
+  if (process.env.SKIP_LLM_TESTS === 'true') {
+    console.log("⏭️  Skipping ClickHouse AI tests (SKIP_LLM_TESTS=true)")
+    return false
+  }
+  
+  const hasOpenAIKey = !!process.env.OPENAI_API_KEY
+  const hasClaudeKey = !!process.env.CLAUDE_API_KEY
+  const hasLocalEndpoint = !!process.env.LLM_ENDPOINT
+  
+  const hasExternalAPIs = hasOpenAIKey || hasClaudeKey
+  
+  if (hasExternalAPIs) {
+    console.log("✅ ClickHouse AI Query Generator using EXTERNAL LLMs")
+    console.log(`   🌐 Path 1: External API Mode`)
+    console.log(`   Claude API: ${hasClaudeKey ? '✓ configured' : '✗ not configured'}`)
+    console.log(`   OpenAI API: ${hasOpenAIKey ? '✓ configured' : '✗ not configured'}`)
+    return true
+  } else if (hasLocalEndpoint) {
+    console.log("✅ ClickHouse AI Query Generator using LOCAL models")
+    console.log(`   💻 Path 2: Local Model Fallback`)
+    console.log(`   Local endpoint: ${process.env.LLM_ENDPOINT}`)
+    console.log(`   Will use SQL models: ${process.env.LLM_SQL_MODEL_1 || 'sqlcoder-7b-2'}`)
+    return true
+  } else {
+    console.log("❌ No AI models configured for ClickHouse AI Query Generator")
+    console.log("   Path 1 (preferred): Set OPENAI_API_KEY or CLAUDE_API_KEY")
+    console.log("   Path 2 (fallback): Set LLM_ENDPOINT for local models")
+    return false
+  }
+})()
+
 describe("ClickHouse AI Query Generator", () => {
-  let isAvailable = false
   
   beforeAll(() => {
-    // Check if we should skip these tests
-    if (process.env.SKIP_LLM_TESTS === 'true') {
-      console.log("⏭️  Skipping ClickHouse AI tests (SKIP_LLM_TESTS=true)")
-      isAvailable = false
-      return
-    }
-    
-    // Check if we have API keys configured for general models
-    const hasOpenAIKey = !!process.env.OPENAI_API_KEY
-    const hasClaudeKey = !!process.env.CLAUDE_API_KEY
-    const hasLocalEndpoint = !!process.env.LLM_ENDPOINT
-    
-    // ClickHouse AI prioritizes external APIs
-    const hasExternalAPIs = hasOpenAIKey || hasClaudeKey
-    
-    if (hasExternalAPIs) {
-      console.log("✅ ClickHouse AI Query Generator using EXTERNAL LLMs")
-      console.log(`   🌐 Path 1: External API Mode`)
-      console.log(`   Claude API: ${hasClaudeKey ? '✓ configured' : '✗ not configured'}`)
-      console.log(`   OpenAI API: ${hasOpenAIKey ? '✓ configured' : '✗ not configured'}`)
-      isAvailable = true
-    } else if (hasLocalEndpoint) {
-      console.log("✅ ClickHouse AI Query Generator using LOCAL models")
-      console.log(`   💻 Path 2: Local Model Fallback`)
-      console.log(`   Local endpoint: ${process.env.LLM_ENDPOINT}`)
-      console.log(`   Will use SQL models: ${process.env.LLM_SQL_MODEL_1 || 'sqlcoder-7b-2'}`)
-      isAvailable = true
-    } else {
-      console.log("❌ No AI models configured for ClickHouse AI Query Generator")
-      console.log("   Path 1 (preferred): Set OPENAI_API_KEY or CLAUDE_API_KEY")
-      console.log("   Path 2 (fallback): Set LLM_ENDPOINT for local models")
-      isAvailable = false
+    // Just log status since we already checked at module load
+    if (!isAvailable) {
+      console.log("⏭️  Tests will be skipped - no AI models available")
     }
   })
   
