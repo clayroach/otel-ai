@@ -1,10 +1,13 @@
 import React from 'react'
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
-import { Card, Empty } from 'antd'
+import { Card, Empty, Space, Typography } from 'antd'
+import { BranchesOutlined } from '@ant-design/icons'
 import type { CriticalPath } from './types'
 
-interface PathFlowChartProps {
+const { Text } = Typography
+
+interface PathFlowChartPanelProps {
   path: CriticalPath | null
   services: Array<{
     id: string
@@ -18,10 +21,42 @@ interface PathFlowChartProps {
   height?: number
 }
 
-export const PathFlowChart: React.FC<PathFlowChartProps> = ({ path, services, height = 600 }) => {
+export const PathFlowChartPanel: React.FC<PathFlowChartPanelProps> = ({
+  path,
+  services,
+  height = 600
+}) => {
+  const cardTitle = (
+    <Space size="small" style={{ fontSize: '14px' }}>
+      <BranchesOutlined style={{ fontSize: '14px' }} />
+      <Text strong style={{ fontSize: '14px', whiteSpace: 'nowrap' }}>
+        {path ? path.name : 'Path Flow'}
+      </Text>
+    </Space>
+  )
+
   if (!path) {
     return (
-      <Card style={{ height: '100%' }}>
+      <Card
+        style={{
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}
+        styles={{
+          body: {
+            padding: '12px',
+            flex: 1,
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center'
+          }
+        }}
+        title={cardTitle}
+      >
         <Empty description="Select a critical path to view the flow" />
       </Card>
     )
@@ -76,15 +111,9 @@ export const PathFlowChart: React.FC<PathFlowChartProps> = ({ path, services, he
     })
 
     return {
-      title: {
-        text: `Critical Path: ${path.name}`,
-        subtext: path.description,
-        left: 'center',
-        top: 10
-      },
       legend: {
         data: ['🟢 Healthy (<1%)', '🟡 Warning (1-5%)', '🔴 Critical (>5%)'],
-        top: 50,
+        top: 20,
         left: 'center',
         itemGap: 20,
         textStyle: {
@@ -334,15 +363,32 @@ export const PathFlowChart: React.FC<PathFlowChartProps> = ({ path, services, he
 
   // Use Sankey diagram for better flow visualization with request volumes
   return (
-    <div style={{ height: '100%', width: '100%' }}>
+    <Card
+      style={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden'
+      }}
+      styles={{
+        body: {
+          padding: '12px',
+          flex: 1,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column'
+        }
+      }}
+      title={cardTitle}
+    >
       <ReactECharts
         option={getSankeyOption()}
         style={{ height: height, width: '100%' }}
         notMerge={true}
         lazyUpdate={true}
       />
-    </div>
+    </Card>
   )
 }
 
-export default PathFlowChart
+export default PathFlowChartPanel

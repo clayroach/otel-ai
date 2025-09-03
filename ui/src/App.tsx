@@ -6,7 +6,7 @@ import { Layout } from './components/Layout/Layout'
 import { TracesView } from './views/TracesView/TracesView'
 import { MetricsView } from './views/MetricsView/MetricsView'
 import { LogsView } from './views/LogsView/LogsView'
-import { InsightsView } from './views/InsightsView/InsightsView'
+import ServiceTopologyView from './views/ServiceTopologyView/ServiceTopologyView'
 import { LLMDebugView } from './views/LLMDebugView'
 import { useMenuActions } from './hooks/useMenuActions'
 import { useAppStore } from './store/appStore'
@@ -30,11 +30,11 @@ const AppContent: React.FC = () => {
   return (
     <Layout>
       <Routes>
-        <Route path="/" element={<Navigate to="/traces" replace />} />
+        <Route path="/" element={<Navigate to="/servicetopology" replace />} />
+        <Route path="/servicetopology" element={<ServiceTopologyView />} />
         <Route path="/traces" element={<TracesView />} />
         <Route path="/metrics" element={<MetricsView />} />
         <Route path="/logs" element={<LogsView />} />
-        <Route path="/insights" element={<InsightsView />} />
         <Route path="/llm-debug" element={<LLMDebugView />} />
       </Routes>
     </Layout>

@@ -1,4 +1,4 @@
-import type { ServiceMetricsDetail } from './PieNodeTopologyChart'
+import type { ServiceMetricsDetail } from './ServiceTopologyGraph'
 
 export interface HealthExplanation {
   status: 'healthy' | 'warning' | 'critical' | 'unknown'

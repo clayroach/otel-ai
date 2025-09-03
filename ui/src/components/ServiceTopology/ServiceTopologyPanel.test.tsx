@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getMockTopologyData } from './TopologyTab'
+import { getMockTopologyData } from './ServiceTopologyPanel'
+import type { ServiceNode, ServiceEdge } from './ServiceTopologyGraph'
 
 // This test file validates that mock and real data are properly separated
 
@@ -13,7 +14,7 @@ describe('Mock vs Real Data Separation', () => {
       const mockData = getMockTopologyData()
 
       // All nodes should have 'm' prefix
-      mockData.nodes.forEach((node) => {
+      mockData.nodes.forEach((node: ServiceNode) => {
         expect(node.id).toMatch(/^m/)
         expect(node.name).toMatch(/^m/)
         console.log(`Mock node validated: ${node.name}`)
@@ -24,7 +25,7 @@ describe('Mock vs Real Data Separation', () => {
       const mockData = getMockTopologyData()
 
       // All edges should reference nodes with 'm' prefix
-      mockData.edges.forEach((edge) => {
+      mockData.edges.forEach((edge: ServiceEdge) => {
         expect(edge.source).toMatch(/^m/)
         expect(edge.target).toMatch(/^m/)
         console.log(`Mock edge validated: ${edge.source} -> ${edge.target}`)
@@ -33,7 +34,7 @@ describe('Mock vs Real Data Separation', () => {
 
     it('should contain expected mock services', () => {
       const mockData = getMockTopologyData()
-      const nodeNames = mockData.nodes.map((n) => n.name)
+      const nodeNames = mockData.nodes.map((n: ServiceNode) => n.name)
 
       // Check for key mock services
       const expectedMockServices = [
@@ -52,7 +53,7 @@ describe('Mock vs Real Data Separation', () => {
 
     it('should NOT contain any real service names', () => {
       const mockData = getMockTopologyData()
-      const nodeNames = mockData.nodes.map((n) => n.name)
+      const nodeNames = mockData.nodes.map((n: ServiceNode) => n.name)
 
       // Real service names (without 'm' prefix) should NOT exist
       const realServices = [
@@ -71,10 +72,10 @@ describe('Mock vs Real Data Separation', () => {
 
     it('should have consistent node and edge references', () => {
       const mockData = getMockTopologyData()
-      const nodeIds = new Set(mockData.nodes.map((n) => n.id))
+      const nodeIds = new Set(mockData.nodes.map((n: ServiceNode) => n.id))
 
       // Every edge should reference existing nodes
-      mockData.edges.forEach((edge) => {
+      mockData.edges.forEach((edge: ServiceEdge) => {
         expect(nodeIds.has(edge.source)).toBe(true)
         expect(nodeIds.has(edge.target)).toBe(true)
       })
@@ -94,11 +95,11 @@ describe('Mock vs Real Data Separation', () => {
       }
 
       // Node IDs should never overlap
-      const mockIds = new Set(mockData.nodes.map((n) => n.id))
-      const realIds = new Set(realData.nodes.map((n) => n.id))
+      const mockIds = new Set(mockData.nodes.map((n: ServiceNode) => n.id))
+      const realIds = new Set(realData.nodes.map((n: { id: string; name: string }) => n.id))
 
       // No intersection between mock and real IDs
-      const intersection = Array.from(mockIds).filter((id) => realIds.has(id))
+      const intersection = Array.from(mockIds).filter((id: string) => realIds.has(id))
       expect(intersection).toHaveLength(0)
     })
 
@@ -106,7 +107,7 @@ describe('Mock vs Real Data Separation', () => {
       const mockData = getMockTopologyData()
 
       // All mock services should be immediately identifiable
-      mockData.nodes.forEach((node) => {
+      mockData.nodes.forEach((node: ServiceNode) => {
         const isMockData = node.name.startsWith('m')
         expect(isMockData).toBe(true)
       })
@@ -121,7 +122,7 @@ describe('Mock vs Real Data Separation', () => {
     it('should have valid metrics for all nodes', () => {
       const mockData = getMockTopologyData()
 
-      mockData.nodes.forEach((node) => {
+      mockData.nodes.forEach((node: ServiceNode) => {
         expect(node.metrics).toBeDefined()
         if (node.metrics) {
           expect(node.metrics.rate).toBeGreaterThanOrEqual(0)
@@ -135,7 +136,7 @@ describe('Mock vs Real Data Separation', () => {
     it('should have valid edge properties', () => {
       const mockData = getMockTopologyData()
 
-      mockData.edges.forEach((edge) => {
+      mockData.edges.forEach((edge: ServiceEdge) => {
         expect(edge.value).toBeGreaterThan(0)
         expect(edge.lineStyle).toBeDefined()
         expect(edge.lineStyle.width).toBeGreaterThan(0)

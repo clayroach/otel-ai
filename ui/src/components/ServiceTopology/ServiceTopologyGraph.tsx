@@ -5,7 +5,7 @@ import {
   StopOutlined,
   WarningOutlined
 } from '@ant-design/icons'
-import { Badge, Card, Space, Tag, Typography } from 'antd'
+import { Badge, Space, Tag, Typography } from 'antd'
 import type { EChartsOption, GraphSeriesOption } from 'echarts'
 import ReactECharts from 'echarts-for-react'
 import type { CallbackDataParams } from 'echarts/types/dist/shared'
@@ -77,7 +77,7 @@ export interface TopologyVisualizationData {
   }
 }
 
-interface PieNodeTopologyChartProps {
+interface ServiceTopologyGraphProps {
   data: TopologyVisualizationData
   onNodeClick?: (node: ServiceNode) => void
   onHealthFilter?: (status: string) => void
@@ -152,11 +152,10 @@ const getNodeOverallHealthColor = (metrics?: ServiceMetricsDetail): string => {
   return '#52c41a' // Healthy
 }
 
-export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
+export const ServiceTopologyGraph: React.FC<ServiceTopologyGraphProps> = ({
   data,
   onNodeClick,
   onHealthFilter,
-  height = 600,
   filteredHealthStatuses = [],
   highlightedServices = [],
   servicesWithTabs = [],
@@ -291,12 +290,6 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
     }
 
     return {
-      title: {
-        text: 'Service Topology Overview',
-        subtext: 'Pie nodes show: Rate | Errors | Duration | OTel Health',
-        left: 'center',
-        top: 10
-      },
       tooltip: {
         trigger: 'item',
         position: function (point: number[]) {
@@ -353,7 +346,7 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
                     </tr>
                     <tr>
                       <td style="padding: 2px;">${getStatusEmoji(metrics.durationStatus || 0)} P95:</td>
-                      <td style="padding: 2px; text-align: right;"><strong>${metrics.duration || 0}ms</strong></td>
+                      <td style="padding: 2px; text-align: right;"><strong>${(metrics.duration || 0).toFixed(2)} ms</strong></td>
                     </tr>
                     <tr>
                       <td style="padding: 2px;">${getStatusEmoji(metrics.otelStatus || 0)} Spans:</td>
@@ -452,7 +445,7 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
   }
 
   const onChartClick = (params: { dataType: string; data: ServiceNode }) => {
-    console.log('[PieNodeTopologyChart] Click event:', {
+    console.log('[ServiceTopologyPanel] Click event:', {
       dataType: params.dataType,
       hasData: !!params.data,
       nodeId: params.data?.id,
@@ -461,10 +454,10 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
 
     if (params.dataType === 'node') {
       if (onNodeClick) {
-        console.log('[PieNodeTopologyChart] Calling onNodeClick with node:', params.data)
+        console.log('[ServiceTopologyPanel] Calling onNodeClick with node:', params.data)
         onNodeClick(params.data)
       } else {
-        console.log('[PieNodeTopologyChart] No onNodeClick handler provided')
+        console.log('[ServiceTopologyPanel] No onNodeClick handler provided')
       }
     }
   }
@@ -474,7 +467,7 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
   }
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Health Summary Bar with Clickable Filters */}
       {data.healthSummary && (
         <div
@@ -549,14 +542,14 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
       )}
 
       {/* Main Chart */}
-      <Card>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <ReactECharts
           ref={chartRef}
           option={getOption()}
-          style={{ height: `${height}px`, width: '100%' }}
+          style={{ height: '100%', width: '100%', flex: 1 }}
           onEvents={onEvents}
         />
-      </Card>
+      </div>
 
       {/* Health Status Legend - Inline */}
       <div
@@ -579,4 +572,4 @@ export const PieNodeTopologyChart: React.FC<PieNodeTopologyChartProps> = ({
   )
 }
 
-export default PieNodeTopologyChart
+export default ServiceTopologyGraph

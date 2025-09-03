@@ -2,30 +2,21 @@ import { test, expect } from '@playwright/test'
 
 // Quick validation test to ensure E2E framework works
 test.describe('E2E Framework Validation', () => {
-  test('should load AI Analyzer page and basic elements', async ({ page }) => {
-    // Navigate to the page - /insights directly shows AI Analyzer
-    await page.goto('/insights')
+  test('should load Service Topology page and basic elements', async ({ page }) => {
+    // Navigate to the service topology page
+    await page.goto('/servicetopology')
     await page.waitForLoadState('networkidle')
     
     // Wait a moment for the page to fully render
     await page.waitForTimeout(2000)
     
-    // Check that essential elements are present
-    await expect(page.getByTestId('ai-model-selector')).toBeVisible()
-    await expect(page.getByTestId('analyze-button')).toBeVisible()
-    await expect(page.getByTestId('time-range-picker').first()).toBeVisible()
+    // Check that essential elements are present using test IDs
+    await expect(page.getByTestId('service-topology-container')).toBeVisible()
+    await expect(page.getByTestId('critical-paths-panel')).toBeVisible()
+    await expect(page.getByTestId('ai-analysis-panel')).toBeVisible()
+    await expect(page.getByTestId('topology-graph-column')).toBeVisible()
     
-    // Verify page title contains expected text
-    await expect(page.locator('h2')).toContainText('AI-Powered Architecture Analysis')
-    
-    // Verify model selector has expected options
-    await page.getByTestId('ai-model-selector').click()
-    await expect(page.getByTestId('model-option-statistical')).toBeVisible()
-    await expect(page.getByTestId('model-option-claude')).toBeVisible()
-    await expect(page.getByTestId('model-option-gpt')).toBeVisible()
-    await expect(page.getByTestId('model-option-llama')).toBeVisible()
-    
-    console.log('✅ AI Analyzer UI validated successfully')
+    console.log('✅ Service Topology UI validated successfully')
   })
 
   test('should load Traces UI and basic elements', async ({ page }) => {
@@ -51,13 +42,13 @@ test.describe('E2E Framework Validation', () => {
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(1000)
     
-    // Navigate to insights using test ID  
-    await page.getByTestId('nav-insights').click()
+    // Navigate to service topology using test ID  
+    await page.getByTestId('nav-servicetopology').click()
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(1000)
     
-    // Verify we're on insights page
-    await expect(page.locator('h2')).toContainText('AI-Powered Architecture Analysis')
+    // Verify we're on service topology page by checking for service topology container
+    await expect(page.getByTestId('service-topology-container')).toBeVisible()
     
     // Navigate back to traces
     await page.getByTestId('nav-traces').click()

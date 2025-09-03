@@ -274,13 +274,13 @@ const generateServiceMetrics = (serviceName: string): HealthMetric[] => {
   ]
 }
 
-interface CleanAIAnalysisPanelProps {
+interface AllServicesTabProps {
   tabType?: 'global' | 'service'
   serviceName?: string
   serviceId?: string
 }
 
-export const CleanAIAnalysisPanel: React.FC<CleanAIAnalysisPanelProps> = ({
+export const AllServicesTab: React.FC<AllServicesTabProps> = ({
   tabType = 'global',
   serviceName
 }) => {
@@ -701,4 +701,4 @@ export const CleanAIAnalysisPanel: React.FC<CleanAIAnalysisPanelProps> = ({
   )
 }
 
-export default CleanAIAnalysisPanel
+export default AllServicesTab

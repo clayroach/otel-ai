@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react'
-import { Spin, Alert, Empty, Button, message } from 'antd'
-import PieNodeTopologyChart from './PieNodeTopologyChart'
-import type { ServiceNode, TopologyVisualizationData } from './PieNodeTopologyChart'
+import { Spin, Alert, Empty, Button, message, Card, Space, Typography } from 'antd'
+import { ApartmentOutlined } from '@ant-design/icons'
+import ServiceTopologyGraph from './ServiceTopologyGraph'
+import type { ServiceNode, TopologyVisualizationData } from './ServiceTopologyGraph'
 import axios from 'axios'
 import { useAppStore } from '../../store/appStore'
 
-interface TopologyTabProps {
+const { Text } = Typography
+
+interface ServiceTopologyPanelProps {
   timeRange?: [Date, Date]
   autoRefresh?: boolean
   refreshInterval?: number
@@ -21,7 +24,7 @@ interface TopologyTabProps {
   }> // Selected critical paths for visualization
 }
 
-export const TopologyTab: React.FC<TopologyTabProps> = ({
+export const ServiceTopologyPanel: React.FC<ServiceTopologyPanelProps> = ({
   timeRange,
   autoRefresh = false,
   refreshInterval = 30000, // 30 seconds
@@ -47,7 +50,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
   // Debug: Log the current LIVE mode state
   useEffect(() => {
     console.log(
-      '[TopologyTab] Component mounted/updated, useMockData:',
+      '[ServiceTopologyGraph] Component mounted/updated, useMockData:',
       useMockData,
       'useRealService:',
       useRealService
@@ -55,21 +58,21 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
   }, [useMockData, useRealService])
 
   const fetchTopologyData = async () => {
-    console.log('[TopologyTab] fetchTopologyData called, useRealService:', useRealService)
+    console.log('[ServiceTopologyGraph] fetchTopologyData called, useRealService:', useRealService)
     setLoading(true)
     setError(null)
 
     try {
       // If not in LIVE mode, use mock data directly
       if (!useRealService) {
-        console.log('[TopologyTab] LIVE is OFF - loading mock data')
+        console.log('[ServiceTopologyGraph] LIVE is OFF - loading mock data')
         await new Promise((resolve) => setTimeout(resolve, 1000)) // Simulate loading
         setTopologyData(getMockTopologyData())
         message.info('Using mock topology data for demonstration')
         return
       }
 
-      console.log('[TopologyTab] LIVE is ON - attempting to fetch real data')
+      console.log('[ServiceTopologyGraph] LIVE is ON - attempting to fetch real data')
 
       // Only make API call when in LIVE mode
       const params: { startTime?: string; endTime?: string } = {}
@@ -86,13 +89,23 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
       )
 
       if (response.data) {
-        console.log('[TopologyTab] Raw backend response nodes:', response.data.nodes?.slice(0, 3))
+        console.log(
+          '[ServiceTopologyGraph] Raw backend response nodes:',
+          response.data.nodes?.slice(0, 3)
+        )
+
+        // Calculate max rate for node sizing
+        const maxRate = response.data.nodes
+          ? Math.max(...response.data.nodes.map((n: ServiceNode) => n.metrics?.rate || 0))
+          : 100
+
         // Transform backend data to match our expected structure
         const transformedData = {
           ...response.data,
           nodes:
             response.data.nodes?.map((node: ServiceNode) => ({
               ...node,
+              symbolSize: calculateNodeSize(node.metrics?.rate || 0, maxRate),
               // Ensure metrics have the expected structure
               metrics: node.metrics
                 ? {
@@ -100,7 +113,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
                     errorRate: node.metrics.errorRate || 0,
                     duration: node.metrics.duration || 0,
                     spanCount:
-                      node.metrics.spanCount || Math.floor(node.metrics.rate * 1000) || 1000,
+                      node.metrics.spanCount || Math.floor(node.metrics.rate * 60 * 5) || 1000, // Estimate based on 5 min window if not provided
                     // Calculate status based on service-specific thresholds
                     // Rate status: detect anomalies (too low or too high)
                     rateStatus: node.metrics.rate < 1 ? 1 : node.metrics.rate > 200 ? 1 : 0,
@@ -160,28 +173,28 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
         }
 
         console.log(
-          '[TopologyTab] Transformed topology data nodes (first 3):',
+          '[ServiceTopologyGraph] Transformed topology data nodes (first 3):',
           transformedData.nodes?.slice(0, 3)
         )
-        console.log('[TopologyTab] Total nodes:', transformedData.nodes?.length)
+        console.log('[ServiceTopologyGraph] Total nodes:', transformedData.nodes?.length)
         setTopologyData(transformedData)
         // setLastUpdated(new Date())
         message.success('Topology data updated successfully')
       }
     } catch (err) {
-      console.error('[TopologyTab] Failed to fetch topology data:', err)
+      console.error('[ServiceTopologyGraph] Failed to fetch topology data:', err)
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch topology data'
       setError(errorMessage)
 
       if (useRealService) {
         // When LIVE mode is on, never fall back to mock data
-        console.log('[TopologyTab] LIVE is ON - NOT falling back to mock data')
+        console.log('[ServiceTopologyGraph] LIVE is ON - NOT falling back to mock data')
         setTopologyData(null) // Explicitly clear any data
         message.error('Failed to fetch topology data - please check service connection')
         // Do NOT set mock data - let the error state show
       } else {
         // Only use mock data when NOT in LIVE mode
-        console.log('[TopologyTab] LIVE is OFF - falling back to mock data')
+        console.log('[ServiceTopologyGraph] LIVE is OFF - falling back to mock data')
         setTopologyData(getMockTopologyData())
         message.info('Using mock topology data for demonstration')
       }
@@ -194,7 +207,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
   useEffect(() => {
     const isLiveMode = !useMockData
     console.log(
-      '[TopologyTab] useEffect triggered, useMockData:',
+      '[ServiceTopologyGraph] useEffect triggered, useMockData:',
       useMockData,
       'isLiveMode:',
       isLiveMode
@@ -207,12 +220,12 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
 
       try {
         if (useMockData) {
-          console.log('[TopologyTab] Loading mock data (DEMO mode is ON)')
+          console.log('[ServiceTopologyGraph] Loading mock data (DEMO mode is ON)')
           await new Promise((resolve) => setTimeout(resolve, 1000))
           setTopologyData(getMockTopologyData())
           message.info('Using mock topology data for demonstration')
         } else {
-          console.log('[TopologyTab] Fetching real data (LIVE mode is ON)')
+          console.log('[ServiceTopologyGraph] Fetching real data (LIVE mode is ON)')
           const params: { startTime?: string; endTime?: string } = {}
           if (timeRange) {
             params.startTime = timeRange[0].toISOString()
@@ -226,7 +239,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
 
           if (response.data) {
             console.log(
-              '[TopologyTab] useEffect - Raw backend nodes:',
+              '[ServiceTopologyGraph] useEffect - Raw backend nodes:',
               response.data.nodes?.slice(0, 3)
             )
             // Transform and set data - ensure nodes have all required properties
@@ -264,7 +277,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
               }
             }
             console.log(
-              '[TopologyTab] useEffect - Transformed nodes:',
+              '[ServiceTopologyGraph] useEffect - Transformed nodes:',
               transformedData.nodes?.slice(0, 3)
             )
             setTopologyData(transformedData)
@@ -272,16 +285,16 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
           }
         }
       } catch (err) {
-        console.error('[TopologyTab] Error loading data:', err)
+        console.error('[ServiceTopologyGraph] Error loading data:', err)
         const errorMessage = err instanceof Error ? err.message : 'Failed to fetch topology data'
         setError(errorMessage)
 
         if (!useMockData) {
-          console.log('[TopologyTab] LIVE mode error - showing error state')
+          console.log('[ServiceTopologyGraph] LIVE mode error - showing error state')
           setTopologyData(null)
           message.error('Failed to fetch topology data - please check service connection')
         } else {
-          console.log('[TopologyTab] Mock mode error - this should not happen')
+          console.log('[ServiceTopologyGraph] Mock mode error - this should not happen')
         }
       } finally {
         setLoading(false)
@@ -331,7 +344,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
   }
 
   const handleRefresh = () => {
-    console.log('[TopologyTab] Manual refresh triggered, useRealService:', useRealService)
+    console.log('[ServiceTopologyGraph] Manual refresh triggered, useRealService:', useRealService)
     // Trigger re-render with current LIVE state
     setTopologyData(null)
     setError(null)
@@ -394,7 +407,7 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
 
   // If LIVE is ON and we detected mock data, show an error
   if (useRealService && topologyData && isMockData(topologyData)) {
-    console.error('[TopologyTab] CRITICAL: Mock data detected when LIVE is ON!')
+    console.error('[ServiceTopologyGraph] CRITICAL: Mock data detected when LIVE is ON!')
     return (
       <Alert
         message="Data Integrity Error"
@@ -422,23 +435,41 @@ export const TopologyTab: React.FC<TopologyTabProps> = ({
   }
 
   return (
-    <div style={{ height: '100%' }}>
-      {/* Action Bar - Removed Refresh button */}
-
-      {/* Main Layout - Full width topology chart */}
-      <div style={{ height: 'calc(100% - 50px)' }}>
-        <PieNodeTopologyChart
-          data={dataToDisplay}
-          onNodeClick={handleNodeClick}
-          onHealthFilter={handleHealthFilter}
-          height={600}
-          filteredHealthStatuses={filteredHealthStatuses}
-          highlightedServices={highlightedServices}
-          servicesWithTabs={servicesWithTabs}
-          filterMode="filter"
-        />
-      </div>
-    </div>
+    <Card
+      style={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden'
+      }}
+      styles={{
+        body: {
+          padding: '12px',
+          flex: 1,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column'
+        }
+      }}
+      title={
+        <Space size="small" style={{ fontSize: '14px' }}>
+          <ApartmentOutlined style={{ fontSize: '14px' }} />
+          <Text strong style={{ fontSize: '14px', whiteSpace: 'nowrap' }}>
+            Service Topology
+          </Text>
+        </Space>
+      }
+    >
+      <ServiceTopologyGraph
+        data={dataToDisplay}
+        onNodeClick={handleNodeClick}
+        onHealthFilter={handleHealthFilter}
+        filteredHealthStatuses={filteredHealthStatuses}
+        highlightedServices={highlightedServices}
+        servicesWithTabs={servicesWithTabs}
+        filterMode="filter"
+      />
+    </Card>
   )
 }
 
@@ -481,324 +512,347 @@ function isMockData(data: TopologyVisualizationData): boolean {
 //   }
 // }
 
+// Helper function to calculate node size based on Rate metric
+const calculateNodeSize = (rate: number, maxRate: number): number => {
+  const minSize = 30
+  const maxSize = 80
+  if (!rate || !maxRate || maxRate === 0) return minSize
+
+  // Logarithmic scaling for better visual distribution
+  const normalizedRate = Math.log(rate + 1) / Math.log(maxRate + 1)
+  return Math.round(minSize + (maxSize - minSize) * normalizedRate)
+}
+
 // Mock data generator for demonstration
 export const getMockTopologyData = (): TopologyVisualizationData => {
-  return {
-    nodes: [
-      // Frontend service
-      {
-        id: 'mfrontend',
-        name: 'mfrontend',
-        category: 'javascript',
-        symbolSize: 50,
-        itemStyle: { color: '#52c41a' },
-        label: { show: true },
-        metrics: {
-          rate: 45.2,
-          errorRate: 0.5,
-          duration: 120,
-          spanCount: 15420,
-          rateStatus: 0,
-          errorStatus: 0,
-          durationStatus: 0,
-          otelStatus: 0
-        }
-      },
-      // Checkout Flow services
-      {
-        id: 'mcartservice',
-        name: 'mcartservice',
-        category: 'csharp',
-        symbolSize: 45,
-        itemStyle: { color: '#52c41a' },
-        label: { show: true },
-        metrics: {
-          rate: 78.3,
-          errorRate: 0.3,
-          duration: 85,
-          spanCount: 21450,
-          rateStatus: 0,
-          errorStatus: 0,
-          durationStatus: 0,
-          otelStatus: 0
-        }
-      },
-      {
-        id: 'mcheckoutservice',
-        name: 'mcheckoutservice',
-        category: 'go',
-        symbolSize: 48,
-        itemStyle: { color: '#faad14' },
-        label: { show: true },
-        metrics: {
-          rate: 32.5,
-          errorRate: 1.2,
-          duration: 250,
-          spanCount: 8920,
-          rateStatus: 0,
-          errorStatus: 1,
-          durationStatus: 1,
-          otelStatus: 0
-        }
-      },
-      {
-        id: 'mpaymentservice',
-        name: 'mpaymentservice',
-        category: 'nodejs',
-        symbolSize: 40,
-        itemStyle: { color: '#f5222d' },
-        label: { show: true },
-        metrics: {
-          rate: 25.8,
-          errorRate: 8.5,
-          duration: 450,
-          spanCount: 7080,
-          rateStatus: 0,
-          errorStatus: 2,
-          durationStatus: 1,
-          otelStatus: 0
-        }
-      },
-      {
-        id: 'memailservice',
-        name: 'memailservice',
-        category: 'python',
-        symbolSize: 38,
-        itemStyle: { color: '#52c41a' },
-        label: { show: true },
-        metrics: {
-          rate: 18.2,
-          errorRate: 0.1,
-          duration: 95,
-          spanCount: 4990,
-          rateStatus: 0,
-          errorStatus: 0,
-          durationStatus: 0,
-          otelStatus: 0
-        }
-      },
-      // Product Search services
-      {
-        id: 'mproductcatalogservice',
-        name: 'mproductcatalogservice',
-        category: 'go',
-        symbolSize: 46,
-        itemStyle: { color: '#52c41a' },
-        label: { show: true },
-        metrics: {
-          rate: 125.5,
-          errorRate: 0.2,
-          duration: 35,
-          spanCount: 34400,
-          rateStatus: 0,
-          errorStatus: 0,
-          durationStatus: 0,
-          otelStatus: 0
-        }
-      },
-      {
-        id: 'mrecommendationservice',
-        name: 'mrecommendationservice',
-        category: 'python',
-        symbolSize: 42,
-        itemStyle: { color: '#faad14' },
-        label: { show: true },
-        metrics: {
-          rate: 89.3,
-          errorRate: 2.8,
-          duration: 380,
-          spanCount: 24480,
-          rateStatus: 0,
-          errorStatus: 1,
-          durationStatus: 1,
-          otelStatus: 0
-        }
-      },
-      {
-        id: 'madservice',
-        name: 'madservice',
-        category: 'java',
-        symbolSize: 40,
-        itemStyle: { color: '#52c41a' },
-        label: { show: true },
-        metrics: {
-          rate: 156.8,
-          errorRate: 0.5,
-          duration: 22,
-          spanCount: 42990,
-          rateStatus: 0,
-          errorStatus: 0,
-          durationStatus: 0,
-          otelStatus: 0
-        }
-      },
-      // User Authentication services
-      {
-        id: 'mauthservice',
-        name: 'mauthservice',
-        category: 'rust',
-        symbolSize: 44,
-        itemStyle: { color: '#52c41a' },
-        label: { show: true },
-        metrics: {
-          rate: 67.2,
-          errorRate: 0.8,
-          duration: 55,
-          spanCount: 18420,
-          rateStatus: 0,
-          errorStatus: 0,
-          durationStatus: 0,
-          otelStatus: 0
-        }
-      },
-      {
-        id: 'msessionservice',
-        name: 'msessionservice',
-        category: 'redis',
-        symbolSize: 38,
-        itemStyle: { color: '#52c41a' },
-        label: { show: true },
-        metrics: {
-          rate: 245.5,
-          errorRate: 0.01,
-          duration: 3,
-          spanCount: 67260,
-          rateStatus: 0,
-          errorStatus: 0,
-          durationStatus: 0,
-          otelStatus: 0
-        }
-      },
-      {
-        id: 'muserservice',
-        name: 'muserservice',
-        category: 'nodejs',
-        symbolSize: 45,
-        itemStyle: { color: '#52c41a' },
-        label: { show: true },
-        metrics: {
-          rate: 85.3,
-          errorRate: 0.4,
-          duration: 125,
-          spanCount: 23380,
-          rateStatus: 0,
-          errorStatus: 0,
-          durationStatus: 0,
-          otelStatus: 0
-        }
-      },
-      // Shipping services
-      {
-        id: 'mshippingservice',
-        name: 'mshippingservice',
-        category: 'rust',
-        symbolSize: 41,
-        itemStyle: { color: '#f5222d' },
-        label: { show: true },
-        metrics: {
-          rate: 12.3,
-          errorRate: 5.2,
-          duration: 1850,
-          spanCount: 3370,
-          rateStatus: 0,
-          errorStatus: 2,
-          durationStatus: 2,
-          otelStatus: 0
-        }
-      },
-      {
-        id: 'mcurrencyservice',
-        name: 'mcurrencyservice',
-        category: 'nodejs',
-        symbolSize: 36,
-        itemStyle: { color: '#52c41a' },
-        label: { show: true },
-        metrics: {
-          rate: 342.1,
-          errorRate: 0.02,
-          duration: 8,
-          spanCount: 93810,
-          rateStatus: 0,
-          errorStatus: 0,
-          durationStatus: 0,
-          otelStatus: 0
-        }
-      },
-      // Background services
-      {
-        id: 'minventoryservice',
-        name: 'minventoryservice',
-        category: 'java',
-        symbolSize: 43,
-        itemStyle: { color: '#52c41a' },
-        label: { show: true },
-        metrics: {
-          rate: 8.5,
-          errorRate: 0.1,
-          duration: 2200,
-          spanCount: 2330,
-          rateStatus: 0,
-          errorStatus: 0,
-          durationStatus: 1,
-          otelStatus: 0
-        }
-      },
-      {
-        id: 'mnotificationservice',
-        name: 'mnotificationservice',
-        category: 'python',
-        symbolSize: 37,
-        itemStyle: { color: '#52c41a' },
-        label: { show: true },
-        metrics: {
-          rate: 22.7,
-          errorRate: 0.3,
-          duration: 145,
-          spanCount: 6220,
-          rateStatus: 0,
-          errorStatus: 0,
-          durationStatus: 0,
-          otelStatus: 0
-        }
-      },
-      // Data stores
-      {
-        id: 'mpostgres',
-        name: 'mpostgres',
-        category: 'postgresql',
-        symbolSize: 55,
-        itemStyle: { color: '#52c41a' },
-        label: { show: true },
-        metrics: {
-          rate: 450.0,
-          errorRate: 0.1,
-          duration: 15,
-          spanCount: 125000,
-          rateStatus: 0,
-          errorStatus: 0,
-          durationStatus: 0,
-          otelStatus: 0
-        }
-      },
-      {
-        id: 'mredis',
-        name: 'mredis',
-        category: 'redis',
-        symbolSize: 35,
-        itemStyle: { color: '#52c41a' },
-        label: { show: true },
-        metrics: {
-          rate: 850.5,
-          errorRate: 0.01,
-          duration: 2,
-          spanCount: 235000,
-          rateStatus: 0,
-          errorStatus: 0,
-          durationStatus: 0,
-          otelStatus: 0
-        }
+  // First define all nodes with their metrics
+  const nodesWithMetrics = [
+    // Frontend service
+    {
+      id: 'mfrontend',
+      name: 'mfrontend',
+      category: 'javascript',
+      symbolSize: 50,
+      itemStyle: { color: '#52c41a' },
+      label: { show: true },
+      metrics: {
+        rate: 45.2,
+        errorRate: 0.5,
+        duration: 120,
+        spanCount: 15420,
+        rateStatus: 0,
+        errorStatus: 0,
+        durationStatus: 0,
+        otelStatus: 0
       }
-    ],
+    },
+    // Checkout Flow services
+    {
+      id: 'mcartservice',
+      name: 'mcartservice',
+      category: 'csharp',
+      symbolSize: 45,
+      itemStyle: { color: '#52c41a' },
+      label: { show: true },
+      metrics: {
+        rate: 78.3,
+        errorRate: 0.3,
+        duration: 85,
+        spanCount: 21450,
+        rateStatus: 0,
+        errorStatus: 0,
+        durationStatus: 0,
+        otelStatus: 0
+      }
+    },
+    {
+      id: 'mcheckoutservice',
+      name: 'mcheckoutservice',
+      category: 'go',
+      symbolSize: 48,
+      itemStyle: { color: '#faad14' },
+      label: { show: true },
+      metrics: {
+        rate: 32.5,
+        errorRate: 1.2,
+        duration: 250,
+        spanCount: 8920,
+        rateStatus: 0,
+        errorStatus: 1,
+        durationStatus: 1,
+        otelStatus: 0
+      }
+    },
+    {
+      id: 'mpaymentservice',
+      name: 'mpaymentservice',
+      category: 'nodejs',
+      symbolSize: 40,
+      itemStyle: { color: '#f5222d' },
+      label: { show: true },
+      metrics: {
+        rate: 25.8,
+        errorRate: 8.5,
+        duration: 450,
+        spanCount: 7080,
+        rateStatus: 0,
+        errorStatus: 2,
+        durationStatus: 1,
+        otelStatus: 0
+      }
+    },
+    {
+      id: 'memailservice',
+      name: 'memailservice',
+      category: 'python',
+      symbolSize: 38,
+      itemStyle: { color: '#52c41a' },
+      label: { show: true },
+      metrics: {
+        rate: 18.2,
+        errorRate: 0.1,
+        duration: 95,
+        spanCount: 4990,
+        rateStatus: 0,
+        errorStatus: 0,
+        durationStatus: 0,
+        otelStatus: 0
+      }
+    },
+    // Product Search services
+    {
+      id: 'mproductcatalogservice',
+      name: 'mproductcatalogservice',
+      category: 'go',
+      symbolSize: 46,
+      itemStyle: { color: '#52c41a' },
+      label: { show: true },
+      metrics: {
+        rate: 125.5,
+        errorRate: 0.2,
+        duration: 35,
+        spanCount: 34400,
+        rateStatus: 0,
+        errorStatus: 0,
+        durationStatus: 0,
+        otelStatus: 0
+      }
+    },
+    {
+      id: 'mrecommendationservice',
+      name: 'mrecommendationservice',
+      category: 'python',
+      symbolSize: 42,
+      itemStyle: { color: '#faad14' },
+      label: { show: true },
+      metrics: {
+        rate: 89.3,
+        errorRate: 2.8,
+        duration: 380,
+        spanCount: 24480,
+        rateStatus: 0,
+        errorStatus: 1,
+        durationStatus: 1,
+        otelStatus: 0
+      }
+    },
+    {
+      id: 'madservice',
+      name: 'madservice',
+      category: 'java',
+      symbolSize: 40,
+      itemStyle: { color: '#52c41a' },
+      label: { show: true },
+      metrics: {
+        rate: 156.8,
+        errorRate: 0.5,
+        duration: 22,
+        spanCount: 42990,
+        rateStatus: 0,
+        errorStatus: 0,
+        durationStatus: 0,
+        otelStatus: 0
+      }
+    },
+    // User Authentication services
+    {
+      id: 'mauthservice',
+      name: 'mauthservice',
+      category: 'rust',
+      symbolSize: 44,
+      itemStyle: { color: '#52c41a' },
+      label: { show: true },
+      metrics: {
+        rate: 67.2,
+        errorRate: 0.8,
+        duration: 55,
+        spanCount: 18420,
+        rateStatus: 0,
+        errorStatus: 0,
+        durationStatus: 0,
+        otelStatus: 0
+      }
+    },
+    {
+      id: 'msessionservice',
+      name: 'msessionservice',
+      category: 'redis',
+      symbolSize: 38,
+      itemStyle: { color: '#52c41a' },
+      label: { show: true },
+      metrics: {
+        rate: 245.5,
+        errorRate: 0.01,
+        duration: 3,
+        spanCount: 67260,
+        rateStatus: 0,
+        errorStatus: 0,
+        durationStatus: 0,
+        otelStatus: 0
+      }
+    },
+    {
+      id: 'muserservice',
+      name: 'muserservice',
+      category: 'nodejs',
+      symbolSize: 45,
+      itemStyle: { color: '#52c41a' },
+      label: { show: true },
+      metrics: {
+        rate: 85.3,
+        errorRate: 0.4,
+        duration: 125,
+        spanCount: 23380,
+        rateStatus: 0,
+        errorStatus: 0,
+        durationStatus: 0,
+        otelStatus: 0
+      }
+    },
+    // Shipping services
+    {
+      id: 'mshippingservice',
+      name: 'mshippingservice',
+      category: 'rust',
+      symbolSize: 41,
+      itemStyle: { color: '#f5222d' },
+      label: { show: true },
+      metrics: {
+        rate: 12.3,
+        errorRate: 5.2,
+        duration: 1850,
+        spanCount: 3370,
+        rateStatus: 0,
+        errorStatus: 2,
+        durationStatus: 2,
+        otelStatus: 0
+      }
+    },
+    {
+      id: 'mcurrencyservice',
+      name: 'mcurrencyservice',
+      category: 'nodejs',
+      symbolSize: 36,
+      itemStyle: { color: '#52c41a' },
+      label: { show: true },
+      metrics: {
+        rate: 342.1,
+        errorRate: 0.02,
+        duration: 8,
+        spanCount: 93810,
+        rateStatus: 0,
+        errorStatus: 0,
+        durationStatus: 0,
+        otelStatus: 0
+      }
+    },
+    // Background services
+    {
+      id: 'minventoryservice',
+      name: 'minventoryservice',
+      category: 'java',
+      symbolSize: 43,
+      itemStyle: { color: '#52c41a' },
+      label: { show: true },
+      metrics: {
+        rate: 8.5,
+        errorRate: 0.1,
+        duration: 2200,
+        spanCount: 2330,
+        rateStatus: 0,
+        errorStatus: 0,
+        durationStatus: 1,
+        otelStatus: 0
+      }
+    },
+    {
+      id: 'mnotificationservice',
+      name: 'mnotificationservice',
+      category: 'python',
+      symbolSize: 37,
+      itemStyle: { color: '#52c41a' },
+      label: { show: true },
+      metrics: {
+        rate: 22.7,
+        errorRate: 0.3,
+        duration: 145,
+        spanCount: 6220,
+        rateStatus: 0,
+        errorStatus: 0,
+        durationStatus: 0,
+        otelStatus: 0
+      }
+    },
+    // Data stores
+    {
+      id: 'mpostgres',
+      name: 'mpostgres',
+      category: 'postgresql',
+      symbolSize: 55,
+      itemStyle: { color: '#52c41a' },
+      label: { show: true },
+      metrics: {
+        rate: 450.0,
+        errorRate: 0.1,
+        duration: 15,
+        spanCount: 125000,
+        rateStatus: 0,
+        errorStatus: 0,
+        durationStatus: 0,
+        otelStatus: 0
+      }
+    },
+    {
+      id: 'mredis',
+      name: 'mredis',
+      category: 'redis',
+      symbolSize: 35,
+      itemStyle: { color: '#52c41a' },
+      label: { show: true },
+      metrics: {
+        rate: 850.5,
+        errorRate: 0.01,
+        duration: 2,
+        spanCount: 235000,
+        rateStatus: 0,
+        errorStatus: 0,
+        durationStatus: 0,
+        otelStatus: 0
+      }
+    }
+  ]
+
+  // Calculate max rate for node sizing
+  const maxRate = Math.max(...nodesWithMetrics.map((n) => n.metrics.rate))
+
+  // Apply calculated symbolSize to each node
+  const nodes = nodesWithMetrics.map((node) => ({
+    ...node,
+    symbolSize: calculateNodeSize(node.metrics.rate, maxRate)
+  }))
+
+  return {
+    nodes,
     edges: [
       // Checkout Flow edges
       {
@@ -949,4 +1003,4 @@ export const getMockTopologyData = (): TopologyVisualizationData => {
   }
 }
 
-export default TopologyTab
+export default ServiceTopologyGraph

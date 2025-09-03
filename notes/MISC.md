@@ -13,4 +13,6 @@ TODOs:
 * Integration tests with and without demo - use canned demo data from previous runs with timestamps updated
 * Topology enhacements - Time window top right, model default is LLama/Local, Analysis Type is all done at once so can remove, auto-update period can be "Manual", "1m", "5m"
 * Telemetry data, processing speed, AI Processing are all great system health metrics and can move to it's own menu
+* Critical Paths should generate additional queries that can be used to create visualizations automatically - should include 2 queries along with descriptions of the queries
+* Counter for how many queries are being made against an LLM
 * 

@@ -13,13 +13,13 @@ import { LineChartOutlined as TrendingUpIcon } from '@ant-design/icons'
 // import ReactMarkdown from 'react-markdown'; // Commented out - not available
 // import { type AnalysisResult, generateMockData } from './mockData' // Not used with new topology
 import { useAIAnalyzer } from '../../services/ai-analyzer'
-import { CriticalRequestPathsTopology } from '../../components/CriticalRequestPathsTopology'
+import { ServiceTopology } from '../../components/ServiceTopology'
 import { useAppStore } from '../../store/appStore'
 import { analysisEventBus } from '../../utils/eventBus'
 
 const { Text } = Typography
 
-const AIAnalyzerView: React.FC = () => {
+const ServiceTopologyView: React.FC = () => {
   // const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null) // Not used with new topology
   // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
   const [_loading, setLoading] = useState(false)
@@ -197,7 +197,6 @@ const AIAnalyzerView: React.FC = () => {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   /* const _performStreamingAnalysis = async () => {
     setStreaming(true)
     setStreamingContent('')
@@ -375,9 +374,9 @@ const AIAnalyzerView: React.FC = () => {
         </Card>
       )}
 
-      {/* Critical Request Paths Topology - New Three-Panel Layout */}
+      {/* Service Topology - Three-Panel Layout */}
       <div data-testid="insights-results" style={{ height: 'calc(100vh - 250px)' }}>
-        <CriticalRequestPathsTopology
+        <ServiceTopology
           defaultPanelSizes={{
             paths: 15,
             topology: 55,
@@ -387,9 +386,9 @@ const AIAnalyzerView: React.FC = () => {
         />
       </div>
 
-      {/* Original Tabs Structure removed - using new CriticalRequestPathsTopology component instead */}
+      {/* Original Tabs Structure removed - using new ServiceTopology component instead */}
     </div>
   )
 }
 
-export default AIAnalyzerView
+export default ServiceTopologyView
