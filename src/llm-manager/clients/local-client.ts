@@ -76,14 +76,21 @@ interface OpenAIStreamChunk {
  * Creates a client for local models with LM Studio OpenAI-compatible API support.
  * Handles both direct API calls and streaming responses.
  */
-export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => ({
+export const makeLocalModelClient = (config: LocalModelConfig | Record<string, unknown>): ModelClient => ({
   generate: (request: LLMRequest) =>
     Effect.gen(function* (_) {
       const startTime = Date.now()
 
+      // Handle both 'model' and 'modelPath' properties for compatibility
+      const configAny = config as Record<string, unknown>
+      const configWithModel = {
+        ...config,
+        model: configAny.model || configAny.modelPath || 'openai/gpt-oss-20b'
+      }
+
       // Validate configuration
       const validatedConfig = yield* _(
-        Schema.decodeUnknown(LocalModelConfigSchema)(config).pipe(
+        Schema.decodeUnknown(LocalModelConfigSchema)(configWithModel).pipe(
           Effect.mapError(
             (error): LLMError => ({
               _tag: 'ConfigurationError',
@@ -157,8 +164,15 @@ export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => (
   generateStream: (request: LLMRequest) =>
     Stream.unwrap(
       Effect.gen(function* (_) {
+        // Handle both 'model' and 'modelPath' properties for compatibility
+        const configAny = config as Record<string, unknown>
+        const configWithModel = {
+          ...config,
+          model: configAny.model || configAny.modelPath || 'openai/gpt-oss-20b'
+        }
+
         const validatedConfig = yield* _(
-          Schema.decodeUnknown(LocalModelConfigSchema)(config).pipe(
+          Schema.decodeUnknown(LocalModelConfigSchema)(configWithModel).pipe(
             Effect.mapError(
               (error): LLMError => ({
                 _tag: 'ConfigurationError',
@@ -276,8 +290,15 @@ export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => (
 
   isHealthy: () =>
     Effect.gen(function* (_) {
+      // Handle both 'model' and 'modelPath' properties for compatibility
+      const configAny = config as Record<string, unknown>
+      const configWithModel = {
+        ...config,
+        model: configAny.model || configAny.modelPath || 'openai/gpt-oss-20b'
+      }
+
       const validatedConfig = yield* _(
-        Schema.decodeUnknown(LocalModelConfigSchema)(config).pipe(
+        Schema.decodeUnknown(LocalModelConfigSchema)(configWithModel).pipe(
           Effect.mapError(
             (error): LLMError => ({
               _tag: 'ConfigurationError',

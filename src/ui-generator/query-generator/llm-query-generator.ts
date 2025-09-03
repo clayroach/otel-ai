@@ -209,7 +209,7 @@ export const generateQueryWithLLM = (
     models: {
       llama: {
         endpoint: llmConfig?.endpoint || "http://localhost:1234/v1",
-        modelPath: llmConfig?.model || "local-model",
+        modelPath: llmConfig?.model || "openai/gpt-oss-20b", // Default to first model in typical list
         contextLength: 4096,
         threads: 4
       }

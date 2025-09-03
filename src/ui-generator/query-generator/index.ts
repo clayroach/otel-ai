@@ -1,10 +1,11 @@
 // Main exports for query generator module
 export * from "./types"
-export * as patterns from "./patterns"
+export * from "./llm-query-generator"
 export { 
-  CriticalPathQueryGeneratorTag,
-  CriticalPathQueryGeneratorLive
-} from "./service"
+  CriticalPathQueryGeneratorLLMTag,
+  CriticalPathQueryGeneratorLLMLive,
+  generateCustomQuery
+} from "./service-llm"
 
 // Re-export commonly used types for convenience
 export type { 
