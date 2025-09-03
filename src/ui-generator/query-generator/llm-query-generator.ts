@@ -55,7 +55,7 @@ const createDynamicQueryPrompt = (
 - Find slowest operations: ORDER BY duration DESC
 - Include operation_name in output`
     }
-    
+
     return `Generate a ClickHouse SQL query for the following analysis:
     
 Table: traces
