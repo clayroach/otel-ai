@@ -184,8 +184,8 @@ Generate a query for p95 latency analysis.`
       }
       
       expect(parsed.sql).toBeDefined()
-      expect(parsed.sql.toUpperCase()).toContain('FROM TRACES')
-      expect(parsed.sql.toLowerCase()).toContain('service_name')
+      expect(parsed.sql?.toUpperCase()).toContain('FROM TRACES')
+      expect(parsed.sql?.toLowerCase()).toContain('service_name')
       expect(parsed.description).toBeDefined()
     })
   })
