@@ -6,6 +6,7 @@ export {
   CriticalPathQueryGeneratorLLMLive,
   generateCustomQuery
 } from "./service-llm"
+export { generateQueryWithSQLModel } from "./llm-query-generator"
 
 // Re-export commonly used types for convenience
 export type { 

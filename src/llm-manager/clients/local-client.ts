@@ -334,7 +334,7 @@ export const makeLocalModelClient = (config: LocalModelConfig | Record<string, u
  */
 export const defaultLocalConfig: LocalModelConfig = {
   endpoint: 'http://localhost:1234/v1', // LM Studio default
-  model: 'openai/gpt-oss-20b', // or any loaded model
+  model: 'openai/gpt-oss-20b', // Default JSON-capable model
   maxTokens: 4096,
   temperature: 0.7,
   contextLength: 4096,

@@ -1,4 +1,4 @@
-import { Effect, pipe } from "effect"
+import { Effect, pipe, Duration } from "effect"
 import { CriticalPath, GeneratedQuery, QueryPattern } from "./types"
 import { createSimpleLLMManager } from "../../llm-manager/simple-manager"
 import { LLMRequest } from "../../llm-manager/types"
@@ -20,10 +20,29 @@ const LLMQueryResponseSchema = Schema.Struct({
 
 type LLMQueryResponse = Schema.Schema.Type<typeof LLMQueryResponseSchema>
 
+// Check if we're using a SQL-specific model
+const isSQLSpecificModel = (model: string): boolean => {
+  return model.toLowerCase().includes('sqlcoder')
+}
+
 // Create a dynamic prompt with examples for the LLM
-const createDynamicQueryPrompt = (path: CriticalPath, analysisGoal: string): string => {
+const createDynamicQueryPrompt = (path: CriticalPath, analysisGoal: string, modelName?: string): string => {
   const services = path.services.map(s => `'${s.replace(/'/g, "''")}'`).join(", ")
   
+  // For SQL-specific models like sqlcoder, use a simpler prompt
+  if (modelName && isSQLSpecificModel(modelName)) {
+    return `Generate a ClickHouse SQL query for the following analysis:
+    
+Table: traces
+Columns: trace_id, span_id, parent_span_id, service_name, operation_name, start_time, end_time, duration_ns, status_code, status_message
+
+Services to analyze: ${services}
+Analysis goal: ${analysisGoal}
+
+Generate ONLY the SQL query, no explanation or JSON wrapper.`
+  }
+  
+  // For general models, use the full prompt with JSON instructions
   return `
 You are a ClickHouse SQL expert generating queries for observability data analysis.
 
@@ -205,21 +224,22 @@ export const generateQueryWithLLM = (
   analysisGoal: string,
   llmConfig?: { endpoint?: string; model?: string }
 ): Effect.Effect<GeneratedQuery, Error, never> => {
+  const modelName = llmConfig?.model || "openai/gpt-oss-20b" // Default to JSON-capable model
   const llmManager = createSimpleLLMManager({
     models: {
       llama: {
         endpoint: llmConfig?.endpoint || "http://localhost:1234/v1",
-        modelPath: llmConfig?.model || "openai/gpt-oss-20b", // Default to first model in typical list
+        modelPath: modelName, // SQL-optimized model for faster generation
         contextLength: 4096,
         threads: 4
       }
     }
   })
 
-  const prompt = createDynamicQueryPrompt(path, analysisGoal)
+  const prompt = createDynamicQueryPrompt(path, analysisGoal, modelName)
   
   const request: LLMRequest = {
-    prompt: `You are a ClickHouse SQL expert. Always return valid JSON responses. Generate consistent, optimal queries based on the examples provided.\n\n${prompt}`,
+    prompt: isSQLSpecificModel(modelName) ? prompt : `You are a ClickHouse SQL expert. Always return valid JSON responses. Generate consistent, optimal queries based on the examples provided.\n\n${prompt}`,
     taskType: "analysis",
     preferences: {
       model: "llama",
@@ -231,14 +251,30 @@ export const generateQueryWithLLM = (
 
   return pipe(
     llmManager.generate(request),
+    Effect.timeout(Duration.seconds(30)),
     Effect.map(response => {
       try {
         // Extract JSON from response, handling markdown code blocks
         let content = response.content.trim()
         
+        // Debug log the raw response for sqlcoder
+        if (process.env.NODE_ENV === 'test' && content.length < 500) {
+          console.log("   DEBUG: Raw LLM response:", content.substring(0, 200))
+        }
+        
         // Remove markdown code blocks if present
         if (content.startsWith("```json")) {
           content = content.substring(7) // Remove ```json
+        } else if (content.startsWith("```sql")) {
+          // sqlcoder might return SQL directly
+          console.log("   WARN: LLM returned SQL instead of JSON, attempting to wrap")
+          const sql = content.substring(6).replace(/```$/, '').trim()
+          content = JSON.stringify({
+            sql,
+            description: "Query generated for " + analysisGoal,
+            expectedColumns: [],
+            reasoning: "Direct SQL generation"
+          })
         } else if (content.startsWith("```")) {
           content = content.substring(3) // Remove ```
         }
@@ -247,8 +283,26 @@ export const generateQueryWithLLM = (
           content = content.substring(0, content.length - 3) // Remove trailing ```
         }
         
-        // Parse the cleaned JSON
-        const parsed = JSON.parse(content.trim()) as LLMQueryResponse & { insights?: string }
+        // If it starts with SELECT or is not valid JSON, it's raw SQL (common for sqlcoder)
+        let parsed: LLMQueryResponse & { insights?: string }
+        
+        try {
+          // Try to parse as JSON first
+          parsed = JSON.parse(content.trim()) as LLMQueryResponse & { insights?: string }
+        } catch (e) {
+          // If JSON parse fails and it looks like SQL, wrap it
+          if (content.toUpperCase().includes("SELECT") || content.toUpperCase().includes("FROM")) {
+            console.log("   INFO: SQL-specific model returned raw SQL, using directly")
+            parsed = {
+              sql: content.trim(),
+              description: `Query for ${analysisGoal}`,
+              expectedColumns: [],
+              reasoning: "Direct SQL generation from SQL-specific model"
+            }
+          } else {
+            throw new Error(`Invalid response format: ${content.substring(0, 100)}`)
+          }
+        }
         
         // Validate the generated SQL
         if (!validateGeneratedSQL(parsed.sql)) {
@@ -274,7 +328,7 @@ export const generateQueryWithLLM = (
       }
     }),
     Effect.catchAll((error) => 
-      Effect.fail(new Error(`LLM query generation failed: ${error}`))
+      Effect.fail(new Error(`LLM query generation failed: ${JSON.stringify(error)}`))
     )
   )
 }
@@ -305,6 +359,18 @@ export const generateStandardQueries = (
   ]
   
   return generateQueriesForGoals(path, standardGoals, llmConfig)
+}
+
+// Helper to generate query with SQL-specific model for performance
+export const generateQueryWithSQLModel = (
+  path: CriticalPath,
+  analysisGoal: string,
+  endpoint?: string
+): Effect.Effect<GeneratedQuery, Error, never> => {
+  return generateQueryWithLLM(path, analysisGoal, {
+    endpoint: endpoint || "http://localhost:1234/v1",
+    model: "sqlcoder-7b-2" // Use SQL-optimized model for speed
+  })
 }
 
 // Validate generated SQL (basic validation)
