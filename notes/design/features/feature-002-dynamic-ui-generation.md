@@ -156,6 +156,27 @@ interface CriticalPathQueryGenerator {
   generateQueryThunk(path: CriticalPath): () => Promise<QueryResult>
 }
 
+// Phase 2 Implementation: Critical Path Card Integration
+interface CriticalPathCard {
+  path: CriticalPath
+  issues: DetectedIssue[]
+  
+  // New: Query generation button with model info
+  queryGenerationButton: {
+    label: string // e.g., "Generate Query with Claude"
+    model: string // e.g., "claude-3-5-sonnet-20241022"
+    onClick: () => void // Execute thunk and navigate to Traces view
+  }
+  
+  // Thunk for lazy query generation
+  generateQueryThunk: () => Promise<{
+    sql: string
+    model: string
+    generationTime: number
+    explanation?: string
+  }>
+}
+
 interface GeneratedQuery {
   id: string
   name: string
@@ -339,6 +360,85 @@ const COMMON_CHART_PATTERNS = {
 }
 ```
 
+## Phase 2 User Workflow: Query Testing Integration
+
+### Workflow Steps
+
+1. **User views Service Topology page**
+   - Critical Path cards displayed in left panel
+   - Each card shows detected issues and metrics
+
+2. **User sees "Generate Query" button on Critical Path card**
+   - Button displays: "Generate Query with [Model Name]"
+   - Model automatically selected based on availability and capability
+   - Example: "Generate Query with Claude" or "Generate Query with GPT-4"
+
+3. **User clicks the Generate Query button**
+   - Query generator creates optimized ClickHouse SQL for the critical path
+   - Based on detected issues (high latency, errors, bottlenecks, etc.)
+   - Generation happens in real-time (2-5 seconds)
+
+4. **System navigates to Traces view**
+   - Query field auto-populated with generated SQL
+   - User can see the exact query that was generated
+   - Model name and generation time displayed
+
+5. **Query automatically executes**
+   - Results displayed in table format
+   - User can validate query correctness
+   - User can modify and re-run if needed
+
+6. **Feedback loop for improvement**
+   - User can report if query was helpful/accurate
+   - System learns from successful query patterns
+   - Prompts refined based on real-world usage
+
+### Implementation Example
+
+```typescript
+// Critical Path Card Component
+const CriticalPathCard: React.FC<{ path: CriticalPath }> = ({ path }) => {
+  const [generating, setGenerating] = useState(false)
+  const navigate = useNavigate()
+  const queryGenerator = useQueryGenerator()
+  
+  const handleGenerateQuery = async () => {
+    setGenerating(true)
+    
+    // Execute the query generation thunk
+    const result = await queryGenerator.generateQueryThunk(path)
+    
+    // Navigate to Traces view with generated query
+    navigate('/traces', {
+      state: {
+        query: result.sql,
+        metadata: {
+          model: result.model,
+          generatedAt: Date.now(),
+          criticalPath: path.name
+        }
+      }
+    })
+  }
+  
+  return (
+    <Card>
+      <h3>{path.name}</h3>
+      <IssuesList issues={path.issues} />
+      <Button 
+        onClick={handleGenerateQuery}
+        disabled={generating}
+      >
+        {generating 
+          ? 'Generating...' 
+          : `Generate Query with ${queryGenerator.getSelectedModel()}`
+        }
+      </Button>
+    </Card>
+  )
+}
+```
+
 ## Query Generation Examples
 
 ### Example 1: Service Latency Analysis
@@ -495,24 +595,35 @@ interface LLMDebugView {
 - [x] **Comprehensive Testing**: 95%+ unit test coverage, integration tests for all providers
 - [x] **Test Containerization**: Isolated ClickHouse testing environment
 
-### 🔄 Phase 2: Component Generation (IN PROGRESS)
+### 🔄 Phase 2: Query Integration & Testing (IN PROGRESS)
 - [x] Build model registry with capabilities mapping
 - [x] Create SQL-specific prompts for different models
+- [ ] **Update Critical Path cards with query generation thunks**
+  - [ ] Add query generation button to each Critical Path card
+  - [ ] Display model name that will generate the query (e.g., "Generate with Claude")
+  - [ ] Implement thunk pattern for lazy query execution
+- [ ] **Connect to Traces view for query testing**
+  - [ ] Navigate to Traces view when button clicked
+  - [ ] Auto-populate query field with generated SQL
+  - [ ] Display raw query results for validation
+- [ ] **Validate generated queries with real data**
+  - [ ] Test query execution against live ClickHouse data
+  - [ ] Verify query results match expected patterns
+  - [ ] Collect feedback for prompt optimization
+
+### ⏳ Phase 3: Component Generation (PLANNED)
 - [ ] Build complete ECharts library reference for LLM
 - [ ] Create dynamic ECharts component factory
 - [ ] Implement component selection with multi-model support
-- [x] Add model status checking and error handling
-
-### ⏳ Phase 3: UI Components (PLANNED)
 - [ ] Build LLMDebug View with query/response display
 - [ ] Create dynamic renderer without initial caching
 - [ ] Implement data bindings with ECharts
-- [ ] Add critical path navigation with thunks
 
-### ⏳ Phase 4: Testing & Refinement (PLANNED)
-- [x] Test query generation for SQL patterns
-- [x] Validate multi-model selection logic
-- [x] Ensure model fallback mechanisms work
+### ⏳ Phase 4: Dashboard Composition (PLANNED)
+- [ ] Multi-component dashboard generation
+- [ ] Layout engine with responsive design
+- [ ] Real-time data updates
+- [ ] User customization interface
 - [ ] Add E2E dashboard generation tests
 
 ## Success Metrics
@@ -604,12 +715,34 @@ interface DynamicUIConfig {
 - **TypeScript**: No errors
 - **Linting**: No violations
 
-## Next Steps (Phase 2)
+## Next Steps (Phase 2: Query Integration)
 
-1. **Complete ECharts Integration**: Build chart library reference and component factory
-2. **Component Generation**: Implement dynamic React component generation
-3. **UI Debug View**: Create transparency view for LLM interactions
-4. **Performance Optimization**: Reduce query generation to <2 seconds
+### Immediate Tasks (Week 5)
+1. **Critical Path Card Updates**
+   - Add "Generate Query" button to each card
+   - Display selected model name on button
+   - Implement loading states during generation
+
+2. **Query Generation Integration**
+   - Implement thunk pattern for lazy execution
+   - Connect query generator to Critical Path context
+   - Handle errors gracefully with user feedback
+
+3. **Traces View Connection**
+   - Add route navigation from Critical Path to Traces
+   - Auto-populate query field with generated SQL
+   - Display generation metadata (model, time, path)
+
+4. **Testing & Validation**
+   - Test generated queries against real data
+   - Validate query results match expected patterns
+   - Collect performance metrics for optimization
+
+### Benefits of This Approach
+- **Incremental Testing**: Validate query generation before UI generation
+- **User Feedback**: Get real-world validation of generated queries
+- **Safer Rollout**: Test core functionality without full UI changes
+- **Learning Loop**: Refine prompts based on actual usage patterns
 
 ## References
 

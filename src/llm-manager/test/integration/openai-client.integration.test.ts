@@ -27,7 +27,7 @@ describe('OpenAI Client Integration', () => {
     it.skipIf(!hasApiKey)('should connect to OpenAI API and get a response', async () => {
       const client = makeOpenAIClient({
         ...defaultOpenAIConfig,
-        apiKey: process.env.OPENAI_API_KEY!,
+        apiKey: process.env.OPENAI_API_KEY as string,
         model: 'gpt-3.5-turbo',
         endpoint: 'https://api.openai.com/v1' // Ensure endpoint is set
       })
@@ -60,7 +60,7 @@ describe('OpenAI Client Integration', () => {
     it.skipIf(!hasApiKey)('should handle health check', async () => {
       const client = makeOpenAIClient({
         ...defaultOpenAIConfig,
-        apiKey: process.env.OPENAI_API_KEY!,
+        apiKey: process.env.OPENAI_API_KEY as string,
         endpoint: 'https://api.openai.com/v1'
       })
 
@@ -73,7 +73,7 @@ describe('OpenAI Client Integration', () => {
     it.skipIf(!hasApiKey)('should generate JSON response when requested', async () => {
       const client = makeOpenAIClient({
         ...defaultOpenAIConfig,
-        apiKey: process.env.OPENAI_API_KEY!,
+        apiKey: process.env.OPENAI_API_KEY as string,
         model: 'gpt-3.5-turbo',
         endpoint: 'https://api.openai.com/v1'
       })
@@ -116,7 +116,7 @@ describe('OpenAI Client Integration', () => {
     it.skipIf(!hasApiKey)('should generate SQL when asked', async () => {
       const client = makeOpenAIClient({
         ...defaultOpenAIConfig,
-        apiKey: process.env.OPENAI_API_KEY!,
+        apiKey: process.env.OPENAI_API_KEY as string,
         endpoint: 'https://api.openai.com/v1'
       })
 
@@ -141,7 +141,7 @@ describe('OpenAI Client Integration', () => {
     it.skipIf(!hasApiKey)('should handle ClickHouse SQL generation request', async () => {
       const client = makeOpenAIClient({
         ...defaultOpenAIConfig,
-        apiKey: process.env.OPENAI_API_KEY!,
+        apiKey: process.env.OPENAI_API_KEY as string,
         endpoint: 'https://api.openai.com/v1'
       })
 
@@ -194,7 +194,7 @@ Generate a query for p95 latency analysis.`
     it.skipIf(!hasApiKey)('should stream responses', async () => {
       const client = makeOpenAIClient({
         ...defaultOpenAIConfig,
-        apiKey: process.env.OPENAI_API_KEY!,
+        apiKey: process.env.OPENAI_API_KEY as string,
         endpoint: 'https://api.openai.com/v1'
       })
 
@@ -211,7 +211,7 @@ Generate a query for p95 latency analysis.`
       const chunks: string[] = []
       
       await Effect.runPromise(
-        client.generateStream!(request).pipe(
+        (client.generateStream as NonNullable<typeof client.generateStream>)(request).pipe(
           Stream.tap(chunk => 
             Effect.sync(() => {
               chunks.push(chunk)
@@ -282,7 +282,7 @@ Generate a query for p95 latency analysis.`
     it.skipIf(!hasApiKey)('should handle rate limiting with retries', async () => {
       const client = makeOpenAIClient({
         ...defaultOpenAIConfig,
-        apiKey: process.env.OPENAI_API_KEY!,
+        apiKey: process.env.OPENAI_API_KEY as string,
         endpoint: 'https://api.openai.com/v1',
         retryAttempts: 2
       })
@@ -305,7 +305,7 @@ Generate a query for p95 latency analysis.`
     it.skipIf(!hasApiKey)('should calculate costs correctly', async () => {
       const client = makeOpenAIClient({
         ...defaultOpenAIConfig,
-        apiKey: process.env.OPENAI_API_KEY!,
+        apiKey: process.env.OPENAI_API_KEY as string,
         model: 'gpt-3.5-turbo',
         endpoint: 'https://api.openai.com/v1'
       })
@@ -333,7 +333,7 @@ Generate a query for p95 latency analysis.`
       for (const model of models) {
         const client = makeOpenAIClient({
           ...defaultOpenAIConfig,
-          apiKey: process.env.OPENAI_API_KEY!,
+          apiKey: process.env.OPENAI_API_KEY as string,
           model,
           endpoint: 'https://api.openai.com/v1'
         })

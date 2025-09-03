@@ -197,7 +197,7 @@ Return only the SQL query.`,
       const chunks: string[] = []
       
       await Effect.runPromise(
-        client.generateStream!(request).pipe(
+        (client.generateStream as NonNullable<typeof client.generateStream>)(request).pipe(
           Stream.tap(chunk => 
             Effect.sync(() => {
               chunks.push(chunk)

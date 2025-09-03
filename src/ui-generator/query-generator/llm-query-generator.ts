@@ -1,6 +1,11 @@
 import { Effect, pipe, Duration } from 'effect'
 import { CriticalPath, GeneratedQuery, QueryPattern } from './types'
-import { type LLMRequest, type LLMResponse, type LLMError, createSimpleLLMManager } from '../../llm-manager'
+import {
+  type LLMRequest,
+  type LLMResponse,
+  type LLMError,
+  createSimpleLLMManager
+} from '../../llm-manager'
 import { makeClaudeClient } from '../../llm-manager/clients/claude-client.js'
 import { makeOpenAIClient } from '../../llm-manager/clients/openai-client.js'
 import { Schema } from '@effect/schema'
@@ -286,7 +291,7 @@ export const generateQueryWithLLM = (
 
   // Create appropriate client based on model type
   let generateEffect: Effect.Effect<LLMResponse, LLMError, never>
-  
+
   if (modelName.includes('claude')) {
     // Use Claude client for Claude models
     const claudeClient = makeClaudeClient({

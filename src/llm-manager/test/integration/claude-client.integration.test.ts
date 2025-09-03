@@ -26,7 +26,7 @@ describe('Claude Client Integration', () => {
     it.skipIf(!hasApiKey)('should connect to Claude API and get a response', async () => {
       const client = makeClaudeClient({
         ...defaultClaudeConfig,
-        apiKey: process.env.CLAUDE_API_KEY!,
+        apiKey: process.env.CLAUDE_API_KEY as string,
         model: 'claude-3-7-sonnet-20250219'
       })
 
@@ -58,7 +58,7 @@ describe('Claude Client Integration', () => {
     it.skipIf(!hasApiKey)('should handle health check', async () => {
       const client = makeClaudeClient({
         ...defaultClaudeConfig,
-        apiKey: process.env.CLAUDE_API_KEY!
+        apiKey: process.env.CLAUDE_API_KEY as string
       })
 
       const healthy = await Effect.runPromise(client.isHealthy())
@@ -70,7 +70,7 @@ describe('Claude Client Integration', () => {
     it.skipIf(!hasApiKey)('should generate JSON response when requested', async () => {
       const client = makeClaudeClient({
         ...defaultClaudeConfig,
-        apiKey: process.env.CLAUDE_API_KEY!,
+        apiKey: process.env.CLAUDE_API_KEY as string,
         model: 'claude-3-7-sonnet-20250219'
       })
 
@@ -109,7 +109,7 @@ describe('Claude Client Integration', () => {
     it.skipIf(!hasApiKey)('should generate SQL when asked', async () => {
       const client = makeClaudeClient({
         ...defaultClaudeConfig,
-        apiKey: process.env.CLAUDE_API_KEY!
+        apiKey: process.env.CLAUDE_API_KEY as string
       })
 
       const request: LLMRequest = {
@@ -135,7 +135,7 @@ describe('Claude Client Integration', () => {
     it.skipIf(!hasApiKey)('should stream responses', async () => {
       const client = makeClaudeClient({
         ...defaultClaudeConfig,
-        apiKey: process.env.CLAUDE_API_KEY!
+        apiKey: process.env.CLAUDE_API_KEY as string
       })
 
       const request: LLMRequest = {
@@ -151,7 +151,7 @@ describe('Claude Client Integration', () => {
       const chunks: string[] = []
       
       await Effect.runPromise(
-        client.generateStream!(request).pipe(
+        (client.generateStream as NonNullable<typeof client.generateStream>)(request).pipe(
           Stream.tap(chunk => 
             Effect.sync(() => {
               chunks.push(chunk)
@@ -196,7 +196,7 @@ describe('Claude Client Integration', () => {
       // This test is informational - we don't want to actually trigger rate limits
       const client = makeClaudeClient({
         ...defaultClaudeConfig,
-        apiKey: process.env.CLAUDE_API_KEY!,
+        apiKey: process.env.CLAUDE_API_KEY as string,
         retryAttempts: 1
       })
 
@@ -218,7 +218,7 @@ describe('Claude Client Integration', () => {
     it.skipIf(!hasApiKey)('should calculate costs correctly', async () => {
       const client = makeClaudeClient({
         ...defaultClaudeConfig,
-        apiKey: process.env.CLAUDE_API_KEY!,
+        apiKey: process.env.CLAUDE_API_KEY as string,
         model: 'claude-3-7-sonnet-20250219'
       })
 
