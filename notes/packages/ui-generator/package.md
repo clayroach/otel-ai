@@ -1,8 +1,8 @@
 ---
 id: packages.ui-generator
 title: UI Generator Package
-desc: 'LLM-powered React component generation with Apache ECharts integration'
-updated: 2025-08-13
+desc: 'LLM-powered React component generation with Apache ECharts integration and ClickHouse query generation'
+updated: 2025-01-03
 created: 2025-08-13
 ---
 
@@ -16,29 +16,145 @@ created: 2025-08-13
 
 Generates dynamic React components and Apache ECharts visualizations using LLMs based on telemetry data patterns, user interactions, and role-based preferences. This is the key differentiator that replaces traditional dashboarding tools like Grafana with AI-native, personalized user interfaces.
 
+**NEW**: The package now includes a **query-generator subsystem** that provides LLM-powered ClickHouse SQL query generation for advanced telemetry analysis, specifically focused on critical path analysis and performance optimization.
+
 ### Architecture
 
-- **LLM-Driven Generation**: Use GPT/Claude/Llama to generate React components from specifications
+- **Query Generation Subsystem**: LLM-powered SQL generation for ClickHouse with multi-model support
+- **LLM-Driven Component Generation**: Use GPT/Claude/Llama to generate React components from specifications
 - **Component Templates**: Base templates for common visualization patterns
 - **Real-Time Adaptation**: Components that adapt based on user interaction patterns
 - **Role-Based UIs**: Tailored interfaces for DevOps, SRE, Developer roles
 - **Apache ECharts Integration**: Advanced charting capabilities with full customization
+- **Effect-TS Patterns**: Type-safe, composable operations throughout
+
+## Core Features
+
+### Query Generation Subsystem (NEW)
+
+The query-generator subsystem provides intelligent SQL query generation for telemetry data analysis:
+
+- **Multi-Model Support**: GPT-4, Claude 3, Local Llama, GPT-3.5 Turbo
+- **Six Analysis Patterns**: Specialized patterns for different types of analysis
+- **Lazy Evaluation**: QueryThunk pattern for expensive operations
+- **Model Registry Integration**: Intelligent model selection based on requirements
+- **Context-Aware Generation**: Incorporates user context and request parameters
+
+#### Supported Analysis Patterns
+
+1. **Latency Analysis** (`latency_analysis`)
+   - P50, P95, P99 latency percentiles
+   - Latency trends over time
+   - Service-level latency breakdown
+
+2. **Error Analysis** (`error_analysis`)
+   - Error rates by service and operation
+   - Error types and categories
+   - Failed vs successful request ratios
+
+3. **Bottleneck Analysis** (`bottleneck_analysis`)
+   - Services with highest latency contribution
+   - Operations taking the most time
+   - Critical path bottlenecks
+
+4. **Throughput Analysis** (`throughput_analysis`)
+   - Requests per second by service
+   - Throughput trends over time
+   - Capacity utilization patterns
+
+5. **Critical Path Analysis** (`critical_path_analysis`)
+   - End-to-end trace analysis
+   - Service call sequences and dependencies
+   - Path latency breakdown
+
+6. **Service Dependency Analysis** (`service_dependency_analysis`)
+   - Service-to-service call patterns
+   - Dependency graphs and relationships
+   - Service coupling analysis
+
+### Component Generation
+
+- **Dynamic React Components**: LLM-generated components from telemetry data
+- **Apache ECharts Integration**: Automatic chart type selection
+- **Role-Based Dashboards**: Tailored views for different user roles
+- **Real-Time Updates**: Components refresh with live data streams
 
 ## API Surface
 
 <!-- COPILOT_GENERATE: Based on this description, generate TypeScript interfaces -->
 
-### Public Interfaces
+### Query Generator Interfaces
 
 ```typescript
-import { Effect, Context, Layer, Stream } from 'effect'
-import { Schema } from '@effect/schema'
+import { Effect, Context, Layer, Schema } from 'effect'
 
-// Effect-TS Schema definitions for UI generation
+// Analysis patterns supported by the query generator
+export const AnalysisPattern = Schema.Literal(
+  'latency_analysis',
+  'error_analysis',
+  'bottleneck_analysis',
+  'throughput_analysis',
+  'critical_path_analysis',
+  'service_dependency_analysis'
+)
+
+// Query generation request
+export const QueryGenerationRequest = Schema.Struct({
+  analysisType: AnalysisPattern,
+  timeRange: Schema.Struct({
+    startTime: Schema.String,
+    endTime: Schema.String
+  }),
+  services: Schema.optional(Schema.Array(Schema.String)),
+  operations: Schema.optional(Schema.Array(Schema.String)),
+  filters: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+  model: Schema.optional(Schema.String), // LLM model to use
+  context: Schema.optional(Schema.String) // Additional context
+})
+
+// Generated query result
+export const QueryGenerationResult = Schema.Struct({
+  query: Schema.String,
+  description: Schema.String,
+  estimatedComplexity: Schema.Union(
+    Schema.Literal('low'),
+    Schema.Literal('medium'),
+    Schema.Literal('high')
+  ),
+  expectedColumns: Schema.Array(Schema.String),
+  modelUsed: Schema.String,
+  generationTimeMs: Schema.Number
+})
+
+// Query Thunk for lazy evaluation
+export interface QueryThunk {
+  readonly execute: () => Effect.Effect<QueryGenerationResult, QueryGenerationError, never>
+  readonly analysisType: AnalysisPattern
+  readonly estimatedCost: 'low' | 'medium' | 'high'
+}
+
+// LLM Query Generator service
+export interface LlmQueryGenerator extends Context.Tag<'LlmQueryGenerator', {
+  readonly generateQuery: (
+    request: QueryGenerationRequest
+  ) => Effect.Effect<QueryGenerationResult, QueryGenerationError | InvalidRequestError, never>
+  
+  readonly generateQueryThunk: (
+    request: QueryGenerationRequest  
+  ) => Effect.Effect<QueryThunk, InvalidRequestError, never>
+  
+  readonly getSupportedPatterns: () => Effect.Effect<readonly AnalysisPattern[], never, never>
+}> {}
+```
+
+### Component Generation Interfaces
+
+```typescript
+// Component generation request
 const ComponentRequestSchema = Schema.Struct({
   type: Schema.Literal('dashboard', 'chart', 'table', 'card', 'alert'),
   data: Schema.Struct({
-    source: Schema.String, // Query or data source identifier
+    source: Schema.String, // Query or data source identifier (can use generated queries)
     timeRange: Schema.optional(TimeRangeSchema),
     filters: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
     aggregation: Schema.optional(Schema.String)
@@ -49,494 +165,338 @@ const ComponentRequestSchema = Schema.Struct({
     preferences: Schema.optional(UserPreferencesSchema),
     recentInteractions: Schema.optional(Schema.Array(InteractionSchema))
   }),
-  context: Schema.optional(
-    Schema.Struct({
-      existingComponents: Schema.optional(Schema.Array(Schema.String)),
-      pageLayout: Schema.optional(Schema.String),
-      theme: Schema.optional(Schema.Literal('light', 'dark', 'auto'))
-    })
-  ),
-  requirements: Schema.optional(
-    Schema.Struct({
-      responsive: Schema.optional(Schema.Boolean),
-      accessibility: Schema.optional(Schema.Boolean),
-      realtime: Schema.optional(Schema.Boolean),
-      interactive: Schema.optional(Schema.Boolean)
-    })
-  )
+  style: Schema.optional(StylePreferencesSchema)
 })
 
-const GeneratedComponentSchema = Schema.Struct({
-  id: Schema.String,
-  name: Schema.String,
-  code: Schema.Struct({
-    tsx: Schema.String, // React TSX component code
-    css: Schema.optional(Schema.String), // Optional CSS styles
-    types: Schema.optional(Schema.String) // TypeScript type definitions
-  }),
-  props: Schema.Record(Schema.String, PropDefinitionSchema),
-  dependencies: Schema.Array(Schema.String),
-  metadata: Schema.Struct({
-    generated: Schema.Number, // timestamp
-    model: Schema.String, // which LLM generated it
-    version: Schema.String,
-    description: Schema.String,
-    tags: Schema.Array(Schema.String)
-  }),
-  chart: Schema.optional(EChartsConfigSchema),
-  validation: ComponentValidationSchema
-})
-
-const UserPreferencesSchema = Schema.Struct({
-  colorScheme: Schema.optional(Schema.String),
-  chartTypes: Schema.optional(Schema.Array(Schema.String)),
-  density: Schema.optional(Schema.Literal('compact', 'comfortable', 'spacious')),
-  animations: Schema.optional(Schema.Boolean),
-  autoRefresh: Schema.optional(Schema.Boolean)
-})
-
-const EChartsConfigSchema = Schema.Struct({
-  type: Schema.Literal('line', 'bar', 'pie', 'scatter', 'heatmap', 'graph', 'tree'),
-  options: Schema.Record(Schema.String, Schema.Unknown),
-  responsive: Schema.Boolean,
-  interactions: Schema.optional(Schema.Array(InteractionConfigSchema))
-})
-
-const ComponentValidationSchema = Schema.Struct({
-  syntaxValid: Schema.Boolean,
-  compilable: Schema.Boolean,
-  performance: Schema.optional(
-    Schema.Struct({
-      renderTime: Schema.Number,
-      memoryUsage: Schema.Number,
-      bundleSize: Schema.Number
-    })
-  ),
-  accessibility: Schema.optional(AccessibilityScoreSchema),
-  errors: Schema.Array(Schema.String),
-  warnings: Schema.Array(Schema.String)
-})
-
-type ComponentRequest = Schema.Schema.Type<typeof ComponentRequestSchema>
-type GeneratedComponent = Schema.Schema.Type<typeof GeneratedComponentSchema>
-type UserPreferences = Schema.Schema.Type<typeof UserPreferencesSchema>
-type EChartsConfig = Schema.Schema.Type<typeof EChartsConfigSchema>
-
-// UI Generation Error ADT
-type UIGenerationError =
-  | { _tag: 'GenerationFailed'; message: string; prompt: string }
-  | { _tag: 'ValidationFailed'; errors: string[]; component: string }
-  | { _tag: 'CompilationFailed'; message: string; code: string }
-  | { _tag: 'DataSourceError'; message: string; source: string }
-  | { _tag: 'TemplateError'; message: string; template: string }
+// UI Generator Service
+interface UiGenerator extends Context.Tag<"UiGenerator", {
+  readonly generateComponent: (
+    request: ComponentRequestSchema
+  ) => Effect.Effect<GeneratedComponent, GenerationError, never>
+  
+  readonly optimizeLayout: (
+    components: GeneratedComponent[]
+  ) => Effect.Effect<DashboardLayout, LayoutError, never>
+  
+  readonly streamUpdates: (
+    componentId: string
+  ) => Stream.Stream<ComponentUpdate, UpdateError, never>
+}>{}
 ```
 
-### Effect-TS Service Definitions
+## Implementation Details
+
+### Query Generation Process
+
+1. **Request Validation**: Schema validation for QueryGenerationRequest
+2. **Model Selection**: Choose optimal LLM based on complexity and requirements
+3. **Prompt Building**: Combine analysis patterns, templates, and context
+4. **Query Generation**: LLM generates ClickHouse SQL
+5. **Result Processing**: Extract and validate generated SQL
+
+### Query Templates
+
+Base templates for each analysis pattern:
 
 ```typescript
-// Service tags for dependency injection
-class UIGeneratorService extends Context.Tag('UIGeneratorService')<
-  UIGeneratorService,
-  {
-    // Core generation
-    generateComponent: (
-      request: ComponentRequest
-    ) => Effect.Effect<GeneratedComponent, UIGenerationError, never>
-    generateFromTemplate: (
-      template: string,
-      data: unknown
-    ) => Effect.Effect<GeneratedComponent, UIGenerationError, never>
-
-    // User adaptation
-    personalizeComponent: (
-      component: GeneratedComponent,
-      userId: string
-    ) => Effect.Effect<GeneratedComponent, UIGenerationError, never>
-    learnFromInteraction: (
-      userId: string,
-      interaction: UserInteraction
-    ) => Effect.Effect<void, UIGenerationError, never>
-
-    // Component management
-    validateComponent: (
-      code: string
-    ) => Effect.Effect<ComponentValidationSchema, UIGenerationError, never>
-    optimizeComponent: (
-      component: GeneratedComponent
-    ) => Effect.Effect<GeneratedComponent, UIGenerationError, never>
-    versionComponent: (
-      component: GeneratedComponent
-    ) => Effect.Effect<string, UIGenerationError, never>
-  }
->() {}
-
-class ComponentTemplateService extends Context.Tag('ComponentTemplateService')<
-  ComponentTemplateService,
-  {
-    getTemplate: (
-      type: string,
-      role: string
-    ) => Effect.Effect<ComponentTemplate, UIGenerationError, never>
-    createTemplate: (
-      component: GeneratedComponent
-    ) => Effect.Effect<ComponentTemplate, UIGenerationError, never>
-    updateTemplate: (
-      id: string,
-      usage: TemplateUsage
-    ) => Effect.Effect<void, UIGenerationError, never>
-  }
->() {}
-
-// Main UI Generator implementation
-const makeUIGenerator = (config: UIGeneratorConfig) =>
-  Effect.gen(function* (_) {
-    const llm = yield* _(LLMManagerService)
-    const templates = yield* _(ComponentTemplateService)
-    const storage = yield* _(ClickhouseStorageService)
-
-    return {
-      generateComponent: (request: ComponentRequest) =>
-        Effect.gen(function* (_) {
-          // Validate request
-          const validatedRequest = yield* _(Schema.decodeUnknown(ComponentRequestSchema)(request))
-
-          // Get user's data and preferences
-          const userData = yield* _(getUserData(validatedRequest.user.id))
-          const recentPatterns = yield* _(analyzeUserPatterns(userData))
-
-          // Select appropriate template
-          const template = yield* _(
-            templates.getTemplate(validatedRequest.type, validatedRequest.user.role)
-          )
-
-          // Fetch actual data for the component
-          const componentData = yield* _(
-            storage.queryForUI(validatedRequest.data).pipe(
-              Effect.timeout('30 seconds'),
-              Effect.catchAll((error) =>
-                Effect.fail({
-                  _tag: 'DataSourceError' as const,
-                  message: error.message,
-                  source: validatedRequest.data.source
-                })
-              )
-            )
-          )
-
-          // Generate LLM prompt based on template, data, and user preferences
-          const prompt = yield* _(
-            buildGenerationPrompt({
-              template,
-              data: componentData,
-              userPreferences: validatedRequest.user.preferences,
-              recentPatterns,
-              requirements: validatedRequest.requirements
-            })
-          )
-
-          // Generate component using LLM
-          const llmResponse = yield* _(
-            llm
-              .generate({
-                prompt,
-                taskType: 'ui-generation',
-                preferences: { model: 'gpt' } // GPT best for code generation
-              })
-              .pipe(
-                Effect.retry(
-                  Schedule.exponential('2 seconds').pipe(Schedule.compose(Schedule.recurs(2)))
-                ),
-                Effect.timeout('60 seconds'),
-                Effect.catchAll((error) =>
-                  Effect.fail({ _tag: 'GenerationFailed' as const, message: error.message, prompt })
-                )
-              )
-          )
-
-          // Parse and validate generated component
-          const parsedComponent = yield* _(parseGeneratedComponent(llmResponse.content))
-          const validation = yield* _(validateComponent(parsedComponent.code.tsx))
-
-          if (!validation.syntaxValid || !validation.compilable) {
-            // Attempt to fix common issues
-            const fixedComponent = yield* _(attemptAutoFix(parsedComponent, validation.errors))
-            const revalidation = yield* _(validateComponent(fixedComponent.code.tsx))
-
-            if (!revalidation.syntaxValid) {
-              return Effect.fail({
-                _tag: 'ValidationFailed' as const,
-                errors: revalidation.errors,
-                component: fixedComponent.code.tsx
-              })
-            }
-
-            return { ...fixedComponent, validation: revalidation }
-          }
-
-          // Optimize for performance if needed
-          const optimizedComponent = yield* _(
-            validation.performance && validation.performance.renderTime > 100
-              ? optimizeComponent(parsedComponent)
-              : Effect.succeed(parsedComponent)
-          )
-
-          return { ...optimizedComponent, validation }
-        }),
-
-      personalizeComponent: (component: GeneratedComponent, userId: string) =>
-        Effect.gen(function* (_) {
-          // Get user's interaction history
-          const userHistory = yield* _(getUserInteractionHistory(userId))
-          const preferences = yield* _(inferUserPreferences(userHistory))
-
-          // Generate personalization prompt
-          const personalizationPrompt = buildPersonalizationPrompt(
-            component,
-            preferences,
-            userHistory
-          )
-
-          // Use LLM to personalize the component
-          const personalizedResponse = yield* _(
-            llm.generate({
-              prompt: personalizationPrompt,
-              taskType: 'ui-generation',
-              context: { originalComponent: component.id, userId }
-            })
-          )
-
-          const personalizedComponent = yield* _(
-            parseGeneratedComponent(personalizedResponse.content)
-          )
-          const validation = yield* _(validateComponent(personalizedComponent.code.tsx))
-
-          if (!validation.syntaxValid) {
-            // Fallback to original component if personalization fails
-            yield* _(
-              Effect.logWarning(
-                `Personalization failed for user ${userId}, using original component`
-              )
-            )
-            return component
-          }
-
-          return { ...personalizedComponent, validation }
-        }),
-
-      learnFromInteraction: (userId: string, interaction: UserInteraction) =>
-        Effect.gen(function* (_) {
-          // Store interaction for future personalization
-          yield* _(storeUserInteraction(userId, interaction))
-
-          // Update user preferences based on interaction
-          yield* _(updateUserPreferences(userId, interaction))
-
-          // If interaction indicates dissatisfaction, trigger component regeneration
-          if (
-            interaction.type === 'negative_feedback' ||
-            interaction.type === 'component_dismissed'
-          ) {
-            yield* _(
-              Effect.logInfo(
-                `Negative interaction detected for user ${userId}, marking for regeneration`
-              ).pipe(Effect.zipRight(markForRegeneration(interaction.componentId, userId)))
-            )
-          }
-        })
-    }
-  })
-
-// ECharts integration helpers
-const generateEChartsConfig = (data: unknown[], chartType: string, preferences: UserPreferences) =>
-  Effect.gen(function* (_) {
-    const baseConfig = getBaseChartConfig(chartType)
-    const styledConfig = applyUserStyling(baseConfig, preferences)
-    const dataConfig = bindDataToChart(styledConfig, data)
-
-    return {
-      type: chartType as any,
-      options: dataConfig,
-      responsive: true,
-      interactions: generateInteractionConfig(chartType)
-    }
-  })
-
-// Component streaming for real-time updates
-const createRealtimeComponent = (
-  componentId: string,
-  dataStream: Stream.Stream<unknown, never, never>
-) =>
-  Stream.unwrap(
-    Effect.gen(function* (_) {
-      const component = yield* _(getComponentById(componentId))
-
-      return dataStream.pipe(
-        // Throttle updates to avoid overwhelming the UI
-        Stream.throttle(Duration.seconds(1)),
-
-        // Transform data for the component
-        Stream.mapEffect((data) => transformDataForComponent(component, data)),
-
-        // Generate updated component props
-        Stream.map((transformedData) => ({
-          componentId,
-          props: { data: transformedData },
-          timestamp: Date.now()
-        }))
-      )
-    })
-  )
-
-// Layers for dependency injection
-const UIGeneratorLayer = Layer.effect(
-  UIGeneratorService,
-  Effect.gen(function* (_) {
-    const config = yield* _(Effect.service(ConfigService))
-    return makeUIGenerator(config.uiGenerator)
-  })
-)
-
-const ComponentTemplateLayer = Layer.effect(
-  ComponentTemplateService,
-  Effect.gen(function* (_) {
-    return makeComponentTemplateService()
-  })
-)
+const QUERY_TEMPLATES = {
+  latency_analysis: `
+    SELECT 
+      service_name,
+      quantile(0.5)(duration_ns / 1000000) as p50_ms,
+      quantile(0.95)(duration_ns / 1000000) as p95_ms,
+      quantile(0.99)(duration_ns / 1000000) as p99_ms
+    FROM traces 
+    WHERE start_time >= {START_TIME}
+      AND start_time <= {END_TIME}
+      {SERVICE_FILTER}
+    GROUP BY service_name
+    ORDER BY p95_ms DESC`,
+  // ... other patterns
+}
 ```
 
-## Implementation Notes
-
-<!-- COPILOT_SYNC: Analyze code in src/ui-generator and update this section -->
-
-### Core Components
-
-- **UIGeneratorService**: Main service for component generation and personalization
-- **ComponentTemplateService**: Template management for different roles and component types
-- **ComponentValidator**: Syntax and performance validation for generated components
-- **EChartsIntegrator**: Apache ECharts configuration generation and data binding
-- **PersonalizationEngine**: User behavior analysis and component adaptation
-- **RealtimeUpdater**: Real-time component updates based on streaming data
-
-### Dependencies
-
-- Internal dependencies: `llm-manager`, `storage`, `ai-analyzer` packages
-- External dependencies:
-  - `@effect/platform` - Effect-TS platform abstractions
-  - `@effect/schema` - Schema validation and transformation
-  - `react` - React framework for component generation
-  - `echarts` - Apache ECharts for advanced visualizations
-  - `@babel/parser` - Code parsing and validation
-  - `typescript` - TypeScript compilation and validation
-
-## Component Generation Strategy
-
-### Role-Based Templates
+### Model Selection Strategy
 
 ```typescript
-const roleTemplates = {
+// Intelligent model selection based on requirements
+export const selectQueryGenerationModel = (
+  modelId?: string
+): Effect.Effect<ModelConfig, NoSuitableModelError | ModelNotFoundError, ModelRegistry> =>
+  Effect.gen(function* () {
+    const registry = yield* ModelRegistry
+    
+    if (modelId) {
+      return yield* registry.getModel(modelId)
+    }
+    
+    return yield* registry.selectBestModel({
+      requiredCapabilities: ['sql_generation', 'data_analysis'],
+      maxLatency: 5000,
+      minReliability: 0.8
+    })
+  })
+```
+
+### Component Generation Pipeline
+
+```typescript
+// Component generation flow with query integration
+const generateVisualization = (spec: ComponentSpec) =>
+  Effect.gen(function* () {
+    // Generate query if needed
+    const query = spec.useGeneratedQuery 
+      ? yield* queryGenerator.generateQuery(spec.queryRequest)
+      : spec.customQuery
+    
+    // Execute query
+    const data = yield* storage.executeQuery(query.sql)
+    
+    // Generate component
+    const component = yield* llm.generateComponent({
+      template: selectTemplate(spec.type),
+      data: data,
+      chartConfig: getEChartsConfig(spec.type, data)
+    })
+    
+    // Validate and optimize
+    return yield* validateComponent(component)
+  })
+```
+
+### Role-Based Dashboard Templates
+
+```typescript
+const DASHBOARD_TEMPLATES: Record<UserRole, DashboardConfig> = {
   devops: {
-    dashboard: 'Infrastructure overview with service health, resource usage, alerts',
-    chart: 'Time-series metrics with deployment markers and capacity planning',
-    table: 'Service inventory with status, versions, and resource allocation'
-  },
-  sre: {
-    dashboard: 'SLI/SLO tracking with error budgets and incident timelines',
-    chart: 'Reliability metrics with trend analysis and anomaly detection',
-    table: 'Service dependencies with failure rates and recovery times'
+    priorityMetrics: ['system_health', 'alerts', 'capacity'],
+    defaultQueries: ['throughput_analysis', 'error_analysis'],
+    layout: 'operations_focused'
   },
   developer: {
-    dashboard: 'Application performance with code deployment impacts',
-    chart: 'Request traces with performance bottlenecks and error patterns',
-    table: 'API endpoints with latency percentiles and error rates'
+    priorityMetrics: ['latency_trends', 'error_rates', 'dependencies'],
+    defaultQueries: ['latency_analysis', 'critical_path_analysis'],
+    layout: 'development_focused'
+  },
+  sre: {
+    priorityMetrics: ['sla_compliance', 'incidents', 'reliability'],
+    defaultQueries: ['error_analysis', 'bottleneck_analysis'],
+    layout: 'reliability_focused'
   }
 }
 ```
 
-### Personalization Patterns
-
-- **Interaction Learning**: Track clicks, hovers, filters, time spent
-- **Visual Preferences**: Color schemes, chart types, layout density
-- **Data Preferences**: Preferred time ranges, aggregation levels, filters
-- **Workflow Adaptation**: Common navigation patterns and task sequences
-
-## Code Generation Prompts
-
-### Generate Base Implementation
-
-Use this in Copilot Chat:
-
-```
-@workspace Based on the package overview in notes/packages/ui-generator/package.md, generate the initial implementation for:
-- UIGeneratorService in src/ui-generator/generator.ts with LLM-powered component generation
-- ComponentTemplateService in src/ui-generator/templates.ts with role-based templates
-- ComponentValidator in src/ui-generator/validator.ts with syntax and performance validation
-- EChartsIntegrator in src/ui-generator/echarts.ts with advanced chart generation
-- PersonalizationEngine in src/ui-generator/personalization.ts with user behavior analysis
-- Real-time component updating in src/ui-generator/realtime.ts
-- Comprehensive unit tests with component generation validation
-- Integration tests with actual React rendering
-```
-
-### Update from Code
-
-Use this in Copilot Chat:
-
-```
-@workspace Analyze the code in src/ui-generator and update notes/packages/ui-generator/package.md with:
-- Current component generation capabilities and success rates
-- Template library and role-based customizations
-- Personalization algorithms and user adaptation patterns
-- ECharts integration patterns and chart types
-- Recent improvements and optimizations
-```
-
 ## Testing Strategy
 
-<!-- Test coverage and testing approach -->
+### Test Structure
 
-### Unit Tests
+```
+src/ui-generator/
+├── test/                              # ALL tests in subdirectory
+│   ├── unit/                         # Unit tests
+│   │   └── llm-query-generator.test.ts
+│   ├── integration/                  # Integration tests
+│   │   └── multi-model-query-generation.test.ts
+│   └── fixtures/                     # Test data and schemas
+└── query-generator/                  # Implementation
+```
 
-- Coverage target: 80%
-- Key test scenarios:
-  - Component generation from various data sources
-  - Template selection and role-based customization
-  - Component validation and error handling
-  - Personalization based on user interactions
-  - ECharts configuration generation
+### Query Generator Tests
 
-### Integration Tests
+#### Unit Tests
+- Request validation and schema compliance
+- Query template selection
+- Result parsing and validation
+- QueryThunk lazy evaluation
+- Error handling
 
-- Test with React Test Renderer for component compilation
-- Visual regression testing for generated components
-- Performance benchmarks:
-  - <5 seconds for component generation
-  - <2 seconds for personalization
-  - <1 second for template application
-  - Generated components render in <100ms
+#### Integration Tests
+- Multi-model consistency (GPT-4, Claude 3, Local Llama)
+- Performance benchmarking
+- Context-aware generation
+- Model fallback scenarios
 
-## Performance Characteristics
+### Component Generation Tests
+- Component generation with various specifications
+- Layout optimization algorithms
+- Real-time update streaming
+- Role-based customization
 
-### Generation Performance
+## Performance Optimization
 
-- **Component Generation**: 3-8 seconds depending on complexity
-- **Template Application**: <1 second
-- **Personalization**: 1-3 seconds
-- **Validation**: <500ms
+### Query Generation
+- **Target**: < 5 seconds per query
+- **Model Selection**: Based on complexity and latency requirements
+- **Lazy Evaluation**: QueryThunks defer expensive operations
+- **Template Caching**: Reuse common patterns
 
-### Runtime Performance
+### Component Rendering
+- **Virtual Scrolling**: For large datasets
+- **Memoization**: Prevent unnecessary re-renders
+- **Canvas Rendering**: For complex visualizations
+- **Progressive Loading**: Prioritize visible content
 
-- **Generated Components**: Optimized for <100ms render time
-- **Real-time Updates**: <50ms for data binding updates
-- **Memory Usage**: <10MB per generated component
-- **Bundle Impact**: <50KB additional per component
+## Configuration
 
-## Change Log
+### Environment Variables
 
-<!-- Auto-updated by Copilot when code changes -->
+```bash
+# LLM Configuration
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=...
+DEFAULT_MODEL=gpt-4
 
-### 2025-08-13
+# ClickHouse Connection
+CLICKHOUSE_HOST=localhost
+CLICKHOUSE_PORT=8123
+CLICKHOUSE_DATABASE=otel
 
-- Initial package creation
-- Defined LLM-powered React component generation
-- Specified role-based templates and personalization
-- Added Apache ECharts integration and real-time updates
+# UI Generation Settings
+COMPONENT_CACHE_TTL=3600
+MAX_GENERATION_TIME=30000
+ENABLE_VISUAL_TESTS=true
+```
+
+### Model Configuration
+
+```typescript
+const MODEL_CONFIG = {
+  query_generation: {
+    primary: 'gpt-4',
+    fallback: ['claude-3', 'gpt-3.5-turbo'],
+    timeout: 5000,
+    requiredCapabilities: ['sql_generation', 'data_analysis']
+  },
+  component_generation: {
+    primary: 'gpt-4',
+    fallback: ['claude-3'],
+    timeout: 30000,
+    requiredCapabilities: ['code_generation', 'react']
+  }
+}
+```
+
+## Error Handling
+
+### Query Generation Errors
+
+```typescript
+export class QueryGenerationError extends Schema.TaggedError<QueryGenerationError>()('QueryGenerationError', {
+  message: Schema.String,
+  analysisType: Schema.optional(AnalysisPattern),
+  modelUsed: Schema.optional(Schema.String)
+})
+
+export class InvalidRequestError extends Schema.TaggedError<InvalidRequestError>()('InvalidRequestError', {
+  message: Schema.String,
+  invalidFields: Schema.Array(Schema.String)
+})
+```
+
+### Component Generation Errors
+
+```typescript
+export class GenerationError extends Schema.TaggedError<GenerationError>()('GenerationError', {
+  message: Schema.String,
+  componentType: Schema.String,
+  phase: Schema.Literal('generation', 'validation', 'compilation')
+})
+```
+
+## Usage Examples
+
+### Query Generation
+
+```typescript
+import { LlmQueryGenerator } from './query-generator'
+
+// Generate a latency analysis query
+const generator = yield* LlmQueryGenerator
+const result = yield* generator.generateQuery({
+  analysisType: 'latency_analysis',
+  timeRange: {
+    startTime: '2024-01-01T00:00:00Z',
+    endTime: '2024-01-01T01:00:00Z'
+  },
+  services: ['user-service', 'order-service'],
+  model: 'gpt-4',
+  context: 'Peak traffic analysis'
+})
+
+console.log(result.query) // Generated ClickHouse SQL
+console.log(result.estimatedComplexity) // 'low' | 'medium' | 'high'
+```
+
+### Lazy Query Generation
+
+```typescript
+// Create a query thunk for deferred execution
+const thunk = yield* generator.generateQueryThunk({
+  analysisType: 'critical_path_analysis',
+  timeRange: { /* ... */ },
+  services: ['frontend', 'api-gateway', 'backend']
+})
+
+// Execute when needed
+const result = yield* thunk.execute()
+```
+
+### Component Generation with Generated Query
+
+```typescript
+// Generate component with LLM-generated query
+const component = yield* uiGenerator.generateComponent({
+  type: 'chart',
+  data: {
+    source: 'generated',
+    queryRequest: {
+      analysisType: 'error_analysis',
+      timeRange: { /* ... */ },
+      services: ['payment-service']
+    }
+  },
+  user: {
+    id: 'user123',
+    role: 'developer'
+  }
+})
+```
+
+## Dependencies
+
+### Internal Dependencies
+- **storage**: ClickHouse integration for query execution
+- **llm-manager**: Multi-model LLM orchestration and model registry
+- **config-manager**: Dynamic configuration management
+
+### External Libraries
+- **Effect-TS**: Functional programming patterns
+- **@effect/schema**: Runtime type validation
+- **Apache ECharts**: Advanced charting library
+- **React**: Component framework
+
+## Future Enhancements
+
+### Query Generation
+- **Query Optimization**: Analyze and optimize generated SQL
+- **Incremental Learning**: Improve generation based on feedback
+- **Custom Patterns**: User-defined analysis patterns
+- **Query Explanation**: Natural language explanations
+
+### Component Generation
+- **A/B Testing**: Generate multiple component variants
+- **Predictive Layouts**: Anticipate user needs
+- **Natural Language UI**: Generate from text descriptions
+- **Collaborative Editing**: Multi-user dashboard creation
+
+### Performance
+- **Edge Generation**: Generate closer to users
+- **WebAssembly**: High-performance rendering
+- **Streaming Generation**: Progressive component updates
+- **Intelligent Caching**: ML-powered cache strategies
+
+## Related Documentation
+
+- [Test Containerization Plan](./test-containerization.md) - Testing strategy with Ollama containers
+- [Model Registry](../llm-manager/package.md) - Multi-model LLM management
+- [Storage Package](../storage/package.md) - ClickHouse integration
