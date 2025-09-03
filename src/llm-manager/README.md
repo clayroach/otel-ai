@@ -136,7 +136,7 @@ OPENAI_TEMPERATURE=0.7
 
 # Claude (optional)
 CLAUDE_API_KEY=sk-ant-...
-CLAUDE_MODEL=claude-3-sonnet-20240229
+CLAUDE_MODEL=claude-3-7-sonnet-20250219
 
 # Routing
 LLM_ROUTING_STRATEGY=balanced  # cost, performance, or balanced

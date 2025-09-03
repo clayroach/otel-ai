@@ -5,8 +5,8 @@
  * Provides type-safe configuration for all LLM models and routing strategies.
  */
 
-import { Effect, Layer } from 'effect'
 import { Schema } from '@effect/schema'
+import { Effect, Layer } from 'effect'
 import { LLMConfigService } from './services.js'
 import { LLMConfig, LLMConfigSchema, LLMError, RoutingStrategy } from './types.js'
 
@@ -72,7 +72,7 @@ const loadConfigFromEnv = (): Effect.Effect<LLMConfig, LLMError, never> =>
     if (claudeApiKey) {
       baseConfig.models.claude = {
         apiKey: claudeApiKey,
-        model: process.env.CLAUDE_MODEL || 'claude-3-sonnet-20240229',
+        model: process.env.CLAUDE_MODEL || 'claude-3-7-sonnet-20250219',
         maxTokens: parseInt(process.env.CLAUDE_MAX_TOKENS || '4096'),
         temperature: parseFloat(process.env.CLAUDE_TEMPERATURE || '0.7'),
         endpoint: process.env.CLAUDE_ENDPOINT
@@ -195,7 +195,7 @@ export const ENV_DOCS = {
 
   // Claude Configuration
   CLAUDE_API_KEY: 'Anthropic API key for Claude models',
-  CLAUDE_MODEL: 'Claude model name (default: claude-3-sonnet-20240229)',
+  CLAUDE_MODEL: 'Claude model name (default: claude-3-7-sonnet-20250219)',
   CLAUDE_MAX_TOKENS: 'Maximum tokens for Claude (default: 4096)',
   CLAUDE_TEMPERATURE: 'Temperature for Claude (default: 0.7)',
   CLAUDE_ENDPOINT: 'Custom Claude endpoint (optional)',

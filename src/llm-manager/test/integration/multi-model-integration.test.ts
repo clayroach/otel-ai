@@ -141,7 +141,7 @@ describe('Multi-Model Integration Tests', () => {
           ...(process.env.CLAUDE_API_KEY && {
             claude: {
               apiKey: process.env.CLAUDE_API_KEY,
-              model: 'claude-3-5-sonnet-20241022',
+              model: 'claude-3-7-sonnet-20250219',
               maxTokens: 100,
               temperature: 0.7
             }

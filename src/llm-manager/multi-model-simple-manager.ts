@@ -40,7 +40,7 @@ export const createMultiModelSimpleLLMManager = (config?: Partial<LLMConfig>) =>
     // For Claude, we make a direct API call
     const claudeModel = process.env.LLM_GENERAL_MODEL_1?.includes('claude')
       ? process.env.LLM_GENERAL_MODEL_1
-      : 'claude-3-5-sonnet-20241022'
+      : 'claude-3-7-sonnet-20250219'
 
     return Effect.tryPromise({
       try: async () => {
@@ -110,7 +110,7 @@ export const createMultiModelSimpleLLMManager = (config?: Partial<LLMConfig>) =>
       process.env.LLM_GENERAL_MODEL_1?.includes('gpt') &&
       !process.env.LLM_GENERAL_MODEL_1?.includes('gpt-oss')
         ? process.env.LLM_GENERAL_MODEL_1
-        : 'gpt-4-turbo-preview'
+        : 'gpt-4.1-2025-04-14'
 
     return Effect.tryPromise({
       try: async () => {

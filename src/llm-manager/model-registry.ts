@@ -217,7 +217,7 @@ export const MODEL_REGISTRY: Record<string, ModelMetadata> = {
   'gpt-oss-120b': {
     id: 'gpt-oss-120b',
     displayName: 'GPT OSS 120B',
-    provider: 'openai',
+    provider: 'local',
     type: 'general',
     capabilities: {
       json: true,
@@ -236,6 +236,78 @@ export const MODEL_REGISTRY: Record<string, ModelMetadata> = {
     maxTokens: 8192,
     defaultTemperature: 0.7,
     notes: 'Large general purpose model. Excellent at complex tasks.'
+  },
+
+  'gpt-4-turbo-preview': {
+    id: 'gpt-4-turbo-preview',
+    displayName: 'GPT-4 Turbo Preview',
+    provider: 'openai',
+    type: 'general',
+    capabilities: {
+      json: true,
+      sql: true,
+      reasoning: true,
+      functions: true,
+      streaming: true
+    },
+    responseFormat: {
+      type: 'json',
+      hasMarkdownBlocks: false,
+      hasThinkingTags: false,
+      rawForSpecificPrompts: false
+    },
+    contextLength: 128000,
+    maxTokens: 4096,
+    defaultTemperature: 0.7,
+    notes: 'GPT-4 Turbo model with improved capabilities and JSON mode support.'
+  },
+
+  'claude-3-7-sonnet-20250219': {
+    id: 'claude-3-7-sonnet-20250219',
+    displayName: 'Claude 3.7 Sonnet',
+    provider: 'anthropic',
+    type: 'general',
+    capabilities: {
+      json: true,
+      sql: true,
+      reasoning: true,
+      functions: true,
+      streaming: true
+    },
+    responseFormat: {
+      type: 'json',
+      hasMarkdownBlocks: false,
+      hasThinkingTags: false,
+      rawForSpecificPrompts: false
+    },
+    contextLength: 200000,
+    maxTokens: 4096,
+    defaultTemperature: 0.7,
+    notes: 'Claude 3.7 Sonnet - Latest Anthropic model with improved capabilities.'
+  },
+
+  'gpt-4.1-2025-04-14': {
+    id: 'gpt-4.1-2025-04-14',
+    displayName: 'GPT-4.1 Latest',
+    provider: 'openai',
+    type: 'general',
+    capabilities: {
+      json: true,
+      sql: true,
+      reasoning: true,
+      functions: true,
+      streaming: true
+    },
+    responseFormat: {
+      type: 'json',
+      hasMarkdownBlocks: false,
+      hasThinkingTags: false,
+      rawForSpecificPrompts: false
+    },
+    contextLength: 128000,
+    maxTokens: 4096,
+    defaultTemperature: 0.7,
+    notes: 'GPT-4.1 April 2025 release with enhanced capabilities.'
   },
 
   // StarCoder models for code and SQL generation

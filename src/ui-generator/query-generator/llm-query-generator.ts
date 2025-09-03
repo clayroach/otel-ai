@@ -1,6 +1,8 @@
 import { Effect, pipe, Duration } from 'effect'
 import { CriticalPath, GeneratedQuery, QueryPattern } from './types'
-import { type LLMRequest, createSimpleLLMManager } from '../../llm-manager'
+import { type LLMRequest, type LLMResponse, type LLMError, createSimpleLLMManager } from '../../llm-manager'
+import { makeClaudeClient } from '../../llm-manager/clients/claude-client.js'
+import { makeOpenAIClient } from '../../llm-manager/clients/openai-client.js'
 import { Schema } from '@effect/schema'
 import {
   isSQLSpecificModel as checkSQLModel,
@@ -267,17 +269,6 @@ export const generateQueryWithLLM = (
   const modelName = llmConfig?.model || DEFAULT_MODEL
   const modelConfig = getModelConfig(modelName)
 
-  const llmManager = createSimpleLLMManager({
-    models: {
-      llama: {
-        endpoint: llmConfig?.endpoint || 'http://localhost:1234/v1',
-        modelPath: modelName,
-        contextLength: modelConfig.contextLength || 32768,
-        threads: 4
-      }
-    }
-  })
-
   const prompt = createDynamicQueryPrompt(path, analysisGoal, modelName)
 
   const request: LLMRequest = {
@@ -286,15 +277,54 @@ export const generateQueryWithLLM = (
       : `You are a ClickHouse SQL expert. Always return valid JSON responses. Generate consistent, optimal queries based on the examples provided.\n\n${prompt}`,
     taskType: 'analysis',
     preferences: {
-      model: 'llama',
+      model: 'llama', // This is ignored by external clients
       maxTokens: modelConfig.maxTokens || 4000,
       temperature: modelName === llmConfig?.model ? 0 : (modelConfig.temperature ?? 0), // Use 0 for explicit model selection
       requireStructuredOutput: true
     }
   }
 
+  // Create appropriate client based on model type
+  let generateEffect: Effect.Effect<LLMResponse, LLMError, never>
+  
+  if (modelName.includes('claude')) {
+    // Use Claude client for Claude models
+    const claudeClient = makeClaudeClient({
+      apiKey: process.env.CLAUDE_API_KEY || '',
+      model: modelName,
+      maxTokens: modelConfig.maxTokens || 4000,
+      temperature: request.preferences?.temperature || 0,
+      timeout: 30000,
+      endpoint: 'https://api.anthropic.com'
+    })
+    generateEffect = claudeClient.generate(request)
+  } else if (modelName.startsWith('gpt-4') || modelName.startsWith('gpt-3')) {
+    // Use OpenAI client for GPT models
+    const openaiClient = makeOpenAIClient({
+      apiKey: process.env.OPENAI_API_KEY || '',
+      model: modelName,
+      maxTokens: modelConfig.maxTokens || 4000,
+      temperature: request.preferences?.temperature || 0,
+      timeout: 30000
+    })
+    generateEffect = openaiClient.generate(request)
+  } else {
+    // Use local model client for everything else
+    const llmManager = createSimpleLLMManager({
+      models: {
+        llama: {
+          endpoint: llmConfig?.endpoint || 'http://localhost:1234/v1',
+          modelPath: modelName,
+          contextLength: modelConfig.contextLength || 32768,
+          threads: 4
+        }
+      }
+    })
+    generateEffect = llmManager.generate(request)
+  }
+
   return pipe(
-    llmManager.generate(request),
+    generateEffect,
     Effect.timeout(Duration.seconds(30)),
     Effect.map((response) => {
       try {
@@ -368,7 +398,14 @@ export const generateQueryWithLLM = (
         // Validate the generated SQL
         if (!validateGeneratedSQL(parsed.sql)) {
           if (process.env.NODE_ENV === 'test') {
-            console.log('   DEBUG: SQL validation failed for:', parsed.sql)
+            console.log(`   DEBUG: SQL validation failed for model ${modelName}`)
+            console.log('   DEBUG: SQL:', parsed.sql.substring(0, 200))
+            const upperSQL = parsed.sql.toUpperCase()
+            console.log('   DEBUG: Missing required elements:')
+            if (!upperSQL.includes('SELECT')) console.log('     - SELECT')
+            if (!upperSQL.includes('FROM TRACES')) console.log('     - FROM traces')
+            if (!upperSQL.includes('WHERE')) console.log('     - WHERE')
+            if (!upperSQL.includes('SERVICE_NAME')) console.log('     - service_name')
           }
           throw new Error(
             'Generated SQL failed validation - contains forbidden operations or missing required elements'

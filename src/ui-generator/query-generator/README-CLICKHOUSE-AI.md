@@ -17,8 +17,8 @@ Configure model preferences in your `.env` file:
 
 ```env
 # General purpose models (used for query generation)
-LLM_GENERAL_MODEL_1=claude-3-sonnet-20240229
-LLM_GENERAL_MODEL_2=gpt-4-turbo-preview
+LLM_GENERAL_MODEL_1=claude-3-7-sonnet-20250219
+LLM_GENERAL_MODEL_2=gpt-4.1-2025-04-14
 LLM_GENERAL_MODEL_3=gpt-oss-120b
 
 # Local LLM endpoint
