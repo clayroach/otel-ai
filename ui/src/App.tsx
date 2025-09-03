@@ -30,11 +30,11 @@ const AppContent: React.FC = () => {
   return (
     <Layout>
       <Routes>
-        <Route path="/" element={<Navigate to="/traces" replace />} />
+        <Route path="/" element={<Navigate to="/servicetopology" replace />} />
+        <Route path="/servicetopology" element={<ServiceTopologyView />} />
         <Route path="/traces" element={<TracesView />} />
         <Route path="/metrics" element={<MetricsView />} />
         <Route path="/logs" element={<LogsView />} />
-        <Route path="/servicetopology" element={<ServiceTopologyView />} />
         <Route path="/llm-debug" element={<LLMDebugView />} />
       </Routes>
     </Layout>

@@ -4,7 +4,7 @@ import {
   BugOutlined,
   BarChartOutlined,
   FileTextOutlined,
-  BulbOutlined,
+  ApartmentOutlined,
   SettingOutlined,
   MoonOutlined,
   SunOutlined,
@@ -33,6 +33,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const menuItems = [
     {
+      key: '/servicetopology',
+      icon: <ApartmentOutlined />,
+      label: 'Service Topology',
+      'data-testid': 'nav-servicetopology'
+    },
+    {
       key: '/traces',
       icon: <BugOutlined />,
       label: 'Traces',
@@ -49,12 +55,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       icon: <FileTextOutlined />,
       label: 'Logs',
       'data-testid': 'nav-logs'
-    },
-    {
-      key: '/servicetopology',
-      icon: <BulbOutlined />,
-      label: 'Service Topology',
-      'data-testid': 'nav-servicetopology'
     },
     {
       key: '/llm-debug',
