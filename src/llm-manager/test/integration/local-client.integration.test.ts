@@ -18,8 +18,13 @@ describe('Local Model Client Integration', () => {
   
   beforeAll(async () => {
     // Check if LM Studio is running
-    const health = await Effect.runPromise(checkLocalModelHealth())
-    isLMStudioAvailable = health.healthy
+    try {
+      const health = await Effect.runPromise(checkLocalModelHealth())
+      isLMStudioAvailable = health.healthy
+    } catch (error) {
+      // LM Studio not available - this is expected in CI
+      isLMStudioAvailable = false
+    }
     
     if (!isLMStudioAvailable) {
       console.log('⏭️  Skipping local model tests - LM Studio not running at http://localhost:1234')

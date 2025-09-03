@@ -99,11 +99,7 @@ describe("ClickHouse AI Query Generator", () => {
       mockStorageAPIClient
     )
     
-    it("should generate multiple analysis queries for a critical path", { timeout: 120000 }, async () => {
-      if (!isAvailable) {
-        console.log("   ⏭️  Skipping: AI models not available")
-        return
-      }
+    it.skipIf(!isAvailable)("should generate multiple analysis queries for a critical path", { timeout: 120000 }, async () => {
       
       const program = Effect.gen(function* () {
         const queryGenerator = yield* CriticalPathQueryGeneratorClickHouseAI
@@ -140,11 +136,7 @@ describe("ClickHouse AI Query Generator", () => {
       })
     })
     
-    it("should optimize an existing query", { timeout: 30000 }, async () => {
-      if (!isAvailable) {
-        console.log("   ⏭️  Skipping: AI models not available")
-        return
-      }
+    it.skipIf(!isAvailable)("should optimize an existing query", { timeout: 30000 }, async () => {
       
       const originalQuery = `
         SELECT service_name, COUNT(*) as count
@@ -178,11 +170,7 @@ describe("ClickHouse AI Query Generator", () => {
       console.log("   Optimized query length:", optimized.length)
     })
     
-    it("should explain what a query does", { timeout: 30000 }, async () => {
-      if (!isAvailable) {
-        console.log("   ⏭️  Skipping: AI models not available")
-        return
-      }
+    it.skipIf(!isAvailable)("should explain what a query does", { timeout: 30000 }, async () => {
       
       const complexQuery = `
         SELECT 
@@ -226,11 +214,7 @@ describe("ClickHouse AI Query Generator", () => {
       console.log("   ", explanation.substring(0, 200) + "...")
     })
     
-    it("should execute generated queries", { timeout: 60000 }, async () => {
-      if (!isAvailable) {
-        console.log("   ⏭️  Skipping: AI models not available")
-        return
-      }
+    it.skipIf(!isAvailable)("should execute generated queries", { timeout: 60000 }, async () => {
       
       const program = Effect.gen(function* () {
         const queryGenerator = yield* CriticalPathQueryGeneratorClickHouseAI
@@ -261,7 +245,7 @@ describe("ClickHouse AI Query Generator", () => {
   })
   
   describe("Model Selection", () => {
-    it("should use configured general models from environment", () => {
+    it.skipIf(!isAvailable)("should use configured general models from environment", () => {
       const generalModel1 = process.env.LLM_GENERAL_MODEL_1
       const generalModel2 = process.env.LLM_GENERAL_MODEL_2
       const generalModel3 = process.env.LLM_GENERAL_MODEL_3
