@@ -5,20 +5,20 @@
  * For integration tests with real Claude API, see claude-client.integration.test.ts
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
 import { Effect, Layer, Stream } from 'effect'
-import { 
-  ModelClientService,
-  LLMConfigService,
-  LLMMetricsService,
-  CacheService
+import { beforeEach, describe, expect, it } from 'vitest'
+import {
+    CacheService,
+    LLMConfigService,
+    LLMMetricsService,
+    ModelClientService
 } from '../../services.js'
-import type { 
-  LLMRequest, 
-  LLMResponse, 
-  LLMError,
-  ModelType,
-  LLMConfig
+import type {
+    LLMConfig,
+    LLMError,
+    LLMRequest,
+    LLMResponse,
+    ModelType
 } from '../../types.js'
 
 // Mock LLM Config Service Layer for Claude testing
@@ -27,7 +27,7 @@ const MockClaudeConfigLive = Layer.succeed(LLMConfigService, {
     models: {
       claude: {
         apiKey: 'mock-claude-api-key',
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-3-7-sonnet-20250219',
         maxTokens: 4096,
         temperature: 0.7,
         endpoint: 'https://api.anthropic.com'
@@ -155,7 +155,7 @@ describe('Claude Client (Effect-TS)', () => {
       }
       const typedConfig = config as LLMConfig
       expect(typedConfig.models.claude?.apiKey).toBe('mock-claude-api-key')
-      expect(typedConfig.models.claude?.model).toBe('claude-3-5-sonnet-20241022')
+      expect(typedConfig.models.claude?.model).toBe('claude-3-7-sonnet-20250219')
       expect(typedConfig.routing.strategy).toBe('balanced')
     })
   })
@@ -456,10 +456,6 @@ describe('Claude Client (Effect-TS)', () => {
 })
 
 // Export test layers for potential reuse
-export { 
-  MockClaudeConfigLive, 
-  MockCacheLive, 
-  MockMetricsLive, 
-  MockClaudeClientLive, 
-  TestClaudeLayer 
+export {
+    MockCacheLive, MockClaudeClientLive, MockClaudeConfigLive, MockMetricsLive, TestClaudeLayer
 }

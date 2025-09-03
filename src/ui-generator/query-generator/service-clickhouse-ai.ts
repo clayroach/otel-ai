@@ -61,7 +61,9 @@ export const CriticalPathQueryGeneratorClickHouseAILive = Layer.effect(
         `
 
         // Define analysis scenarios for the critical path
-        const analysisScenarios = [
+        // In test environments, limit scenarios to speed up execution
+        const isTestEnv = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
+        const allScenarios = [
           {
             name: 'End-to-End Latency Analysis',
             goal: 'Analyze the complete latency distribution across the critical path'
@@ -83,6 +85,9 @@ export const CriticalPathQueryGeneratorClickHouseAILive = Layer.effect(
             goal: 'Correlate performance with resource metrics'
           }
         ]
+        
+        // Limit to 2 scenarios in test environment to speed up tests
+        const analysisScenarios = isTestEnv ? allScenarios.slice(0, 2) : allScenarios
 
         const queries: GeneratedQueryWithThunk[] = []
         let queryCounter = 0

@@ -6,8 +6,8 @@
  */
 
 import { Effect } from 'effect'
-import { LLMRequest, LLMResponse, LLMError, LLMConfig } from './types.js'
 import { makeLocalModelClient } from './clients/local-client.js'
+import { LLMConfig, LLMError, LLMRequest, LLMResponse } from './types.js'
 
 /**
  * Create a multi-model simple LLM manager
@@ -40,7 +40,7 @@ export const createMultiModelSimpleLLMManager = (config?: Partial<LLMConfig>) =>
     // For Claude, we make a direct API call
     const claudeModel = process.env.LLM_GENERAL_MODEL_1?.includes('claude')
       ? process.env.LLM_GENERAL_MODEL_1
-      : 'claude-3-5-sonnet-20241022'
+      : 'claude-3-7-sonnet-20250219'
 
     return Effect.tryPromise({
       try: async () => {

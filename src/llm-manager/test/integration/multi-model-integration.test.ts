@@ -5,13 +5,13 @@
  * Validates the full multi-model architecture with real API calls and can be extended for additional models.
  */
 
-import { describe, it, expect } from 'vitest'
 import { Effect, Stream } from 'effect'
+import { describe, expect, it } from 'vitest'
+import { defaultClaudeConfig, makeClaudeClient } from '../../clients/claude-client.js'
+import { defaultLocalConfig, makeLocalModelClient } from '../../clients/local-client.js'
+import { defaultOpenAIConfig, makeOpenAIClient } from '../../clients/openai-client.js'
 import { createSimpleLLMManager } from '../../simple-manager.js'
-import { makeLocalModelClient, defaultLocalConfig } from '../../clients/local-client.js'
-import { makeOpenAIClient, defaultOpenAIConfig } from '../../clients/openai-client.js'
-import { makeClaudeClient, defaultClaudeConfig } from '../../clients/claude-client.js'
-import type { LLMRequest, LLMConfig } from '../../types.js'
+import type { LLMConfig, LLMRequest } from '../../types.js'
 
 describe('Multi-Model Integration Tests', () => {
   describe('Individual Model Validation', () => {
@@ -141,7 +141,7 @@ describe('Multi-Model Integration Tests', () => {
           ...(process.env.CLAUDE_API_KEY && {
             claude: {
               apiKey: process.env.CLAUDE_API_KEY,
-              model: 'claude-3-5-sonnet-20241022',
+              model: 'claude-3-7-sonnet-20250219',
               maxTokens: 100,
               temperature: 0.7
             }

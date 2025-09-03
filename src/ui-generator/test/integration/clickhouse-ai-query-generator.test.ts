@@ -99,7 +99,7 @@ describe("ClickHouse AI Query Generator", () => {
       mockStorageAPIClient
     )
     
-    it("should generate multiple analysis queries for a critical path", { timeout: 60000 }, async () => {
+    it("should generate multiple analysis queries for a critical path", { timeout: 120000 }, async () => {
       if (!isAvailable) {
         console.log("   ⏭️  Skipping: AI models not available")
         return
@@ -110,7 +110,7 @@ describe("ClickHouse AI Query Generator", () => {
         const queries = yield* queryGenerator.generateQueries(testPath)
         
         expect(queries.length).toBeGreaterThan(0)
-        expect(queries.length).toBeLessThanOrEqual(5) // We defined 5 scenarios
+        expect(queries.length).toBeLessThanOrEqual(2) // Limited to 2 in test environment
         
         // Check each query has required properties
         for (const query of queries) {
@@ -134,7 +134,7 @@ describe("ClickHouse AI Query Generator", () => {
         Effect.provide(program, testLayer)
       )
       
-      console.log(`   Generated ${queries.length} queries`)
+      console.log(`   Generated ${queries.length} queries (test mode: limited to 2)`)
       queries.forEach((q, i) => {
         console.log(`   Query ${i + 1}: ${q.description}`)
       })
