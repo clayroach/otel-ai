@@ -71,21 +71,30 @@ interface OpenAIStreamChunk {
 }
 
 /**
+ * Extract model name from configuration
+ * Priority: modelPath > model > default
+ */
+const getModelName = (config: Record<string, unknown>): string => {
+  return (config.modelPath || config.model || 'deepseek/deepseek-r1-0528-qwen3-8b') as string
+}
+
+/**
  * Create Local Model Client
  *
  * Creates a client for local models with LM Studio OpenAI-compatible API support.
  * Handles both direct API calls and streaming responses.
  */
-export const makeLocalModelClient = (config: LocalModelConfig | Record<string, unknown>): ModelClient => ({
+export const makeLocalModelClient = (
+  config: LocalModelConfig | Record<string, unknown>
+): ModelClient => ({
   generate: (request: LLMRequest) =>
     Effect.gen(function* (_) {
       const startTime = Date.now()
 
-      // Handle both 'model' and 'modelPath' properties for compatibility
       const configAny = config as Record<string, unknown>
       const configWithModel = {
         ...config,
-        model: configAny.model || configAny.modelPath || 'sqlcoder-7b-2'
+        model: getModelName(configAny)
       }
 
       // Validate configuration
@@ -106,6 +115,11 @@ export const makeLocalModelClient = (config: LocalModelConfig | Record<string, u
         messages: [{ role: 'user', content: request.prompt }],
         max_tokens: request.preferences?.maxTokens ?? validatedConfig.maxTokens,
         temperature: request.preferences?.temperature ?? validatedConfig.temperature
+      }
+
+      // Debug logging for model selection
+      if (process.env.NODE_ENV === 'test') {
+        console.log(`   DEBUG: Sending request with model: ${openAIRequest.model}`)
       }
 
       // Make API call to local model
@@ -165,10 +179,11 @@ export const makeLocalModelClient = (config: LocalModelConfig | Record<string, u
     Stream.unwrap(
       Effect.gen(function* (_) {
         // Handle both 'model' and 'modelPath' properties for compatibility
+        // Priority: modelPath (from llm-query-generator) > model > default
         const configAny = config as Record<string, unknown>
         const configWithModel = {
           ...config,
-          model: configAny.model || configAny.modelPath || 'openai/gpt-oss-20b'
+          model: configAny.modelPath || configAny.model || 'deepseek/deepseek-r1-0528-qwen3-8b'
         }
 
         const validatedConfig = yield* _(
@@ -290,11 +305,10 @@ export const makeLocalModelClient = (config: LocalModelConfig | Record<string, u
 
   isHealthy: () =>
     Effect.gen(function* (_) {
-      // Handle both 'model' and 'modelPath' properties for compatibility
       const configAny = config as Record<string, unknown>
       const configWithModel = {
         ...config,
-        model: configAny.model || configAny.modelPath || 'sqlcoder-7b-2'
+        model: getModelName(configAny)
       }
 
       const validatedConfig = yield* _(
@@ -334,7 +348,7 @@ export const makeLocalModelClient = (config: LocalModelConfig | Record<string, u
  */
 export const defaultLocalConfig: LocalModelConfig = {
   endpoint: 'http://localhost:1234/v1', // LM Studio default
-  model: 'sqlcoder-7b-2', // Default model (fast SQL generation)
+  model: 'deepseek/deepseek-r1-0528-qwen3-8b', // Default model (reasoning + JSON)
   maxTokens: 4096,
   temperature: 0.7,
   contextLength: 4096,

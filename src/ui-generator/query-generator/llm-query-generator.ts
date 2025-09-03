@@ -1,8 +1,14 @@
-import { Effect, pipe, Duration } from "effect"
-import { CriticalPath, GeneratedQuery, QueryPattern } from "./types"
-import { createSimpleLLMManager } from "../../llm-manager/simple-manager"
-import { LLMRequest } from "../../llm-manager/types"
-import { Schema } from "@effect/schema"
+import { Effect, pipe, Duration } from 'effect'
+import { CriticalPath, GeneratedQuery, QueryPattern } from './types'
+import { createSimpleLLMManager } from '../../llm-manager/simple-manager'
+import { LLMRequest } from '../../llm-manager/types'
+import { Schema } from '@effect/schema'
+import {
+  isSQLSpecificModel as checkSQLModel,
+  extractResponseContent,
+  needsResponseWrapping,
+  getModelConfig
+} from '../../llm-manager/model-registry'
 
 // Schema for LLM-generated query response
 const LLMQueryResponseSchema = Schema.Struct({
@@ -21,30 +27,39 @@ const LLMQueryResponseSchema = Schema.Struct({
 type LLMQueryResponse = Schema.Schema.Type<typeof LLMQueryResponseSchema>
 
 // Single configuration point for default model
-export const DEFAULT_MODEL = "sqlcoder-7b-2" // Change this line to switch models globally
-
-// Check if we're using a SQL-specific model
-const isSQLSpecificModel = (model: string): boolean => {
-  return model.toLowerCase().includes('sqlcoder')
-}
+export const DEFAULT_MODEL = 'sqlcoder-7b-2' // Using fast SQL model as default
 
 // Create a dynamic prompt with examples for the LLM
-const createDynamicQueryPrompt = (path: CriticalPath, analysisGoal: string, modelName?: string): string => {
-  const services = path.services.map(s => `'${s.replace(/'/g, "''")}'`).join(", ")
-  
-  // For SQL-specific models like sqlcoder, use a simpler prompt
-  if (modelName && isSQLSpecificModel(modelName)) {
+const createDynamicQueryPrompt = (
+  path: CriticalPath,
+  analysisGoal: string,
+  modelName?: string
+): string => {
+  const services = path.services.map((s) => `'${s.replace(/'/g, "''")}'`).join(', ')
+
+  // For SQL-specific models, use a simpler prompt
+  if (modelName && checkSQLModel(modelName)) {
     return `Generate a ClickHouse SQL query for the following analysis:
     
 Table: traces
-Columns: trace_id, span_id, parent_span_id, service_name, operation_name, start_time, end_time, duration_ns, status_code, status_message
+Columns (use EXACTLY these names):
+- start_time (DateTime64) - Use this for time-based queries
+- end_time (DateTime64)
+- duration_ns (UInt64) - Duration in nanoseconds
+- service_name (String)
+- operation_name (String)
+- status_code (String)
+- trace_id, span_id, parent_span_id (String)
 
 Services to analyze: ${services}
 Analysis goal: ${analysisGoal}
 
-Generate ONLY the SQL query, no explanation or JSON wrapper.`
+Requirements:
+- Must use start_time for time filtering and grouping
+- Must filter by service_name IN (${services})
+- Return ONLY the SQL query wrapped in \`\`\`sql blocks`
   }
-  
+
   // For general models, use the full prompt with JSON instructions
   return `
 You are a ClickHouse SQL expert generating queries for observability data analysis.
@@ -68,7 +83,7 @@ Columns:
 ## Critical Path Context
 - Path ID: ${path.id}
 - Path Name: ${path.name}
-- Services in path: ${path.services.join(" → ")}
+- Services in path: ${path.services.join(' → ')}
 - Start Service: ${path.startService}
 - End Service: ${path.endService}
 - Services to analyze: ${services}
@@ -213,11 +228,16 @@ Important:
 
 // Map of analysis goals for different contexts
 export const ANALYSIS_GOALS = {
-  latency: "Analyze service latency patterns showing p50, p95, p99 percentiles over time for performance monitoring",
-  errors: "Identify error patterns, distribution, and root causes across services to improve reliability",
-  bottlenecks: "Detect performance bottlenecks by finding slowest operations and their impact on the critical path",
-  throughput: "Measure request volume, throughput rates, and success ratios to understand system capacity",
-  comparison: "Compare current performance metrics with previous time periods to identify trends and regressions",
+  latency:
+    'Analyze service latency patterns showing p50, p95, p99 percentiles over time for performance monitoring',
+  errors:
+    'Identify error patterns, distribution, and root causes across services to improve reliability',
+  bottlenecks:
+    'Detect performance bottlenecks by finding slowest operations and their impact on the critical path',
+  throughput:
+    'Measure request volume, throughput rates, and success ratios to understand system capacity',
+  comparison:
+    'Compare current performance metrics with previous time periods to identify trends and regressions',
   custom: (goal: string) => goal
 }
 
@@ -228,26 +248,30 @@ export const generateQueryWithLLM = (
   llmConfig?: { endpoint?: string; model?: string }
 ): Effect.Effect<GeneratedQuery, Error, never> => {
   const modelName = llmConfig?.model || DEFAULT_MODEL
+  const modelConfig = getModelConfig(modelName)
+
   const llmManager = createSimpleLLMManager({
     models: {
       llama: {
-        endpoint: llmConfig?.endpoint || "http://localhost:1234/v1",
-        modelPath: modelName, // SQL-optimized model for faster generation
-        contextLength: 4096,
+        endpoint: llmConfig?.endpoint || 'http://localhost:1234/v1',
+        modelPath: modelName,
+        contextLength: modelConfig.contextLength || 32768,
         threads: 4
       }
     }
   })
 
   const prompt = createDynamicQueryPrompt(path, analysisGoal, modelName)
-  
+
   const request: LLMRequest = {
-    prompt: isSQLSpecificModel(modelName) ? prompt : `You are a ClickHouse SQL expert. Always return valid JSON responses. Generate consistent, optimal queries based on the examples provided.\n\n${prompt}`,
-    taskType: "analysis",
+    prompt: checkSQLModel(modelName)
+      ? prompt
+      : `You are a ClickHouse SQL expert. Always return valid JSON responses. Generate consistent, optimal queries based on the examples provided.\n\n${prompt}`,
+    taskType: 'analysis',
     preferences: {
-      model: "llama",
-      maxTokens: 2000,
-      temperature: 0, // Zero temperature for deterministic output
+      model: 'llama',
+      maxTokens: modelConfig.maxTokens || 4000,
+      temperature: modelName === llmConfig?.model ? 0 : (modelConfig.temperature ?? 0), // Use 0 for explicit model selection
       requireStructuredOutput: true
     }
   }
@@ -255,63 +279,85 @@ export const generateQueryWithLLM = (
   return pipe(
     llmManager.generate(request),
     Effect.timeout(Duration.seconds(30)),
-    Effect.map(response => {
+    Effect.map((response) => {
       try {
-        // Extract JSON from response, handling markdown code blocks
-        let content = response.content.trim()
-        
-        // Debug log the raw response for sqlcoder
-        if (process.env.NODE_ENV === 'test' && content.length < 500) {
-          console.log("   DEBUG: Raw LLM response:", content.substring(0, 200))
-        }
-        
-        // Remove markdown code blocks if present
-        if (content.startsWith("```json")) {
-          content = content.substring(7) // Remove ```json
-        } else if (content.startsWith("```sql")) {
-          // sqlcoder might return SQL directly
-          console.log("   WARN: LLM returned SQL instead of JSON, attempting to wrap")
-          const sql = content.substring(6).replace(/```$/, '').trim()
-          content = JSON.stringify({
-            sql,
-            description: "Query generated for " + analysisGoal,
-            expectedColumns: [],
-            reasoning: "Direct SQL generation"
-          })
-        } else if (content.startsWith("```")) {
-          content = content.substring(3) // Remove ```
-        }
-        
-        if (content.endsWith("```")) {
-          content = content.substring(0, content.length - 3) // Remove trailing ```
-        }
-        
-        // If it starts with SELECT or is not valid JSON, it's raw SQL (common for sqlcoder)
-        let parsed: LLMQueryResponse & { insights?: string }
-        
-        try {
-          // Try to parse as JSON first
-          parsed = JSON.parse(content.trim()) as LLMQueryResponse & { insights?: string }
-        } catch (e) {
-          // If JSON parse fails and it looks like SQL, wrap it
-          if (content.toUpperCase().includes("SELECT") || content.toUpperCase().includes("FROM")) {
-            console.log("   INFO: SQL-specific model returned raw SQL, using directly")
-            parsed = {
-              sql: content.trim(),
-              description: `Query for ${analysisGoal}`,
-              expectedColumns: [],
-              reasoning: "Direct SQL generation from SQL-specific model"
-            }
-          } else {
-            throw new Error(`Invalid response format: ${content.substring(0, 100)}`)
+        const content = response.content.trim()
+
+        // Debug logging in test environment
+        if (process.env.NODE_ENV === 'test') {
+          console.log(
+            `   DEBUG: Raw LLM response (length ${content.length}):`,
+            content.substring(0, 500)
+          )
+          if (content.length > 500) {
+            console.log(
+              `   DEBUG: ... (truncated, showing last 200 chars):`,
+              content.substring(content.length - 200)
+            )
           }
         }
-        
+
+        // Use model registry to extract content
+        const extractedContent = extractResponseContent(modelName, content)
+
+        // Check if this is a SQL-specific model that needs wrapping
+        const needsWrapping = needsResponseWrapping(modelName, 'sql')
+
+        let parsed: LLMQueryResponse & { insights?: string }
+
+        if (needsWrapping && checkSQLModel(modelName)) {
+          // SQL-specific models return raw SQL that needs wrapping
+          console.log('   INFO: SQL-specific model returned raw SQL, wrapping in JSON structure')
+          if (process.env.NODE_ENV === 'test') {
+            console.log('   DEBUG: Extracted SQL:', extractedContent)
+          }
+          parsed = {
+            sql: extractedContent,
+            description: `Query generated for ${analysisGoal}`,
+            expectedColumns: [],
+            reasoning: 'Direct SQL generation from SQL-specific model'
+          }
+        } else {
+          // Try to parse as JSON
+          try {
+            // First check if content still has markdown blocks after extraction
+            let jsonContent = extractedContent
+            if (jsonContent.startsWith('```json')) {
+              jsonContent = jsonContent.substring(7).replace(/```$/, '').trim()
+            } else if (jsonContent.startsWith('```')) {
+              jsonContent = jsonContent.substring(3).replace(/```$/, '').trim()
+            }
+
+            parsed = JSON.parse(jsonContent) as LLMQueryResponse & { insights?: string }
+          } catch (e) {
+            // If JSON parse fails and it looks like SQL, wrap it
+            if (
+              extractedContent.toUpperCase().includes('SELECT') ||
+              extractedContent.toUpperCase().includes('FROM')
+            ) {
+              console.log('   INFO: Model returned raw SQL, wrapping in JSON structure')
+              parsed = {
+                sql: extractedContent,
+                description: `Query for ${analysisGoal}`,
+                expectedColumns: [],
+                reasoning: 'Direct SQL generation'
+              }
+            } else {
+              throw new Error(`Invalid response format: ${extractedContent.substring(0, 100)}`)
+            }
+          }
+        }
+
         // Validate the generated SQL
         if (!validateGeneratedSQL(parsed.sql)) {
-          throw new Error("Generated SQL failed validation - contains forbidden operations or missing required elements")
+          if (process.env.NODE_ENV === 'test') {
+            console.log('   DEBUG: SQL validation failed for:', parsed.sql)
+          }
+          throw new Error(
+            'Generated SQL failed validation - contains forbidden operations or missing required elements'
+          )
         }
-        
+
         // Convert to GeneratedQuery format
         const query: GeneratedQuery = {
           id: `${path.id}_${Date.now()}_llm`,
@@ -319,18 +365,21 @@ export const generateQueryWithLLM = (
           description: parsed.description,
           pattern: QueryPattern.SERVICE_LATENCY, // Default pattern, but LLM decides actual query structure
           sql: parsed.sql.trim(),
-          expectedSchema: parsed.expectedColumns.reduce((acc, col) => {
-            acc[col.name] = col.type
-            return acc
-          }, {} as Record<string, string>)
+          expectedSchema: parsed.expectedColumns.reduce(
+            (acc, col) => {
+              acc[col.name] = col.type
+              return acc
+            },
+            {} as Record<string, string>
+          )
         }
-        
+
         return query
       } catch (error) {
         throw new Error(`Failed to parse LLM response: ${error}`)
       }
     }),
-    Effect.catchAll((error) => 
+    Effect.catchAll((error) =>
       Effect.fail(new Error(`LLM query generation failed: ${JSON.stringify(error)}`))
     )
   )
@@ -343,7 +392,7 @@ export const generateQueriesForGoals = (
   llmConfig?: { endpoint?: string; model?: string }
 ): Effect.Effect<GeneratedQuery[], Error, never> => {
   return Effect.all(
-    analysisGoals.map(goal => generateQueryWithLLM(path, goal, llmConfig)),
+    analysisGoals.map((goal) => generateQueryWithLLM(path, goal, llmConfig)),
     { concurrency: 1 } // Sequential to avoid overwhelming the LLM
   )
 }
@@ -360,7 +409,7 @@ export const generateStandardQueries = (
     ANALYSIS_GOALS.throughput,
     ANALYSIS_GOALS.comparison
   ]
-  
+
   return generateQueriesForGoals(path, standardGoals, llmConfig)
 }
 
@@ -371,45 +420,32 @@ export const generateQueryWithSQLModel = (
   endpoint?: string
 ): Effect.Effect<GeneratedQuery, Error, never> => {
   return generateQueryWithLLM(path, analysisGoal, {
-    endpoint: endpoint || "http://localhost:1234/v1",
-    model: "sqlcoder-7b-2" // Explicitly use SQL model when needed
+    endpoint: endpoint || 'http://localhost:1234/v1',
+    model: 'sqlcoder-7b-2' // Explicitly use SQL model when needed
   })
 }
 
 // Validate generated SQL (basic validation)
 export const validateGeneratedSQL = (sql: string): boolean => {
-  const required = [
-    "SELECT",
-    "FROM traces",
-    "WHERE",
-    "service_name"
-  ]
-  
-  const forbidden = [
-    "DROP",
-    "DELETE",
-    "TRUNCATE",
-    "ALTER",
-    "CREATE",
-    "INSERT",
-    "UPDATE"
-  ]
-  
+  const required = ['SELECT', 'FROM traces', 'WHERE', 'service_name']
+
+  const forbidden = ['DROP', 'DELETE', 'TRUNCATE', 'ALTER', 'CREATE', 'INSERT', 'UPDATE']
+
   const upperSQL = sql.toUpperCase()
-  
+
   // Check for required elements
   for (const req of required) {
     if (!upperSQL.includes(req.toUpperCase())) {
       return false
     }
   }
-  
+
   // Check for forbidden operations
   for (const forbid of forbidden) {
     if (upperSQL.includes(forbid)) {
       return false
     }
   }
-  
+
   return true
 }

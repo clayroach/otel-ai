@@ -1,5 +1,5 @@
-import { Schema } from "@effect/schema"
-import { Effect } from "effect"
+import { Schema } from '@effect/schema'
+import { Effect } from 'effect'
 
 // Critical Path types
 export const CriticalPathSchema = Schema.Struct({
@@ -14,11 +14,11 @@ export type CriticalPath = Schema.Schema.Type<typeof CriticalPathSchema>
 
 // Query patterns
 export enum QueryPattern {
-  SERVICE_LATENCY = "service_latency",
-  ERROR_DISTRIBUTION = "error_distribution",
-  BOTTLENECK_DETECTION = "bottleneck_detection",
-  VOLUME_THROUGHPUT = "volume_throughput",
-  TIME_COMPARISON = "time_comparison"
+  SERVICE_LATENCY = 'service_latency',
+  ERROR_DISTRIBUTION = 'error_distribution',
+  BOTTLENECK_DETECTION = 'bottleneck_detection',
+  VOLUME_THROUGHPUT = 'volume_throughput',
+  TIME_COMPARISON = 'time_comparison'
 }
 
 // Generated query with thunk for lazy evaluation
@@ -52,14 +52,19 @@ export interface GeneratedQueryWithThunk extends GeneratedQuery {
 
 // Service interface
 export interface CriticalPathQueryGenerator {
-  readonly generateQueries: (path: CriticalPath) => Effect.Effect<GeneratedQueryWithThunk[], Error, never>
-  readonly generateQueryThunk: (path: CriticalPath, pattern: QueryPattern) => Effect.Effect<QueryThunk, Error, never>
+  readonly generateQueries: (
+    path: CriticalPath
+  ) => Effect.Effect<GeneratedQueryWithThunk[], Error, never>
+  readonly generateQueryThunk: (
+    path: CriticalPath,
+    pattern: QueryPattern
+  ) => Effect.Effect<QueryThunk, Error, never>
 }
 
 // Query configuration
 export const QueryConfigSchema = Schema.Struct({
   timeRangeMinutes: Schema.optional(Schema.Number, { default: () => 60 }),
   limit: Schema.optional(Schema.Number, { default: () => 1000 }),
-  aggregationInterval: Schema.optional(Schema.String, { default: () => "1 minute" })
+  aggregationInterval: Schema.optional(Schema.String, { default: () => '1 minute' })
 })
 export type QueryConfig = Schema.Schema.Type<typeof QueryConfigSchema>

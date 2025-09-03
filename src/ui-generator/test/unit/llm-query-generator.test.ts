@@ -8,6 +8,7 @@ import {
 import { generateQueryWithLLM, ANALYSIS_GOALS, validateGeneratedSQL } from "../../query-generator/llm-query-generator"
 import { StorageAPIClientTag } from "../../../storage/api-client"
 import { createSimpleLLMManager } from "../../../llm-manager/simple-manager"
+import { getModelMetadata } from "../../../llm-manager/model-registry"
 
 // Test data representing a real critical path
 const testPath: CriticalPath = {
@@ -30,6 +31,7 @@ describe("LLM Query Generator", () => {
     status?: string
     error?: string
   } = {}
+  let llmConfig: { endpoint: string; model: string } | undefined
   
   beforeAll(async () => {
     console.log("🔍 Checking LLM availability...")
@@ -54,12 +56,20 @@ describe("LLM Query Generator", () => {
       
       console.log(`   Found ${availableModels.length} available models:`)
       availableModels.forEach((model: { id: string; object: string }) => {
-        console.log(`     - ${model.id} (${model.object})`)
+        const metadata = getModelMetadata(model.id)
+        const info = metadata ? ` [${metadata.type}, ${metadata.provider}]` : ' [unknown]'
+        console.log(`     - ${model.id}${info}`)
       })
       
-      // Use sqlcoder for fast testing
-      const selectedModel = availableModels.find((m: { id: string }) => m.id === 'sqlcoder-7b-2') || availableModels[0]
-      console.log(`   Selected model for testing: ${selectedModel.id}`)
+      // Use codellama-7b-instruct for testing (or any available SQL/code model)
+      const selectedModel = availableModels.find((m: { id: string }) => {
+        const metadata = getModelMetadata(m.id)
+        return m.id === 'codellama-7b-instruct' || 
+               (metadata && (metadata.type === 'sql' || metadata.type === 'code'))
+      }) || availableModels[0]
+      
+      const selectedMetadata = getModelMetadata(selectedModel.id)
+      console.log(`   Selected model for testing: ${selectedModel.id} (${selectedMetadata?.displayName || 'Unknown'})`)
       
       // Try to actually generate a simple test query to verify the LLM is working
       const llmManager = createSimpleLLMManager({
@@ -67,7 +77,7 @@ describe("LLM Query Generator", () => {
           llama: {
             endpoint,
             modelPath: selectedModel.id,
-            contextLength: 4096,
+            contextLength: 32768, // Increased context for codellama models
             threads: 4
           }
         }
@@ -110,6 +120,12 @@ describe("LLM Query Generator", () => {
           status: "healthy"
         }
         
+        // Set the llmConfig for use in tests
+        llmConfig = {
+          endpoint,
+          model: selectedModel.id
+        }
+        
         console.log("✅ LLM is available and responding:")
         console.log(`   Endpoint: ${llmDetails.endpoint}`)
         console.log(`   Active Model: ${llmDetails.model}`)
@@ -150,7 +166,7 @@ describe("LLM Query Generator", () => {
         return
       }
       const query = await Effect.runPromise(
-        generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency)
+        generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency, llmConfig)
       )
       
       expect(query.sql).toBeDefined()
@@ -189,7 +205,7 @@ describe("LLM Query Generator", () => {
         return
       }
       const query = await Effect.runPromise(
-        generateQueryWithLLM(testPath, ANALYSIS_GOALS.errors)
+        generateQueryWithLLM(testPath, ANALYSIS_GOALS.errors, llmConfig)
       )
       
       expect(query.sql).toBeDefined()
@@ -228,9 +244,9 @@ describe("LLM Query Generator", () => {
       
       // Generate the same query 3 times in parallel for speed
       const [query1, query2, query3] = await Promise.all([
-        Effect.runPromise(generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency)),
-        Effect.runPromise(generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency)),
-        Effect.runPromise(generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency))
+        Effect.runPromise(generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency, llmConfig)),
+        Effect.runPromise(generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency, llmConfig)),
+        Effect.runPromise(generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency, llmConfig))
       ])
       
       // All should be valid
@@ -317,9 +333,9 @@ describe("LLM Query Generator", () => {
       
       // Generate different queries in parallel for speed
       const [latencyQuery, errorQuery, bottleneckQuery] = await Promise.all([
-        Effect.runPromise(generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency)),
-        Effect.runPromise(generateQueryWithLLM(testPath, ANALYSIS_GOALS.errors)),
-        Effect.runPromise(generateQueryWithLLM(testPath, ANALYSIS_GOALS.bottlenecks))
+        Effect.runPromise(generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency, llmConfig)),
+        Effect.runPromise(generateQueryWithLLM(testPath, ANALYSIS_GOALS.errors, llmConfig)),
+        Effect.runPromise(generateQueryWithLLM(testPath, ANALYSIS_GOALS.bottlenecks, llmConfig))
       ])
       
       // All should be valid
@@ -363,7 +379,7 @@ describe("LLM Query Generator", () => {
       const customGoal = "Analyze the relationship between service latency and error rates, focusing on correlation patterns during peak load"
       
       const query = await Effect.runPromise(
-        generateQueryWithLLM(testPath, customGoal)
+        generateQueryWithLLM(testPath, customGoal, llmConfig)
       )
       
       expect(query.sql).toBeDefined()
@@ -386,7 +402,7 @@ describe("LLM Query Generator", () => {
       }
       
       const query = await Effect.runPromise(
-        generateQueryWithLLM(maliciousPath, ANALYSIS_GOALS.latency)
+        generateQueryWithLLM(maliciousPath, ANALYSIS_GOALS.latency, llmConfig)
       )
       
       // The service name should be escaped or quoted properly
