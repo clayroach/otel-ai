@@ -10,6 +10,8 @@ export const StorageErrorSchema = Schema.Union(
   Schema.Struct({
     _tag: Schema.Literal('ConnectionError'),
     message: Schema.String,
+    host: Schema.optional(Schema.String),
+    port: Schema.optional(Schema.Number),
     cause: Schema.optional(Schema.Unknown)
   }),
   Schema.Struct({
@@ -21,6 +23,24 @@ export const StorageErrorSchema = Schema.Union(
     _tag: Schema.Literal('QueryError'),
     message: Schema.String,
     query: Schema.String,
+    cause: Schema.optional(Schema.Unknown)
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal('DatabaseError'),
+    message: Schema.String,
+    operation: Schema.optional(Schema.String),
+    cause: Schema.optional(Schema.Unknown)
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal('ReadError'),
+    message: Schema.String,
+    operation: Schema.optional(Schema.String),
+    cause: Schema.optional(Schema.Unknown)
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal('WriteError'),
+    message: Schema.String,
+    operation: Schema.optional(Schema.String),
     cause: Schema.optional(Schema.Unknown)
   }),
   Schema.Struct({
@@ -50,14 +70,23 @@ export type StorageError = Schema.Schema.Type<typeof StorageErrorSchema>
 
 // Error constructors using Effect Data for better error handling
 export const StorageErrorConstructors = {
-  ConnectionError: (message: string, cause?: unknown) =>
-    Data.tagged<StorageError>('ConnectionError')({ message, cause }),
+  ConnectionError: (params: { message: string, host?: string, port?: number, cause?: unknown }) =>
+    Data.tagged<StorageError>('ConnectionError')(params),
 
   ValidationError: (message: string, errors: string[]) =>
     Data.tagged<StorageError>('ValidationError')({ message, errors }),
 
   QueryError: (message: string, query: string, cause?: unknown) =>
     Data.tagged<StorageError>('QueryError')({ message, query, cause }),
+
+  DatabaseError: (params: { message: string, operation?: string, cause?: unknown }) =>
+    Data.tagged<StorageError>('DatabaseError')(params),
+
+  ReadError: (params: { message: string, operation?: string, cause?: unknown }) =>
+    Data.tagged<StorageError>('ReadError')(params),
+
+  WriteError: (params: { message: string, operation?: string, cause?: unknown }) =>
+    Data.tagged<StorageError>('WriteError')(params),
 
   RetentionError: (message: string, policy: string) =>
     Data.tagged<StorageError>('RetentionError')({ message, policy }),

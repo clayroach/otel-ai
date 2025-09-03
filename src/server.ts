@@ -314,27 +314,25 @@ async function createViews() {
   }
 }
 
-// Health check endpoint
-app.get('/health', async (_req, res) => {
-  try {
-    const healthResult = await Effect.runPromise(
-      Effect.gen(function* (_) {
-        const apiClient = yield* _(StorageAPIClientTag)
-        return yield* _(apiClient.healthCheck())
-      }).pipe(
-        Effect.provide(StorageLayer),
-        Effect.match({
-          onFailure: (error) => {
-            console.error('Storage health check failed:', error._tag)
-            return { healthy: false, error: error._tag, clickhouse: false, s3: false }
-          },
-          onSuccess: (health) => {
-            return { healthy: health.clickhouse && health.s3, ...health }
-          }
-        })
-      )
+// Health check endpoint - converted to run Effect at boundary
+app.get('/health', (_req, res) => {
+  Effect.runPromise(
+    Effect.gen(function* (_) {
+      const apiClient = yield* _(StorageAPIClientTag)
+      return yield* _(apiClient.healthCheck())
+    }).pipe(
+      Effect.provide(StorageLayer),
+      Effect.match({
+        onFailure: (error) => {
+          console.error('Storage health check failed:', error._tag)
+          return { healthy: false, error: error._tag, clickhouse: false, s3: false }
+        },
+        onSuccess: (health) => {
+          return { healthy: health.clickhouse && health.s3, ...health }
+        }
+      })
     )
-
+  ).then(healthResult => {
     res.json({
       status: healthResult.healthy ? 'healthy' : 'unhealthy',
       service: 'otel-ai-backend',
@@ -342,91 +340,94 @@ app.get('/health', async (_req, res) => {
       clickhouse: healthResult.clickhouse,
       s3: healthResult.s3
     })
-  } catch (error) {
+  }).catch(error => {
     res.status(503).json({
       status: 'error',
       error: error instanceof Error ? error.message : 'Unknown error',
       timestamp: new Date().toISOString()
     })
-  }
+  })
 })
 
-// Query traces endpoint for real-time updates
-app.get('/api/traces', async (req, res) => {
-  try {
-    const limit = parseInt(req.query.limit as string) || 100
-    const since = (req.query.since as string) || '5 MINUTE'
+// Query traces endpoint for real-time updates - converted to run Effect at boundary
+app.get('/api/traces', (req, res) => {
+  const limit = parseInt(req.query.limit as string) || 100
+  const since = (req.query.since as string) || '5 MINUTE'
 
-    // TODO: Migrate to Storage API Client once type issues are resolved
-    // For now, maintain backward compatibility with direct storage query
-    const query = `
-      SELECT 
-        TraceId,
-        ServiceName,
-        SpanName,
-        Duration / 1000000,
-        Timestamp as timestamp,
-        status_code,
-        CASE WHEN StatusCode = '2' THEN 1 ELSE 0 END,
-        span_kind,
-        is_root,
-        encoding_type
-      FROM traces
-      WHERE start_time > now() - INTERVAL ${since}
-      ORDER BY start_time DESC
-      LIMIT ${limit}
-    `
+  const query = `
+    SELECT 
+      TraceId,
+      ServiceName,
+      SpanName,
+      Duration / 1000000,
+      Timestamp as timestamp,
+      status_code,
+      CASE WHEN StatusCode = '2' THEN 1 ELSE 0 END,
+      span_kind,
+      is_root,
+      encoding_type
+    FROM traces
+    WHERE start_time > now() - INTERVAL ${since}
+    ORDER BY start_time DESC
+    LIMIT ${limit}
+  `
 
-    const result = await queryWithResults(query)
-
+  Effect.runPromise(
+    Effect.gen(function* (_) {
+      const storage = yield* _(StorageAPIClientTag)
+      return yield* _(storage.queryRaw(query))
+    }).pipe(Effect.provide(StorageLayer))
+  ).then(result => {
     res.json({
-      traces: result.data,
-      count: result.data.length,
+      traces: result as Record<string, unknown>[],
+      count: (result as Record<string, unknown>[]).length,
       timestamp: new Date().toISOString()
     })
-  } catch (error) {
+  }).catch(error => {
     console.error('❌ Error querying traces:', error)
     res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error'
     })
-  }
+  })
 })
 
-// Service statistics endpoint
-app.get('/api/services/stats', async (req, res) => {
-  try {
-    const since = (req.query.since as string) || '5 MINUTE'
+// Service statistics endpoint - converted to run Effect at boundary
+app.get('/api/services/stats', (req, res) => {
+  const since = (req.query.since as string) || '5 MINUTE'
 
-    // TODO: Migrate to Storage API Client once type issues are resolved
-    const query = `
-      SELECT 
-        service_name,
-        COUNT(*) as span_count,
-        COUNT(DISTINCT trace_id) as trace_count,
-        AVG(duration_ms) as avg_duration_ms,
-        MAX(duration_ms) as max_duration_ms,
-        SUM(is_error) as error_count,
-        COUNT(DISTINCT operation_name) as operation_count
-      FROM traces
-      WHERE start_time > now() - INTERVAL ${since}
-      GROUP BY service_name
-      ORDER BY span_count DESC
-    `
+  const query = `
+    SELECT 
+      service_name,
+      COUNT(*) as span_count,
+      COUNT(DISTINCT trace_id) as trace_count,
+      AVG(duration_ms) as avg_duration_ms,
+      MAX(duration_ms) as max_duration_ms,
+      SUM(is_error) as error_count,
+      COUNT(DISTINCT operation_name) as operation_count
+    FROM traces
+    WHERE start_time > now() - INTERVAL ${since}
+    GROUP BY service_name
+    ORDER BY span_count DESC
+  `
 
-    const result = await queryWithResults(query)
-
+  Effect.runPromise(
+    Effect.gen(function* (_) {
+      const storage = yield* _(StorageAPIClientTag)
+      return yield* _(storage.queryRaw(query))
+    }).pipe(Effect.provide(StorageLayer))
+  ).then(result => {
     res.json({
-      services: result.data,
+      services: result as Record<string, unknown>[],
       timestamp: new Date().toISOString()
     })
-  } catch (error) {
+  }).catch(error => {
     console.error('❌ Error querying service stats:', error)
     res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error'
     })
-  }
+  })
 })
 
 // AI Anomaly Detection endpoint - Simple statistical anomaly detection
@@ -564,67 +565,68 @@ app.get('/api/ai-analyzer/health', async (req, res) => {
   }
 })
 
-app.post('/api/ai-analyzer/analyze', async (req, res) => {
-  try {
-    if (!aiAnalyzer) {
-      res.status(503).json({
-        error: 'AI Analyzer service not available',
-        message: 'Service is initializing or failed to start'
-      })
-      return
-    }
-
-    const { type, timeRange, filters, config } = req.body
-
-    const analysisRequest = {
-      type: type || 'architecture',
-      timeRange: {
-        startTime: new Date(timeRange.startTime),
-        endTime: new Date(timeRange.endTime)
-      },
-      filters,
-      config
-    }
-
-    // Execute the analysis using Effect
-    const result = await Effect.runPromise(aiAnalyzer.analyzeArchitecture(analysisRequest))
-
-    res.json(result)
-  } catch (error) {
-    console.error('❌ AI Analyzer analysis error:', error)
-    res.status(500).json({
-      error: 'Analysis failed',
-      message: error instanceof Error ? error.message : 'Unknown error'
+app.post('/api/ai-analyzer/analyze', (req, res) => {
+  if (!aiAnalyzer) {
+    res.status(503).json({
+      error: 'AI Analyzer service not available',
+      message: 'Service is initializing or failed to start'
     })
+    return
   }
-})
 
-app.post('/api/ai-analyzer/topology', async (req, res) => {
-  try {
-    if (!aiAnalyzer) {
-      res.status(503).json({
-        error: 'AI Analyzer service not available'
-      })
-      return
-    }
+  const { type, timeRange, filters, config } = req.body
 
-    const { timeRange } = req.body
-
-    const topologyRequest = {
+  const analysisRequest = {
+    type: type || 'architecture',
+    timeRange: {
       startTime: new Date(timeRange.startTime),
       endTime: new Date(timeRange.endTime)
-    }
-
-    const topology = await Effect.runPromise(aiAnalyzer.getServiceTopology(topologyRequest))
-
-    res.json(topology)
-  } catch (error) {
-    console.error('❌ AI Analyzer topology error:', error)
-    res.status(500).json({
-      error: 'Topology analysis failed',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    })
+    },
+    filters,
+    config
   }
+
+  // Execute the analysis using Effect at boundary
+  Effect.runPromise(aiAnalyzer.analyzeArchitecture(analysisRequest))
+    .then(result => {
+      res.json(result)
+    })
+    .catch(error => {
+      console.error('❌ AI Analyzer analysis error:', error)
+      res.status(500).json({
+        error: 'Analysis failed',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      })
+    })
+})
+
+app.post('/api/ai-analyzer/topology', (req, res) => {
+  if (!aiAnalyzer) {
+    res.status(503).json({
+      error: 'AI Analyzer service not available'
+    })
+    return
+  }
+
+  const { timeRange } = req.body
+
+  const topologyRequest = {
+    startTime: new Date(timeRange.startTime),
+    endTime: new Date(timeRange.endTime)
+  }
+
+  // Execute at Effect boundary
+  Effect.runPromise(aiAnalyzer.getServiceTopology(topologyRequest))
+    .then(topology => {
+      res.json(topology)
+    })
+    .catch(error => {
+      console.error('❌ AI Analyzer topology error:', error)
+      res.status(500).json({
+        error: 'Topology analysis failed',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      })
+    })
 })
 
 // New endpoint for topology visualization with force-directed graph data

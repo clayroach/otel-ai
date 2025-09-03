@@ -124,10 +124,10 @@ describe('StorageAPIClient Encoding Type', () => {
   })
 
   it('should validate OTLP data before passing to storage', async () => {
-    const invalidData: OTLPData = {
-      // Missing required fields
-      timestamp: Date.now()
-    }
+    const invalidData = {
+      // Invalid: timestamp should be a number, not a string
+      timestamp: "invalid-timestamp"
+    } as any as OTLPData
 
     // Create a test layer with actual validation
     const testConfig = {
