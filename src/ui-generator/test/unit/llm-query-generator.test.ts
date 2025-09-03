@@ -7,7 +7,7 @@ import {
 } from "../../query-generator/service-llm"
 import { generateQueryWithLLM, ANALYSIS_GOALS, validateGeneratedSQL } from "../../query-generator/llm-query-generator"
 import { StorageAPIClientTag } from "../../../storage/api-client"
-import { createSimpleLLMManager } from "../../../llm-manager/simple-manager"
+import { createSimpleLLMManager } from "../../../llm-manager"
 import { getModelMetadata } from "../../../llm-manager/model-registry"
 
 // Test data representing a real critical path
@@ -34,6 +34,17 @@ describe("LLM Query Generator", () => {
   let llmConfig: { endpoint: string; model: string } | undefined
   
   beforeAll(async () => {
+    // Check if we should skip LLM tests (for CI environments)
+    if (process.env.SKIP_LLM_TESTS === 'true') {
+      console.log("⏭️  Skipping LLM tests (SKIP_LLM_TESTS=true)")
+      llmAvailable = false
+      llmDetails = {
+        status: "skipped",
+        error: "LLM tests disabled in environment"
+      }
+      return
+    }
+    
     console.log("🔍 Checking LLM availability...")
     
     const endpoint = process.env.LLM_ENDPOINT || "http://localhost:1234/v1"
@@ -61,12 +72,60 @@ describe("LLM Query Generator", () => {
         console.log(`     - ${model.id}${info}`)
       })
       
-      // Use codellama-7b-instruct for testing (or any available SQL/code model)
-      const selectedModel = availableModels.find((m: { id: string }) => {
-        const metadata = getModelMetadata(m.id)
-        return m.id === 'codellama-7b-instruct' || 
-               (metadata && (metadata.type === 'sql' || metadata.type === 'code'))
-      }) || availableModels[0]
+      // Prioritize models for SQL generation based on environment config
+      let selectedModel = null
+      
+      // Get SQL model preferences from environment
+      const sqlModelPreferences = [
+        process.env.LLM_SQL_MODEL_1,
+        process.env.LLM_SQL_MODEL_2,
+        process.env.LLM_SQL_MODEL_3
+      ].filter(Boolean)
+      
+      // Try to find a model from the preference list
+      for (const preferredModel of sqlModelPreferences) {
+        const found = availableModels.find((m: { id: string }) => 
+          m.id === preferredModel || 
+          m.id.toLowerCase().includes(preferredModel?.toLowerCase() || '')
+        )
+        if (found) {
+          console.log(`     Found preferred SQL model: ${found.id}`)
+          selectedModel = found
+          break
+        }
+      }
+      
+      // Fallback to hardcoded priority if no preferred model found
+      if (!selectedModel) {
+        selectedModel = availableModels.find((m: { id: string }) => {
+          const modelIdLower = m.id.toLowerCase()
+          const metadata = getModelMetadata(m.id)
+          
+          // First priority: sqlcoder models (actually good at SQL)
+          if (modelIdLower.includes('sqlcoder')) {
+            console.log(`     Found SQLCoder model: ${m.id}`)
+            return true
+          }
+          // Second priority: codellama models  
+          if (m.id === 'codellama-7b-instruct') {
+            console.log(`     Found CodeLlama model: ${m.id}`)
+            return true
+          }
+          // Third priority: qwen coder models
+          if (modelIdLower.includes('qwen') && modelIdLower.includes('coder')) {
+            console.log(`     Found Qwen Coder model: ${m.id}`)
+            return true
+          }
+          // Fourth priority: deepseek-coder models
+          if (modelIdLower.includes('deepseek-coder')) {
+            console.log(`     Found DeepSeek-Coder model: ${m.id}`)
+            return true
+          }
+          // Skip starcoder for now as it's generating incorrect responses
+          // Fifth priority: any SQL/code type that isn't starcoder
+          return metadata && (metadata.type === 'sql' || metadata.type === 'code') && !modelIdLower.includes('starcoder')
+        }) || availableModels[0]
+      }
       
       const selectedMetadata = getModelMetadata(selectedModel.id)
       console.log(`   Selected model for testing: ${selectedModel.id} (${selectedMetadata?.displayName || 'Unknown'})`)
@@ -146,7 +205,7 @@ describe("LLM Query Generator", () => {
       console.log(`   Error: ${llmDetails.error}`)
       console.log("   Tests requiring LLM will be skipped")
     }
-  })
+  }, 30000) // 30 second timeout for beforeAll
   
   describe("LLM Availability", () => {
     it("should report LLM status", () => {

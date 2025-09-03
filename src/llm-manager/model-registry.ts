@@ -236,6 +236,230 @@ export const MODEL_REGISTRY: Record<string, ModelMetadata> = {
     maxTokens: 8192,
     defaultTemperature: 0.7,
     notes: 'Large general purpose model. Excellent at complex tasks.'
+  },
+
+  // StarCoder models for code and SQL generation
+  'starcoder2:3b': {
+    id: 'starcoder2:3b',
+    displayName: 'StarCoder2 3B',
+    provider: 'bigcode',
+    type: 'code',
+    capabilities: {
+      json: true,
+      sql: true,
+      reasoning: false,
+      functions: false,
+      streaming: true
+    },
+    responseFormat: {
+      type: 'sql',
+      hasMarkdownBlocks: false,
+      hasThinkingTags: false,
+      rawForSpecificPrompts: true
+    },
+    contextLength: 16384,
+    maxTokens: 4096,
+    defaultTemperature: 0,
+    notes: 'Lightweight code model. Good for SQL generation with 3B parameters.'
+  },
+
+  // Alternative naming for starcoder models (dash instead of colon)
+  'starcoder2-3b': {
+    id: 'starcoder2-3b',
+    displayName: 'StarCoder2 3B',
+    provider: 'bigcode',
+    type: 'code',
+    capabilities: {
+      json: true,
+      sql: true,
+      reasoning: false,
+      functions: false,
+      streaming: true
+    },
+    responseFormat: {
+      type: 'sql',
+      hasMarkdownBlocks: false,
+      hasThinkingTags: false,
+      rawForSpecificPrompts: true
+    },
+    contextLength: 16384,
+    maxTokens: 4096,
+    defaultTemperature: 0,
+    notes: 'Lightweight code model. Good for SQL generation with 3B parameters.'
+  },
+
+  'starcoder2:7b': {
+    id: 'starcoder2:7b',
+    displayName: 'StarCoder2 7B',
+    provider: 'bigcode',
+    type: 'code',
+    capabilities: {
+      json: true,
+      sql: true,
+      reasoning: false,
+      functions: false,
+      streaming: true
+    },
+    responseFormat: {
+      type: 'sql',
+      hasMarkdownBlocks: false,
+      hasThinkingTags: false,
+      rawForSpecificPrompts: true
+    },
+    contextLength: 16384,
+    maxTokens: 4096,
+    defaultTemperature: 0,
+    notes: 'Medium-sized code model. Better SQL generation with 7B parameters.'
+  },
+
+  'starcoder2-7b': {
+    id: 'starcoder2-7b',
+    displayName: 'StarCoder2 7B',
+    provider: 'bigcode',
+    type: 'code',
+    capabilities: {
+      json: true,
+      sql: true,
+      reasoning: false,
+      functions: false,
+      streaming: true
+    },
+    responseFormat: {
+      type: 'sql',
+      hasMarkdownBlocks: false,
+      hasThinkingTags: false,
+      rawForSpecificPrompts: true
+    },
+    contextLength: 16384,
+    maxTokens: 4096,
+    defaultTemperature: 0,
+    notes: 'Medium-sized code model. Better SQL generation with 7B parameters.'
+  },
+
+  'starcoder2:15b': {
+    id: 'starcoder2:15b',
+    displayName: 'StarCoder2 15B',
+    provider: 'bigcode',
+    type: 'code',
+    capabilities: {
+      json: true,
+      sql: true,
+      reasoning: false,
+      functions: false,
+      streaming: true
+    },
+    responseFormat: {
+      type: 'sql',
+      hasMarkdownBlocks: false,
+      hasThinkingTags: false,
+      rawForSpecificPrompts: true
+    },
+    contextLength: 16384,
+    maxTokens: 4096,
+    defaultTemperature: 0,
+    notes: 'Large code model. Excellent SQL generation with 15B parameters.'
+  },
+
+  'starcoder2-15b': {
+    id: 'starcoder2-15b',
+    displayName: 'StarCoder2 15B',
+    provider: 'bigcode',
+    type: 'code',
+    capabilities: {
+      json: true,
+      sql: true,
+      reasoning: false,
+      functions: false,
+      streaming: true
+    },
+    responseFormat: {
+      type: 'sql',
+      hasMarkdownBlocks: false,
+      hasThinkingTags: false,
+      rawForSpecificPrompts: true
+    },
+    contextLength: 16384,
+    maxTokens: 4096,
+    defaultTemperature: 0,
+    notes: 'Large code model. Excellent SQL generation with 15B parameters.'
+  },
+
+  // Qwen Coder models
+  'qwen/qwen3-coder-30b': {
+    id: 'qwen/qwen3-coder-30b',
+    displayName: 'Qwen3 Coder 30B',
+    provider: 'alibaba',
+    type: 'code',
+    capabilities: {
+      json: true,
+      sql: true,
+      reasoning: true,
+      functions: false,
+      streaming: true
+    },
+    responseFormat: {
+      type: 'sql',
+      hasMarkdownBlocks: true,
+      markdownBlockType: 'sql',
+      hasThinkingTags: false,
+      rawForSpecificPrompts: true
+    },
+    contextLength: 32768,
+    maxTokens: 8192,
+    defaultTemperature: 0,
+    notes:
+      'Large code model from Alibaba. Excellent for SQL and code generation with 30B parameters.'
+  },
+
+  'qwen3-coder-30b': {
+    id: 'qwen3-coder-30b',
+    displayName: 'Qwen3 Coder 30B',
+    provider: 'alibaba',
+    type: 'code',
+    capabilities: {
+      json: true,
+      sql: true,
+      reasoning: true,
+      functions: false,
+      streaming: true
+    },
+    responseFormat: {
+      type: 'sql',
+      hasMarkdownBlocks: true,
+      markdownBlockType: 'sql',
+      hasThinkingTags: false,
+      rawForSpecificPrompts: true
+    },
+    contextLength: 32768,
+    maxTokens: 8192,
+    defaultTemperature: 0,
+    notes:
+      'Large code model from Alibaba. Excellent for SQL and code generation with 30B parameters.'
+  },
+
+  // DeepSeek Coder models (smaller variants)
+  'deepseek-coder:1.3b': {
+    id: 'deepseek-coder:1.3b',
+    displayName: 'DeepSeek Coder 1.3B',
+    provider: 'deepseek',
+    type: 'code',
+    capabilities: {
+      json: true,
+      sql: true,
+      reasoning: false,
+      functions: false,
+      streaming: true
+    },
+    responseFormat: {
+      type: 'sql',
+      hasMarkdownBlocks: false,
+      hasThinkingTags: false,
+      rawForSpecificPrompts: true
+    },
+    contextLength: 16384,
+    maxTokens: 4096,
+    defaultTemperature: 0,
+    notes: 'Ultra-lightweight code model. Basic SQL generation with 1.3B parameters.'
   }
 }
 

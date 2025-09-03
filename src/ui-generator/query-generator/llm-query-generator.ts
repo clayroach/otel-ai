@@ -1,7 +1,6 @@
 import { Effect, pipe, Duration } from 'effect'
 import { CriticalPath, GeneratedQuery, QueryPattern } from './types'
-import { createSimpleLLMManager } from '../../llm-manager/simple-manager'
-import { LLMRequest } from '../../llm-manager/types'
+import { type LLMRequest, createSimpleLLMManager } from '../../llm-manager'
 import { Schema } from '@effect/schema'
 import {
   isSQLSpecificModel as checkSQLModel,

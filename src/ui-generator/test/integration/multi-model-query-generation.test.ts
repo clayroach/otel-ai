@@ -23,55 +23,83 @@ interface ModelTestConfig {
 }
 
 // Configuration for multi-model testing
-const MODEL_CONFIGS: ModelTestConfig[] = [
-  // Local models via LM Studio
-  {
-    modelId: 'sqlcoder-7b-2',
-    endpoint: process.env.LLM_ENDPOINT || 'http://localhost:1234/v1',
-    enabled: true
-  },
-  {
-    modelId: 'codellama-7b-instruct',
-    endpoint: process.env.LLM_ENDPOINT || 'http://localhost:1234/v1',
-    enabled: true
-  },
-  // Deepseek model disabled due to timeout issues
-  // {
-  //   modelId: 'deepseek/deepseek-r1-0528-qwen3-8b',
-  //   endpoint: process.env.LLM_ENDPOINT || 'http://localhost:1234/v1',
-  //   enabled: true
-  // },
-  // Claude via Anthropic API (disabled by default for local testing)
-  {
-    modelId: 'claude-3-sonnet-20240229',
-    endpoint: 'https://api.anthropic.com/v1',
-    apiKey: process.env.ANTHROPIC_API_KEY,
-    enabled: false, // Disabled to avoid external API calls during testing
-    skipReason: 'Claude API disabled for local testing'
-  },
-  {
-    modelId: 'claude-3-haiku-20240307',
-    endpoint: 'https://api.anthropic.com/v1',
-    apiKey: process.env.ANTHROPIC_API_KEY,
-    enabled: false, // Disabled to avoid external API calls during testing
-    skipReason: 'Claude API disabled for local testing'
-  },
-  // GPT via OpenAI API (disabled by default for local testing)
-  {
-    modelId: 'gpt-4-turbo-preview',
-    endpoint: 'https://api.openai.com/v1',
-    apiKey: process.env.OPENAI_API_KEY,
-    enabled: false, // Disabled to avoid external API calls during testing
-    skipReason: 'GPT API disabled for local testing'
-  },
-  {
-    modelId: 'gpt-3.5-turbo',
-    endpoint: 'https://api.openai.com/v1',
-    apiKey: process.env.OPENAI_API_KEY,
-    enabled: false, // Disabled to avoid external API calls during testing
-    skipReason: 'GPT API disabled for local testing'
+// Use environment-configured models with priority
+const getModelConfigs = (): ModelTestConfig[] => {
+  const configs: ModelTestConfig[] = []
+  
+  // SQL-specific models from environment (for SQL generation)
+  const sqlModels = [
+    process.env.LLM_SQL_MODEL_1,
+    process.env.LLM_SQL_MODEL_2,
+    process.env.LLM_SQL_MODEL_3
+  ].filter(Boolean)
+  
+  sqlModels.forEach(modelId => {
+    if (modelId) {
+      configs.push({
+        modelId,
+        endpoint: process.env.LLM_ENDPOINT || 'http://localhost:1234/v1',
+        enabled: true
+      })
+    }
+  })
+  
+  // General models from environment (for general queries)
+  const generalModels = [
+    process.env.LLM_GENERAL_MODEL_1,
+    process.env.LLM_GENERAL_MODEL_2,
+    process.env.LLM_GENERAL_MODEL_3
+  ].filter(Boolean)
+  
+  generalModels.forEach(modelId => {
+    if (modelId) {
+      if (modelId.includes('claude')) {
+        configs.push({
+          modelId,
+          endpoint: 'https://api.anthropic.com/v1',
+          apiKey: process.env.CLAUDE_API_KEY,
+          enabled: !!process.env.CLAUDE_API_KEY && process.env.SKIP_LLM_TESTS !== 'true',
+          skipReason: !process.env.CLAUDE_API_KEY ? 'Claude API key not configured' : 'External API tests disabled'
+        })
+      } else if (modelId.includes('gpt')) {
+        configs.push({
+          modelId,
+          endpoint: 'https://api.openai.com/v1',
+          apiKey: process.env.OPENAI_API_KEY,
+          enabled: !!process.env.OPENAI_API_KEY && process.env.SKIP_LLM_TESTS !== 'true',
+          skipReason: !process.env.OPENAI_API_KEY ? 'OpenAI API key not configured' : 'External API tests disabled'
+        })
+      } else {
+        // Local model
+        configs.push({
+          modelId,
+          endpoint: process.env.LLM_ENDPOINT || 'http://localhost:1234/v1',
+          enabled: true
+        })
+      }
+    }
+  })
+  
+  // If no models configured, use defaults
+  if (configs.length === 0) {
+    configs.push(
+      {
+        modelId: 'sqlcoder-7b-2',
+        endpoint: process.env.LLM_ENDPOINT || 'http://localhost:1234/v1',
+        enabled: true
+      },
+      {
+        modelId: 'codellama-7b-instruct',
+        endpoint: process.env.LLM_ENDPOINT || 'http://localhost:1234/v1',
+        enabled: true
+      }
+    )
   }
-]
+  
+  return configs
+}
+
+const MODEL_CONFIGS = getModelConfigs()
 
 // Test data
 const testPath: CriticalPath = {
@@ -100,6 +128,9 @@ describe("Multi-Model Query Generation", () => {
   
   beforeAll(async () => {
     console.log("\n🔍 Checking model availability across providers...")
+    console.log("   Using model preferences from environment:")
+    console.log(`   SQL Models: ${[process.env.LLM_SQL_MODEL_1, process.env.LLM_SQL_MODEL_2, process.env.LLM_SQL_MODEL_3].filter(Boolean).join(', ') || 'defaults'}`)
+    console.log(`   General Models: ${[process.env.LLM_GENERAL_MODEL_1, process.env.LLM_GENERAL_MODEL_2, process.env.LLM_GENERAL_MODEL_3].filter(Boolean).join(', ') || 'defaults'}`)
     
     // Check local models via LM Studio
     try {
