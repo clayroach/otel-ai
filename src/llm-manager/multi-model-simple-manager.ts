@@ -40,7 +40,7 @@ export const createMultiModelSimpleLLMManager = (config?: Partial<LLMConfig>) =>
     // For Claude, we make a direct API call
     const claudeModel = process.env.LLM_GENERAL_MODEL_1?.includes('claude')
       ? process.env.LLM_GENERAL_MODEL_1
-      : 'claude-3-7-sonnet-20250219'
+      : 'claude-3-5-sonnet-20241022'
 
     return Effect.tryPromise({
       try: async () => {

@@ -58,7 +58,7 @@ const getModelConfigs = (): ModelTestConfig[] => {
           modelId,
           endpoint: 'https://api.anthropic.com/v1',
           apiKey: process.env.CLAUDE_API_KEY,
-          enabled: !!process.env.CLAUDE_API_KEY && process.env.SKIP_LLM_TESTS !== 'true',
+          enabled: !!process.env.CLAUDE_API_KEY && process.env.SKIP_LLM_TESTS !== 'true' && process.env.SKIP_EXTERNAL_API_TESTS !== 'true',
           skipReason: !process.env.CLAUDE_API_KEY ? 'Claude API key not configured' : 'External API tests disabled'
         })
       } else if (modelId.includes('gpt')) {
@@ -66,7 +66,7 @@ const getModelConfigs = (): ModelTestConfig[] => {
           modelId,
           endpoint: 'https://api.openai.com/v1',
           apiKey: process.env.OPENAI_API_KEY,
-          enabled: !!process.env.OPENAI_API_KEY && process.env.SKIP_LLM_TESTS !== 'true',
+          enabled: !!process.env.OPENAI_API_KEY && process.env.SKIP_LLM_TESTS !== 'true' && process.env.SKIP_EXTERNAL_API_TESTS !== 'true',
           skipReason: !process.env.OPENAI_API_KEY ? 'OpenAI API key not configured' : 'External API tests disabled'
         })
       } else {

@@ -75,7 +75,7 @@ interface OpenAIStreamChunk {
  * Priority: modelPath > model > default
  */
 const getModelName = (config: Record<string, unknown>): string => {
-  return (config.modelPath || config.model || 'deepseek/deepseek-r1-0528-qwen3-8b') as string
+  return (config.modelPath || config.model || process.env.LLM_SQL_MODEL_1 || 'sqlcoder-7b-2') as string
 }
 
 /**
@@ -183,7 +183,7 @@ export const makeLocalModelClient = (
         const configAny = config as Record<string, unknown>
         const configWithModel = {
           ...config,
-          model: configAny.modelPath || configAny.model || 'deepseek/deepseek-r1-0528-qwen3-8b'
+          model: configAny.modelPath || configAny.model || process.env.LLM_SQL_MODEL_1 || 'sqlcoder-7b-2'
         }
 
         const validatedConfig = yield* _(
@@ -348,7 +348,7 @@ export const makeLocalModelClient = (
  */
 export const defaultLocalConfig: LocalModelConfig = {
   endpoint: 'http://localhost:1234/v1', // LM Studio default
-  model: 'deepseek/deepseek-r1-0528-qwen3-8b', // Default model (reasoning + JSON)
+  model: process.env.LLM_SQL_MODEL_1 || 'sqlcoder-7b-2', // Default to SQL model from environment
   maxTokens: 4096,
   temperature: 0.7,
   contextLength: 4096,
