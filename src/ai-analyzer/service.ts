@@ -20,7 +20,9 @@ import { discoverApplicationTopology } from './topology.js'
 import { PromptTemplates, PromptUtils } from './prompts.js'
 import { LLMManagerService } from '../llm-manager/services.js'
 import { makeMultiModelOrchestrator } from '../llm-manager/multi-model-orchestrator.js'
-import { StorageServiceTag } from '../storage/services.js'
+// StorageServiceTag was removed - using ClickHouse directly now
+import { makeClickHouseStorage } from '../storage/clickhouse.js'
+import { defaultStorageConfig } from '../storage/config.js'
 
 /**
  * Configuration for AI Analyzer

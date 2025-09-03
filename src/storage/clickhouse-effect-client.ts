@@ -64,9 +64,10 @@ class EffectClickHouseClientImpl implements EffectClickHouseClient {
   constructor(private readonly client: ClickHouseClient) {}
 
   query<T = unknown>(params: { query: string; format?: string }): Effect.Effect<T[], DatabaseError> {
+    const self = this
     return Effect.gen(function* () {
       const result = yield* Effect.tryPromise({
-        try: () => this.client.query({
+        try: () => self.client.query({
           query: params.query,
           format: params.format || 'JSONEachRow'
         }),
@@ -78,7 +79,7 @@ class EffectClickHouseClientImpl implements EffectClickHouseClient {
       })
       
       const data = yield* Effect.tryPromise({
-        try: () => result.json<T>(),
+        try: () => (result as any).json<T>(),
         catch: (error) => new DatabaseError({
           message: `Failed to parse query result: ${String(error)}`,
           operation: 'query',
@@ -87,7 +88,7 @@ class EffectClickHouseClientImpl implements EffectClickHouseClient {
       })
       
       return Array.isArray(data) ? data : [data]
-    }.bind(this))
+    })
   }
 
   insert<T = unknown>(params: {

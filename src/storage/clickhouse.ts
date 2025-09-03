@@ -135,9 +135,9 @@ export const makeClickHouseStorage = (
             span_kind: trace.spanKind,
             status_code: trace.statusCode,
             status_message: trace.statusMessage || '',
-            trace_state: trace.traceState || '',
-            scope_name: trace.scopeName || '',
-            scope_version: trace.scopeVersion || '',
+            trace_state: '',
+            scope_name: '',
+            scope_version: '',
             span_attributes: JSON.stringify(trace.attributes || {}),
             resource_attributes: JSON.stringify(trace.resourceAttributes || {}),
             events: JSON.stringify(trace.events || []),
@@ -168,14 +168,14 @@ export const makeClickHouseStorage = (
     const writeMetrics = (metrics: MetricData[]): Effect.Effect<void, StorageError> =>
       Effect.gen(function* () {
         const values = metrics.map((metric) => ({
-          metric_name: metric.name,
-          metric_type: metric.type,
+          metric_name: metric.metricName,
+          metric_type: metric.metricType,
           value: metric.value,
           unit: metric.unit || '',
           timestamp: Math.floor(metric.timestamp / 1000000),
           attributes: JSON.stringify(metric.attributes || {}),
           resource_attributes: JSON.stringify(metric.resourceAttributes || {}),
-          service_name: metric.serviceName || '',
+          service_name: '',
           ingestion_time: Date.now() * 1000000,
           processing_version: '1.0.0'
         }))
@@ -199,11 +199,11 @@ export const makeClickHouseStorage = (
       Effect.gen(function* () {
         const values = logs.map((log) => ({
           timestamp: Math.floor(log.timestamp / 1000000),
-          severity: log.severity,
-          message: log.message,
+          severity: log.severityText || 'INFO',
+          message: log.body,
           attributes: JSON.stringify(log.attributes || {}),
           resource_attributes: JSON.stringify(log.resourceAttributes || {}),
-          service_name: log.serviceName || '',
+          service_name: '',
           trace_id: log.traceId || '',
           span_id: log.spanId || '',
           ingestion_time: Date.now() * 1000000,

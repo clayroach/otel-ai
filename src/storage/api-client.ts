@@ -36,7 +36,7 @@ export interface StorageAPIClient {
   readonly queryLogs: (params: QueryParams) => Effect.Effect<LogData[], StorageError>
   readonly queryAI: (params: AIQueryParams) => Effect.Effect<readonly unknown[], StorageError>
   readonly queryRaw: (sql: string) => Effect.Effect<unknown[], StorageError>
-  readonly healthCheck: () => Effect.Effect<{ clickhouse: boolean; s3: boolean }, StorageError>
+  readonly healthCheck: () => Effect.Effect<{ clickhouse: boolean }, StorageError>
 }
 
 export class StorageAPIClientTag extends Context.Tag('StorageAPIClient')<
@@ -52,18 +52,6 @@ export class ClickHouseConfigTag extends Context.Tag('ClickHouseConfig')<
   ClickHouseConfig
 >() {}
 
-/**
- * S3 Config Service Tag
- */
-export class S3ConfigTag extends Context.Tag('S3Config')<
-  S3ConfigTag,
-  {
-    readonly endpoint: string
-    readonly accessKey: string
-    readonly secretKey: string
-    readonly bucket: string
-  }
->() {}
 
 // Schema definitions removed as they were unused
 // If needed in future, add them back when actually used

@@ -21,44 +21,6 @@ export const ClickHouseConfigSchema = Schema.Struct({
   sendProgressInHttpHeaders: Schema.optional(Schema.Boolean)
 })
 
-// S3/MinIO configuration
-export const S3ConfigSchema = Schema.Struct({
-  endpoint: Schema.String,
-  accessKeyId: Schema.String,
-  secretAccessKey: Schema.String,
-  bucket: Schema.String,
-  region: Schema.optional(Schema.String),
-  forcePathStyle: Schema.optional(Schema.Boolean), // Required for MinIO
-  enableEncryption: Schema.optional(Schema.Boolean), // Enable/disable server-side encryption
-  // Retention and lifecycle
-  enableVersioning: Schema.optional(Schema.Boolean),
-  lifecycleRules: Schema.optional(
-    Schema.Array(
-      Schema.Struct({
-        id: Schema.String,
-        status: Schema.Literal('Enabled', 'Disabled'),
-        expiration: Schema.Number // days
-      })
-    )
-  )
-})
-
-// Retention policies for different data types
-export const RetentionConfigSchema = Schema.Struct({
-  traces: Schema.Struct({
-    clickhouse: Schema.String, // e.g., "30d"
-    s3: Schema.String // e.g., "1y"
-  }),
-  metrics: Schema.Struct({
-    clickhouse: Schema.String, // e.g., "90d"
-    s3: Schema.String // e.g., "2y"
-  }),
-  logs: Schema.Struct({
-    clickhouse: Schema.String, // e.g., "7d"
-    s3: Schema.String // e.g., "30d"
-  })
-})
-
 // Performance and optimization settings
 export const PerformanceConfigSchema = Schema.Struct({
   batchSize: Schema.Number,
@@ -74,15 +36,11 @@ export const PerformanceConfigSchema = Schema.Struct({
 // Main storage configuration schema
 export const StorageConfigSchema = Schema.Struct({
   clickhouse: ClickHouseConfigSchema,
-  s3: S3ConfigSchema,
-  retention: RetentionConfigSchema,
   performance: PerformanceConfigSchema,
   // Feature flags
   features: Schema.optional(
     Schema.Struct({
-      enableS3Backup: Schema.Boolean,
       enableCompression: Schema.Boolean,
-      enableEncryption: Schema.Boolean,
       enableAIOptimizations: Schema.Boolean
     })
   )
@@ -90,8 +48,6 @@ export const StorageConfigSchema = Schema.Struct({
 
 export type StorageConfig = Schema.Schema.Type<typeof StorageConfigSchema>
 export type ClickHouseConfig = Schema.Schema.Type<typeof ClickHouseConfigSchema>
-export type S3Config = Schema.Schema.Type<typeof S3ConfigSchema>
-export type RetentionConfig = Schema.Schema.Type<typeof RetentionConfigSchema>
 export type PerformanceConfig = Schema.Schema.Type<typeof PerformanceConfigSchema>
 
 // Default configuration suitable for development
@@ -105,37 +61,11 @@ export const defaultStorageConfig: StorageConfig = {
     connectTimeout: 10000,
     requestTimeout: 30000,
     maxOpenConnections: 10,
-    compression: true,
-    maxQueryMemoryUsage: '1GB',
-    maxExecutionTime: 300,
-    sendProgressInHttpHeaders: true
-  },
-  s3: {
-    endpoint: 'http://localhost:9010',
-    accessKeyId: 'otel-ai',
-    secretAccessKey: 'otel-ai-secret',
-    bucket: 'otel-data',
-    region: 'us-east-1',
-    forcePathStyle: true, // Required for MinIO
-    enableVersioning: false
-  },
-  retention: {
-    traces: {
-      clickhouse: '30d',
-      s3: '1y'
-    },
-    metrics: {
-      clickhouse: '90d',
-      s3: '2y'
-    },
-    logs: {
-      clickhouse: '7d',
-      s3: '30d'
-    }
+    compression: true
   },
   performance: {
-    batchSize: 1000,
-    flushInterval: 5000, // 5 seconds
+    batchSize: 100,
+    flushInterval: 5000,
     maxConcurrentWrites: 5,
     compressionLevel: 6,
     enablePreAggregation: true,
@@ -143,28 +73,46 @@ export const defaultStorageConfig: StorageConfig = {
     enableQueryCache: true
   },
   features: {
-    enableS3Backup: true,
     enableCompression: true,
-    enableEncryption: false, // Can be enabled for production
     enableAIOptimizations: true
   }
 }
 
-// Environment-based configuration loader
+// Helper function to load configuration from environment variables
 export const loadConfigFromEnv = (): Partial<StorageConfig> => ({
   clickhouse: {
-    host: process.env.CLICKHOUSE_HOST || 'localhost',
-    port: parseInt(process.env.CLICKHOUSE_PORT || '8123'),
-    database: process.env.CLICKHOUSE_DATABASE || 'otel',
-    username: process.env.CLICKHOUSE_USERNAME || 'otel',
-    password: process.env.CLICKHOUSE_PASSWORD || 'otel123'
+    host: process.env.CLICKHOUSE_HOST || defaultStorageConfig.clickhouse.host,
+    port: parseInt(process.env.CLICKHOUSE_PORT || '') || defaultStorageConfig.clickhouse.port,
+    database: process.env.CLICKHOUSE_DATABASE || defaultStorageConfig.clickhouse.database,
+    username: process.env.CLICKHOUSE_USERNAME || defaultStorageConfig.clickhouse.username,
+    password: process.env.CLICKHOUSE_PASSWORD || defaultStorageConfig.clickhouse.password,
+    connectTimeout:
+      parseInt(process.env.CLICKHOUSE_CONNECT_TIMEOUT || '') ||
+      defaultStorageConfig.clickhouse.connectTimeout,
+    requestTimeout:
+      parseInt(process.env.CLICKHOUSE_REQUEST_TIMEOUT || '') ||
+      defaultStorageConfig.clickhouse.requestTimeout,
+    maxOpenConnections:
+      parseInt(process.env.CLICKHOUSE_MAX_CONNECTIONS || '') ||
+      defaultStorageConfig.clickhouse.maxOpenConnections,
+    compression:
+      process.env.CLICKHOUSE_COMPRESSION === 'true' ?? defaultStorageConfig.clickhouse.compression
   },
-  s3: {
-    endpoint: process.env.S3_ENDPOINT || 'http://localhost:9010',
-    accessKeyId: process.env.S3_ACCESS_KEY_ID || 'otel-ai',
-    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || 'otel-ai-secret',
-    bucket: process.env.S3_BUCKET || 'otel-data',
-    region: process.env.S3_REGION,
-    forcePathStyle: process.env.S3_FORCE_PATH_STYLE === 'true'
+  performance: {
+    batchSize:
+      parseInt(process.env.STORAGE_BATCH_SIZE || '') || defaultStorageConfig.performance.batchSize,
+    flushInterval:
+      parseInt(process.env.STORAGE_FLUSH_INTERVAL || '') ||
+      defaultStorageConfig.performance.flushInterval,
+    maxConcurrentWrites:
+      parseInt(process.env.STORAGE_MAX_CONCURRENT_WRITES || '') ||
+      defaultStorageConfig.performance.maxConcurrentWrites
   }
 })
+
+// Type guard functions
+export const isValidClickHouseConfig = (config: unknown): config is ClickHouseConfig =>
+  Schema.is(ClickHouseConfigSchema)(config)
+
+export const isValidStorageConfig = (config: unknown): config is StorageConfig =>
+  Schema.is(StorageConfigSchema)(config)
