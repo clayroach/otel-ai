@@ -39,6 +39,23 @@ const createDynamicQueryPrompt = (
 
   // For SQL-specific models, use a simpler prompt
   if (modelName && checkSQLModel(modelName)) {
+    // Add specific requirements based on analysis goal
+    let additionalRequirements = ''
+    if (analysisGoal.toLowerCase().includes('error')) {
+      additionalRequirements = `
+- MUST filter for errors: WHERE status_code != 'OK'
+- Include status_code and status_message in output
+- Group by error type/status for analysis`
+    } else if (analysisGoal.toLowerCase().includes('latency')) {
+      additionalRequirements = `
+- Calculate percentiles: quantile(0.5), quantile(0.95), quantile(0.99)
+- Use duration_ns/1000000 to convert to milliseconds`
+    } else if (analysisGoal.toLowerCase().includes('bottleneck')) {
+      additionalRequirements = `
+- Find slowest operations: ORDER BY duration DESC
+- Include operation_name in output`
+    }
+    
     return `Generate a ClickHouse SQL query for the following analysis:
     
 Table: traces
@@ -49,6 +66,7 @@ Columns (use EXACTLY these names):
 - service_name (String)
 - operation_name (String)
 - status_code (String)
+- status_message (String)
 - trace_id, span_id, parent_span_id (String)
 
 Services to analyze: ${services}
@@ -56,7 +74,7 @@ Analysis goal: ${analysisGoal}
 
 Requirements:
 - Must use start_time for time filtering and grouping
-- Must filter by service_name IN (${services})
+- Must filter by service_name IN (${services})${additionalRequirements}
 - Return ONLY the SQL query wrapped in \`\`\`sql blocks`
   }
 
