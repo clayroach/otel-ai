@@ -38,6 +38,16 @@ export {
 // Simple manager (working foundation)
 export { createSimpleLLMManager, createDefaultLLMManager } from './simple-manager.js'
 
+// Service layer with Effect-TS patterns
+export {
+  LLMManagerService,
+  LLMManagerServiceLive,
+  LLMManagerServiceMock,
+  LLMManagerServiceDev,
+  createTestLLMManagerService
+} from './service.js'
+export type { LLMManagerServiceInterface } from './service.js'
+
 // Service layers
 export { LLMManagerContext, LLMManagerEssentials } from './layers.js'
 export { CacheLayer } from './cache.js'
