@@ -100,6 +100,8 @@ export const CriticalPathQueryGeneratorClickHouseAILive = Layer.effect(
             
             Analysis Goal: ${scenario.goal}
             
+            IMPORTANT: The query MUST filter by the services listed above (${path.services.join(', ')}) using a WHERE clause with service_name IN (...).
+            
             Use the following ClickHouse-specific features when appropriate:
             - Quantile functions (quantile, quantileExact, quantileTiming)
             - Time window functions (tumbleWindow, hopWindow)

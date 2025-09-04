@@ -53,7 +53,7 @@ export const LLMManagerLive = Layer.effect(
   Effect.sync(() => {
     const config = loadConfigFromEnvironment()
     const manager = createLLMManager(config)
-    
+
     return {
       generate: (request) => manager.generate(request),
       generateStream: (request) => manager.generateStream(request),
@@ -74,7 +74,7 @@ export const createLLMManagerLive = (config: Partial<LLMConfig>) =>
     LLMManagerServiceTag,
     Effect.sync(() => {
       const manager = createLLMManager(config)
-      
+
       return {
         generate: (request) => manager.generate(request),
         generateStream: (request) => manager.generateStream(request),
@@ -95,35 +95,35 @@ export const LLMManagerDev = Layer.effect(
   Effect.gen(function* () {
     const config = loadConfigFromEnvironment()
     const manager = createLLMManager(config)
-    
+
     console.log('[LLM Manager] Initialized with models:', yield* manager.getAvailableModels())
-    
+
     return {
       generate: (request) =>
         Effect.gen(function* () {
           const startTime = Date.now()
           console.log(`[LLM Manager] Generating response for task: ${request.taskType}`)
-          
+
           const selectedModel = manager.selectModel(request.taskType || 'general')
           console.log(`[LLM Manager] Selected model: ${selectedModel}`)
-          
+
           const response = yield* manager.generate(request)
           const elapsed = Date.now() - startTime
-          
+
           console.log(`[LLM Manager] Generated response in ${elapsed}ms using ${response.model}`)
           console.log(`[LLM Manager] Token usage: ${response.usage?.totalTokens || 0} tokens`)
-          
+
           return response
         }),
-        
+
       generateStream: (request) => {
         console.log(`[LLM Manager] Streaming response for task: ${request.taskType}`)
         const selectedModel = manager.selectModel(request.taskType || 'general')
         console.log(`[LLM Manager] Selected model for streaming: ${selectedModel}`)
-        
+
         return manager.generateStream(request)
       },
-      
+
       isHealthy: () =>
         Effect.gen(function* () {
           console.log('[LLM Manager] Checking health status...')
@@ -131,14 +131,14 @@ export const LLMManagerDev = Layer.effect(
           console.log(`[LLM Manager] Health status: ${healthy ? 'healthy' : 'unhealthy'}`)
           return healthy
         }),
-        
+
       getStatus: () =>
         Effect.gen(function* () {
           const status = yield* manager.getStatus()
           console.log('[LLM Manager] Status:', JSON.stringify(status, null, 2))
           return status
         }),
-        
+
       getAvailableModels: () =>
         Effect.gen(function* () {
           const models = yield* manager.getAvailableModels()

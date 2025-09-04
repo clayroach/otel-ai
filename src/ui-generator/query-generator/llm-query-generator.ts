@@ -1,9 +1,6 @@
 import { Effect, pipe, Duration } from 'effect'
 import { CriticalPath, GeneratedQuery, QueryPattern } from './types.js'
-import {
-  type LLMRequest,
-  createLLMManager
-} from '../../llm-manager/index.js'
+import { type LLMRequest, createLLMManager } from '../../llm-manager/index.js'
 import { Schema } from '@effect/schema'
 import {
   isSQLSpecificModel as checkSQLModel,
@@ -317,7 +314,7 @@ export const generateQueryWithLLM = (
       })
     }
   })
-  
+
   // The manager will route to the appropriate model based on the request
   const generateEffect = llmManager.generate(request)
 

@@ -903,12 +903,13 @@ const generateEnhancedInsights = (
     })
 
     // Create an analysis prompt based on the type
-    const taskType = analysisType === 'architecture' || analysisType === 'dependencies'
-      ? 'architectural-insights' as const
-      : 'analysis' as const
-    
+    const taskType =
+      analysisType === 'architecture' || analysisType === 'dependencies'
+        ? ('architectural-insights' as const)
+        : ('analysis' as const)
+
     const prompt = `Analyze the following ${analysisType} data and provide insights:\n\n${JSON.stringify(analysisData, null, 2)}`
-    
+
     const multiModelResponse = yield* _(
       multiModelOrchestrator
         .generate({

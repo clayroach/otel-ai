@@ -6,7 +6,6 @@ import {
   CriticalPathQueryGeneratorClickHouseAILive
 } from "../../query-generator/service-clickhouse-ai"
 import { StorageAPIClientTag } from "../../../storage/api-client"
-// LLMManagerContext not needed - service creates its own multi-model manager
 
 // Test data representing a real critical path
 const testPath: CriticalPath = {

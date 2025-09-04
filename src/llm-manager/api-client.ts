@@ -426,7 +426,7 @@ export class LLMManagerAPIClient {
     }
 
     this.metrics.totalRequests++
-    
+
     // The new manager handles model selection internally
     // We just need to pass the request through
     const result = await Effect.runPromise(

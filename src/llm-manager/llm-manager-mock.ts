@@ -18,37 +18,46 @@ export interface MockConfig {
    * Map of prompts to specific responses
    */
   responses?: Map<string, LLMResponse>
-  
+
   /**
    * Default response when no specific response is mapped
    */
   defaultResponse?: LLMResponse
-  
+
   /**
    * Whether the mock should fail
    */
   shouldFail?: boolean
-  
+
   /**
    * Error message when failing
    */
   errorMessage?: string
-  
+
   /**
    * Error tag when failing
    */
-  errorTag?: 'ModelUnavailable' | 'RateLimitExceeded' | 'InvalidRequest' | 'AuthenticationFailed' | 'TimeoutError' | 'ContextTooLarge' | 'ConfigurationError' | 'NetworkError' | 'AllModelsUnavailable'
-  
+  errorTag?:
+    | 'ModelUnavailable'
+    | 'RateLimitExceeded'
+    | 'InvalidRequest'
+    | 'AuthenticationFailed'
+    | 'TimeoutError'
+    | 'ContextTooLarge'
+    | 'ConfigurationError'
+    | 'NetworkError'
+    | 'AllModelsUnavailable'
+
   /**
    * Simulated latency in milliseconds
    */
   latency?: number
-  
+
   /**
    * Available models for status
    */
   availableModels?: string[]
-  
+
   /**
    * Health status for models
    */
@@ -74,102 +83,119 @@ export const createMockLayer = (config: MockConfig = {}) => {
       cached: false
     }
   }
-  
+
   const availableModels = config.availableModels || ['mock-model']
   const healthStatus = config.healthStatus || { 'mock-model': 'healthy' }
-  
-  return Layer.succeed(
-    LLMManagerServiceTag,
-    {
-      generate: (request: LLMRequest) =>
-        Effect.gen(function* () {
-          // Simulate latency if configured
-          if (config.latency) {
-            yield* Effect.sleep(Duration.millis(config.latency))
+
+  return Layer.succeed(LLMManagerServiceTag, {
+    generate: (request: LLMRequest) =>
+      Effect.gen(function* () {
+        // Simulate latency if configured
+        if (config.latency) {
+          yield* Effect.sleep(Duration.millis(config.latency))
+        }
+
+        // Fail if configured to do so
+        if (config.shouldFail) {
+          const error: LLMError =
+            config.errorTag === 'ModelUnavailable'
+              ? {
+                  _tag: 'ModelUnavailable',
+                  model: 'mock-model',
+                  message: config.errorMessage || 'Mock error'
+                }
+              : config.errorTag === 'RateLimitExceeded'
+                ? {
+                    _tag: 'RateLimitExceeded',
+                    model: 'mock-model',
+                    retryAfter: 60
+                  }
+                : config.errorTag === 'InvalidRequest'
+                  ? {
+                      _tag: 'InvalidRequest',
+                      message: config.errorMessage || 'Mock error',
+                      request
+                    }
+                  : config.errorTag === 'AuthenticationFailed'
+                    ? {
+                        _tag: 'AuthenticationFailed',
+                        model: 'mock-model',
+                        message: config.errorMessage || 'Mock error'
+                      }
+                    : config.errorTag === 'TimeoutError'
+                      ? {
+                          _tag: 'TimeoutError',
+                          model: 'mock-model',
+                          timeoutMs: 30000
+                        }
+                      : config.errorTag === 'ContextTooLarge'
+                        ? {
+                            _tag: 'ContextTooLarge',
+                            model: 'mock-model',
+                            tokenCount: 10000,
+                            maxTokens: 4096
+                          }
+                        : config.errorTag === 'NetworkError'
+                          ? {
+                              _tag: 'NetworkError',
+                              model: 'mock-model',
+                              message: config.errorMessage || 'Mock error'
+                            }
+                          : config.errorTag === 'AllModelsUnavailable'
+                            ? {
+                                _tag: 'AllModelsUnavailable',
+                                message: config.errorMessage || 'Mock error'
+                              }
+                            : {
+                                _tag: 'ConfigurationError',
+                                message: config.errorMessage || 'Mock error'
+                              }
+          return yield* Effect.fail(error)
+        }
+
+        // Return specific response if mapped
+        const customResponse = config.responses?.get(request.prompt)
+        if (customResponse) {
+          return customResponse
+        }
+
+        // If a defaultResponse is configured with custom content, use it
+        if (config.defaultResponse) {
+          return config.defaultResponse
+        }
+
+        // Otherwise generate dynamic mock response based on request
+        return {
+          ...defaultResponse,
+          content: `Mock response for ${request.taskType || 'general'} task: ${request.prompt.substring(0, 50)}...`,
+          model: request.preferences?.model || 'mock-model',
+          metadata: {
+            ...defaultResponse.metadata,
+            taskType: request.taskType
           }
-          
-          // Fail if configured to do so
-          if (config.shouldFail) {
-            const error: LLMError = config.errorTag === 'ModelUnavailable' ? {
-              _tag: 'ModelUnavailable',
-              model: 'mock-model',
-              message: config.errorMessage || 'Mock error'
-            } : config.errorTag === 'RateLimitExceeded' ? {
-              _tag: 'RateLimitExceeded',
-              model: 'mock-model',
-              retryAfter: 60
-            } : config.errorTag === 'InvalidRequest' ? {
-              _tag: 'InvalidRequest',
-              message: config.errorMessage || 'Mock error',
-              request
-            } : config.errorTag === 'AuthenticationFailed' ? {
-              _tag: 'AuthenticationFailed',
-              model: 'mock-model',
-              message: config.errorMessage || 'Mock error'
-            } : config.errorTag === 'TimeoutError' ? {
-              _tag: 'TimeoutError',
-              model: 'mock-model',
-              timeoutMs: 30000
-            } : config.errorTag === 'ContextTooLarge' ? {
-              _tag: 'ContextTooLarge',
-              model: 'mock-model',
-              tokenCount: 10000,
-              maxTokens: 4096
-            } : config.errorTag === 'NetworkError' ? {
-              _tag: 'NetworkError',
-              model: 'mock-model',
-              message: config.errorMessage || 'Mock error'
-            } : config.errorTag === 'AllModelsUnavailable' ? {
-              _tag: 'AllModelsUnavailable',
-              message: config.errorMessage || 'Mock error'
-            } : {
-              _tag: 'ConfigurationError',
-              message: config.errorMessage || 'Mock error'
-            }
-            return yield* Effect.fail(error)
-          }
-          
-          // Return specific response if mapped
-          const customResponse = config.responses?.get(request.prompt)
-          if (customResponse) {
-            return customResponse
-          }
-          
-          // Generate dynamic mock response based on request
-          return {
-            ...defaultResponse,
-            content: `Mock response for ${request.taskType || 'general'} task: ${request.prompt.substring(0, 50)}...`,
-            model: request.preferences?.model || 'mock-model',
-            metadata: {
-              ...defaultResponse.metadata,
-              taskType: request.taskType
-            }
-          }
-        }),
-        
-      generateStream: (request: LLMRequest) =>
-        config.shouldFail
-          ? Stream.fail<LLMError>({
-              _tag: 'NetworkError',
-              model: 'mock-model',
-              message: config.errorMessage || 'Mock stream error'
-            } as LLMError)
-          : Stream.make('Mock', 'streaming', 'response', 'for:', request.prompt.substring(0, 20)),
-        
-      isHealthy: () => 
-        Effect.succeed(!config.shouldFail),
-        
-      getStatus: () =>
-        Effect.succeed({
-          availableModels,
-          healthStatus,
-          config: { mock: true, ...config }
-        } as ManagerStatus),
-        
-      getAvailableModels: () =>
-        Effect.succeed(availableModels)
-    }
-  )
+        }
+      }),
+
+    generateStream: (request: LLMRequest) =>
+      config.shouldFail
+        ? Stream.fail<LLMError>({
+            _tag: 'NetworkError',
+            model: 'mock-model',
+            message: config.errorMessage || 'Mock stream error'
+          } as LLMError)
+        : Stream.make('Mock', 'streaming', 'response', 'for:', request.prompt.substring(0, 20)),
+
+    isHealthy: () => Effect.succeed(!config.shouldFail),
+
+    getStatus: () =>
+      Effect.succeed({
+        availableModels,
+        healthStatus,
+        config: { mock: true, ...config }
+      } as ManagerStatus),
+
+    getAvailableModels: () => Effect.succeed(availableModels)
+  })
 }
 
 /**
@@ -212,28 +238,37 @@ export const LLMManagerMockWithLatency = createMockLayer({
  */
 export const LLMManagerMockWithCustomResponses = createMockLayer({
   responses: new Map([
-    ['Generate SQL', { 
-      content: 'SELECT * FROM traces WHERE service_name = "test" AND status_code = "ERROR"',
-      model: 'mock-sql-model',
-      usage: { promptTokens: 5, completionTokens: 15, totalTokens: 20, cost: 0 },
-      metadata: { latencyMs: 50, retryCount: 0, cached: false }
-    }],
-    ['Analyze error', {
-      content: 'Error analysis: High latency detected in database queries',
-      model: 'mock-analysis-model',
-      usage: { promptTokens: 8, completionTokens: 12, totalTokens: 20, cost: 0 },
-      metadata: { latencyMs: 75, retryCount: 0, cached: false }
-    }],
-    ['Generate dashboard', {
-      content: JSON.stringify({
-        type: 'LineChart',
-        data: { series: [{ name: 'Latency', data: [100, 120, 95] }] },
-        config: { title: 'System Latency' }
-      }),
-      model: 'mock-ui-model',
-      usage: { promptTokens: 10, completionTokens: 30, totalTokens: 40, cost: 0 },
-      metadata: { latencyMs: 100, retryCount: 0, cached: false }
-    }]
+    [
+      'Generate SQL',
+      {
+        content: 'SELECT * FROM traces WHERE service_name = "test" AND status_code = "ERROR"',
+        model: 'mock-sql-model',
+        usage: { promptTokens: 5, completionTokens: 15, totalTokens: 20, cost: 0 },
+        metadata: { latencyMs: 50, retryCount: 0, cached: false }
+      }
+    ],
+    [
+      'Analyze error',
+      {
+        content: 'Error analysis: High latency detected in database queries',
+        model: 'mock-analysis-model',
+        usage: { promptTokens: 8, completionTokens: 12, totalTokens: 20, cost: 0 },
+        metadata: { latencyMs: 75, retryCount: 0, cached: false }
+      }
+    ],
+    [
+      'Generate dashboard',
+      {
+        content: JSON.stringify({
+          type: 'LineChart',
+          data: { series: [{ name: 'Latency', data: [100, 120, 95] }] },
+          config: { title: 'System Latency' }
+        }),
+        model: 'mock-ui-model',
+        usage: { promptTokens: 10, completionTokens: 30, totalTokens: 40, cost: 0 },
+        metadata: { latencyMs: 100, retryCount: 0, cached: false }
+      }
+    ]
   ])
 })
 
@@ -278,25 +313,27 @@ export const LLMManagerMockAuthError = createMockLayer({
  */
 export class DynamicMock {
   private config: MockConfig = {}
-  
+
   setConfig(config: MockConfig) {
     this.config = config
   }
-  
+
   getLayer() {
     return createMockLayer(this.config)
   }
-  
+
   // Helper methods for common test scenarios
   simulateSuccess(response?: LLMResponse) {
-    this.config = response ? {
-      shouldFail: false,
-      defaultResponse: response
-    } : {
-      shouldFail: false
-    }
+    this.config = response
+      ? {
+          shouldFail: false,
+          defaultResponse: response
+        }
+      : {
+          shouldFail: false
+        }
   }
-  
+
   simulateError(errorTag: LLMError['_tag'], message: string) {
     this.config = {
       shouldFail: true,
@@ -304,14 +341,14 @@ export class DynamicMock {
       errorMessage: message
     }
   }
-  
+
   simulateLatency(ms: number) {
     this.config = {
       ...this.config,
       latency: ms
     }
   }
-  
+
   addCustomResponse(prompt: string, response: LLMResponse) {
     if (!this.config.responses) {
       this.config.responses = new Map()
