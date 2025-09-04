@@ -220,10 +220,7 @@ describe('Storage Service with API Client (Effect-TS)', () => {
 
     it('should handle health check through service interface', async () => {
       const isHealthy = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const storage = yield* _(StorageServiceTag)
-          return yield* _(storage.healthCheck())
-        }).pipe(Effect.provide(TestStorageLayer))
+        Effect.flatMap(StorageServiceTag, storage => storage.healthCheck()).pipe(Effect.provide(TestStorageLayer))
       )
       expect(isHealthy.clickhouse).toBe(true)
       expect(isHealthy.s3).toBe(true)
@@ -254,10 +251,7 @@ describe('Storage Service with API Client (Effect-TS)', () => {
 
     it('should write OTLP data through Effect service', async () => {
       const result = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const storage = yield* _(StorageServiceTag)
-          return yield* _(storage.writeOTLP(testTraceData))
-        }).pipe(Effect.provide(TestStorageLayer))
+        Effect.flatMap(StorageServiceTag, storage => storage.writeOTLP(testTraceData)).pipe(Effect.provide(TestStorageLayer))
       )
       // Mock service always succeeds
       expect(result).toBeUndefined() // void return
@@ -270,10 +264,7 @@ describe('Storage Service with API Client (Effect-TS)', () => {
       }
 
       const result = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const storage = yield* _(StorageServiceTag)
-          return yield* _(storage.writeOTLP(emptyData))
-        }).pipe(Effect.provide(TestStorageLayer))
+        Effect.flatMap(StorageServiceTag, storage => storage.writeOTLP(emptyData)).pipe(Effect.provide(TestStorageLayer))
       )
       expect(result).toBeUndefined()
     })
@@ -303,10 +294,7 @@ describe('Storage Service with API Client (Effect-TS)', () => {
 
     it('should query traces through Effect service', async () => {
       const traces = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const storage = yield* _(StorageServiceTag)
-          return yield* _(storage.queryTraces(queryParams))
-        }).pipe(Effect.provide(TestStorageLayer))
+        Effect.flatMap(StorageServiceTag, storage => storage.queryTraces(queryParams)).pipe(Effect.provide(TestStorageLayer))
       )
       expect(Array.isArray(traces)).toBe(true)
       expect(traces.length).toBeGreaterThan(0)
@@ -329,20 +317,14 @@ describe('Storage Service with API Client (Effect-TS)', () => {
 
     it('should query metrics through Effect service', async () => {
       const metrics = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const storage = yield* _(StorageServiceTag)
-          return yield* _(storage.queryMetrics(queryParams))
-        }).pipe(Effect.provide(TestStorageLayer))
+        Effect.flatMap(StorageServiceTag, storage => storage.queryMetrics(queryParams)).pipe(Effect.provide(TestStorageLayer))
       )
       expect(Array.isArray(metrics)).toBe(true)
     })
 
     it('should query logs through Effect service', async () => {
       const logs = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const storage = yield* _(StorageServiceTag)
-          return yield* _(storage.queryLogs(queryParams))
-        }).pipe(Effect.provide(TestStorageLayer))
+        Effect.flatMap(StorageServiceTag, storage => storage.queryLogs(queryParams)).pipe(Effect.provide(TestStorageLayer))
       )
       expect(Array.isArray(logs)).toBe(true)
     })
@@ -355,10 +337,7 @@ describe('Storage Service with API Client (Effect-TS)', () => {
       }
       
       const dataset = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const storage = yield* _(StorageServiceTag)
-          return yield* _(storage.queryForAI(aiParams))
-        }).pipe(Effect.provide(TestStorageLayer))
+        Effect.flatMap(StorageServiceTag, storage => storage.queryForAI(aiParams)).pipe(Effect.provide(TestStorageLayer))
       )
       expect(dataset).toBeDefined()
       expect(dataset.features).toBeDefined()
@@ -495,20 +474,14 @@ describe('Storage Service with API Client (Effect-TS)', () => {
       }
 
       const result = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const storage = yield* _(StorageServiceTag)
-          return yield* _(storage.writeOTLP(largeDataset))
-        }).pipe(Effect.provide(TestStorageLayer))
+        Effect.flatMap(StorageServiceTag, storage => storage.writeOTLP(largeDataset)).pipe(Effect.provide(TestStorageLayer))
       )
       expect(result).toBeUndefined() // void return indicates success
     })
 
     it('should provide storage statistics', async () => {
       const stats = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const storage = yield* _(StorageServiceTag)
-          return yield* _(storage.getStorageStats())
-        }).pipe(Effect.provide(TestStorageLayer))
+        Effect.flatMap(StorageServiceTag, storage => storage.getStorageStats()).pipe(Effect.provide(TestStorageLayer))
       )
       
       expect(stats).toBeDefined()
@@ -523,20 +496,16 @@ describe('Storage Service with API Client (Effect-TS)', () => {
 
   describe('API Client Integration', () => {
     it('should demonstrate API client usage with Effect.match pattern', async () => {
+      const queryParams: QueryParams = {
+        timeRange: {
+          start: Date.now() - 3600000,
+          end: Date.now()
+        },
+        limit: 10
+      }
+
       const result = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const apiClient = yield* _(StorageAPIClientTag)
-          
-          const queryParams: QueryParams = {
-            timeRange: {
-              start: Date.now() - 3600000,
-              end: Date.now()
-            },
-            limit: 10
-          }
-          
-          return yield* _(apiClient.queryTraces(queryParams))
-        }).pipe(
+        Effect.flatMap(StorageAPIClientTag, apiClient => apiClient.queryTraces(queryParams)).pipe(
           Effect.provide(TestStorageLayer),
           Effect.match({
             onFailure: (error) => ({ success: false as const, error }),
@@ -580,10 +549,7 @@ describe('Storage Service with API Client (Effect-TS)', () => {
       }
       
       const writeResult = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const apiClient = yield* _(StorageAPIClientTag)
-          return yield* _(apiClient.writeOTLP(testData))
-        }).pipe(
+        Effect.flatMap(StorageAPIClientTag, apiClient => apiClient.writeOTLP(testData)).pipe(
           Effect.provide(TestStorageLayer),
           Effect.match({
             onFailure: (error) => ({ success: false as const, error }),
@@ -623,12 +589,9 @@ describe('Storage Service with API Client (Effect-TS)', () => {
       )
 
       const errorResult = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const apiClient = yield* _(StorageAPIClientTag)
-          return yield* _(apiClient.queryTraces({
-            timeRange: { start: Date.now() - 3600000, end: Date.now() }
-          }))
-        }).pipe(
+        Effect.flatMap(StorageAPIClientTag, apiClient => apiClient.queryTraces({
+          timeRange: { start: Date.now() - 3600000, end: Date.now() }
+        })).pipe(
           Effect.provide(FailingTestLayer),
           Effect.match({
             onFailure: (error) => ({ success: false as const, error }),

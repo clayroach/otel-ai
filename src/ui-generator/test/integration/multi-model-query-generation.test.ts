@@ -54,21 +54,27 @@ const getModelConfigs = (): ModelTestConfig[] => {
   generalModels.forEach(modelId => {
     if (modelId) {
       if (modelId.includes('claude')) {
-        configs.push({
+        const config: ModelTestConfig = {
           modelId,
           endpoint: 'https://api.anthropic.com/v1',
           apiKey: process.env.CLAUDE_API_KEY,
-          enabled: !!process.env.CLAUDE_API_KEY,
-          skipReason: !process.env.CLAUDE_API_KEY ? 'Claude API key not configured' : undefined
-        })
+          enabled: !!process.env.CLAUDE_API_KEY
+        }
+        if (!process.env.CLAUDE_API_KEY) {
+          config.skipReason = 'Claude API key not configured'
+        }
+        configs.push(config)
       } else if (modelId.includes('gpt')) {
-        configs.push({
+        const config: ModelTestConfig = {
           modelId,
           endpoint: 'https://api.openai.com/v1',
           apiKey: process.env.OPENAI_API_KEY,
-          enabled: !!process.env.OPENAI_API_KEY,
-          skipReason: !process.env.OPENAI_API_KEY ? 'OpenAI API key not configured' : undefined
-        })
+          enabled: !!process.env.OPENAI_API_KEY
+        }
+        if (!process.env.OPENAI_API_KEY) {
+          config.skipReason = 'OpenAI API key not configured'
+        }
+        configs.push(config)
       } else {
         // Local model
         configs.push({

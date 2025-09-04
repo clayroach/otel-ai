@@ -99,7 +99,10 @@ Systematically analyze and optimize Effect-TS patterns across the codebase, appl
 
 #### Detection Commands
 ```bash
-# Find all Effect.gen occurrences
+# CRITICAL: Search for the exact problematic pattern with underscore parameter
+rg "Effect\.gen\(function\* \(_\)" --type ts
+
+# Find all Effect.gen occurrences (including variations)
 rg "Effect\.gen\(function\*" --type ts
 
 # Count occurrences per file
@@ -107,6 +110,9 @@ rg "Effect\.gen\(function\*" --type ts -c | sort -t: -k2 -rn
 
 # Show context to identify simple vs complex usage
 rg "Effect\.gen\(function\*" -A 10 -B 2 --type ts
+
+# Specifically find single yield patterns (most common anti-pattern)
+rg "Effect\.gen\(function\* \(_\)" -A 5 --type ts | grep -c "yield\*"
 ```
 
 #### Common Anti-Patterns to Fix
@@ -384,11 +390,17 @@ const result = await Effect.runPromise(
 #### Specific Steps for Effect.gen Refactoring:
 1. **Discovery Phase**:
    ```bash
+   # CRITICAL: Search for the exact underscore pattern FIRST
+   rg "Effect\.gen\(function\* \(_\)" --type ts
+   
    # Find all occurrences with context
    rg "Effect\.gen\(function\*" --type ts -C 5 > effect-gen-audit.txt
    
    # Count by package
    rg "Effect\.gen\(function\*" --type ts | cut -d: -f1 | xargs dirname | sort | uniq -c
+   
+   # IMPORTANT: The underscore parameter pattern (_) is a strong indicator of anti-pattern
+   # Effect.gen(function* (_) { ... }) should usually be simplified
    ```
 
 2. **Analysis Phase**:

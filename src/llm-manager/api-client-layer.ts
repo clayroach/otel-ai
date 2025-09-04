@@ -109,24 +109,16 @@ export const LLMManagerAPIClientLayer = Layer.effect(
 )
 
 // Export convenience functions for common operations
-export const getLoadedModels = Effect.gen(function* (_) {
-  const service = yield* _(LLMManagerAPIClientTag)
-  return yield* _(service.getLoadedModels())
-})
+export const getLoadedModels = Effect.flatMap(LLMManagerAPIClientTag, (service) =>
+  service.getLoadedModels()
+)
 
-export const getLLMManagerStatus = Effect.gen(function* (_) {
-  const service = yield* _(LLMManagerAPIClientTag)
-  return yield* _(service.getStatus())
-})
+export const getLLMManagerStatus = Effect.flatMap(LLMManagerAPIClientTag, (service) =>
+  service.getStatus()
+)
 
 export const selectBestModel = (request: ModelSelectionRequest) =>
-  Effect.gen(function* (_) {
-    const service = yield* _(LLMManagerAPIClientTag)
-    return yield* _(service.selectModel(request))
-  })
+  Effect.flatMap(LLMManagerAPIClientTag, (service) => service.selectModel(request))
 
 export const generateLLMResponse = (request: LLMRequest) =>
-  Effect.gen(function* (_) {
-    const service = yield* _(LLMManagerAPIClientTag)
-    return yield* _(service.generate(request))
-  })
+  Effect.flatMap(LLMManagerAPIClientTag, (service) => service.generate(request))
