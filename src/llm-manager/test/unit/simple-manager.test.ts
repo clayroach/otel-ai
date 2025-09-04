@@ -209,8 +209,7 @@ describe('Simple LLM Manager (Effect-TS)', () => {
   describe('Service Layer Configuration', () => {
     it('should provide LLM manager service through Effect layer', async () => {
       const result = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const manager = yield* _(LLMManagerService)
+        Effect.map(LLMManagerService, manager => {
           expect(manager).toBeDefined()
           expect(manager.generate).toBeDefined()
           expect(manager.generateStream).toBeDefined()
@@ -224,10 +223,7 @@ describe('Simple LLM Manager (Effect-TS)', () => {
 
     it('should provide simple configuration settings', async () => {
       const config = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const configService = yield* _(LLMConfigService)
-          return yield* _(configService.getConfig())
-        }).pipe(Effect.provide(TestSimpleManagerLayer))
+        Effect.flatMap(LLMConfigService, configService => configService.getConfig()).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       expect(config.models.llama).toBeDefined()
       expect(config.routing.strategy).toBe('balanced')
@@ -247,10 +243,7 @@ describe('Simple LLM Manager (Effect-TS)', () => {
       }
 
       const response = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const manager = yield* _(LLMManagerService)
-          return yield* _(manager.generate(request))
-        }).pipe(Effect.provide(TestSimpleManagerLayer))
+        Effect.flatMap(LLMManagerService, manager => manager.generate(request)).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       
       expect(response).toHaveProperty('content')
@@ -278,10 +271,7 @@ describe('Simple LLM Manager (Effect-TS)', () => {
       }
 
       const response = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const manager = yield* _(LLMManagerService)
-          return yield* _(manager.generate(analysisRequest))
-        }).pipe(Effect.provide(TestSimpleManagerLayer))
+        Effect.flatMap(LLMManagerService, manager => manager.generate(analysisRequest)).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       
       expect(response.content).toContain('Analyze this system architecture')
@@ -293,10 +283,7 @@ describe('Simple LLM Manager (Effect-TS)', () => {
   describe('Model Management', () => {
     it('should return available models', async () => {
       const models = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const manager = yield* _(LLMManagerService)
-          return yield* _(manager.getAvailableModels())
-        }).pipe(Effect.provide(TestSimpleManagerLayer))
+        Effect.flatMap(LLMManagerService, manager => manager.getAvailableModels()).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       
       expect(Array.isArray(models)).toBe(true)
@@ -306,10 +293,7 @@ describe('Simple LLM Manager (Effect-TS)', () => {
 
     it('should check model health status', async () => {
       const health = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const manager = yield* _(LLMManagerService)
-          return yield* _(manager.getModelHealth())
-        }).pipe(Effect.provide(TestSimpleManagerLayer))
+        Effect.flatMap(LLMManagerService, manager => manager.getModelHealth()).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       
       expect(Array.isArray(health)).toBe(true)
@@ -324,11 +308,7 @@ describe('Simple LLM Manager (Effect-TS)', () => {
 
     it('should handle model warmup', async () => {
       const result = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const manager = yield* _(LLMManagerService)
-          yield* _(manager.warmupModels())
-          return true
-        }).pipe(Effect.provide(TestSimpleManagerLayer))
+        Effect.flatMap(LLMManagerService, manager => Effect.map(manager.warmupModels(), () => true)).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       expect(result).toBe(true)
     })
@@ -343,15 +323,12 @@ describe('Simple LLM Manager (Effect-TS)', () => {
       }
 
       const chunks = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const manager = yield* _(LLMManagerService)
-          const stream = manager.generateStream(request)
-          
-          return yield* _(stream.pipe(
+        Effect.flatMap(LLMManagerService, manager =>
+          manager.generateStream(request).pipe(
             Stream.runCollect,
             Effect.map(chunks => Array.from(chunks))
-          ))
-        }).pipe(Effect.provide(TestSimpleManagerLayer))
+          )
+        ).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       
       expect(chunks.length).toBeGreaterThan(0)
@@ -364,10 +341,7 @@ describe('Simple LLM Manager (Effect-TS)', () => {
   describe('Conversation Management', () => {
     it('should start new conversations', async () => {
       const conversationId = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const manager = yield* _(LLMManagerService)
-          return yield* _(manager.startConversation('You are a helpful assistant'))
-        }).pipe(Effect.provide(TestSimpleManagerLayer))
+        Effect.flatMap(LLMManagerService, manager => manager.startConversation('You are a helpful assistant')).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       
       expect(typeof conversationId).toBe('string')
@@ -378,10 +352,7 @@ describe('Simple LLM Manager (Effect-TS)', () => {
       const conversationId = 'test-conversation'
       
       const response = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const manager = yield* _(LLMManagerService)
-          return yield* _(manager.continueConversation(conversationId, 'Hello there'))
-        }).pipe(Effect.provide(TestSimpleManagerLayer))
+        Effect.flatMap(LLMManagerService, manager => manager.continueConversation(conversationId, 'Hello there')).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       
       expect(response.content).toContain('Hello there')
@@ -392,10 +363,7 @@ describe('Simple LLM Manager (Effect-TS)', () => {
       const conversationId = 'test-conversation'
       
       const conversation = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const manager = yield* _(LLMManagerService)
-          return yield* _(manager.getConversation(conversationId))
-        }).pipe(Effect.provide(TestSimpleManagerLayer))
+        Effect.flatMap(LLMManagerService, manager => manager.getConversation(conversationId)).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       
       expect(conversation).toHaveProperty('id')
@@ -409,10 +377,7 @@ describe('Simple LLM Manager (Effect-TS)', () => {
   describe('Performance and Metrics', () => {
     it('should integrate with metrics service', async () => {
       const metrics = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const metricsService = yield* _(LLMMetricsService)
-          return yield* _(metricsService.getMetrics())
-        }).pipe(Effect.provide(TestSimpleManagerLayer))
+        Effect.flatMap(LLMMetricsService, metricsService => metricsService.getMetrics()).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       
       expect(metrics).toBeDefined()
@@ -429,14 +394,12 @@ describe('Simple LLM Manager (Effect-TS)', () => {
       }))
 
       const responses = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const manager = yield* _(LLMManagerService)
-          
-          return yield* _(Effect.all(
+        Effect.flatMap(LLMManagerService, manager =>
+          Effect.all(
             requests.map(request => manager.generate(request)),
             { concurrency: 'unbounded' }
-          ))
-        }).pipe(Effect.provide(TestSimpleManagerLayer))
+          )
+        ).pipe(Effect.provide(TestSimpleManagerLayer))
       )
 
       expect(responses).toHaveLength(3)
@@ -457,10 +420,7 @@ describe('Simple LLM Manager (Effect-TS)', () => {
       }
 
       const model = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const router = yield* _(ModelRouterService)
-          return yield* _(router.selectModel(request))
-        }).pipe(Effect.provide(TestSimpleManagerLayer))
+        Effect.flatMap(ModelRouterService, router => router.selectModel(request)).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       
       expect(model).toBe('llama')
@@ -473,10 +433,7 @@ describe('Simple LLM Manager (Effect-TS)', () => {
       }
 
       const response = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const router = yield* _(ModelRouterService)
-          return yield* _(router.routeRequest(request))
-        }).pipe(Effect.provide(TestSimpleManagerLayer))
+        Effect.flatMap(ModelRouterService, router => router.routeRequest(request)).pipe(Effect.provide(TestSimpleManagerLayer))
       )
       
       expect(response.content).toContain('Route this request')

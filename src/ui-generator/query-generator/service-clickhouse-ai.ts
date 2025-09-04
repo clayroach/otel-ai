@@ -9,8 +9,7 @@
 import { Context, Effect, Layer } from 'effect'
 import { CriticalPath, GeneratedQueryWithThunk, QueryPattern, QueryResult } from './types.js'
 import { StorageAPIClientTag } from '../../storage/api-client'
-import { createMultiModelSimpleLLMManager } from '../../llm-manager/multi-model-simple-manager'
-import { type LLMRequest } from '../../llm-manager'
+import { type LLMRequest, createLLMManager } from '../../llm-manager'
 
 /**
  * Service definition for ClickHouse AI Query Generator
@@ -38,8 +37,8 @@ export const CriticalPathQueryGeneratorClickHouseAILive = Layer.effect(
   Effect.gen(function* () {
     const storageClient = yield* StorageAPIClientTag
 
-    // Create a multi-model simple LLM manager
-    const llmManager = createMultiModelSimpleLLMManager()
+    // Create a unified LLM manager with multi-model support
+    const llmManager = createLLMManager()
 
     // Log which models are available
     const availableModels = yield* llmManager.getAvailableModels()
@@ -100,6 +99,8 @@ export const CriticalPathQueryGeneratorClickHouseAILive = Layer.effect(
             ${pathContext}
             
             Analysis Goal: ${scenario.goal}
+            
+            IMPORTANT: The query MUST filter by the services listed above (${path.services.join(', ')}) using a WHERE clause with service_name IN (...).
             
             Use the following ClickHouse-specific features when appropriate:
             - Quantile functions (quantile, quantileExact, quantileTiming)

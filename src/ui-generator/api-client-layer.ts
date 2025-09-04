@@ -71,21 +71,11 @@ export const UIGeneratorAPIClientLayer = Layer.effect(
 
 // Export convenience functions for common operations
 export const generateQuery = (request: QueryGenerationAPIRequest) =>
-  Effect.gen(function* (_) {
-    const service = yield* _(UIGeneratorAPIClientTag)
-    return yield* _(service.generateQuery(request))
-  })
+  Effect.flatMap(UIGeneratorAPIClientTag, (service) => service.generateQuery(request))
 
 export const generateMultipleQueries = (
   request: QueryGenerationAPIRequest & { patterns?: string[] }
-) =>
-  Effect.gen(function* (_) {
-    const service = yield* _(UIGeneratorAPIClientTag)
-    return yield* _(service.generateMultipleQueries(request))
-  })
+) => Effect.flatMap(UIGeneratorAPIClientTag, (service) => service.generateMultipleQueries(request))
 
 export const validateQuery = (sql: string) =>
-  Effect.gen(function* (_) {
-    const service = yield* _(UIGeneratorAPIClientTag)
-    return yield* _(service.validateQuery(sql))
-  })
+  Effect.flatMap(UIGeneratorAPIClientTag, (service) => service.validateQuery(sql))

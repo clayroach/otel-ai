@@ -12,6 +12,12 @@ import { Effect } from "effect"
 import { generateQueryWithLLM, ANALYSIS_GOALS, validateGeneratedSQL } from "../../query-generator/llm-query-generator"
 import { CriticalPath } from "../../query-generator/types"
 import { getModelMetadata } from "../../../llm-manager/model-registry"
+import { 
+  shouldSkipLLMTests,
+  hasOpenAIKey,
+  hasClaudeKey,
+  isCI
+} from "../../../llm-manager/test/utils/llm-availability.js"
 
 // Test configuration for different model providers
 interface ModelTestConfig {
@@ -54,21 +60,27 @@ const getModelConfigs = (): ModelTestConfig[] => {
   generalModels.forEach(modelId => {
     if (modelId) {
       if (modelId.includes('claude')) {
-        configs.push({
+        const config: ModelTestConfig = {
           modelId,
           endpoint: 'https://api.anthropic.com/v1',
           apiKey: process.env.CLAUDE_API_KEY,
-          enabled: !!process.env.CLAUDE_API_KEY && process.env.SKIP_LLM_TESTS !== 'true' && process.env.SKIP_EXTERNAL_API_TESTS !== 'true',
-          skipReason: !process.env.CLAUDE_API_KEY ? 'Claude API key not configured' : 'External API tests disabled'
-        })
+          enabled: !!process.env.CLAUDE_API_KEY
+        }
+        if (!process.env.CLAUDE_API_KEY) {
+          config.skipReason = 'Claude API key not configured'
+        }
+        configs.push(config)
       } else if (modelId.includes('gpt')) {
-        configs.push({
+        const config: ModelTestConfig = {
           modelId,
           endpoint: 'https://api.openai.com/v1',
           apiKey: process.env.OPENAI_API_KEY,
-          enabled: !!process.env.OPENAI_API_KEY && process.env.SKIP_LLM_TESTS !== 'true' && process.env.SKIP_EXTERNAL_API_TESTS !== 'true',
-          skipReason: !process.env.OPENAI_API_KEY ? 'OpenAI API key not configured' : 'External API tests disabled'
-        })
+          enabled: !!process.env.OPENAI_API_KEY
+        }
+        if (!process.env.OPENAI_API_KEY) {
+          config.skipReason = 'OpenAI API key not configured'
+        }
+        configs.push(config)
       } else {
         // Local model
         configs.push({
@@ -123,21 +135,46 @@ interface ModelAvailability {
   metadata?: ReturnType<typeof getModelMetadata> | undefined
 }
 
+// Initialize model availability array that will be populated in beforeAll
+const modelAvailability: ModelAvailability[] = []
+
+// Use the shared utility for consistent skip behavior
+const shouldSkipTests = shouldSkipLLMTests
+
 describe("Multi-Model Query Generation", () => {
-  const modelAvailability: ModelAvailability[] = []
   
   beforeAll(async () => {
     console.log("\n🔍 Checking model availability across providers...")
+    
+    // Log CI environment detection
+    if (isCI) {
+      console.log("⚠️  CI environment detected")
+      if (!hasOpenAIKey && !hasClaudeKey) {
+        console.log("   No API keys configured - tests will be skipped")
+        return
+      }
+    }
+    
     console.log("   Using model preferences from environment:")
     console.log(`   SQL Models: ${[process.env.LLM_SQL_MODEL_1, process.env.LLM_SQL_MODEL_2, process.env.LLM_SQL_MODEL_3].filter(Boolean).join(', ') || 'defaults'}`)
     console.log(`   General Models: ${[process.env.LLM_GENERAL_MODEL_1, process.env.LLM_GENERAL_MODEL_2, process.env.LLM_GENERAL_MODEL_3].filter(Boolean).join(', ') || 'defaults'}`)
     
-    // Check local models via LM Studio
-    try {
-      const localEndpoint = process.env.LLM_ENDPOINT || 'http://localhost:1234/v1'
-      const response = await fetch(`${localEndpoint}/models`)
+    // Check local models via LM Studio (skip in CI without API keys)
+    if (!isCI || hasOpenAIKey || hasClaudeKey) {
+      try {
+        const localEndpoint = process.env.LLM_ENDPOINT || 'http://localhost:1234/v1'
+        
+        // Add timeout for the fetch to avoid hanging
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 3000) // 3 second timeout
+        
+        const response = await fetch(`${localEndpoint}/models`, {
+          signal: controller.signal
+        }).catch(() => null)
+        
+        clearTimeout(timeoutId)
       
-      if (response.ok) {
+        if (response?.ok) {
         const data = await response.json()
         const availableModels = (data.data || []).map((m: { id: string }) => m.id)
         console.log(`   ✅ Local models (LM Studio): ${availableModels.length} models available`)
@@ -166,13 +203,24 @@ describe("Multi-Model Query Generation", () => {
           })
         })
       }
-    } catch (error) {
-      console.log(`   ❌ Local models: ${error}`)
+      } catch (error) {
+        console.log(`   ❌ Local models: ${error}`)
+        MODEL_CONFIGS.filter(c => c.endpoint?.includes('localhost')).forEach(config => {
+          modelAvailability.push({
+            modelId: config.modelId,
+            available: false,
+            error: 'LM Studio connection failed'
+          })
+        })
+      }
+    } else {
+      // In CI without API keys, mark local models as unavailable
+      console.log("   ⏭️  Skipping local model check in CI without API keys")
       MODEL_CONFIGS.filter(c => c.endpoint?.includes('localhost')).forEach(config => {
         modelAvailability.push({
           modelId: config.modelId,
           available: false,
-          error: 'LM Studio connection failed'
+          error: 'CI environment - local models not available'
         })
       })
     }
@@ -267,6 +315,8 @@ describe("Multi-Model Query Generation", () => {
       const hasAvailableModel = modelAvailability.some(m => m.available)
       if (!hasAvailableModel) {
         console.log('⚠️  No models available - this is expected in CI without API keys')
+      } else {
+        console.log(`✅ Found ${modelAvailability.filter(m => m.available).length} available models for testing`)
       }
     })
   })
@@ -274,7 +324,7 @@ describe("Multi-Model Query Generation", () => {
   describe("Comparative Query Generation", () => {
     const availableModels = () => modelAvailability.filter(m => m.available)
     
-    it.skipIf(() => modelAvailability.filter(m => m.available).length === 0)("should generate valid SQL across all available models", async () => {
+    it.skipIf(shouldSkipTests)("should generate valid SQL across all available models", async () => {
       const models = availableModels()
       
       console.log(`\n🔄 Testing SQL generation across ${models.length} models...`)
@@ -371,7 +421,7 @@ describe("Multi-Model Query Generation", () => {
       expect(results.every(r => r.success && r.valid)).toBe(true)
     })
     
-    it.skipIf(() => modelAvailability.filter(m => m.available).length === 0)("should handle different analysis goals consistently", async () => {
+    it.skipIf(shouldSkipTests)("should handle different analysis goals consistently", async () => {
       const models = availableModels().slice(0, 2) // Test with top 2 models for speed
       
       // Additional safety check
@@ -446,7 +496,7 @@ describe("Multi-Model Query Generation", () => {
       }
     })
     
-    it.skipIf(() => modelAvailability.filter(m => m.available).length === 0)("should measure performance characteristics", async () => {
+    it.skipIf(shouldSkipTests)("should measure performance characteristics", async () => {
       const models = availableModels()
       
       // Additional safety check

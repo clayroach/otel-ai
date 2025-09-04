@@ -67,6 +67,160 @@ Systematically analyze and optimize Effect-TS patterns across the codebase, appl
    - Type-safe API client generators for known schemas
    - Replace temporary `as any` with proper typing systematically
 
+### 6. Test Layer Requirements
+**All test cases MUST use layers for proper Effect-TS patterns:**
+- Use proper layer composition with `Effect.provide(TestLayer)`
+- Create mock layers for external dependencies
+- Example pattern:
+  ```typescript
+  const MockServiceLayer = Layer.succeed(ServiceTag, {
+    operation: () => Effect.succeed(mockResult)
+  })
+  
+  // In test
+  await Effect.runPromise(
+    serviceOperation.pipe(Effect.provide(MockServiceLayer))
+  )
+  ```
+- Avoid direct service mocking without layers
+- Ensure test isolation through proper layer boundaries
+
+### 7. Effect.Adaptor Elimination
+**Effect.Adaptor is considered an anti-pattern:**
+- **Problem**: Effect.Adaptor appears to circumvent type-safe function calls
+- **Solution**: Remove ALL Effect.Adaptor usage from the codebase
+- **Replace with**:
+  - Direct Effect chains with proper typing
+  - Proper service definitions with Context and Layer
+  - Type-safe function composition using Effect pipes
+
+### 8. Effect.gen Anti-Pattern Detection and Refactoring
+**Unnecessary Effect.gen usage is a code smell indicating over-engineering:**
+
+#### Detection Commands
+```bash
+# CRITICAL: Search for the exact problematic pattern with underscore parameter
+rg "Effect\.gen\(function\* \(_\)" --type ts
+
+# Find all Effect.gen occurrences (including variations)
+rg "Effect\.gen\(function\*" --type ts
+
+# Count occurrences per file
+rg "Effect\.gen\(function\*" --type ts -c | sort -t: -k2 -rn
+
+# Show context to identify simple vs complex usage
+rg "Effect\.gen\(function\*" -A 10 -B 2 --type ts
+
+# Specifically find single yield patterns (most common anti-pattern)
+rg "Effect\.gen\(function\* \(_\)" -A 5 --type ts | grep -c "yield\*"
+```
+
+#### Common Anti-Patterns to Fix
+
+**1. Single yield* operations (MOST COMMON)**
+```typescript
+// BAD: Unnecessary generator for single operation
+Effect.gen(function* (_) {
+  const result = yield* _(someEffect)
+  return result
+})
+
+// GOOD: Direct pipe
+someEffect
+```
+
+**2. Simple synchronous transformations**
+```typescript
+// BAD: Generator for sync transformation
+Effect.gen(function* (_) {
+  const config = yield* _(loadConfig())
+  return {
+    ...config,
+    enabled: true
+  }
+})
+
+// GOOD: Use Effect.map
+loadConfig().pipe(
+  Effect.map(config => ({
+    ...config,
+    enabled: true
+  }))
+)
+```
+
+**3. Sequential operations without branching**
+```typescript
+// BAD: Generator for simple sequence
+Effect.gen(function* (_) {
+  const a = yield* _(effectA)
+  const b = yield* _(effectB(a))
+  return b
+})
+
+// GOOD: Use flatMap/chain
+effectA.pipe(
+  Effect.flatMap(a => effectB(a))
+)
+```
+
+**4. Building objects from effects**
+```typescript
+// BAD: Generator to build object
+Effect.gen(function* (_) {
+  const name = yield* _(getName())
+  const age = yield* _(getAge())
+  return { name, age }
+})
+
+// GOOD: Use Effect.all with struct
+Effect.all({
+  name: getName(),
+  age: getAge()
+})
+```
+
+#### When Effect.gen IS Appropriate
+
+**Keep Effect.gen for:**
+1. **Complex control flow** with conditionals and loops
+2. **Multiple interdependent operations** where later ops depend on earlier results
+3. **Error handling with try-catch** inside the generator
+4. **Imperative style** when it significantly improves readability
+
+**Example of GOOD Effect.gen usage:**
+```typescript
+Effect.gen(function* (_) {
+  const user = yield* _(getUser())
+  
+  if (user.role === 'admin') {
+    const permissions = yield* _(getAdminPermissions())
+    const audit = yield* _(logAdminAccess(user.id))
+    return { user, permissions, audit }
+  }
+  
+  const limitedPerms = yield* _(getBasicPermissions())
+  return { user, permissions: limitedPerms, audit: null }
+})
+```
+
+#### Refactoring Strategy
+
+1. **Search for patterns**: Use `rg "Effect\.gen\(function\*" --type ts` 
+2. **Analyze each occurrence**:
+   - Count yield* statements
+   - Check for control flow (if/else, loops)
+   - Identify dependencies between operations
+3. **Apply appropriate refactoring**:
+   - Single yield* → Remove generator entirely
+   - Simple map → Use Effect.map
+   - Simple chain → Use Effect.flatMap
+   - Parallel ops → Use Effect.all
+   - Complex flow → Keep Effect.gen
+4. **Validate after each change**:
+   - Run TypeScript: `pnpm tsc --noEmit`
+   - Run tests: `pnpm test`
+
 ## Analysis Patterns
 
 ### Code Smells to Look For
@@ -77,11 +231,14 @@ Systematically analyze and optimize Effect-TS patterns across the codebase, appl
 - TypeScript suppression comments (`@ts-ignore`, `@ts-expect-error`)
 - Non-null assertions (`!`) without proper validation
 - **Unused parameters in mocks without `_` prefix** (causes noUnusedParameters warnings)
+- **Effect.Adaptor usage** (anti-pattern that circumvents type safety)
+- **Tests without proper layer composition** (direct mocking instead of mock layers)
 
 ### Refactoring Priorities
-1. **High**: Type safety issues, "as any" usage
-2. **Medium**: Overly complex Effect patterns, helper abstractions
-3. **Low**: Style consistency, minor optimizations
+1. **Critical**: Effect.Adaptor elimination (type safety circumvention)
+2. **High**: Type safety issues, "as any" usage, tests without proper layers
+3. **Medium**: Overly complex Effect patterns, helper abstractions
+4. **Low**: Style consistency, minor optimizations
 
 ## Implementation Strategy
 
@@ -229,6 +386,47 @@ const result = await Effect.runPromise(
 4. **Plan API client architecture** for modular, well-defined subsystem boundaries
 5. **Identify critical paths** and prioritize fixes by impact and complexity
 6. **Design validation approach** ensuring zero functional regression
+
+#### Specific Steps for Effect.gen Refactoring:
+1. **Discovery Phase**:
+   ```bash
+   # CRITICAL: Search for the exact underscore pattern FIRST
+   rg "Effect\.gen\(function\* \(_\)" --type ts
+   
+   # Find all occurrences with context
+   rg "Effect\.gen\(function\*" --type ts -C 5 > effect-gen-audit.txt
+   
+   # Count by package
+   rg "Effect\.gen\(function\*" --type ts | cut -d: -f1 | xargs dirname | sort | uniq -c
+   
+   # IMPORTANT: The underscore parameter pattern (_) is a strong indicator of anti-pattern
+   # Effect.gen(function* (_) { ... }) should usually be simplified
+   ```
+
+2. **Analysis Phase**:
+   - Open each file with Effect.gen usage
+   - Count `yield*` statements in each generator
+   - Check for control flow (if/else, for, while, try/catch)
+   - Identify simple vs complex usage
+
+3. **Refactoring Phase**:
+   - Start with files having the most occurrences
+   - Apply transformations based on pattern:
+     - 1 yield* → Direct return
+     - 2-3 yield* without branching → flatMap chain
+     - Multiple parallel → Effect.all
+     - Complex flow → Keep generator
+
+4. **Validation Phase**:
+   ```bash
+   # After each file refactoring
+   pnpm tsc --noEmit
+   pnpm test <specific-test-file>
+   
+   # Final validation
+   pnpm typecheck:all
+   pnpm test
+   ```
 
 #### For Complex Scenarios (50+ TypeScript errors):
 1. **Pre-analysis validation**: Run all validation tools to establish baseline

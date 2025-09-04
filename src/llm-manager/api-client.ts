@@ -10,7 +10,7 @@
 
 import { Effect } from 'effect'
 import type { LLMRequest, LLMResponse, LLMError, LLMConfig } from './types.js'
-import { createSimpleLLMManager } from './simple-manager.js'
+import { createLLMManager } from './llm-manager.js'
 
 export interface LoadedModel {
   id: string
@@ -75,7 +75,7 @@ export interface ModelSelectionResponse {
  * API Client for LLM Manager Service
  */
 export class LLMManagerAPIClient {
-  private manager: ReturnType<typeof createSimpleLLMManager> | null = null
+  private manager: ReturnType<typeof createLLMManager> | null = null
   private loadedModels: Map<string, LoadedModel> = new Map()
   private metrics = {
     totalRequests: 0,
@@ -102,7 +102,7 @@ export class LLMManagerAPIClient {
       }
     }
 
-    this.manager = createSimpleLLMManager({ models: modelConfig })
+    this.manager = createLLMManager({ models: modelConfig })
 
     // Load models from environment variables
     await this.loadModelsFromEnvironment()
@@ -342,7 +342,7 @@ export class LLMManagerAPIClient {
           selectedModel = configuredSqlModel.id
           reason = 'Configured SQL-specific model for query generation'
         } else {
-          selectedModel = sqlModels[0]!.id
+          selectedModel = sqlModels[0]?.id || 'fallback-local'
           reason = 'SQL-capable model for query generation'
         }
       }
@@ -353,7 +353,7 @@ export class LLMManagerAPIClient {
       )
 
       if (codeModels.length > 0) {
-        selectedModel = codeModels[0]!.id
+        selectedModel = codeModels[0]?.id || 'fallback-local'
         reason = 'Code generation optimized model'
       }
     } else if (request.taskType === 'documentation') {
@@ -363,7 +363,7 @@ export class LLMManagerAPIClient {
       )
 
       if (docModels.length > 0) {
-        selectedModel = docModels[0]!.id
+        selectedModel = docModels[0]?.id || 'fallback-local'
         reason = 'Documentation-capable model'
       }
     } else if (request.taskType === 'analysis') {
@@ -376,7 +376,7 @@ export class LLMManagerAPIClient {
       )
 
       if (generalModels.length > 0) {
-        selectedModel = generalModels[0]!.id
+        selectedModel = generalModels[0]?.id || 'fallback-local'
         reason = 'General analysis model with reasoning capability'
       }
     }
@@ -427,12 +427,14 @@ export class LLMManagerAPIClient {
 
     this.metrics.totalRequests++
 
+    // The new manager handles model selection internally
+    // We just need to pass the request through
     const result = await Effect.runPromise(
       this.manager.generate(request).pipe(
-        Effect.tap(() =>
+        Effect.tap((response) =>
           Effect.sync(() => {
-            // Update metrics
-            const modelId = request.preferences?.model || 'local-llama'
+            // Update metrics based on the actual model used
+            const modelId = response.model || request.preferences?.model || 'local'
             const model = this.loadedModels.get(modelId)
             if (model && model.metrics) {
               model.metrics.totalRequests++

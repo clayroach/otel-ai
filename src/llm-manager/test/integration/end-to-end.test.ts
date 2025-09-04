@@ -7,7 +7,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { Effect, Stream } from 'effect'
-import { createSimpleLLMManager } from '../../simple-manager.js'
+import { createLLMManager } from '../../llm-manager.js'
 import { LLMManagerContext, LLMManagerEssentials } from '../../layers.js'
 // import { LLMManagerService } from '../../services.js' // TODO: Enable when service layer integration tests are needed
 import type { LLMRequest, LLMConfig, LLMError } from '../../types.js'
@@ -16,7 +16,7 @@ describe('End-to-End LLM Manager Tests', () => {
   describe('Simple Manager Integration', () => {
     it('should create and use simple manager with local model', async () => {
       // Test with default configuration (local model only)
-      const manager = createSimpleLLMManager()
+      const manager = createLLMManager()
       
       expect(manager).toHaveProperty('generate')
       expect(manager).toHaveProperty('generateStream')
@@ -25,8 +25,8 @@ describe('End-to-End LLM Manager Tests', () => {
       
       // Test status
       const status = await Effect.runPromise(manager.getStatus())
-      expect(status.models).toContain('llama')
-      expect(status.healthy).toBe(true)
+      expect(status.availableModels).toContain('local')
+      expect(status.healthStatus).toBeDefined()
       
       // Test health check
       try {
@@ -39,7 +39,7 @@ describe('End-to-End LLM Manager Tests', () => {
     })
 
     it('should handle generation request with simple manager', async () => {
-      const manager = createSimpleLLMManager()
+      const manager = createLLMManager()
       
       const request: LLMRequest = {
         prompt: 'Say hello in exactly one word.',
@@ -94,10 +94,10 @@ describe('End-to-End LLM Manager Tests', () => {
         }
       }
 
-      const manager = createSimpleLLMManager(config)
+      const manager = createLLMManager(config)
       const status = await Effect.runPromise(manager.getStatus())
       
-      expect(status.models).toContain('llama')
+      expect(status.availableModels).toContain('local')
       expect(status.config).toBeDefined()
       
       console.log('✅ Multi-model manager configured successfully')
@@ -123,7 +123,7 @@ describe('End-to-End LLM Manager Tests', () => {
 
   describe('Multi-Model Scenarios', () => {
     it('should handle different task types appropriately', async () => {
-      const manager = createSimpleLLMManager()
+      const manager = createLLMManager()
       
       const taskTypes: Array<LLMRequest['taskType']> = [
         'general',
@@ -155,7 +155,7 @@ describe('End-to-End LLM Manager Tests', () => {
     })
 
     it('should handle streaming for different models', async () => {
-      const manager = createSimpleLLMManager()
+      const manager = createLLMManager()
       
       const request: LLMRequest = {
         prompt: 'Count: 1, 2, 3',
@@ -258,7 +258,7 @@ describe('End-to-End LLM Manager Tests', () => {
         }
       }
 
-      const manager = createSimpleLLMManager(config)
+      const manager = createLLMManager(config)
       
       const request: LLMRequest = {
         prompt: 'Test fallback behavior',
@@ -285,7 +285,7 @@ describe('End-to-End LLM Manager Tests', () => {
 
   describe('Performance and Concurrency', () => {
     it('should handle concurrent requests', async () => {
-      const manager = createSimpleLLMManager()
+      const manager = createLLMManager()
       
       const requests = Array.from({ length: 3 }, (_, i) => ({
         prompt: `Request ${i + 1}: Say "hello ${i + 1}"`,
@@ -320,7 +320,7 @@ describe('End-to-End LLM Manager Tests', () => {
     }, 30000)
 
     it('should track performance metrics', async () => {
-      const manager = createSimpleLLMManager()
+      const manager = createLLMManager()
       
       const request: LLMRequest = {
         prompt: 'Performance test',

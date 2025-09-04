@@ -7,6 +7,7 @@
 
 import { describe, it, expect, beforeAll } from 'vitest'
 import { TypedAPIClient, waitForArchitectureData, parseSpanCount } from '../helpers/api-client.js'
+import { Effect } from 'effect'
 
 const API_BASE_URL = process.env.API_URL || 'http://localhost:4319'
 const apiClient = new TypedAPIClient(API_BASE_URL)
@@ -36,7 +37,7 @@ describe('UI Data Validation Integration', () => {
         throw new Error('AI Analyzer service did not become ready in time')
       }
       
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      await Effect.runPromise(Effect.sleep(2000))
     }
   }, TEST_TIMEOUT)
 

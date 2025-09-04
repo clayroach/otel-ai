@@ -1,13 +1,6 @@
 import { Effect, pipe, Duration } from 'effect'
 import { CriticalPath, GeneratedQuery, QueryPattern } from './types.js'
-import {
-  type LLMRequest,
-  type LLMResponse,
-  type LLMError,
-  createSimpleLLMManager
-} from '../../llm-manager/index.js'
-import { makeClaudeClient } from '../../llm-manager/clients/claude-client.js'
-import { makeOpenAIClient } from '../../llm-manager/clients/openai-client.js'
+import { type LLMRequest, createLLMManager } from '../../llm-manager/index.js'
 import { Schema } from '@effect/schema'
 import {
   isSQLSpecificModel as checkSQLModel,
@@ -290,45 +283,38 @@ export const generateQueryWithLLM = (
     }
   }
 
-  // Create appropriate client based on model type
-  let generateEffect: Effect.Effect<LLMResponse, LLMError, never>
-
-  if (modelName.includes('claude')) {
-    // Use Claude client for Claude models
-    const claudeClient = makeClaudeClient({
-      apiKey: process.env.CLAUDE_API_KEY || '',
-      model: modelName,
-      maxTokens: modelConfig.maxTokens || 4000,
-      temperature: request.preferences?.temperature || 0,
-      timeout: 30000,
-      endpoint: 'https://api.anthropic.com'
-    })
-    generateEffect = claudeClient.generate(request)
-  } else if (modelName.startsWith('gpt-4') || modelName.startsWith('gpt-3')) {
-    // Use OpenAI client for GPT models
-    const openaiClient = makeOpenAIClient({
-      apiKey: process.env.OPENAI_API_KEY || '',
-      model: modelName,
-      maxTokens: modelConfig.maxTokens || 4000,
-      temperature: request.preferences?.temperature || 0,
-      timeout: 30000,
-      endpoint: 'https://api.openai.com/v1'
-    })
-    generateEffect = openaiClient.generate(request)
-  } else {
-    // Use local model client for everything else
-    const llmManager = createSimpleLLMManager({
-      models: {
-        llama: {
-          endpoint: llmConfig?.endpoint || 'http://localhost:1234/v1',
-          modelPath: modelName,
-          contextLength: modelConfig.contextLength || 32768,
-          threads: 4
+  // Use unified LLM manager that handles model routing internally
+  const llmManager = createLLMManager({
+    models: {
+      llama: {
+        endpoint: llmConfig?.endpoint || 'http://localhost:1234/v1',
+        modelPath: modelName,
+        contextLength: modelConfig.contextLength || 32768,
+        threads: 4
+      },
+      ...(process.env.CLAUDE_API_KEY && {
+        claude: {
+          apiKey: process.env.CLAUDE_API_KEY,
+          model: modelName.includes('claude') ? modelName : 'claude-3-5-sonnet-20241022',
+          maxTokens: modelConfig.maxTokens || 4000,
+          temperature: request.preferences?.temperature || 0,
+          endpoint: 'https://api.anthropic.com'
         }
-      }
-    })
-    generateEffect = llmManager.generate(request)
-  }
+      }),
+      ...(process.env.OPENAI_API_KEY && {
+        gpt: {
+          apiKey: process.env.OPENAI_API_KEY,
+          model: modelName.startsWith('gpt') ? modelName : 'gpt-4',
+          maxTokens: modelConfig.maxTokens || 4000,
+          temperature: request.preferences?.temperature || 0,
+          endpoint: 'https://api.openai.com/v1'
+        }
+      })
+    }
+  })
+
+  // The manager will route to the appropriate model based on the request
+  const generateEffect = llmManager.generate(request)
 
   return pipe(
     generateEffect,

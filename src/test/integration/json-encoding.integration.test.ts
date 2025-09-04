@@ -5,6 +5,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createClient, type ClickHouseClient } from '@clickhouse/client'
+import { Effect } from 'effect'
 
 // Type definitions for ClickHouse query results
 interface TraceQueryResult {
@@ -47,7 +48,7 @@ describe('JSON Encoding Integration', () => {
         if (retries === 0) {
           throw new Error('Backend not available after 30 retries')
         }
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        await Effect.runPromise(Effect.sleep(1000))
       }
     }
   })
@@ -126,7 +127,7 @@ describe('JSON Encoding Integration', () => {
     expect(responseData).toHaveProperty('partialSuccess')
 
     // Wait for data to be written to ClickHouse
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    await Effect.runPromise(Effect.sleep(2000))
 
     // Query ClickHouse to verify the trace was stored with correct encoding
     const result = await clickhouseClient.query({
@@ -201,7 +202,7 @@ describe('JSON Encoding Integration', () => {
     expect(jsonResponse.status).toBe(200)
 
     // Wait for processing
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    await Effect.runPromise(Effect.sleep(2000))
 
     // Query for both traces and check encoding types
     const result = await clickhouseClient.query({

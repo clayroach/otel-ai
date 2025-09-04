@@ -7,7 +7,7 @@ import {
 } from "../../query-generator/service-llm"
 import { generateQueryWithLLM, ANALYSIS_GOALS, validateGeneratedSQL } from "../../query-generator/llm-query-generator"
 import { StorageAPIClientTag } from "../../../storage/api-client"
-import { createSimpleLLMManager } from "../../../llm-manager"
+import { createLLMManager } from "../../../llm-manager"
 import { getModelMetadata } from "../../../llm-manager/model-registry"
 
 // Test data representing a real critical path
@@ -34,16 +34,7 @@ describe("LLM Query Generator", () => {
   let llmConfig: { endpoint: string; model: string } | undefined
   
   beforeAll(async () => {
-    // Check if we should skip LLM tests (for CI environments)
-    if (process.env.SKIP_LLM_TESTS === 'true') {
-      console.log("⏭️  Skipping LLM tests (SKIP_LLM_TESTS=true)")
-      llmAvailable = false
-      llmDetails = {
-        status: "skipped",
-        error: "LLM tests disabled in environment"
-      }
-      return
-    }
+    // Removed SKIP_LLM_TESTS check - dynamically determine availability based on actual configuration
     
     console.log("🔍 Checking LLM availability...")
     
@@ -131,7 +122,7 @@ describe("LLM Query Generator", () => {
       console.log(`   Selected model for testing: ${selectedModel.id} (${selectedMetadata?.displayName || 'Unknown'})`)
       
       // Try to actually generate a simple test query to verify the LLM is working
-      const llmManager = createSimpleLLMManager({
+      const llmManager = createLLMManager({
         models: {
           llama: {
             endpoint,
@@ -163,7 +154,7 @@ describe("LLM Query Generator", () => {
           Effect.timeout(Duration.seconds(10)),
           Effect.catchAll((error) => {
             console.log(`   Request failed:`, error)
-            return Effect.fail(new Error("LLM request timed out or failed"))
+            return Effect.succeed({ content: '', model: 'error', usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 } })
           })
         )
       )

@@ -7,6 +7,12 @@ import {
   QueryThunk,
   QueryResult
 } from './types.js'
+
+// Error types for UI Generator service
+export type UIGeneratorError =
+  | { readonly _tag: 'UnknownPattern'; readonly pattern: string }
+  | { readonly _tag: 'GenerationFailed'; readonly message: string; readonly cause?: unknown }
+
 import { StorageAPIClientTag } from '../../storage/api-client'
 import { StorageError } from '../../storage/errors'
 import {

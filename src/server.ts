@@ -116,10 +116,7 @@ const runStorageQuery = <A, E>(effect: Effect.Effect<A, E, StorageAPIClientTag>)
 // Helper function for raw queries that returns data in legacy format
 const queryWithResults = async (sql: string): Promise<{ data: Record<string, unknown>[] }> => {
   const result = await runStorageQuery(
-    Effect.gen(function* () {
-      const storage = yield* StorageAPIClientTag
-      return yield* storage.queryRaw(sql)
-    })
+    StorageAPIClientTag.pipe(Effect.flatMap((storage) => storage.queryRaw(sql)))
   )
   return { data: result as Record<string, unknown>[] }
 }
@@ -163,10 +160,7 @@ async function createViews() {
       FROM traces
     `
     await runStorageQuery(
-      Effect.gen(function* () {
-        const storage = yield* StorageAPIClientTag
-        return yield* storage.queryRaw(createViewSQL)
-      })
+      StorageAPIClientTag.pipe(Effect.flatMap((storage) => storage.queryRaw(createViewSQL)))
     )
     console.log('✅ Created simplified traces view for single-path ingestion')
   } catch (error) {
@@ -181,10 +175,8 @@ async function createViews() {
 app.get('/health', async (_req, res) => {
   try {
     const healthResult = await Effect.runPromise(
-      Effect.gen(function* (_) {
-        const apiClient = yield* _(StorageAPIClientTag)
-        return yield* _(apiClient.healthCheck())
-      }).pipe(
+      StorageAPIClientTag.pipe(
+        Effect.flatMap((apiClient) => apiClient.healthCheck()),
         Effect.provide(StorageLayer),
         Effect.match({
           onFailure: (error) => {
@@ -1001,9 +993,8 @@ app.post('/v1/traces', async (req, res) => {
 
         // Use Storage API Client with Effect-TS pattern
         const writeResult = await Effect.runPromise(
-          Effect.gen(function* (_) {
-            const apiClient = yield* _(StorageAPIClientTag)
-            return yield* _(
+          StorageAPIClientTag.pipe(
+            Effect.flatMap((apiClient) =>
               apiClient.writeOTLP(
                 {
                   traces: traceDataArray,
@@ -1011,8 +1002,7 @@ app.post('/v1/traces', async (req, res) => {
                 },
                 encodingType
               )
-            )
-          }).pipe(
+            ),
             Effect.provide(StorageLayer),
             Effect.match({
               onFailure: (error) => {
@@ -1354,10 +1344,7 @@ app.get('/api/llm/interactions', async (req, res) => {
 
     // Get actual model metrics from LLM Manager using Effect-TS
     const loadedModels = await runWithServices(
-      Effect.gen(function* () {
-        const llmManager = yield* LLMManagerAPIClientTag
-        return yield* llmManager.getLoadedModels()
-      })
+      Effect.flatMap(LLMManagerAPIClientTag, (llmManager) => llmManager.getLoadedModels())
     )
 
     // Generate interactions based on actual model metrics
@@ -1430,10 +1417,7 @@ app.get('/api/llm/comparison', async (req, res) => {
 
     // Get actual model data from LLM Manager using Effect-TS
     const loadedModels = await runWithServices(
-      Effect.gen(function* () {
-        const llmManager = yield* LLMManagerAPIClientTag
-        return yield* llmManager.getLoadedModels()
-      })
+      Effect.flatMap(LLMManagerAPIClientTag, (llmManager) => llmManager.getLoadedModels())
     )
 
     // Build comparison data from actual loaded models
@@ -1496,10 +1480,7 @@ app.get('/api/llm/live', (req, res) => {
     try {
       // Get fresh data from LLM Manager using Effect-TS
       const loadedModels = await runWithServices(
-        Effect.gen(function* () {
-          const llmManager = yield* LLMManagerAPIClientTag
-          return yield* llmManager.getLoadedModels()
-        })
+        Effect.flatMap(LLMManagerAPIClientTag, (llmManager) => llmManager.getLoadedModels())
       )
 
       // Pick a random loaded model for the event
@@ -1723,10 +1704,7 @@ app.delete('/api/llm/interactions', async (_req, res) => {
 app.get('/api/llm-manager/status', async (_req, res) => {
   try {
     const status = await runWithServices(
-      Effect.gen(function* () {
-        const llmManager = yield* LLMManagerAPIClientTag
-        return yield* llmManager.getStatus()
-      })
+      Effect.flatMap(LLMManagerAPIClientTag, (llmManager) => llmManager.getStatus())
     )
 
     res.json({
@@ -1746,10 +1724,7 @@ app.get('/api/llm-manager/status', async (_req, res) => {
 app.get('/api/llm-manager/models', async (_req, res) => {
   try {
     const models = await runWithServices(
-      Effect.gen(function* () {
-        const llmManager = yield* LLMManagerAPIClientTag
-        return yield* llmManager.getLoadedModels()
-      })
+      Effect.flatMap(LLMManagerAPIClientTag, (llmManager) => llmManager.getLoadedModels())
     )
 
     res.json({
@@ -1780,13 +1755,12 @@ app.post('/api/llm-manager/select-model', async (req, res) => {
     }
 
     const selection = await runWithServices(
-      Effect.gen(function* () {
-        const llmManager = yield* LLMManagerAPIClientTag
-        return yield* llmManager.selectModel({
+      Effect.flatMap(LLMManagerAPIClientTag, (llmManager) =>
+        llmManager.selectModel({
           taskType,
           requirements
         })
-      })
+      )
     )
 
     res.json({
@@ -1806,10 +1780,7 @@ app.post('/api/llm-manager/select-model', async (req, res) => {
 app.get('/api/llm-manager/health', async (_req, res) => {
   try {
     const status = await runWithServices(
-      Effect.gen(function* () {
-        const llmManager = yield* LLMManagerAPIClientTag
-        return yield* llmManager.getStatus()
-      })
+      Effect.flatMap(LLMManagerAPIClientTag, (llmManager) => llmManager.getStatus())
     )
 
     const httpStatus = status.status === 'healthy' ? 200 : status.status === 'degraded' ? 207 : 503

@@ -19,7 +19,7 @@ import type {
 import { discoverApplicationTopology } from './topology.js'
 import { PromptTemplates, PromptUtils } from './prompts.js'
 import { LLMManagerService } from '../llm-manager/services.js'
-import { makeMultiModelOrchestrator } from '../llm-manager/multi-model-orchestrator.js'
+import { createLLMManager } from '../llm-manager/index.js'
 import { StorageServiceTag } from '../storage/services.js'
 
 /**
@@ -73,23 +73,24 @@ export const defaultAnalyzerConfig: AnalyzerConfig = {
  */
 export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
   Effect.gen(function* (_) {
-    const llmManager = yield* _(LLMManagerService)
+    const llmManagerService = yield* _(LLMManagerService)
     const storageService = yield* _(StorageServiceTag)
 
-    // Initialize multi-model orchestrator for advanced insights
-    const multiModelOrchestrator = makeMultiModelOrchestrator({})
+    // Initialize LLM manager for advanced insights
+    const llmManager = createLLMManager({})
 
     const analyzeArchitecture = (
       request: AnalysisRequest
     ): Effect.Effect<AnalysisResult, AnalysisError, never> =>
       Effect.gen(function* (_) {
-        console.log(
-          `🚀 ANALYZE ARCHITECTURE CALLED with config:`,
-          JSON.stringify(request.config, null, 2)
+        yield* _(
+          Effect.logInfo(
+            `🚀 ANALYZE ARCHITECTURE CALLED with config: ${JSON.stringify(request.config, null, 2)}`
+          )
         )
-        console.log(`🔍 Request has config: ${!!request.config}`)
-        console.log(`🔍 Request has llm: ${!!request.config?.llm}`)
-        console.log(`🔍 Request llm model: ${request.config?.llm?.model}`)
+        yield* _(Effect.logDebug(`🔍 Request has config: ${!!request.config}`))
+        yield* _(Effect.logDebug(`🔍 Request has llm: ${!!request.config?.llm}`))
+        yield* _(Effect.logDebug(`🔍 Request llm model: ${request.config?.llm?.model}`))
         const startTime = Date.now()
         const timeRangeHours =
           Math.abs(request.timeRange.endTime.getTime() - request.timeRange.startTime.getTime()) /
@@ -165,16 +166,18 @@ export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
             }
           }
 
-          console.log(
-            `🤖 AI Analyzer using model: ${selectedModel} (from ${request.config ? 'request' : 'service default'})`
+          yield* _(
+            Effect.logInfo(
+              `🤖 AI Analyzer using model: ${selectedModel} (from ${request.config ? 'request' : 'service default'})`
+            )
           )
 
           const llmResponse = yield* _(
             generateEnhancedInsights(
               request.type,
               architecture,
+              llmManagerService,
               llmManager,
-              multiModelOrchestrator,
               effectiveConfig
             )
           )
@@ -185,7 +188,7 @@ export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
           // Step 5: Generate documentation if requested
           const documentation =
             request.type === 'architecture'
-              ? yield* _(generateDocumentation(architecture, llmManager, config))
+              ? yield* _(generateDocumentation(architecture, llmManagerService, config))
               : undefined
 
           const analysisTimeMs = Date.now() - startTime
@@ -326,7 +329,7 @@ export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
     const generateDocumentationMethod = (
       architecture: ApplicationArchitecture
     ): Effect.Effect<string, AnalysisError, never> =>
-      generateDocumentation(architecture, llmManager, config).pipe(
+      generateDocumentation(architecture, llmManagerService, config).pipe(
         Effect.map((result) => result.markdown)
       )
 
@@ -807,7 +810,7 @@ const generateEnhancedInsights = (
   analysisType: AnalysisRequest['type'],
   architecture: ApplicationArchitecture,
   llmManager: Context.Tag.Service<typeof LLMManagerService>,
-  multiModelOrchestrator: ReturnType<typeof makeMultiModelOrchestrator>,
+  multiModelOrchestrator: ReturnType<typeof createLLMManager>,
   config: AnalyzerConfig
 ): Effect.Effect<{ content: string }, AnalysisError, never> =>
   Effect.gen(function* (_) {
@@ -902,19 +905,27 @@ const generateEnhancedInsights = (
       timeRange: { startTime: new Date(), endTime: new Date() }
     })
 
+    // Create an analysis prompt based on the type
+    const taskType =
+      analysisType === 'architecture' || analysisType === 'dependencies'
+        ? ('architectural-insights' as const)
+        : ('analysis' as const)
+
+    const prompt = `Analyze the following ${analysisType} data and provide insights:\n\n${JSON.stringify(analysisData, null, 2)}`
+
     const multiModelResponse = yield* _(
       multiModelOrchestrator
-        .generateArchitecturalInsights(
-          analysisType === 'architecture'
-            ? 'system-analysis'
-            : analysisType === 'dependencies'
-              ? 'system-analysis'
-              : 'performance-optimization',
-          analysisData
-        )
+        .generate({
+          prompt,
+          taskType,
+          context: {
+            architecture: JSON.stringify(analysisData),
+            analysisType
+          }
+        })
         .pipe(
           Effect.map((response) => ({
-            content: (response as { consensus: { content: string } }).consensus.content
+            content: response.content
           })),
           Effect.mapError(
             (error): AnalysisError => ({
@@ -926,6 +937,7 @@ const generateEnhancedInsights = (
           Effect.timeout(30000), // 30 second timeout
           Effect.orElse(() => {
             // Fallback to standard LLM if orchestrator fails
+            // Note: Cannot use Effect.log here due to callback context - using console.log for now
             console.log('Multi-model orchestrator unavailable, falling back to standard LLM')
             return llmManager
               .generate({

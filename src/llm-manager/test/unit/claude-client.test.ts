@@ -130,8 +130,7 @@ describe('Claude Client (Effect-TS)', () => {
   describe('Service Layer Configuration', () => {
     it('should provide Claude client service through Effect layer', async () => {
       const result = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
+        Effect.map(ModelClientService, client => {
           expect(client).toBeDefined()
           expect(client.claude).toBeDefined()
           expect(client.gpt).toBeUndefined() // Not enabled in mock
@@ -144,10 +143,9 @@ describe('Claude Client (Effect-TS)', () => {
 
     it('should provide configuration with Claude settings', async () => {
       const config = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const configService = yield* _(LLMConfigService)
-          return yield* _(configService.getConfig())
-        }).pipe(Effect.provide(TestClaudeLayer))
+        Effect.flatMap(LLMConfigService, configService =>
+          configService.getConfig()
+        ).pipe(Effect.provide(TestClaudeLayer))
       )
       // Type guard for config structure
       if (!config || typeof config !== 'object' || !('models' in config)) {
@@ -163,13 +161,12 @@ describe('Claude Client (Effect-TS)', () => {
   describe('Health Check', () => {
     it('should check Claude health through service layer', async () => {
       const isHealthy = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
+        Effect.flatMap(ModelClientService, client => {
           const claudeClient = client.claude
           if (!claudeClient) {
-            return false
+            return Effect.succeed(false)
           }
-          return yield* _(claudeClient.isHealthy())
+          return claudeClient.isHealthy()
         }).pipe(Effect.provide(TestClaudeLayer))
       )
       expect(isHealthy).toBe(true)
@@ -177,8 +174,7 @@ describe('Claude Client (Effect-TS)', () => {
 
     it('should handle health check for unavailable models', async () => {
       const result = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
+        Effect.map(ModelClientService, client => {
           // GPT and Llama are not available in our mock
           expect(client.gpt).toBeUndefined()
           expect(client.llama).toBeUndefined()
@@ -201,13 +197,16 @@ describe('Claude Client (Effect-TS)', () => {
 
     it('should handle basic generation request through Effect service', async () => {
       const response = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
+        Effect.flatMap(ModelClientService, client => {
           const claudeClient = client.claude
           if (!claudeClient) {
-            throw new Error('Claude client not available')
+            return Effect.fail({
+              _tag: 'ModelUnavailable' as const,
+              model: 'claude',
+              message: 'Claude client not available'
+            } as LLMError)
           }
-          return yield* _(claudeClient.generate(testRequest))
+          return claudeClient.generate(testRequest)
         }).pipe(Effect.provide(TestClaudeLayer))
       )
       
@@ -237,13 +236,16 @@ describe('Claude Client (Effect-TS)', () => {
       }
 
       const response = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
+        Effect.flatMap(ModelClientService, client => {
           const claudeClient = client.claude
           if (!claudeClient) {
-            throw new Error('Claude client not available')
+            return Effect.fail({
+              _tag: 'ModelUnavailable' as const,
+              model: 'claude',
+              message: 'Claude client not available'
+            } as LLMError)
           }
-          return yield* _(claudeClient.generate(customRequest))
+          return claudeClient.generate(customRequest)
         }).pipe(Effect.provide(TestClaudeLayer))
       )
       
@@ -264,20 +266,22 @@ describe('Claude Client (Effect-TS)', () => {
       }))
 
       const responses = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
-          
-          return yield* _(Effect.all(
+        Effect.flatMap(ModelClientService, client =>
+          Effect.all(
             requests.map(request => {
               const claudeClient = client.claude
               if (!claudeClient) {
-                throw new Error('Claude client not available')
+                return Effect.fail({
+                  _tag: 'ModelUnavailable' as const,
+                  model: 'claude',
+                  message: 'Claude client not available'
+                } as LLMError)
               }
               return claudeClient.generate(request)
             }),
             { concurrency: 'unbounded' }
-          ))
-        }).pipe(Effect.provide(TestClaudeLayer))
+          )
+        ).pipe(Effect.provide(TestClaudeLayer))
       )
 
       expect(responses).toHaveLength(3)
@@ -299,18 +303,21 @@ describe('Claude Client (Effect-TS)', () => {
       }
 
       const chunks = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
+        Effect.flatMap(ModelClientService, client => {
           const claudeClient = client.claude
           if (!claudeClient?.generateStream) {
-            throw new Error('Claude client or streaming not available')
+            return Effect.fail({
+              _tag: 'ModelUnavailable' as const,
+              model: 'claude',
+              message: 'Claude client or streaming not available'
+            } as LLMError)
           }
           const stream = claudeClient.generateStream(request)
           
-          return yield* _(stream.pipe(
+          return stream.pipe(
             Stream.runCollect,
             Effect.map(chunks => Array.from(chunks))
-          ))
+          )
         }).pipe(Effect.provide(TestClaudeLayer))
       )
       
@@ -345,11 +352,14 @@ describe('Claude Client (Effect-TS)', () => {
       )
 
       const result = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
+        Effect.flatMap(ModelClientService, client => {
           const claudeClient = client.claude
           if (!claudeClient?.generateStream) {
-            throw new Error('Claude client or streaming not available')
+            return Effect.fail({
+              _tag: 'ModelUnavailable' as const,
+              model: 'claude',
+              message: 'Claude client or streaming not available'
+            } as LLMError)
           }
           const stream = claudeClient.generateStream({
             prompt: 'This should fail',
@@ -357,10 +367,10 @@ describe('Claude Client (Effect-TS)', () => {
             streaming: true
           })
           
-          return yield* _(stream.pipe(
+          return stream.pipe(
             Stream.runCollect,
             Effect.option // Convert failure to None
-          ))
+          )
         }).pipe(Effect.provide(FailingLayer))
       )
 
@@ -371,10 +381,9 @@ describe('Claude Client (Effect-TS)', () => {
   describe('Integration with Other Services', () => {
     it('should integrate with metrics service', async () => {
       const metrics = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const metricsService = yield* _(LLMMetricsService)
-          return yield* _(metricsService.getMetrics())
-        }).pipe(Effect.provide(TestClaudeLayer))
+        Effect.flatMap(LLMMetricsService, metricsService =>
+          metricsService.getMetrics()
+        ).pipe(Effect.provide(TestClaudeLayer))
       )
       
       expect(metrics).toBeDefined()
@@ -417,9 +426,7 @@ describe('Claude Client (Effect-TS)', () => {
   describe('Error Handling and Type Safety', () => {
     it('should provide structured error types with Effect-TS', async () => {
       const result = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
-          
+        Effect.map(ModelClientService, client => {
           // Test that methods exist and have proper types
           const claudeClient = client.claude
           if (!claudeClient) {
@@ -437,9 +444,7 @@ describe('Claude Client (Effect-TS)', () => {
 
     it('should handle service configuration gracefully', async () => {
       const result = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
-          
+        Effect.map(ModelClientService, client => {
           // Claude should be available in our mock configuration
           expect(client.claude).toBeDefined()
           
