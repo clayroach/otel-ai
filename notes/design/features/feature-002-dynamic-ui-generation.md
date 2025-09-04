@@ -618,6 +618,11 @@ interface LLMDebugView {
 - [ ] Build LLMDebug View with query/response display
 - [ ] Create dynamic renderer without initial caching
 - [ ] Implement data bindings with ECharts
+- [ ] **Integrate Anomaly Detection Context**: Add `enhanceWithAnomalyContext` to enrich query results with anomaly scores from AI Analyzer
+  - Connect diagnostic queries with existing anomaly detection
+  - Add anomaly scores and context to query results
+  - Highlight anomalous patterns in generated visualizations
+  - Provide root cause suggestions based on anomaly patterns
 
 ### ⏳ Phase 4: Dashboard Composition (PLANNED)
 - [ ] Multi-component dashboard generation
