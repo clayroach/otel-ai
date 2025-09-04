@@ -94,12 +94,29 @@ async function getClientsHealth(
 export const createLLMManager = (config?: Partial<LLMConfig>) => {
   const clients = initializeClients(config)
 
-  // Use the proper router with fallback logic
-  const routerEffect = makeModelRouter(config || {}, {
-    gpt: clients.openai,
-    claude: clients.claude,
-    llama: clients.local
-  })
+  // Create a full config with defaults for the router
+  const fullConfig: LLMConfig = {
+    models: config?.models || {},
+    routing: config?.routing || {
+      strategy: 'balanced',
+      fallbackOrder: ['llama', 'gpt', 'claude'],
+      maxRetries: 3,
+      timeoutMs: 30000
+    },
+    cache: config?.cache || {
+      enabled: false,
+      ttlSeconds: 300,
+      maxSize: 100
+    }
+  }
+
+  // Use the proper router with fallback logic - filter out undefined clients
+  const routerClients: { gpt?: ModelClient; claude?: ModelClient; llama?: ModelClient } = {}
+  if (clients.openai) routerClients.gpt = clients.openai
+  if (clients.claude) routerClients.claude = clients.claude
+  if (clients.local) routerClients.llama = clients.local
+  
+  const routerEffect = makeModelRouter(fullConfig, routerClients)
 
   return {
     /**

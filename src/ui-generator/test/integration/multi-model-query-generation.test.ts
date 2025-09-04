@@ -14,7 +14,6 @@ import { CriticalPath } from "../../query-generator/types"
 import { getModelMetadata } from "../../../llm-manager/model-registry"
 import { 
   shouldSkipLLMTests,
-  logAvailabilityStatus,
   hasOpenAIKey,
   hasClaudeKey,
   isCI

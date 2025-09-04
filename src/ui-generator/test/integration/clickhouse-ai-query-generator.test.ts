@@ -8,10 +8,7 @@ import {
 import { StorageAPIClientTag } from "../../../storage/api-client"
 import { 
   shouldSkipLLMTests, 
-  logAvailabilityStatus,
-  hasOpenAIKey,
-  hasClaudeKey,
-  isCI
+  logAvailabilityStatus
 } from "../../../llm-manager/test/utils/llm-availability.js"
 
 // Test data representing a real critical path
