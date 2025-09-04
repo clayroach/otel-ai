@@ -6,8 +6,8 @@
  */
 
 import { Effect } from 'effect'
-import { makeLocalModelClient } from './clients/local-client.js'
-import { LLMConfig, LLMError, LLMRequest, LLMResponse } from './types.js'
+import { makeLocalModelClient } from '../../llm-manager/clients/local-client.js'
+import { LLMConfig, LLMError, LLMRequest, LLMResponse } from '../../llm-manager/types.js'
 
 /**
  * Create a multi-model simple LLM manager
