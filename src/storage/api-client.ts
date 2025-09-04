@@ -52,7 +52,6 @@ export class ClickHouseConfigTag extends Context.Tag('ClickHouseConfig')<
   ClickHouseConfig
 >() {}
 
-
 // Schema definitions removed as they were unused
 // If needed in future, add them back when actually used
 

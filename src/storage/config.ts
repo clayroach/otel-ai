@@ -96,7 +96,7 @@ export const loadConfigFromEnv = (): Partial<StorageConfig> => ({
       parseInt(process.env.CLICKHOUSE_MAX_CONNECTIONS || '') ||
       defaultStorageConfig.clickhouse.maxOpenConnections,
     compression:
-      process.env.CLICKHOUSE_COMPRESSION === 'true' ?? defaultStorageConfig.clickhouse.compression
+      process.env.CLICKHOUSE_COMPRESSION === 'true' || defaultStorageConfig.clickhouse.compression
   },
   performance: {
     batchSize:

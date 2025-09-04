@@ -20,9 +20,8 @@ import { discoverApplicationTopology } from './topology.js'
 import { PromptTemplates, PromptUtils } from './prompts.js'
 import { LLMManagerService } from '../llm-manager/services.js'
 import { makeMultiModelOrchestrator } from '../llm-manager/multi-model-orchestrator.js'
-// StorageServiceTag was removed - using ClickHouse directly now
-import { makeClickHouseStorage } from '../storage/clickhouse.js'
-import { defaultStorageConfig } from '../storage/config.js'
+// Using ClickHouse directly now
+import { ClickHouseStorageTag } from '../storage/clickhouse.js'
 
 /**
  * Configuration for AI Analyzer
@@ -76,7 +75,7 @@ export const defaultAnalyzerConfig: AnalyzerConfig = {
 export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
   Effect.gen(function* (_) {
     const llmManager = yield* _(LLMManagerService)
-    const storageService = yield* _(StorageServiceTag)
+    const storageService = yield* ClickHouseStorageTag
 
     // Initialize multi-model orchestrator for advanced insights
     const multiModelOrchestrator = makeMultiModelOrchestrator({})
@@ -112,9 +111,9 @@ export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
               })
               .pipe(
                 Effect.mapError(
-                  (storageError): AnalysisError => ({
+                  (storageError: unknown): AnalysisError => ({
                     _tag: 'QueryError',
-                    message: `Failed to query traces: ${storageError.message}`,
+                    message: `Failed to query traces: ${String(storageError)}`,
                     query: 'Traces query for topology analysis'
                   })
                 )
@@ -246,9 +245,9 @@ export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
               })
               .pipe(
                 Effect.mapError(
-                  (storageError): AnalysisError => ({
+                  (storageError: unknown): AnalysisError => ({
                     _tag: 'QueryError',
-                    message: `Failed to query ClickHouse: ${storageError.message}`,
+                    message: `Failed to query ClickHouse: ${String(storageError)}`,
                     query: 'Stream analysis queries'
                   })
                 )
@@ -310,9 +309,9 @@ export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
             })
             .pipe(
               Effect.mapError(
-                (storageError): AnalysisError => ({
+                (storageError: unknown): AnalysisError => ({
                   _tag: 'QueryError',
-                  message: `Failed to query ClickHouse: ${storageError.message}`,
+                  message: `Failed to query ClickHouse: ${String(storageError)}`,
                   query: 'Service topology queries'
                 })
               )

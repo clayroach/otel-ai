@@ -325,28 +325,29 @@ app.get('/health', (_req, res) => {
       Effect.match({
         onFailure: (error) => {
           console.error('Storage health check failed:', error._tag)
-          return { healthy: false, error: error._tag, clickhouse: false, s3: false }
+          return { healthy: false, error: error._tag, clickhouse: false }
         },
         onSuccess: (health) => {
-          return { healthy: health.clickhouse && health.s3, ...health }
+          return { healthy: health.clickhouse, ...health }
         }
       })
     )
-  ).then(healthResult => {
-    res.json({
-      status: healthResult.healthy ? 'healthy' : 'unhealthy',
-      service: 'otel-ai-backend',
-      timestamp: new Date().toISOString(),
-      clickhouse: healthResult.clickhouse,
-      s3: healthResult.s3
+  )
+    .then((healthResult) => {
+      res.json({
+        status: healthResult.healthy ? 'healthy' : 'unhealthy',
+        service: 'otel-ai-backend',
+        timestamp: new Date().toISOString(),
+        clickhouse: healthResult.clickhouse
+      })
     })
-  }).catch(error => {
-    res.status(503).json({
-      status: 'error',
-      error: error instanceof Error ? error.message : 'Unknown error',
-      timestamp: new Date().toISOString()
+    .catch((error) => {
+      res.status(503).json({
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      })
     })
-  })
 })
 
 // Query traces endpoint for real-time updates - converted to run Effect at boundary
@@ -377,19 +378,21 @@ app.get('/api/traces', (req, res) => {
       const storage = yield* _(StorageAPIClientTag)
       return yield* _(storage.queryRaw(query))
     }).pipe(Effect.provide(StorageLayer))
-  ).then(result => {
-    res.json({
-      traces: result as Record<string, unknown>[],
-      count: (result as Record<string, unknown>[]).length,
-      timestamp: new Date().toISOString()
+  )
+    .then((result) => {
+      res.json({
+        traces: result as Record<string, unknown>[],
+        count: (result as Record<string, unknown>[]).length,
+        timestamp: new Date().toISOString()
+      })
     })
-  }).catch(error => {
-    console.error('❌ Error querying traces:', error)
-    res.status(500).json({
-      error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error'
+    .catch((error) => {
+      console.error('❌ Error querying traces:', error)
+      res.status(500).json({
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      })
     })
-  })
 })
 
 // Service statistics endpoint - converted to run Effect at boundary
@@ -416,18 +419,20 @@ app.get('/api/services/stats', (req, res) => {
       const storage = yield* _(StorageAPIClientTag)
       return yield* _(storage.queryRaw(query))
     }).pipe(Effect.provide(StorageLayer))
-  ).then(result => {
-    res.json({
-      services: result as Record<string, unknown>[],
-      timestamp: new Date().toISOString()
+  )
+    .then((result) => {
+      res.json({
+        services: result as Record<string, unknown>[],
+        timestamp: new Date().toISOString()
+      })
     })
-  }).catch(error => {
-    console.error('❌ Error querying service stats:', error)
-    res.status(500).json({
-      error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error'
+    .catch((error) => {
+      console.error('❌ Error querying service stats:', error)
+      res.status(500).json({
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      })
     })
-  })
 })
 
 // AI Anomaly Detection endpoint - Simple statistical anomaly detection
@@ -588,10 +593,10 @@ app.post('/api/ai-analyzer/analyze', (req, res) => {
 
   // Execute the analysis using Effect at boundary
   Effect.runPromise(aiAnalyzer.analyzeArchitecture(analysisRequest))
-    .then(result => {
+    .then((result) => {
       res.json(result)
     })
-    .catch(error => {
+    .catch((error) => {
       console.error('❌ AI Analyzer analysis error:', error)
       res.status(500).json({
         error: 'Analysis failed',
@@ -617,10 +622,10 @@ app.post('/api/ai-analyzer/topology', (req, res) => {
 
   // Execute at Effect boundary
   Effect.runPromise(aiAnalyzer.getServiceTopology(topologyRequest))
-    .then(topology => {
+    .then((topology) => {
       res.json(topology)
     })
-    .catch(error => {
+    .catch((error) => {
       console.error('❌ AI Analyzer topology error:', error)
       res.status(500).json({
         error: 'Topology analysis failed',

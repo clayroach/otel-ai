@@ -9,6 +9,12 @@ import { Effect, Stream, Schedule, Duration } from 'effect'
 import { Schema } from '@effect/schema'
 import type { ModelClient, LLMRequest, LLMResponse, LLMError } from '../types.js'
 import { withLLMError } from './error-utils.js'
+import {
+  fetchEffect,
+  parseJsonResponse,
+  parseTextResponse,
+  readFromStream
+} from '../../shared/effect-interop.js'
 
 /**
  * OpenAI Configuration Schema
@@ -141,34 +147,31 @@ export const checkOpenAIHealth = (config?: Partial<OpenAIConfig>) =>
 
     try {
       const response = yield* _(
-        Effect.tryPromise({
-          try: () =>
-            fetch(`${validatedConfig.endpoint}/models`, {
-              headers: {
-                Authorization: `Bearer ${validatedConfig.apiKey}`,
-                'Content-Type': 'application/json',
-                ...(validatedConfig.organization && {
-                  'OpenAI-Organization': validatedConfig.organization
-                })
-              },
-              signal: AbortSignal.timeout(validatedConfig.timeout)
-            }),
-          catch: (error) => ({
-            _tag: 'NetworkError' as const,
-            model: 'openai',
-            message: error instanceof Error ? error.message : 'Network request failed'
-          })
-        })
+        fetchEffect(`${validatedConfig.endpoint}/models`, {
+          headers: {
+            Authorization: `Bearer ${validatedConfig.apiKey}`,
+            'Content-Type': 'application/json',
+            ...(validatedConfig.organization && {
+              'OpenAI-Organization': validatedConfig.organization
+            })
+          },
+          signal: AbortSignal.timeout(validatedConfig.timeout)
+        }).pipe(
+          Effect.mapError(
+            (error): LLMError => ({
+              _tag: 'NetworkError',
+              model: 'openai',
+              message: error.message
+            })
+          )
+        )
       )
 
       const latency = Date.now() - startTime
 
       if (!response.ok) {
         const errorText = yield* _(
-          Effect.tryPromise({
-            try: () => response.text(),
-            catch: () => 'Unknown error'
-          })
+          parseTextResponse(response).pipe(Effect.catchAll(() => Effect.succeed('Unknown error')))
         )
         return {
           endpoint:
@@ -237,48 +240,46 @@ export const makeOpenAIClient = (config: OpenAIConfig): ModelClient => ({
         }
 
         const response = yield* _(
-          Effect.tryPromise({
-            try: () =>
-              fetch(`${validatedConfig.endpoint}/chat/completions`, {
-                method: 'POST',
-                headers: {
-                  Authorization: `Bearer ${validatedConfig.apiKey}`,
-                  'Content-Type': 'application/json',
-                  ...(validatedConfig.organization && {
-                    'OpenAI-Organization': validatedConfig.organization
-                  })
-                },
-                body: JSON.stringify(payload),
-                signal: AbortSignal.timeout(validatedConfig.timeout)
-              }),
-            catch: (error) => ({
-              _tag: 'NetworkError' as const,
-              model: 'openai',
-              message: error instanceof Error ? error.message : 'Network request failed'
-            })
-          })
+          fetchEffect(`${validatedConfig.endpoint}/chat/completions`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${validatedConfig.apiKey}`,
+              'Content-Type': 'application/json',
+              ...(validatedConfig.organization && {
+                'OpenAI-Organization': validatedConfig.organization
+              })
+            },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(validatedConfig.timeout)
+          }).pipe(
+            Effect.mapError(
+              (error): LLMError => ({
+                _tag: 'NetworkError',
+                model: 'openai',
+                message: error.message
+              })
+            )
+          )
         )
 
         if (!response.ok) {
           const errorText = yield* _(
-            Effect.tryPromise({
-              try: () => response.text(),
-              catch: () => 'Unknown error'
-            })
+            parseTextResponse(response).pipe(Effect.catchAll(() => Effect.succeed('Unknown error')))
           )
 
           return yield* _(Effect.fail(mapHttpErrorToLLMError(response.status, errorText, 'openai')))
         }
 
         const data = yield* _(
-          Effect.tryPromise({
-            try: () => response.json() as Promise<OpenAIResponse>,
-            catch: (error) => ({
-              _tag: 'NetworkError' as const,
-              model: 'openai',
-              message: `Failed to parse response: ${error instanceof Error ? error.message : 'Unknown error'}`
-            })
-          })
+          parseJsonResponse<OpenAIResponse>(response).pipe(
+            Effect.mapError(
+              (error): LLMError => ({
+                _tag: 'NetworkError',
+                model: 'openai',
+                message: `Failed to parse response: ${error.message}`
+              })
+            )
+          )
         )
 
         const latency = Date.now() - startTime
@@ -363,34 +364,33 @@ export const makeOpenAIClient = (config: OpenAIConfig): ModelClient => ({
           }
 
           const response = yield* _(
-            Effect.tryPromise({
-              try: () =>
-                fetch(`${validatedConfig.endpoint}/chat/completions`, {
-                  method: 'POST',
-                  headers: {
-                    Authorization: `Bearer ${validatedConfig.apiKey}`,
-                    'Content-Type': 'application/json',
-                    ...(validatedConfig.organization && {
-                      'OpenAI-Organization': validatedConfig.organization
-                    })
-                  },
-                  body: JSON.stringify(payload),
-                  signal: AbortSignal.timeout(validatedConfig.timeout)
-                }),
-              catch: (error) => ({
-                _tag: 'NetworkError' as const,
-                model: 'openai',
-                message: error instanceof Error ? error.message : 'Network request failed'
-              })
-            })
+            fetchEffect(`${validatedConfig.endpoint}/chat/completions`, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${validatedConfig.apiKey}`,
+                'Content-Type': 'application/json',
+                ...(validatedConfig.organization && {
+                  'OpenAI-Organization': validatedConfig.organization
+                })
+              },
+              body: JSON.stringify(payload),
+              signal: AbortSignal.timeout(validatedConfig.timeout)
+            }).pipe(
+              Effect.mapError(
+                (error): LLMError => ({
+                  _tag: 'NetworkError',
+                  model: 'openai',
+                  message: error.message
+                })
+              )
+            )
           )
 
           if (!response.ok) {
             const errorText = yield* _(
-              Effect.tryPromise({
-                try: () => response.text(),
-                catch: () => 'Unknown error'
-              })
+              parseTextResponse(response).pipe(
+                Effect.catchAll(() => Effect.succeed('Unknown error'))
+              )
             )
 
             return Stream.fail(mapHttpErrorToLLMError(response.status, errorText, 'openai'))
@@ -414,14 +414,15 @@ export const makeOpenAIClient = (config: OpenAIConfig): ModelClient => ({
                 try {
                   while (true) {
                     const { done, value } = yield* _(
-                      Effect.tryPromise({
-                        try: () => reader.read(),
-                        catch: (error) => ({
-                          _tag: 'NetworkError' as const,
-                          model: 'openai',
-                          message: `Stream read error: ${error instanceof Error ? error.message : 'Unknown error'}`
-                        })
-                      })
+                      readFromStream(reader).pipe(
+                        Effect.mapError(
+                          (error): LLMError => ({
+                            _tag: 'NetworkError',
+                            model: 'openai',
+                            message: `Stream read error: ${error.message}`
+                          })
+                        )
+                      )
                     )
 
                     if (done) break

@@ -22,12 +22,7 @@ export type {
 } from './schemas.js'
 
 // Storage configuration
-export type {
-  StorageConfig,
-  ClickHouseConfig,
-  RetentionConfig,
-  PerformanceConfig
-} from './config.js'
+export type { StorageConfig, ClickHouseConfig, PerformanceConfig } from './config.js'
 export { StorageConfigSchema, defaultStorageConfig } from './config.js'
 
 // Error types

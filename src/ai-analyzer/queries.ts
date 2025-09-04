@@ -6,8 +6,8 @@
  */
 
 import { Effect } from 'effect'
-import type { ClickHouseClient } from '@clickhouse/client'
 import type { AnalysisError } from './types.js'
+import type { EffectClickHouseClient } from '../storage/clickhouse-effect-client.js'
 
 // Raw query result types
 export interface ServiceDependencyRaw {
@@ -263,26 +263,26 @@ export const ArchitectureQueries = {
 }
 
 /**
- * Query execution utilities
+ * Query execution utilities using Effect-native client
  */
 export const executeAnalysisQuery = <T>(
   query: string,
-  connection: ClickHouseClient
+  connection: EffectClickHouseClient
 ): Effect.Effect<T[], AnalysisError, never> =>
-  Effect.tryPromise({
-    try: async () => {
-      const result = await connection.query({
-        query,
-        format: 'JSONEachRow'
-      })
-      return result.json()
-    },
-    catch: (error): AnalysisError => ({
-      _tag: 'QueryError',
-      message: error instanceof Error ? error.message : 'Unknown query error',
-      query: query.slice(0, 200) + '...' // Truncate for logging
+  connection
+    .query<T>({
+      query,
+      format: 'JSONEachRow'
     })
-  })
+    .pipe(
+      Effect.mapError(
+        (error): AnalysisError => ({
+          _tag: 'QueryError',
+          message: error.message,
+          query: query.slice(0, 200) + '...' // Truncate for logging
+        })
+      )
+    )
 
 /**
  * Helper to build time-filtered queries

@@ -8,6 +8,7 @@
 import { Effect, Stream } from 'effect'
 import { Schema } from '@effect/schema'
 import type { LLMRequest, LLMResponse, LLMError, ModelClient } from '../types.js'
+import { fetchEffect, parseJsonResponse, readFromStream } from '../../shared/effect-interop.js'
 
 // LM Studio / Local model configuration
 const LocalModelConfigSchema = Schema.Struct({
@@ -102,32 +103,45 @@ export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => (
       }
 
       // Make API call to local model
-      const response = yield* _(
-        Effect.tryPromise({
-          try: async () => {
-            const fetchResponse = await fetch(`${validatedConfig.endpoint}/chat/completions`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(openAIRequest),
-              signal: AbortSignal.timeout(validatedConfig.timeout ?? 30000)
-            })
-
-            if (!fetchResponse.ok) {
-              throw new Error(
-                `Local model API error: ${fetchResponse.status} ${fetchResponse.statusText}`
-              )
-            }
-
-            return fetchResponse.json() as Promise<OpenAIResponse>
+      const fetchResponse = yield* _(
+        fetchEffect(`${validatedConfig.endpoint}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
           },
-          catch: (error) => ({
-            _tag: 'ModelUnavailable' as const,
+          body: JSON.stringify(openAIRequest),
+          signal: AbortSignal.timeout(validatedConfig.timeout ?? 30000)
+        }).pipe(
+          Effect.mapError(
+            (error): LLMError => ({
+              _tag: 'ModelUnavailable',
+              model: 'llama',
+              message: error.message
+            })
+          )
+        )
+      )
+
+      if (!fetchResponse.ok) {
+        return yield* _(
+          Effect.fail<LLMError>({
+            _tag: 'ModelUnavailable',
             model: 'llama',
-            message: error instanceof Error ? error.message : 'Unknown error'
+            message: `Local model API error: ${fetchResponse.status} ${fetchResponse.statusText}`
           })
-        })
+        )
+      }
+
+      const response = yield* _(
+        parseJsonResponse<OpenAIResponse>(fetchResponse).pipe(
+          Effect.mapError(
+            (error): LLMError => ({
+              _tag: 'NetworkError',
+              model: 'llama',
+              message: `Failed to parse response: ${error.message}`
+            })
+          )
+        )
       )
 
       const endTime = Date.now()
@@ -183,22 +197,22 @@ export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => (
           Effect.runPromise(
             Effect.gen(function* (_) {
               const fetchResponse = yield* _(
-                Effect.tryPromise({
-                  try: () =>
-                    fetch(`${validatedConfig.endpoint}/chat/completions`, {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json'
-                      },
-                      body: JSON.stringify(openAIRequest),
-                      signal: AbortSignal.timeout(validatedConfig.timeout ?? 30000)
-                    }),
-                  catch: (error) => ({
-                    _tag: 'ModelUnavailable' as const,
-                    model: 'llama',
-                    message: error instanceof Error ? error.message : 'Unknown error'
-                  })
-                })
+                fetchEffect(`${validatedConfig.endpoint}/chat/completions`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify(openAIRequest),
+                  signal: AbortSignal.timeout(validatedConfig.timeout ?? 30000)
+                }).pipe(
+                  Effect.mapError(
+                    (error): LLMError => ({
+                      _tag: 'ModelUnavailable',
+                      model: 'llama',
+                      message: error.message
+                    })
+                  )
+                )
               )
 
               if (!fetchResponse.ok) {
@@ -221,50 +235,53 @@ export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => (
               }
 
               // Process the stream within the Effect context
-              yield* _(
-                Effect.tryPromise({
-                  try: async () => {
-                    const decoder = new TextDecoder()
+              const processStream = Effect.gen(function* (_) {
+                const decoder = new TextDecoder()
 
-                    // eslint-disable-next-line no-constant-condition
-                    while (true) {
-                      const { done, value } = await reader.read()
-                      if (done) break
+                // eslint-disable-next-line no-constant-condition
+                while (true) {
+                  const { done, value } = yield* _(
+                    readFromStream(reader).pipe(
+                      Effect.mapError(
+                        (error): LLMError => ({
+                          _tag: 'NetworkError',
+                          model: 'llama',
+                          message: `Stream read error: ${error.message}`
+                        })
+                      )
+                    )
+                  )
+                  if (done) break
 
-                      const chunk = decoder.decode(value, { stream: true })
-                      const lines = chunk.split('\n').filter((line) => line.trim())
+                  const chunk = decoder.decode(value, { stream: true })
+                  const lines = chunk.split('\n').filter((line) => line.trim())
 
-                      for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                          const data = line.slice(6).trim()
-                          if (data === '[DONE]') {
-                            emit.end()
-                            return
-                          }
+                  for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                      const data = line.slice(6).trim()
+                      if (data === '[DONE]') {
+                        emit.end()
+                        return
+                      }
 
-                          try {
-                            const parsed: OpenAIStreamChunk = JSON.parse(data)
-                            const content = parsed.choices[0]?.delta?.content
-                            if (content) {
-                              emit.single(content)
-                            }
-                          } catch (parseError) {
-                            // Skip invalid JSON chunks
-                            continue
-                          }
+                      try {
+                        const parsed: OpenAIStreamChunk = JSON.parse(data)
+                        const content = parsed.choices[0]?.delta?.content
+                        if (content) {
+                          emit.single(content)
                         }
+                      } catch (parseError) {
+                        // Skip invalid JSON chunks
+                        continue
                       }
                     }
+                  }
+                }
 
-                    emit.end()
-                  },
-                  catch: (error) => ({
-                    _tag: 'NetworkError' as const,
-                    model: 'llama',
-                    message: error instanceof Error ? error.message : 'Streaming error'
-                  })
-                })
-              )
+                emit.end()
+              })
+
+              yield* _(processStream)
             })
           ).catch((error) => {
             // Handle any Effect errors
@@ -287,22 +304,24 @@ export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => (
         )
       )
 
-      return yield* _(
-        Effect.tryPromise({
-          try: async () => {
-            const response = await fetch(`${validatedConfig.endpoint}/models`, {
-              method: 'GET',
-              signal: AbortSignal.timeout(5000) // 5 second health check timeout
+      const response = yield* _(
+        fetchEffect(`${validatedConfig.endpoint}/models`, {
+          method: 'GET',
+          signal: AbortSignal.timeout(5000) // 5 second health check timeout
+        }).pipe(
+          Effect.mapError(
+            (error): LLMError => ({
+              _tag: 'ModelUnavailable',
+              model: 'llama',
+              message: error.message
             })
-            return response.ok
-          },
-          catch: (error): LLMError => ({
-            _tag: 'ModelUnavailable',
-            model: 'llama',
-            message: error instanceof Error ? error.message : 'Health check failed'
-          })
-        }).pipe(Effect.catchAll(() => Effect.succeed(false)))
+          ),
+          Effect.map((response) => response.ok),
+          Effect.catchAll(() => Effect.succeed(false))
+        )
       )
+
+      return response
     })
 })
 
@@ -335,16 +354,13 @@ export const createDefaultLocalClient = (): ModelClient => makeLocalModelClient(
 export const checkLocalModelHealth = (endpoint: string = 'http://localhost:1234/v1') =>
   Effect.gen(function* (_) {
     const isHealthy = yield* _(
-      Effect.tryPromise({
-        try: async () => {
-          const response = await fetch(`${endpoint}/models`, {
-            method: 'GET',
-            signal: AbortSignal.timeout(5000)
-          })
-          return response.ok
-        },
-        catch: () => false
-      })
+      fetchEffect(`${endpoint}/models`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000)
+      }).pipe(
+        Effect.map((response) => response.ok),
+        Effect.catchAll(() => Effect.succeed(false))
+      )
     )
 
     return {

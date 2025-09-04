@@ -70,7 +70,7 @@ export type StorageError = Schema.Schema.Type<typeof StorageErrorSchema>
 
 // Error constructors using Effect Data for better error handling
 export const StorageErrorConstructors = {
-  ConnectionError: (params: { message: string, host?: string, port?: number, cause?: unknown }) =>
+  ConnectionError: (params: { message: string; host?: string; port?: number; cause?: unknown }) =>
     Data.tagged<StorageError>('ConnectionError')(params),
 
   ValidationError: (message: string, errors: string[]) =>
@@ -79,13 +79,13 @@ export const StorageErrorConstructors = {
   QueryError: (message: string, query: string, cause?: unknown) =>
     Data.tagged<StorageError>('QueryError')({ message, query, cause }),
 
-  DatabaseError: (params: { message: string, operation?: string, cause?: unknown }) =>
+  DatabaseError: (params: { message: string; operation?: string; cause?: unknown }) =>
     Data.tagged<StorageError>('DatabaseError')(params),
 
-  ReadError: (params: { message: string, operation?: string, cause?: unknown }) =>
+  ReadError: (params: { message: string; operation?: string; cause?: unknown }) =>
     Data.tagged<StorageError>('ReadError')(params),
 
-  WriteError: (params: { message: string, operation?: string, cause?: unknown }) =>
+  WriteError: (params: { message: string; operation?: string; cause?: unknown }) =>
     Data.tagged<StorageError>('WriteError')(params),
 
   RetentionError: (message: string, policy: string) =>
@@ -108,6 +108,9 @@ export const matchStorageError = <A>(
     ConnectionError: (error: Extract<StorageError, { _tag: 'ConnectionError' }>) => A
     ValidationError: (error: Extract<StorageError, { _tag: 'ValidationError' }>) => A
     QueryError: (error: Extract<StorageError, { _tag: 'QueryError' }>) => A
+    DatabaseError: (error: Extract<StorageError, { _tag: 'DatabaseError' }>) => A
+    ReadError: (error: Extract<StorageError, { _tag: 'ReadError' }>) => A
+    WriteError: (error: Extract<StorageError, { _tag: 'WriteError' }>) => A
     RetentionError: (error: Extract<StorageError, { _tag: 'RetentionError' }>) => A
     ConfigurationError: (error: Extract<StorageError, { _tag: 'ConfigurationError' }>) => A
     StorageFullError: (error: Extract<StorageError, { _tag: 'StorageFullError' }>) => A
@@ -121,6 +124,12 @@ export const matchStorageError = <A>(
       return cases.ValidationError(error)
     case 'QueryError':
       return cases.QueryError(error)
+    case 'DatabaseError':
+      return cases.DatabaseError(error)
+    case 'ReadError':
+      return cases.ReadError(error)
+    case 'WriteError':
+      return cases.WriteError(error)
     case 'RetentionError':
       return cases.RetentionError(error)
     case 'ConfigurationError':

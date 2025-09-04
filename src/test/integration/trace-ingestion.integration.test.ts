@@ -15,7 +15,7 @@ import {
 // Test configuration
 const testConfig = {
   host: process.env.CLICKHOUSE_HOST || 'localhost',
-  port: parseInt(process.env.CLICKHOUSE_PORT || '8123'),
+  port: parseInt(process.env.CLICKHOUSE_PORT || '8124'),
   database: process.env.CLICKHOUSE_DATABASE || 'otel',
   username: process.env.CLICKHOUSE_USERNAME || 'otel',
   password: process.env.CLICKHOUSE_PASSWORD || 'otel123'
@@ -167,7 +167,6 @@ describe('Trace Ingestion Integration', () => {
 
     expect(healthResult).toBeDefined()
     expect(healthResult.clickhouse).toBe(true)
-    expect(typeof healthResult.s3).toBe('boolean')
   })
 
   it('should execute raw queries with proper data cleaning', async () => {

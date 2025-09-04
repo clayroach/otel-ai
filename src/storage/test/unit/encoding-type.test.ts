@@ -127,7 +127,7 @@ describe('StorageAPIClient Encoding Type', () => {
     const invalidData = {
       // Invalid: timestamp should be a number, not a string
       timestamp: "invalid-timestamp"
-    } as any as OTLPData
+    } as unknown as OTLPData
 
     // Create a test layer with actual validation
     const testConfig = {

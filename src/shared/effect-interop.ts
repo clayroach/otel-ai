@@ -1,52 +1,52 @@
 /**
  * Effect-TS Interop Module
- * 
+ *
  * Central module for Effect-TS patterns and external API integrations.
  * Provides common error types, Effect aliases, and Promise->Effect wrappers.
- * 
+ *
  * Following ADR-007: Migration from Promises to Effect-TS
  */
 
-import { Effect, Data, Layer, Context, Schedule, Duration } from "effect";
+import { Effect, Data, Layer, Context, Schedule, Duration } from 'effect'
 
 // ============================================================================
 // Common Error Types for the Application
 // ============================================================================
 
-export class NetworkError extends Data.TaggedError("NetworkError")<{
-  readonly message: string;
-  readonly cause?: unknown;
-  readonly statusCode?: number;
+export class NetworkError extends Data.TaggedError('NetworkError')<{
+  readonly message: string
+  readonly cause?: unknown
+  readonly statusCode?: number
 }> {}
 
-export class ParseError extends Data.TaggedError("ParseError")<{
-  readonly message: string;
-  readonly input?: unknown;
-  readonly cause?: unknown;
+export class ParseError extends Data.TaggedError('ParseError')<{
+  readonly message: string
+  readonly input?: unknown
+  readonly cause?: unknown
 }> {}
 
-export class DatabaseError extends Data.TaggedError("DatabaseError")<{
-  readonly message: string;
-  readonly operation?: string;
-  readonly cause?: unknown;
+export class DatabaseError extends Data.TaggedError('DatabaseError')<{
+  readonly message: string
+  readonly operation?: string
+  readonly cause?: unknown
 }> {}
 
-export class ConfigurationError extends Data.TaggedError("ConfigurationError")<{
-  readonly message: string;
-  readonly property?: string;
-  readonly expected?: string;
+export class ConfigurationError extends Data.TaggedError('ConfigurationError')<{
+  readonly message: string
+  readonly property?: string
+  readonly expected?: string
 }> {}
 
-export class ValidationError extends Data.TaggedError("ValidationError")<{
-  readonly message: string;
-  readonly field?: string;
-  readonly value?: unknown;
+export class ValidationError extends Data.TaggedError('ValidationError')<{
+  readonly message: string
+  readonly field?: string
+  readonly value?: unknown
 }> {}
 
-export class FileSystemError extends Data.TaggedError("FileSystemError")<{
-  readonly message: string;
-  readonly path?: string;
-  readonly cause?: unknown;
+export class FileSystemError extends Data.TaggedError('FileSystemError')<{
+  readonly message: string
+  readonly path?: string
+  readonly cause?: unknown
 }> {}
 
 // ============================================================================
@@ -54,16 +54,20 @@ export class FileSystemError extends Data.TaggedError("FileSystemError")<{
 // ============================================================================
 
 /** Effect with no environment requirements */
-export type SafeEffect<E, A> = Effect.Effect<A, E, never>;
+export type SafeEffect<E, A> = Effect.Effect<A, E, never>
 
 /** Effect that can fail with any application error */
-export type AppEffect<A> = Effect.Effect<A, NetworkError | ParseError | DatabaseError | ConfigurationError | ValidationError, never>;
+export type AppEffect<A> = Effect.Effect<
+  A,
+  NetworkError | ParseError | DatabaseError | ConfigurationError | ValidationError,
+  never
+>
 
 /** Effect for database operations */
-export type DatabaseEffect<A> = Effect.Effect<A, DatabaseError, never>;
+export type DatabaseEffect<A> = Effect.Effect<A, DatabaseError, never>
 
 /** Effect for network operations */
-export type NetworkEffect<A> = Effect.Effect<A, NetworkError | ParseError, never>;
+export type NetworkEffect<A> = Effect.Effect<A, NetworkError | ParseError, never>
 
 // ============================================================================
 // Promise->Effect Wrapper Functions
@@ -72,30 +76,79 @@ export type NetworkEffect<A> = Effect.Effect<A, NetworkError | ParseError, never
 /**
  * Wraps fetch API calls in Effect with proper error handling
  */
-export const fetchEffect = (input: RequestInfo | URL, init?: RequestInit): NetworkEffect<Response> =>
+export const fetchEffect = (
+  input: RequestInfo | URL,
+  init?: RequestInit
+): NetworkEffect<Response> =>
   Effect.tryPromise({
     try: () => fetch(input, init),
-    catch: (cause) => new NetworkError({ 
-      message: `Failed to fetch ${String(input)}`, 
-      cause 
-    })
-  });
+    catch: (cause) =>
+      new NetworkError({
+        message: `Failed to fetch ${String(input)}`,
+        cause
+      })
+  })
 
 /**
  * Fetches JSON with type safety
  */
-export const fetchJsonEffect = <T>(input: RequestInfo | URL, init?: RequestInit): NetworkEffect<T> =>
+export const fetchJsonEffect = <T>(
+  input: RequestInfo | URL,
+  init?: RequestInit
+): NetworkEffect<T> =>
   fetchEffect(input, init).pipe(
-    Effect.flatMap(response => 
+    Effect.flatMap((response) =>
       Effect.tryPromise({
         try: () => response.json() as Promise<T>,
-        catch: (cause) => new ParseError({ 
-          message: `Failed to parse JSON response from ${String(input)}`, 
-          cause 
-        })
+        catch: (cause) =>
+          new ParseError({
+            message: `Failed to parse JSON response from ${String(input)}`,
+            cause
+          })
       })
     )
-  );
+  )
+
+/**
+ * Parse response as JSON with proper error handling
+ */
+export const parseJsonResponse = <T>(response: Response): Effect.Effect<T, ParseError, never> =>
+  Effect.tryPromise({
+    try: () => response.json() as Promise<T>,
+    catch: (cause) =>
+      new ParseError({
+        message: `Failed to parse JSON response`,
+        cause
+      })
+  })
+
+/**
+ * Parse response as text with proper error handling
+ */
+export const parseTextResponse = (response: Response): Effect.Effect<string, ParseError, never> =>
+  Effect.tryPromise({
+    try: () => response.text(),
+    catch: (cause) =>
+      new ParseError({
+        message: `Failed to read text response`,
+        cause
+      })
+  })
+
+/**
+ * Read from a stream reader with proper error handling
+ */
+export const readFromStream = <T>(
+  reader: ReadableStreamDefaultReader<T>
+): Effect.Effect<ReadableStreamReadResult<T>, NetworkError, never> =>
+  Effect.tryPromise({
+    try: () => reader.read(),
+    catch: (cause) =>
+      new NetworkError({
+        message: `Stream read error`,
+        cause
+      })
+  })
 
 /**
  * Generic Promise wrapper with custom error mapping
@@ -107,7 +160,7 @@ export const promiseToEffect = <A, E>(
   Effect.tryPromise({
     try: promise,
     catch: mapError
-  });
+  })
 
 /**
  * Wraps Node.js callback-style functions
@@ -119,12 +172,12 @@ export const callbackToEffect = <A, E>(
   Effect.async<A, E>((resume) => {
     fn((error, result) => {
       if (error) {
-        resume(Effect.fail(mapError(error)));
+        resume(Effect.fail(mapError(error)))
       } else {
-        resume(Effect.succeed(result));
+        resume(Effect.succeed(result))
       }
-    });
-  });
+    })
+  })
 
 // ============================================================================
 // Helper Utilities for Common Effect Patterns
@@ -144,7 +197,7 @@ export const retryWithBackoff = <A, E, R>(
         Schedule.compose(Schedule.recurs(maxRetries))
       )
     )
-  );
+  )
 
 /**
  * Add timeout to an Effect
@@ -155,12 +208,14 @@ export const withTimeout = <A, E, R>(
 ): Effect.Effect<A, E | NetworkError, R> =>
   effect.pipe(
     Effect.timeout(Duration.millis(duration)),
-    Effect.catchTag("TimeoutException", () =>
-      Effect.fail(new NetworkError({ 
-        message: `Operation timed out after ${duration}ms` 
-      }))
+    Effect.catchTag('TimeoutException', () =>
+      Effect.fail(
+        new NetworkError({
+          message: `Operation timed out after ${duration}ms`
+        })
+      )
     )
-  );
+  )
 
 /**
  * Log and re-throw an error for debugging
@@ -169,11 +224,7 @@ export const tapError = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
   message: string
 ): Effect.Effect<A, E, R> =>
-  effect.pipe(
-    Effect.tapError((error) => 
-      Effect.log(`${message}: ${String(error)}`)
-    )
-  );
+  effect.pipe(Effect.tapError((error) => Effect.log(`${message}: ${String(error)}`)))
 
 /**
  * Convert undefined to an Effect failure
@@ -182,7 +233,7 @@ export const fromNullable = <A>(
   value: A | null | undefined,
   error: () => unknown
 ): Effect.Effect<A, unknown, never> =>
-  value != null ? Effect.succeed(value) : Effect.fail(error());
+  value != null ? Effect.succeed(value) : Effect.fail(error())
 
 // ============================================================================
 // Service Context Types and Layers
@@ -192,22 +243,22 @@ export const fromNullable = <A>(
  * Logger service interface
  */
 export interface LoggerService {
-  readonly info: (message: string) => Effect.Effect<void>;
-  readonly error: (message: string, error?: unknown) => Effect.Effect<void>;
-  readonly debug: (message: string) => Effect.Effect<void>;
+  readonly info: (message: string) => Effect.Effect<void>
+  readonly error: (message: string, error?: unknown) => Effect.Effect<void>
+  readonly debug: (message: string) => Effect.Effect<void>
 }
 
-export const Logger = Context.GenericTag<LoggerService>("Logger");
+export const Logger = Context.GenericTag<LoggerService>('Logger')
 
 /**
  * Console-based Logger implementation
  */
 export const ConsoleLogger = Layer.succeed(Logger, {
   info: (message: string) => Effect.sync(() => console.log(`[INFO] ${message}`)),
-  error: (message: string, error?: unknown) => 
+  error: (message: string, error?: unknown) =>
     Effect.sync(() => console.error(`[ERROR] ${message}`, error ? String(error) : '')),
   debug: (message: string) => Effect.sync(() => console.log(`[DEBUG] ${message}`))
-});
+})
 
 // ============================================================================
 // Testing Utilities
@@ -216,15 +267,13 @@ export const ConsoleLogger = Layer.succeed(Logger, {
 /**
  * Create a test Layer that provides all common services
  */
-export const TestLayer = Layer.mergeAll(
-  ConsoleLogger
-);
+export const TestLayer = Layer.mergeAll(ConsoleLogger)
 
 /**
  * Run an Effect for testing with proper error handling
  */
 export const runTest = <A>(effect: Effect.Effect<A, never, never>): Promise<A> =>
-  Effect.runPromise(effect);
+  Effect.runPromise(effect)
 
 /**
  * Run an Effect for testing with a test layer
@@ -232,5 +281,4 @@ export const runTest = <A>(effect: Effect.Effect<A, never, never>): Promise<A> =
 export const runTestWithLayer = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
   layer: Layer.Layer<R, never, never>
-): Promise<A> =>
-  Effect.runPromise(effect.pipe(Effect.provide(layer)));
+): Promise<A> => Effect.runPromise(effect.pipe(Effect.provide(layer)))

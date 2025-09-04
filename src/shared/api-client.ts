@@ -7,6 +7,7 @@
 
 import { Effect, Layer, Context } from 'effect'
 import { Schema } from '@effect/schema'
+import { fetchEffect, parseJsonResponse } from './effect-interop.js'
 
 // Error types for API operations - using simple tagged union pattern
 export type APIClientError =
@@ -37,97 +38,127 @@ export interface APIClient {
   ) => Effect.Effect<A, APIClientError, never>
 }
 
-// Implementation using Effect.tryPromise pattern from working files
+// Implementation using centralized Effect patterns
 export const APIClientLive: APIClient = {
-  get: <A>(url: string, schema: Schema.Schema<A>): Effect.Effect<A, APIClientError, never> => {
-    return Effect.tryPromise({
-      try: async () => {
-        const response = await fetch(url)
+  get: <A>(url: string, schema: Schema.Schema<A>): Effect.Effect<A, APIClientError, never> =>
+    Effect.gen(function* (_) {
+      // Fetch with proper error handling
+      const response = yield* _(
+        fetchEffect(url).pipe(
+          Effect.mapError(
+            (error): APIClientError => ({
+              _tag: 'NetworkError',
+              message: error.message,
+              cause: error.cause
+            })
+          )
+        )
+      )
 
-        if (!response.ok) {
-          throw {
-            _tag: 'APIError' as const,
+      // Check response status
+      if (!response.ok) {
+        return yield* _(
+          Effect.fail<APIClientError>({
+            _tag: 'APIError',
             status: response.status,
             message: `HTTP ${response.status}: ${response.statusText}`,
             details: { url }
-          }
-        }
-
-        const json = await response.json()
-
-        // Validate with schema
-        const result = Schema.decodeUnknownEither(schema)(json)
-        if (result._tag === 'Left') {
-          throw {
-            _tag: 'ValidationError' as const,
-            message: 'Response validation failed',
-            errors: [result.left.message]
-          }
-        }
-
-        return result.right
-      },
-      catch: (error): APIClientError => {
-        if (error && typeof error === 'object' && '_tag' in error) {
-          return error as APIClientError // Return our typed errors
-        }
-        return {
-          _tag: 'NetworkError',
-          message: `Network request failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          cause: error
-        }
+          })
+        )
       }
-    })
-  },
+
+      // Parse JSON response
+      const json = yield* _(
+        parseJsonResponse<unknown>(response).pipe(
+          Effect.mapError(
+            (error): APIClientError => ({
+              _tag: 'NetworkError',
+              message: `Failed to parse response: ${error.message}`,
+              cause: error.cause
+            })
+          )
+        )
+      )
+
+      // Validate with schema
+      const validated = yield* _(
+        Schema.decodeUnknown(schema)(json).pipe(
+          Effect.mapError(
+            (error): APIClientError => ({
+              _tag: 'ValidationError',
+              message: 'Response validation failed',
+              errors: [error.message]
+            })
+          )
+        )
+      )
+
+      return validated
+    }),
 
   post: <A, B>(
     url: string,
     data: B,
     responseSchema: Schema.Schema<A>
-  ): Effect.Effect<A, APIClientError, never> => {
-    return Effect.tryPromise({
-      try: async () => {
-        const response = await fetch(url, {
+  ): Effect.Effect<A, APIClientError, never> =>
+    Effect.gen(function* (_) {
+      // Fetch with proper error handling
+      const response = yield* _(
+        fetchEffect(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
-        })
+        }).pipe(
+          Effect.mapError(
+            (error): APIClientError => ({
+              _tag: 'NetworkError',
+              message: error.message,
+              cause: error.cause
+            })
+          )
+        )
+      )
 
-        if (!response.ok) {
-          throw {
-            _tag: 'APIError' as const,
+      // Check response status
+      if (!response.ok) {
+        return yield* _(
+          Effect.fail<APIClientError>({
+            _tag: 'APIError',
             status: response.status,
             message: `HTTP ${response.status}: ${response.statusText}`,
             details: { url, data }
-          }
-        }
-
-        const json = await response.json()
-
-        // Validate with schema
-        const result = Schema.decodeUnknownEither(responseSchema)(json)
-        if (result._tag === 'Left') {
-          throw {
-            _tag: 'ValidationError' as const,
-            message: 'Response validation failed',
-            errors: [result.left.message]
-          }
-        }
-
-        return result.right
-      },
-      catch: (error): APIClientError => {
-        if (error && typeof error === 'object' && '_tag' in error) {
-          return error as APIClientError // Return our typed errors
-        }
-        return {
-          _tag: 'NetworkError',
-          message: `Network request failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          cause: error
-        }
+          })
+        )
       }
+
+      // Parse JSON response
+      const json = yield* _(
+        parseJsonResponse<unknown>(response).pipe(
+          Effect.mapError(
+            (error): APIClientError => ({
+              _tag: 'NetworkError',
+              message: `Failed to parse response: ${error.message}`,
+              cause: error.cause
+            })
+          )
+        )
+      )
+
+      // Validate with schema
+      const validated = yield* _(
+        Schema.decodeUnknown(responseSchema)(json).pipe(
+          Effect.mapError(
+            (error): APIClientError => ({
+              _tag: 'ValidationError',
+              message: 'Response validation failed',
+              errors: [error.message]
+            })
+          )
+        )
+      )
+
+      return validated
     })
-  }
 }
 
 // Context tag for dependency injection using proper Effect-TS patterns

@@ -3,7 +3,7 @@
  * Following ADR-007: No tryPromise in domain code
  */
 
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Context } from 'effect'
 import { Schema } from '@effect/schema'
 import {
   type TraceData,
@@ -18,10 +18,10 @@ import {
 } from './schemas.js'
 import { type ClickHouseConfig } from './config.js'
 import { type StorageError, StorageErrorConstructors } from './errors.js'
-import { 
+import {
   makeEffectClickHouseClientLayer,
   EffectClickHouseClientTag,
-  DatabaseError 
+  DatabaseError
 } from './clickhouse-effect-client.js'
 
 // ============================================================================
@@ -43,6 +43,11 @@ export interface ClickHouseStorage {
   readonly close: () => Effect.Effect<void, never>
 }
 
+export class ClickHouseStorageTag extends Context.Tag('ClickHouseStorage')<
+  ClickHouseStorageTag,
+  ClickHouseStorage
+>() {}
+
 // ============================================================================
 // Implementation using Effect-native client
 // ============================================================================
@@ -55,14 +60,16 @@ export const makeClickHouseStorage = (
     const clientLayer = makeEffectClickHouseClientLayer(config)
     const client = yield* EffectClickHouseClientTag.pipe(
       Effect.provide(clientLayer),
-      Effect.mapError((error: any) => 
-        StorageErrorConstructors.ConnectionError({
-          message: error.message,
-          host: error.host,
-          port: error.port,
-          cause: error.cause
-        })
-      )
+      Effect.mapError((error: unknown) => {
+        const err = error as { message?: string; host?: string; port?: number; cause?: unknown }
+        const errorParams: { message: string; host?: string; port?: number; cause?: unknown } = {
+          message: err.message || 'Connection failed'
+        }
+        if (err.host !== undefined) errorParams.host = err.host
+        if (err.port !== undefined) errorParams.port = err.port
+        if (err.cause !== undefined) errorParams.cause = err.cause
+        return StorageErrorConstructors.ConnectionError(errorParams)
+      })
     )
 
     // Test connection
@@ -104,11 +111,9 @@ export const makeClickHouseStorage = (
       })
 
     const writeBatch = (data: OTLPData[]): Effect.Effect<void, StorageError> =>
-      Effect.forEach(
-        data, 
-        (batch) => writeOTLP(batch), 
-        { concurrency: config.maxOpenConnections ?? 5 }
-      ).pipe(Effect.map(() => void 0))
+      Effect.forEach(data, (batch) => writeOTLP(batch), {
+        concurrency: config.maxOpenConnections ?? 5
+      }).pipe(Effect.map(() => void 0))
 
     const writeTraces = (
       traces: TraceData[],
@@ -138,31 +143,36 @@ export const makeClickHouseStorage = (
             trace_state: '',
             scope_name: '',
             scope_version: '',
-            span_attributes: JSON.stringify(trace.attributes || {}),
-            resource_attributes: JSON.stringify(trace.resourceAttributes || {}),
+            span_attributes: trace.attributes || {},
+            resource_attributes: trace.resourceAttributes || {},
             events: JSON.stringify(trace.events || []),
             links: JSON.stringify(trace.links || []),
             ingestion_time: Date.now() * 1000000,
-            processing_version: '1.0.0',
+            processing_version: 1,
             encoding_type: encodingType
           }
         })
 
         console.log(`📝 [Debug] Batch insert to traces table: ${values.length} records`)
-
-        yield* client.insert({
-          table: 'traces',
-          values,
-          format: 'JSONEachRow'
-        }).pipe(
-          Effect.mapError((error: DatabaseError) => 
-            StorageErrorConstructors.WriteError({
-              message: `Failed to write traces: ${error.message}`,
-              operation: 'writeTraces',
-              cause: error
-            })
-          )
+        console.log(
+          `📝 [Debug] Sample value to insert:`,
+          JSON.stringify(values[0], null, 2).slice(0, 300)
         )
+
+        yield* client
+          .insert({
+            table: 'traces',
+            values
+          })
+          .pipe(
+            Effect.mapError((error: DatabaseError) =>
+              StorageErrorConstructors.WriteError({
+                message: `Failed to write traces: ${error.message}`,
+                operation: 'writeTraces',
+                cause: error
+              })
+            )
+          )
       })
 
     const writeMetrics = (metrics: MetricData[]): Effect.Effect<void, StorageError> =>
@@ -177,22 +187,23 @@ export const makeClickHouseStorage = (
           resource_attributes: JSON.stringify(metric.resourceAttributes || {}),
           service_name: '',
           ingestion_time: Date.now() * 1000000,
-          processing_version: '1.0.0'
+          processing_version: 1
         }))
 
-        yield* client.insert({
-          table: 'metrics',
-          values,
-          format: 'JSONEachRow'
-        }).pipe(
-          Effect.mapError((error: DatabaseError) =>
-            StorageErrorConstructors.WriteError({
-              message: `Failed to write metrics: ${error.message}`,
-              operation: 'writeMetrics',
-              cause: error
-            })
+        yield* client
+          .insert({
+            table: 'metrics',
+            values
+          })
+          .pipe(
+            Effect.mapError((error: DatabaseError) =>
+              StorageErrorConstructors.WriteError({
+                message: `Failed to write metrics: ${error.message}`,
+                operation: 'writeMetrics',
+                cause: error
+              })
+            )
           )
-        )
       })
 
     const writeLogs = (logs: LogData[]): Effect.Effect<void, StorageError> =>
@@ -207,22 +218,23 @@ export const makeClickHouseStorage = (
           trace_id: log.traceId || '',
           span_id: log.spanId || '',
           ingestion_time: Date.now() * 1000000,
-          processing_version: '1.0.0'
+          processing_version: 1
         }))
 
-        yield* client.insert({
-          table: 'logs',
-          values,
-          format: 'JSONEachRow'
-        }).pipe(
-          Effect.mapError((error: DatabaseError) =>
-            StorageErrorConstructors.WriteError({
-              message: `Failed to write logs: ${error.message}`,
-              operation: 'writeLogs',
-              cause: error
-            })
+        yield* client
+          .insert({
+            table: 'logs',
+            values
+          })
+          .pipe(
+            Effect.mapError((error: DatabaseError) =>
+              StorageErrorConstructors.WriteError({
+                message: `Failed to write logs: ${error.message}`,
+                operation: 'writeLogs',
+                cause: error
+              })
+            )
           )
-        )
       })
 
     const queryTraces = (params: QueryParams): Effect.Effect<TraceData[], StorageError> =>
@@ -233,28 +245,31 @@ export const makeClickHouseStorage = (
           )
         )
 
+        const serviceName = validated.filters?.serviceName as string | undefined
         const query = `
           SELECT * FROM traces
           WHERE start_time >= now() - INTERVAL ${validated.timeRange}
-          ${validated.serviceName ? `AND service_name = '${validated.serviceName}'` : ''}
+          ${serviceName ? `AND service_name = '${serviceName}'` : ''}
           ORDER BY start_time DESC
           LIMIT ${validated.limit ?? 100}
         `
 
         console.log(`📊 [Debug] Executing trace query: ${query.substring(0, 100)}...`)
 
-        const result = yield* client.query<TraceData>({
-          query,
-          format: 'JSONEachRow'
-        }).pipe(
-          Effect.mapError((error: DatabaseError) =>
-            StorageErrorConstructors.ReadError({
-              message: `Failed to query traces: ${error.message}`,
-              operation: 'queryTraces',
-              cause: error
-            })
+        const result = yield* client
+          .query<TraceData>({
+            query,
+            format: 'JSONEachRow'
+          })
+          .pipe(
+            Effect.mapError((error: DatabaseError) =>
+              StorageErrorConstructors.ReadError({
+                message: `Failed to query traces: ${error.message}`,
+                operation: 'queryTraces',
+                cause: error
+              })
+            )
           )
-        )
 
         return result
       })
@@ -267,26 +282,29 @@ export const makeClickHouseStorage = (
           )
         )
 
+        const serviceName = validated.filters?.serviceName as string | undefined
         const query = `
           SELECT * FROM metrics
           WHERE timestamp >= now() - INTERVAL ${validated.timeRange}
-          ${validated.serviceName ? `AND service_name = '${validated.serviceName}'` : ''}
+          ${serviceName ? `AND service_name = '${serviceName}'` : ''}
           ORDER BY timestamp DESC
           LIMIT ${validated.limit ?? 100}
         `
 
-        const result = yield* client.query<MetricData>({
-          query,
-          format: 'JSONEachRow'
-        }).pipe(
-          Effect.mapError((error: DatabaseError) =>
-            StorageErrorConstructors.ReadError({
-              message: `Failed to query metrics: ${error.message}`,
-              operation: 'queryMetrics',
-              cause: error
-            })
+        const result = yield* client
+          .query<MetricData>({
+            query,
+            format: 'JSONEachRow'
+          })
+          .pipe(
+            Effect.mapError((error: DatabaseError) =>
+              StorageErrorConstructors.ReadError({
+                message: `Failed to query metrics: ${error.message}`,
+                operation: 'queryMetrics',
+                cause: error
+              })
+            )
           )
-        )
 
         return result
       })
@@ -299,76 +317,98 @@ export const makeClickHouseStorage = (
           )
         )
 
+        const serviceName = validated.filters?.serviceName as string | undefined
         const query = `
           SELECT * FROM logs
           WHERE timestamp >= now() - INTERVAL ${validated.timeRange}
-          ${validated.serviceName ? `AND service_name = '${validated.serviceName}'` : ''}
+          ${serviceName ? `AND service_name = '${serviceName}'` : ''}
           ORDER BY timestamp DESC
           LIMIT ${validated.limit ?? 100}
         `
 
-        const result = yield* client.query<LogData>({
-          query,
-          format: 'JSONEachRow'
-        }).pipe(
-          Effect.mapError((error: DatabaseError) =>
-            StorageErrorConstructors.ReadError({
-              message: `Failed to query logs: ${error.message}`,
-              operation: 'queryLogs',
-              cause: error
-            })
+        const result = yield* client
+          .query<LogData>({
+            query,
+            format: 'JSONEachRow'
+          })
+          .pipe(
+            Effect.mapError((error: DatabaseError) =>
+              StorageErrorConstructors.ReadError({
+                message: `Failed to query logs: ${error.message}`,
+                operation: 'queryLogs',
+                cause: error
+              })
+            )
           )
-        )
 
         return result
       })
 
     const queryForAI = (params: AIQueryParams): Effect.Effect<AIDataset, StorageError> =>
       Effect.gen(function* () {
+        const sampleSize = params.windowSize ?? 1000
         const query = `
           SELECT * FROM traces
-          WHERE start_time >= now() - INTERVAL ${params.timeRange}
+          WHERE start_time >= toDateTime64(${params.timeRange.start}, 9)
+            AND start_time <= toDateTime64(${params.timeRange.end}, 9)
           ORDER BY start_time DESC
-          LIMIT ${params.sampleSize ?? 1000}
+          LIMIT ${sampleSize}
         `
 
-        const result = yield* client.query<unknown>({
-          query,
-          format: 'JSONEachRow'
-        }).pipe(
-          Effect.mapError((error: DatabaseError) =>
-            StorageErrorConstructors.ReadError({
-              message: `Failed to query for AI: ${error.message}`,
-              operation: 'queryForAI',
-              cause: error
-            })
+        const result = yield* client
+          .query<Record<string, unknown>>({
+            query,
+            format: 'JSONEachRow'
+          })
+          .pipe(
+            Effect.mapError((error: DatabaseError) =>
+              StorageErrorConstructors.ReadError({
+                message: `Failed to query for AI: ${error.message}`,
+                operation: 'queryForAI',
+                cause: error
+              })
+            )
           )
-        )
+
+        // Transform the traces into feature vectors for AI processing
+        const features = result.map((trace) => {
+          // Extract numeric features from traces for AI processing
+          const duration = Number(trace.duration_ns) || 0
+          const statusCode = Number(trace.status_code) || 0
+          const startTime = Number(trace.start_time) || 0
+
+          return [duration, statusCode, startTime]
+        })
 
         return {
-          traces: result as TraceData[],
-          metrics: [],
-          logs: [],
+          features,
+          labels: undefined,
           metadata: {
             timeRange: params.timeRange,
-            sampleSize: params.sampleSize ?? 1000
-          }
+            sampleCount: result.length,
+            datasetType: params.datasetType,
+            features: params.features
+          },
+          timeRange: params.timeRange,
+          sampleCount: result.length
         }
       })
 
     const queryRaw = (sql: string): Effect.Effect<unknown[], StorageError> =>
-      client.query({
-        query: sql,
-        format: 'JSONEachRow'
-      }).pipe(
-        Effect.mapError((error: DatabaseError) =>
-          StorageErrorConstructors.DatabaseError({
-            message: `Query failed: ${error.message}`,
-            operation: 'queryRaw',
-            cause: error
-          })
+      client
+        .query({
+          query: sql,
+          format: 'JSONEachRow'
+        })
+        .pipe(
+          Effect.mapError((error: DatabaseError) =>
+            StorageErrorConstructors.DatabaseError({
+              message: `Query failed: ${error.message}`,
+              operation: 'queryRaw',
+              cause: error
+            })
+          )
         )
-      )
 
     const healthCheck = (): Effect.Effect<boolean, StorageError> =>
       client.ping().pipe(
@@ -380,8 +420,7 @@ export const makeClickHouseStorage = (
         )
       )
 
-    const close = (): Effect.Effect<void, never> =>
-      client.close()
+    const close = (): Effect.Effect<void, never> => client.close()
 
     // Return the storage implementation
     return {
@@ -403,9 +442,5 @@ export const makeClickHouseStorage = (
 
 export const makeClickHouseStorageLayer = (
   config: ClickHouseConfig
-): Layer.Layer<ClickHouseStorage, StorageError, never> =>
-  Layer.effect(
-    ClickHouseStorage,
-    makeClickHouseStorage(config)
-  )
-
+): Layer.Layer<ClickHouseStorageTag, StorageError, never> =>
+  Layer.effect(ClickHouseStorageTag, makeClickHouseStorage(config))

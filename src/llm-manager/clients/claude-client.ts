@@ -9,6 +9,12 @@ import { Effect, Stream, Schedule, Duration } from 'effect'
 import { Schema } from '@effect/schema'
 import type { ModelClient, LLMRequest, LLMResponse, LLMError } from '../types.js'
 import { withLLMError } from './error-utils.js'
+import {
+  fetchEffect,
+  parseJsonResponse,
+  parseTextResponse,
+  readFromStream
+} from '../../shared/effect-interop.js'
 
 /**
  * Claude Configuration Schema
@@ -155,38 +161,35 @@ export const checkClaudeHealth = (config?: Partial<ClaudeConfig>) =>
     try {
       // Claude doesn't have a simple health endpoint, so we'll use a minimal message
       const response = yield* _(
-        Effect.tryPromise({
-          try: () =>
-            fetch(`${validatedConfig.endpoint}/v1/messages`, {
-              method: 'POST',
-              headers: {
-                'x-api-key': validatedConfig.apiKey,
-                'Content-Type': 'application/json',
-                'anthropic-version': '2023-06-01'
-              },
-              body: JSON.stringify({
-                model: validatedConfig.model,
-                max_tokens: 10,
-                messages: [{ role: 'user', content: 'Hi' }]
-              }),
-              signal: AbortSignal.timeout(validatedConfig.timeout)
-            }),
-          catch: (error) => ({
-            _tag: 'NetworkError' as const,
-            model: 'claude',
-            message: error instanceof Error ? error.message : 'Network request failed'
-          })
-        })
+        fetchEffect(`${validatedConfig.endpoint}/v1/messages`, {
+          method: 'POST',
+          headers: {
+            'x-api-key': validatedConfig.apiKey,
+            'Content-Type': 'application/json',
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify({
+            model: validatedConfig.model,
+            max_tokens: 10,
+            messages: [{ role: 'user', content: 'Hi' }]
+          }),
+          signal: AbortSignal.timeout(validatedConfig.timeout)
+        }).pipe(
+          Effect.mapError(
+            (error): LLMError => ({
+              _tag: 'NetworkError',
+              model: 'claude',
+              message: error.message
+            })
+          )
+        )
       )
 
       const latency = Date.now() - startTime
 
       if (!response.ok) {
         const errorText = yield* _(
-          Effect.tryPromise({
-            try: () => response.text(),
-            catch: () => 'Unknown error'
-          })
+          parseTextResponse(response).pipe(Effect.catchAll(() => Effect.succeed('Unknown error')))
         )
         return {
           endpoint:
@@ -254,46 +257,44 @@ export const makeClaudeClient = (config: ClaudeConfig): ModelClient => ({
         }
 
         const response = yield* _(
-          Effect.tryPromise({
-            try: () =>
-              fetch(`${validatedConfig.endpoint}/v1/messages`, {
-                method: 'POST',
-                headers: {
-                  'x-api-key': validatedConfig.apiKey,
-                  'Content-Type': 'application/json',
-                  'anthropic-version': '2023-06-01'
-                },
-                body: JSON.stringify(payload),
-                signal: AbortSignal.timeout(validatedConfig.timeout)
-              }),
-            catch: (error) => ({
-              _tag: 'NetworkError' as const,
-              model: 'claude',
-              message: error instanceof Error ? error.message : 'Network request failed'
-            })
-          })
+          fetchEffect(`${validatedConfig.endpoint}/v1/messages`, {
+            method: 'POST',
+            headers: {
+              'x-api-key': validatedConfig.apiKey,
+              'Content-Type': 'application/json',
+              'anthropic-version': '2023-06-01'
+            },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(validatedConfig.timeout)
+          }).pipe(
+            Effect.mapError(
+              (error): LLMError => ({
+                _tag: 'NetworkError',
+                model: 'claude',
+                message: error.message
+              })
+            )
+          )
         )
 
         if (!response.ok) {
           const errorText = yield* _(
-            Effect.tryPromise({
-              try: () => response.text(),
-              catch: () => 'Unknown error'
-            })
+            parseTextResponse(response).pipe(Effect.catchAll(() => Effect.succeed('Unknown error')))
           )
 
           return yield* _(Effect.fail(mapHttpErrorToLLMError(response.status, errorText, 'claude')))
         }
 
         const data = yield* _(
-          Effect.tryPromise({
-            try: () => response.json() as Promise<ClaudeResponse>,
-            catch: (error) => ({
-              _tag: 'NetworkError' as const,
-              model: 'claude',
-              message: `Failed to parse response: ${error instanceof Error ? error.message : 'Unknown error'}`
-            })
-          })
+          parseJsonResponse<ClaudeResponse>(response).pipe(
+            Effect.mapError(
+              (error): LLMError => ({
+                _tag: 'NetworkError',
+                model: 'claude',
+                message: `Failed to parse response: ${error.message}`
+              })
+            )
+          )
         )
 
         const latency = Date.now() - startTime
@@ -373,32 +374,31 @@ export const makeClaudeClient = (config: ClaudeConfig): ModelClient => ({
           }
 
           const response = yield* _(
-            Effect.tryPromise({
-              try: () =>
-                fetch(`${validatedConfig.endpoint}/v1/messages`, {
-                  method: 'POST',
-                  headers: {
-                    'x-api-key': validatedConfig.apiKey,
-                    'Content-Type': 'application/json',
-                    'anthropic-version': '2023-06-01'
-                  },
-                  body: JSON.stringify(payload),
-                  signal: AbortSignal.timeout(validatedConfig.timeout)
-                }),
-              catch: (error) => ({
-                _tag: 'NetworkError' as const,
-                model: 'claude',
-                message: error instanceof Error ? error.message : 'Network request failed'
-              })
-            })
+            fetchEffect(`${validatedConfig.endpoint}/v1/messages`, {
+              method: 'POST',
+              headers: {
+                'x-api-key': validatedConfig.apiKey,
+                'Content-Type': 'application/json',
+                'anthropic-version': '2023-06-01'
+              },
+              body: JSON.stringify(payload),
+              signal: AbortSignal.timeout(validatedConfig.timeout)
+            }).pipe(
+              Effect.mapError(
+                (error): LLMError => ({
+                  _tag: 'NetworkError',
+                  model: 'claude',
+                  message: error.message
+                })
+              )
+            )
           )
 
           if (!response.ok) {
             const errorTextResult = yield* _(
-              Effect.tryPromise({
-                try: () => response.text(),
-                catch: () => 'Failed to read error response'
-              })
+              parseTextResponse(response).pipe(
+                Effect.catchAll(() => Effect.succeed('Failed to read error response'))
+              )
             )
 
             return Stream.fail(mapHttpErrorToLLMError(response.status, errorTextResult, 'claude'))
@@ -422,14 +422,15 @@ export const makeClaudeClient = (config: ClaudeConfig): ModelClient => ({
                 try {
                   while (true) {
                     const { done, value } = yield* _(
-                      Effect.tryPromise({
-                        try: () => reader.read(),
-                        catch: (error) => ({
-                          _tag: 'NetworkError' as const,
-                          model: 'claude',
-                          message: `Stream read error: ${error instanceof Error ? error.message : 'Unknown error'}`
-                        })
-                      })
+                      readFromStream(reader).pipe(
+                        Effect.mapError(
+                          (error): LLMError => ({
+                            _tag: 'NetworkError',
+                            model: 'claude',
+                            message: `Stream read error: ${error.message}`
+                          })
+                        )
+                      )
                     )
 
                     if (done) break
