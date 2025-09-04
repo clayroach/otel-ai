@@ -189,58 +189,34 @@ export const StorageLayer = ConfigServiceLive.pipe(Layer.provide(StorageServiceL
 // Convenience functions for common operations
 export namespace StorageOperations {
   export const writeOTLP = (data: OTLPData) =>
-    Effect.gen(function* (_) {
-      const storage = yield* _(StorageServiceTag)
-      yield* _(storage.writeOTLP(data))
-    })
+    StorageServiceTag.pipe(Effect.flatMap(storage => storage.writeOTLP(data)))
 
   export const queryTraces = (params: QueryParams) =>
-    Effect.gen(function* (_) {
-      const storage = yield* _(StorageServiceTag)
-      return yield* _(storage.queryTraces(params))
-    })
+    StorageServiceTag.pipe(Effect.flatMap(storage => storage.queryTraces(params)))
 
   export const queryMetrics = (params: QueryParams) =>
-    Effect.gen(function* (_) {
-      const storage = yield* _(StorageServiceTag)
-      return yield* _(storage.queryMetrics(params))
-    })
+    StorageServiceTag.pipe(Effect.flatMap(storage => storage.queryMetrics(params)))
 
   export const queryLogs = (params: QueryParams) =>
-    Effect.gen(function* (_) {
-      const storage = yield* _(StorageServiceTag)
-      return yield* _(storage.queryLogs(params))
-    })
+    StorageServiceTag.pipe(Effect.flatMap(storage => storage.queryLogs(params)))
 
   export const queryForAI = (params: AIQueryParams) =>
-    Effect.gen(function* (_) {
-      const storage = yield* _(StorageServiceTag)
-      return yield* _(storage.queryForAI(params))
-    })
+    StorageServiceTag.pipe(Effect.flatMap(storage => storage.queryForAI(params)))
 
   export const healthCheck = () =>
-    Effect.gen(function* (_) {
-      const storage = yield* _(StorageServiceTag)
-      return yield* _(storage.healthCheck())
-    })
+    StorageServiceTag.pipe(Effect.flatMap(storage => storage.healthCheck()))
 
   export const getStats = () =>
-    Effect.gen(function* (_) {
-      const storage = yield* _(StorageServiceTag)
-      return yield* _(storage.getStorageStats())
-    })
+    StorageServiceTag.pipe(Effect.flatMap(storage => storage.getStorageStats()))
 
   export const startRetentionSchedule = (intervalMinutes: number = 60) =>
-    Effect.gen(function* (_) {
-      const storage = yield* _(StorageServiceTag)
-
-      // Run retention cleanup on a schedule
-      yield* _(
+    StorageServiceTag.pipe(
+      Effect.flatMap(storage =>
         storage
           .applyRetentionPolicies()
           .pipe(Effect.repeat(Schedule.fixed(Duration.minutes(intervalMinutes))), Effect.forkDaemon)
       )
-    })
+    )
 }
 
 // Example usage and integration helpers

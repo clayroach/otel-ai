@@ -116,10 +116,7 @@ const runStorageQuery = <A, E>(effect: Effect.Effect<A, E, StorageAPIClientTag>)
 // Helper function for raw queries that returns data in legacy format
 const queryWithResults = async (sql: string): Promise<{ data: Record<string, unknown>[] }> => {
   const result = await runStorageQuery(
-    Effect.gen(function* () {
-      const storage = yield* StorageAPIClientTag
-      return yield* storage.queryRaw(sql)
-    })
+    StorageAPIClientTag.pipe(Effect.flatMap(storage => storage.queryRaw(sql)))
   )
   return { data: result as Record<string, unknown>[] }
 }
@@ -163,10 +160,7 @@ async function createViews() {
       FROM traces
     `
     await runStorageQuery(
-      Effect.gen(function* () {
-        const storage = yield* StorageAPIClientTag
-        return yield* storage.queryRaw(createViewSQL)
-      })
+      StorageAPIClientTag.pipe(Effect.flatMap(storage => storage.queryRaw(createViewSQL)))
     )
     console.log('✅ Created simplified traces view for single-path ingestion')
   } catch (error) {
@@ -181,10 +175,8 @@ async function createViews() {
 app.get('/health', async (_req, res) => {
   try {
     const healthResult = await Effect.runPromise(
-      Effect.gen(function* (_) {
-        const apiClient = yield* _(StorageAPIClientTag)
-        return yield* _(apiClient.healthCheck())
-      }).pipe(
+      StorageAPIClientTag.pipe(
+        Effect.flatMap(apiClient => apiClient.healthCheck()),
         Effect.provide(StorageLayer),
         Effect.match({
           onFailure: (error) => {
@@ -1001,9 +993,8 @@ app.post('/v1/traces', async (req, res) => {
 
         // Use Storage API Client with Effect-TS pattern
         const writeResult = await Effect.runPromise(
-          Effect.gen(function* (_) {
-            const apiClient = yield* _(StorageAPIClientTag)
-            return yield* _(
+          StorageAPIClientTag.pipe(
+            Effect.flatMap(apiClient =>
               apiClient.writeOTLP(
                 {
                   traces: traceDataArray,
@@ -1011,8 +1002,7 @@ app.post('/v1/traces', async (req, res) => {
                 },
                 encodingType
               )
-            )
-          }).pipe(
+            ),
             Effect.provide(StorageLayer),
             Effect.match({
               onFailure: (error) => {

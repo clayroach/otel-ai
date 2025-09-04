@@ -34,16 +34,7 @@ describe("LLM Query Generator", () => {
   let llmConfig: { endpoint: string; model: string } | undefined
   
   beforeAll(async () => {
-    // Check if we should skip LLM tests (for CI environments)
-    if (process.env.SKIP_LLM_TESTS === 'true') {
-      console.log("⏭️  Skipping LLM tests (SKIP_LLM_TESTS=true)")
-      llmAvailable = false
-      llmDetails = {
-        status: "skipped",
-        error: "LLM tests disabled in environment"
-      }
-      return
-    }
+    // Removed SKIP_LLM_TESTS check - dynamically determine availability based on actual configuration
     
     console.log("🔍 Checking LLM availability...")
     

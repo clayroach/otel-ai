@@ -298,8 +298,7 @@ export const generateQueryWithLLM = (
           model: modelName.includes('claude') ? modelName : 'claude-3-5-sonnet-20241022',
           maxTokens: modelConfig.maxTokens || 4000,
           temperature: request.preferences?.temperature || 0,
-          endpoint: 'https://api.anthropic.com',
-          timeout: 30000
+          endpoint: 'https://api.anthropic.com'
         }
       }),
       ...(process.env.OPENAI_API_KEY && {
@@ -308,8 +307,7 @@ export const generateQueryWithLLM = (
           model: modelName.startsWith('gpt') ? modelName : 'gpt-4',
           maxTokens: modelConfig.maxTokens || 4000,
           temperature: request.preferences?.temperature || 0,
-          endpoint: 'https://api.openai.com/v1',
-          timeout: 30000
+          endpoint: 'https://api.openai.com/v1'
         }
       })
     }

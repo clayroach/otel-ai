@@ -58,16 +58,16 @@ const getModelConfigs = (): ModelTestConfig[] => {
           modelId,
           endpoint: 'https://api.anthropic.com/v1',
           apiKey: process.env.CLAUDE_API_KEY,
-          enabled: !!process.env.CLAUDE_API_KEY && process.env.SKIP_LLM_TESTS !== 'true' && process.env.SKIP_EXTERNAL_API_TESTS !== 'true',
-          skipReason: !process.env.CLAUDE_API_KEY ? 'Claude API key not configured' : 'External API tests disabled'
+          enabled: !!process.env.CLAUDE_API_KEY,
+          skipReason: !process.env.CLAUDE_API_KEY ? 'Claude API key not configured' : undefined
         })
       } else if (modelId.includes('gpt')) {
         configs.push({
           modelId,
           endpoint: 'https://api.openai.com/v1',
           apiKey: process.env.OPENAI_API_KEY,
-          enabled: !!process.env.OPENAI_API_KEY && process.env.SKIP_LLM_TESTS !== 'true' && process.env.SKIP_EXTERNAL_API_TESTS !== 'true',
-          skipReason: !process.env.OPENAI_API_KEY ? 'OpenAI API key not configured' : 'External API tests disabled'
+          enabled: !!process.env.OPENAI_API_KEY,
+          skipReason: !process.env.OPENAI_API_KEY ? 'OpenAI API key not configured' : undefined
         })
       } else {
         // Local model
@@ -123,8 +123,15 @@ interface ModelAvailability {
   metadata?: ReturnType<typeof getModelMetadata> | undefined
 }
 
+// Initialize model availability array that will be populated in beforeAll
+const modelAvailability: ModelAvailability[] = []
+
+// We'll determine if tests should be skipped based on actual model availability
+// This will be checked dynamically - for now assume we should not skip
+// The actual availability will be checked in beforeAll
+const shouldSkipTests = false
+
 describe("Multi-Model Query Generation", () => {
-  const modelAvailability: ModelAvailability[] = []
   
   beforeAll(async () => {
     console.log("\n🔍 Checking model availability across providers...")
@@ -267,6 +274,8 @@ describe("Multi-Model Query Generation", () => {
       const hasAvailableModel = modelAvailability.some(m => m.available)
       if (!hasAvailableModel) {
         console.log('⚠️  No models available - this is expected in CI without API keys')
+      } else {
+        console.log(`✅ Found ${modelAvailability.filter(m => m.available).length} available models for testing`)
       }
     })
   })
@@ -274,7 +283,7 @@ describe("Multi-Model Query Generation", () => {
   describe("Comparative Query Generation", () => {
     const availableModels = () => modelAvailability.filter(m => m.available)
     
-    it.skipIf(() => modelAvailability.filter(m => m.available).length === 0)("should generate valid SQL across all available models", async () => {
+    it.skipIf(shouldSkipTests)("should generate valid SQL across all available models", async () => {
       const models = availableModels()
       
       console.log(`\n🔄 Testing SQL generation across ${models.length} models...`)
@@ -371,7 +380,7 @@ describe("Multi-Model Query Generation", () => {
       expect(results.every(r => r.success && r.valid)).toBe(true)
     })
     
-    it.skipIf(() => modelAvailability.filter(m => m.available).length === 0)("should handle different analysis goals consistently", async () => {
+    it.skipIf(shouldSkipTests)("should handle different analysis goals consistently", async () => {
       const models = availableModels().slice(0, 2) // Test with top 2 models for speed
       
       // Additional safety check
@@ -446,7 +455,7 @@ describe("Multi-Model Query Generation", () => {
       }
     })
     
-    it.skipIf(() => modelAvailability.filter(m => m.available).length === 0)("should measure performance characteristics", async () => {
+    it.skipIf(shouldSkipTests)("should measure performance characteristics", async () => {
       const models = availableModels()
       
       // Additional safety check

@@ -83,13 +83,10 @@ export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
       request: AnalysisRequest
     ): Effect.Effect<AnalysisResult, AnalysisError, never> =>
       Effect.gen(function* (_) {
-        console.log(
-          `🚀 ANALYZE ARCHITECTURE CALLED with config:`,
-          JSON.stringify(request.config, null, 2)
-        )
-        console.log(`🔍 Request has config: ${!!request.config}`)
-        console.log(`🔍 Request has llm: ${!!request.config?.llm}`)
-        console.log(`🔍 Request llm model: ${request.config?.llm?.model}`)
+        yield* _(Effect.logInfo(`🚀 ANALYZE ARCHITECTURE CALLED with config: ${JSON.stringify(request.config, null, 2)}`))
+        yield* _(Effect.logDebug(`🔍 Request has config: ${!!request.config}`))
+        yield* _(Effect.logDebug(`🔍 Request has llm: ${!!request.config?.llm}`))
+        yield* _(Effect.logDebug(`🔍 Request llm model: ${request.config?.llm?.model}`))
         const startTime = Date.now()
         const timeRangeHours =
           Math.abs(request.timeRange.endTime.getTime() - request.timeRange.startTime.getTime()) /
@@ -165,9 +162,9 @@ export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
             }
           }
 
-          console.log(
+          yield* _(Effect.logInfo(
             `🤖 AI Analyzer using model: ${selectedModel} (from ${request.config ? 'request' : 'service default'})`
-          )
+          ))
 
           const llmResponse = yield* _(
             generateEnhancedInsights(
@@ -934,6 +931,7 @@ const generateEnhancedInsights = (
           Effect.timeout(30000), // 30 second timeout
           Effect.orElse(() => {
             // Fallback to standard LLM if orchestrator fails
+            // Note: Cannot use Effect.log here due to callback context - using console.log for now
             console.log('Multi-model orchestrator unavailable, falling back to standard LLM')
             return llmManager
               .generate({

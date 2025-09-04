@@ -20,13 +20,8 @@ const testPath: CriticalPath = {
   }
 }
 
-// Check availability at module load time for skipIf
+// Check availability dynamically based on actual configuration
 const isAvailable = (() => {
-  if (process.env.SKIP_LLM_TESTS === 'true') {
-    console.log("⏭️  Skipping ClickHouse AI tests (SKIP_LLM_TESTS=true)")
-    return false
-  }
-  
   const hasOpenAIKey = !!process.env.OPENAI_API_KEY
   const hasClaudeKey = !!process.env.CLAUDE_API_KEY
   const hasLocalEndpoint = !!process.env.LLM_ENDPOINT
