@@ -5,7 +5,7 @@ import {
   type LLMResponse,
   type LLMError,
   createSimpleLLMManager
-} from '../../llm-manager'
+} from '../../llm-manager/index.js'
 import { makeClaudeClient } from '../../llm-manager/clients/claude-client.js'
 import { makeOpenAIClient } from '../../llm-manager/clients/openai-client.js'
 import { Schema } from '@effect/schema'
@@ -14,7 +14,7 @@ import {
   extractResponseContent,
   needsResponseWrapping,
   getModelConfig
-} from '../../llm-manager/model-registry'
+} from '../../llm-manager/model-registry.js'
 
 // Schema for LLM-generated query response
 const LLMQueryResponseSchema = Schema.Struct({
@@ -32,8 +32,9 @@ const LLMQueryResponseSchema = Schema.Struct({
 
 type LLMQueryResponse = Schema.Schema.Type<typeof LLMQueryResponseSchema>
 
-// Single configuration point for default model
-export const DEFAULT_MODEL = 'sqlcoder-7b-2' // Using fast SQL model as default
+// Get default SQL model from environment or fallback
+export const DEFAULT_MODEL =
+  process.env.LLM_SQL_MODEL_1 || process.env.LLM_GENERAL_MODEL_1 || 'sqlcoder-7b-2' // Fallback if nothing configured
 
 // Create a dynamic prompt with examples for the LLM
 const createDynamicQueryPrompt = (
@@ -282,7 +283,7 @@ export const generateQueryWithLLM = (
       : `You are a ClickHouse SQL expert. Always return valid JSON responses. Generate consistent, optimal queries based on the examples provided.\n\n${prompt}`,
     taskType: 'analysis',
     preferences: {
-      model: 'llama', // This is ignored by external clients
+      model: modelName as 'gpt' | 'claude' | 'llama' | undefined, // Cast to expected type
       maxTokens: modelConfig.maxTokens || 4000,
       temperature: modelName === llmConfig?.model ? 0 : (modelConfig.temperature ?? 0), // Use 0 for explicit model selection
       requireStructuredOutput: true
@@ -481,7 +482,7 @@ export const generateQueryWithSQLModel = (
 ): Effect.Effect<GeneratedQuery, Error, never> => {
   return generateQueryWithLLM(path, analysisGoal, {
     endpoint: endpoint || 'http://localhost:1234/v1',
-    model: 'sqlcoder-7b-2' // Explicitly use SQL model when needed
+    model: process.env.LLM_SQL_MODEL_1 || DEFAULT_MODEL // Use environment SQL model
   })
 }
 

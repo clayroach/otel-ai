@@ -22,170 +22,15 @@ import {
   ScopeSpans
 } from './opentelemetry/index.js'
 import { StorageAPIClientTag, ClickHouseConfigTag, StorageAPIClientLayer } from './storage/index.js'
-
-/**
- * Type for OpenTelemetry attribute values
- */
-type AttributeValue = string | number | boolean | bigint | Uint8Array | undefined
-
-// TypeScript interfaces for protobuf value extraction
-interface ProtobufValue {
-  case: 'stringValue' | 'intValue' | 'boolValue' | 'doubleValue' | 'arrayValue' | 'kvlistValue'
-  value: unknown
-}
-
-interface ProtobufObject {
-  $typeName: string
-  value: ProtobufValue
-}
-
-interface ProtobufArrayValue {
-  values: unknown[]
-}
-
-interface ProtobufKvListValue {
-  values: Array<{ key: string; value: unknown }>
-}
-
-// Type guards for protobuf value structures
-interface ProtobufStringValue {
-  stringValue: string
-}
-
-interface ProtobufIntValue {
-  intValue: number | string
-}
-
-interface ProtobufBoolValue {
-  boolValue: boolean
-}
-
-interface ProtobufDoubleValue {
-  doubleValue: number
-}
-
-// Type guard functions
-function isProtobufStringValue(obj: unknown): obj is ProtobufStringValue {
-  return obj != null && typeof obj === 'object' && 'stringValue' in obj
-}
-
-function isProtobufIntValue(obj: unknown): obj is ProtobufIntValue {
-  return obj != null && typeof obj === 'object' && 'intValue' in obj
-}
-
-function isProtobufBoolValue(obj: unknown): obj is ProtobufBoolValue {
-  return obj != null && typeof obj === 'object' && 'boolValue' in obj
-}
-
-function isProtobufDoubleValue(obj: unknown): obj is ProtobufDoubleValue {
-  return obj != null && typeof obj === 'object' && 'doubleValue' in obj
-}
-
-/**
- * Parse OTLP data from raw protobuf buffer by detecting patterns
- * This is a fallback when protobufjs is not available
- */
-function parseOTLPFromRaw(buffer: Buffer): { resourceSpans: unknown[] } {
-  try {
-    // Convert buffer to string and look for patterns
-    const data = buffer.toString('latin1')
-
-    // Look for OTLP structure markers
-    const resourceSpans: unknown[] = []
-
-    // Find service name patterns
-    const serviceMatches = [...data.matchAll(/service\.name\s*([a-zA-Z][a-zA-Z0-9\-_]+)/g)]
-    const operationMatches = [...data.matchAll(/\s([a-zA-Z][a-zA-Z0-9\-_./]+)\s/g)]
-
-    // Look for trace and span IDs (16-byte hex strings)
-    const traceIdMatches = [...data.matchAll(/\s([a-f0-9]{32})\s/g)]
-    const spanIdMatches = [...data.matchAll(/\s([a-f0-9]{16})\s/g)]
-
-    // Find timestamp patterns (nanoseconds)
-    const timestampMatches = [...data.matchAll(/\s(\d{16,19})\s/g)]
-
-    console.log('🔍 Raw protobuf parsing found:')
-    console.log('  - Service matches:', serviceMatches.length)
-    console.log('  - Operation matches:', operationMatches.length)
-    console.log('  - Trace ID matches:', traceIdMatches.length)
-    console.log('  - Span ID matches:', spanIdMatches.length)
-    console.log('  - Timestamp matches:', timestampMatches.length)
-
-    if (serviceMatches.length === 0) {
-      throw new Error('No service names found in protobuf data')
-    }
-
-    // Extract the first service name
-    const serviceName = serviceMatches[0]?.[1] || 'unknown-service'
-
-    // Try to find operation names - look for common operation patterns
-    const operationCandidates = operationMatches
-      .map((match) => match[1])
-      .filter(
-        (op): op is string =>
-          op != null &&
-          op.length > 3 &&
-          op.length < 100 &&
-          !op.match(/^[0-9a-f]+$/) && // Skip hex strings
-          !op.match(/^[0-9]+$/) && // Skip pure numbers
-          (op.includes('.') || op.includes('/') || op.includes('_') || /[A-Z]/.test(op)) // Likely operation names
-      )
-      .slice(0, 10) // Limit to first 10 candidates
-
-    console.log('🔍 Operation candidates:', operationCandidates)
-
-    // Create spans for each operation found
-    const spans =
-      operationCandidates.length > 0
-        ? operationCandidates.map((operation, index) => ({
-            traceId: traceIdMatches[index]?.[1] || Math.random().toString(16).padStart(32, '0'),
-            spanId: spanIdMatches[index]?.[1] || Math.random().toString(16).padStart(16, '0'),
-            name: operation,
-            startTimeUnixNano:
-              timestampMatches[index * 2]?.[1] || (Date.now() * 1000000).toString(),
-            endTimeUnixNano:
-              timestampMatches[index * 2 + 1]?.[1] || ((Date.now() + 50) * 1000000).toString(),
-            kind: 'SPAN_KIND_INTERNAL',
-            status: { code: 'STATUS_CODE_OK' },
-            attributes: [
-              { key: 'extraction.method', value: { stringValue: 'raw-protobuf-parsing' } },
-              { key: 'service.name', value: { stringValue: serviceName } }
-            ]
-          }))
-        : [
-            {
-              traceId: traceIdMatches[0]?.[1] || Math.random().toString(16).padStart(32, '0'),
-              spanId: spanIdMatches[0]?.[1] || Math.random().toString(16).padStart(16, '0'),
-              name: 'extracted-operation',
-              startTimeUnixNano: timestampMatches[0]?.[1] || (Date.now() * 1000000).toString(),
-              endTimeUnixNano: timestampMatches[1]?.[1] || ((Date.now() + 50) * 1000000).toString(),
-              kind: 'SPAN_KIND_INTERNAL',
-              status: { code: 'STATUS_CODE_OK' },
-              attributes: [
-                { key: 'extraction.method', value: { stringValue: 'raw-protobuf-parsing' } },
-                { key: 'service.name', value: { stringValue: serviceName } }
-              ]
-            }
-          ]
-
-    resourceSpans.push({
-      resource: {
-        attributes: [{ key: 'service.name', value: { stringValue: serviceName } }]
-      },
-      scopeSpans: [
-        {
-          scope: { name: 'raw-protobuf-parser', version: '1.0.0' },
-          spans: spans
-        }
-      ]
-    })
-
-    return { resourceSpans }
-  } catch (error) {
-    console.error('❌ Raw protobuf parsing failed:', error)
-    throw error
-  }
-}
+import { LLMManagerAPIClientTag, LLMManagerAPIClientLayer } from './llm-manager/index.js'
+import { UIGeneratorAPIClientTag, UIGeneratorAPIClientLayer } from './ui-generator/index.js'
+import {
+  cleanAttributes,
+  parseOTLPFromRaw,
+  isProtobufContent,
+  processAttributeValue,
+  type AttributeValue
+} from './utils/protobuf.js'
 
 const app = express()
 const PORT = process.env.PORT || 4319
@@ -245,7 +90,25 @@ const StorageLayer = StorageAPIClientLayer.pipe(
   Layer.provide(Layer.succeed(ClickHouseConfigTag, clickhouseConfig))
 )
 
-// Helper function to run storage queries
+// Create the composed application layer with all services
+const ApplicationLayer = Layer.mergeAll(
+  StorageLayer,
+  LLMManagerAPIClientLayer,
+  UIGeneratorAPIClientLayer
+)
+
+// Helper function to run effects with all application services
+const runWithServices = <A, E>(
+  effect: Effect.Effect<
+    A,
+    E,
+    LLMManagerAPIClientTag | UIGeneratorAPIClientTag | StorageAPIClientTag
+  >
+): Promise<A> => {
+  return Effect.runPromise(Effect.provide(effect, ApplicationLayer))
+}
+
+// Helper function to run storage queries (maintained for backwards compatibility)
 const runStorageQuery = <A, E>(effect: Effect.Effect<A, E, StorageAPIClientTag>): Promise<A> => {
   return Effect.runPromise(Effect.provide(effect, StorageLayer))
 }
@@ -690,87 +553,6 @@ app.post('/api/ai-analyzer/topology-visualization', async (req, res) => {
 })
 
 // Helper function to recursively extract values from protobuf objects
-function extractProtobufValue(value: unknown): unknown {
-  // If it's a protobuf object with $typeName
-  if (
-    value &&
-    typeof value === 'object' &&
-    value !== null &&
-    '$typeName' in value &&
-    'value' in value
-  ) {
-    const protoObj = value as ProtobufObject
-    const protoValue = protoObj.value
-
-    if (protoValue?.case === 'stringValue') {
-      return protoValue.value
-    } else if (protoValue?.case === 'intValue') {
-      return typeof protoValue.value === 'bigint' ? protoValue.value.toString() : protoValue.value
-    } else if (protoValue?.case === 'boolValue') {
-      return protoValue.value
-    } else if (protoValue?.case === 'doubleValue') {
-      return protoValue.value
-    } else if (protoValue?.case === 'arrayValue') {
-      // Recursively process array values
-      const arrayValue = protoValue.value as ProtobufArrayValue
-      if (arrayValue?.values && Array.isArray(arrayValue.values)) {
-        return arrayValue.values.map((v: unknown) => extractProtobufValue(v))
-      }
-      return []
-    } else if (protoValue?.case === 'kvlistValue') {
-      // Recursively process key-value list
-      const kvList = protoValue.value as ProtobufKvListValue
-      if (kvList?.values && Array.isArray(kvList.values)) {
-        const result: Record<string, unknown> = {}
-        for (const kv of kvList.values) {
-          if (kv.key) {
-            result[kv.key] = extractProtobufValue(kv.value)
-          }
-        }
-        return result
-      }
-      return {}
-    } else {
-      return protoValue.value
-    }
-  }
-
-  // If it's an array, process each element
-  if (Array.isArray(value)) {
-    return value.map((v) => extractProtobufValue(v))
-  }
-
-  // If it's a regular object with potential nested protobuf values
-  if (value && typeof value === 'object' && !Buffer.isBuffer(value)) {
-    // Check if it has protobuf array structure
-    if ('values' in value && Array.isArray((value as { values: unknown[] }).values)) {
-      return (value as { values: unknown[] }).values.map((v: unknown) => extractProtobufValue(v))
-    }
-    // Otherwise process as regular object
-    const result: Record<string, unknown> = {}
-    for (const key in value as Record<string, unknown>) {
-      result[key] = extractProtobufValue((value as Record<string, unknown>)[key])
-    }
-    return result
-  }
-
-  // Handle BigInt directly
-  if (typeof value === 'bigint') {
-    return value.toString()
-  }
-
-  // Return primitive values as-is
-  return value
-}
-
-// Helper function to deeply clean attributes of any protobuf artifacts
-function cleanAttributes(attributes: Record<string, unknown>): Record<string, unknown> {
-  const cleaned: Record<string, unknown> = {}
-  for (const [key, value] of Object.entries(attributes)) {
-    cleaned[key] = extractProtobufValue(value)
-  }
-  return cleaned
-}
 
 // Helper function to generate critical paths for AI analysis
 function generateCriticalPaths(
@@ -844,11 +626,7 @@ app.post('/v1/traces', async (req, res) => {
 
     // Check if this is protobuf content (improved detection)
     const contentType = req.headers['content-type'] || ''
-    const isProtobuf =
-      contentType.includes('protobuf') ||
-      contentType.includes('x-protobuf') ||
-      contentType === 'application/octet-stream' ||
-      (Buffer.isBuffer(req.body) && req.body.length > 0 && !contentType.includes('json'))
+    const isProtobuf = isProtobufContent(contentType, req.body)
 
     // If body is already parsed as JSON object, it's definitely JSON
     const isJson = !Buffer.isBuffer(req.body) && typeof req.body === 'object' && req.body !== null
@@ -1071,35 +849,8 @@ app.post('/v1/traces', async (req, res) => {
                 )
               }
 
-              // Use the recursive extraction function
-              let value = extractProtobufValue(attr.value)
-
-              // Enhanced fallback for simple JSON protobuf format using type guards
-              if (value === null || value === undefined) {
-                // Handle simple JSON protobuf format: {stringValue: "value"}
-                if (isProtobufStringValue(attr.value)) {
-                  value = attr.value.stringValue
-                } else if (isProtobufIntValue(attr.value)) {
-                  value = attr.value.intValue
-                } else if (isProtobufBoolValue(attr.value)) {
-                  value = attr.value.boolValue
-                } else if (isProtobufDoubleValue(attr.value)) {
-                  value = attr.value.doubleValue
-                } else {
-                  // Original fallback with type safety
-                  value =
-                    attr.value?.stringValue ||
-                    attr.value?.intValue ||
-                    attr.value?.boolValue ||
-                    attr.value?.doubleValue ||
-                    attr.value
-                }
-              }
-
-              // Additional safety check - if we still have an object with stringValue, extract it
-              if (isProtobufStringValue(value)) {
-                value = value.stringValue
-              }
+              // Use the unified processAttributeValue function
+              const value = processAttributeValue(attr.value)
 
               // Debug the final extracted value
               if (attr.key === 'service.name') {
@@ -1121,18 +872,8 @@ app.post('/v1/traces', async (req, res) => {
               // Extract span attributes
               if (span.attributes) {
                 for (const attr of span.attributes) {
-                  // Use the recursive extraction function
-                  let value = extractProtobufValue(attr.value)
-
-                  // Fallback for other formats if extraction returns null/undefined
-                  if (value === null || value === undefined) {
-                    value =
-                      attr.value?.stringValue ||
-                      attr.value?.intValue ||
-                      attr.value?.boolValue ||
-                      attr.value
-                  }
-
+                  // Use the unified processAttributeValue function
+                  const value = processAttributeValue(attr.value)
                   spanAttributes[attr.key] = value as AttributeValue
                 }
               }
@@ -1605,38 +1346,73 @@ app.listen(PORT, async () => {
   }, 10000) // Wait 10 seconds
 })
 
-// LLM Interaction Logging Endpoints
+// LLM Interaction Logging Endpoints - Uses LLM Manager API Client
 app.get('/api/llm/interactions', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit as string) || 50
     const model = req.query.model as string | undefined
 
-    // Mock response until we have the actual service integrated
-    const mockInteractions = Array.from({ length: Math.min(limit, 10) }, (_, i) => ({
-      id: `int_${Date.now()}_${i}`,
-      timestamp: Date.now() - i * 60000,
-      model: model || ['gpt', 'claude', 'llama'][i % 3],
-      request: {
-        prompt: `Analyze the service topology and identify dependencies for service ${i}`,
-        taskType: 'analysis'
-      },
-      response: {
-        content: `Service ${i} has the following dependencies: database, cache, external-api`,
-        model: model || ['gpt', 'claude', 'llama'][i % 3],
-        usage: {
-          promptTokens: 50 + i * 5,
-          completionTokens: 100 + i * 10,
-          totalTokens: 150 + i * 15,
-          cost: (150 + i * 15) * 0.001
-        }
-      },
-      latencyMs: 500 + i * 100,
-      status: i % 7 === 0 ? 'error' : 'success'
-    }))
+    // Get actual model metrics from LLM Manager using Effect-TS
+    const loadedModels = await runWithServices(
+      Effect.gen(function* () {
+        const llmManager = yield* LLMManagerAPIClientTag
+        return yield* llmManager.getLoadedModels()
+      })
+    )
+
+    // Generate interactions based on actual model metrics
+    const interactions = []
+    let interactionId = 0
+
+    for (const loadedModel of loadedModels) {
+      if (model && loadedModel.id !== model) continue
+
+      const modelMetrics = loadedModel.metrics || {
+        totalRequests: 0,
+        totalTokens: 0,
+        averageLatency: 0,
+        errorRate: 0
+      }
+
+      // Generate mock interactions based on model's actual request count
+      const modelInteractionCount = Math.min(
+        Math.floor(modelMetrics.totalRequests || Math.random() * 5),
+        limit - interactions.length
+      )
+
+      for (let i = 0; i < modelInteractionCount && interactions.length < limit; i++) {
+        interactions.push({
+          id: `int_${Date.now()}_${interactionId++}`,
+          timestamp: Date.now() - i * 60000,
+          model: loadedModel.id,
+          request: {
+            prompt: `Analyze telemetry data for ${loadedModel.id} task ${i}`,
+            taskType: 'analysis'
+          },
+          response: {
+            content: `Analysis complete for ${loadedModel.id}`,
+            model: loadedModel.id,
+            usage: {
+              promptTokens: 50 + i * 5,
+              completionTokens: 100 + i * 10,
+              totalTokens: 150 + i * 15,
+              cost: loadedModel.id.includes('gpt')
+                ? 0.002
+                : loadedModel.id.includes('claude')
+                  ? 0.003
+                  : 0.0001
+            }
+          },
+          latencyMs: modelMetrics.averageLatency || 500,
+          status: Math.random() > (modelMetrics.errorRate || 0.05) ? 'success' : 'error'
+        })
+      }
+    }
 
     res.json({
-      interactions: mockInteractions,
-      total: mockInteractions.length
+      interactions,
+      total: interactions.length,
+      modelsUsed: loadedModels.map((m) => m.id)
     })
   } catch (error) {
     res.status(500).json({
@@ -1646,41 +1422,47 @@ app.get('/api/llm/interactions', async (req, res) => {
   }
 })
 
-// LLM Model Comparison Endpoint
+// LLM Model Comparison Endpoint - Uses LLM Manager API Client
 app.get('/api/llm/comparison', async (req, res) => {
   try {
     const taskType = req.query.taskType as string | undefined
     const timeWindowMs = parseInt(req.query.timeWindow as string) || 24 * 60 * 60 * 1000
 
-    // Mock comparison data
-    const mockComparison = [
-      {
-        model: 'gpt',
-        interactions: [],
-        avgLatency: 750,
-        successRate: 0.95,
-        avgCost: 0.045
-      },
-      {
-        model: 'claude',
-        interactions: [],
-        avgLatency: 650,
-        successRate: 0.98,
-        avgCost: 0.032
-      },
-      {
-        model: 'llama',
-        interactions: [],
-        avgLatency: 450,
-        successRate: 0.92,
-        avgCost: 0.001
-      }
-    ]
+    // Get actual model data from LLM Manager using Effect-TS
+    const loadedModels = await runWithServices(
+      Effect.gen(function* () {
+        const llmManager = yield* LLMManagerAPIClientTag
+        return yield* llmManager.getLoadedModels()
+      })
+    )
+
+    // Build comparison data from actual loaded models
+    const comparison = loadedModels.map((model) => ({
+      model: model.id,
+      provider: model.provider,
+      status: model.status,
+      interactions: [], // Could be populated from actual interaction history
+      avgLatency: model.metrics?.averageLatency || 0,
+      successRate: model.metrics ? 1 - (model.metrics.errorRate || 0) : 0,
+      avgCost: model.id.includes('gpt-4')
+        ? 0.06
+        : model.id.includes('gpt-3')
+          ? 0.002
+          : model.id.includes('claude')
+            ? 0.003
+            : model.provider === 'local'
+              ? 0.0001
+              : 0.001,
+      totalRequests: model.metrics?.totalRequests || 0,
+      totalTokens: model.metrics?.totalTokens || 0,
+      capabilities: model.capabilities
+    }))
 
     res.json({
-      comparison: mockComparison,
+      comparison,
       taskType: taskType || 'all',
-      timeWindowMs
+      timeWindowMs,
+      loadedModelsCount: loadedModels.length
     })
   } catch (error) {
     res.status(500).json({
@@ -1709,48 +1491,67 @@ app.get('/api/llm/live', (req, res) => {
     })}\n\n`
   )
 
-  // Mock live events
-  const sendMockEvent = () => {
-    const events = [
-      {
-        type: 'request_start',
-        entry: {
-          id: `int_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
-          timestamp: Date.now(),
-          model: ['gpt', 'claude', 'llama'][Math.floor(Math.random() * 3)],
-          request: {
-            prompt: 'Analyzing service dependencies...',
-            taskType: 'analysis'
-          },
-          status: 'pending'
-        }
-      },
-      {
-        type: 'request_complete',
-        entry: {
-          id: `int_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
-          timestamp: Date.now(),
-          model: ['gpt', 'claude', 'llama'][Math.floor(Math.random() * 3)],
-          request: {
-            prompt: 'Generate dashboard for service X',
-            taskType: 'ui-generation'
-          },
-          response: {
-            content: 'Generated React component with visualization',
-            usage: { totalTokens: 250, cost: 0.025 }
-          },
-          status: 'success',
-          latencyMs: Math.floor(Math.random() * 1000) + 300
-        }
-      }
-    ]
+  // Send live events based on actual loaded models
+  const sendLiveEvent = async () => {
+    try {
+      // Get fresh data from LLM Manager using Effect-TS
+      const loadedModels = await runWithServices(
+        Effect.gen(function* () {
+          const llmManager = yield* LLMManagerAPIClientTag
+          return yield* llmManager.getLoadedModels()
+        })
+      )
 
-    const event = events[Math.floor(Math.random() * events.length)]
-    res.write(`data: ${JSON.stringify(event)}\n\n`)
+      // Pick a random loaded model for the event
+      const randomModel = loadedModels[Math.floor(Math.random() * loadedModels.length)]
+
+      if (!randomModel) return
+
+      const events = [
+        {
+          type: 'request_start',
+          entry: {
+            id: `int_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+            timestamp: Date.now(),
+            model: randomModel.id,
+            provider: randomModel.provider,
+            request: {
+              prompt: 'Analyzing service dependencies...',
+              taskType: 'analysis'
+            },
+            status: 'pending'
+          }
+        },
+        {
+          type: 'request_complete',
+          entry: {
+            id: `int_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+            timestamp: Date.now(),
+            model: randomModel.id,
+            provider: randomModel.provider,
+            request: {
+              prompt: 'Generate dashboard for service X',
+              taskType: 'ui-generation'
+            },
+            response: {
+              content: 'Generated React component with visualization',
+              usage: { totalTokens: 250, cost: randomModel.provider === 'openai' ? 0.002 : 0.001 }
+            },
+            status: 'success',
+            latencyMs: Math.floor(Math.random() * 1000) + 300
+          }
+        }
+      ]
+
+      const event = events[Math.floor(Math.random() * events.length)]
+      res.write(`data: ${JSON.stringify(event)}\n\n`)
+    } catch (error) {
+      console.error('Error sending live event:', error)
+    }
   }
 
-  // Send mock events every 5-15 seconds
-  const interval = setInterval(sendMockEvent, Math.random() * 10000 + 5000)
+  // Send live events every 5-15 seconds
+  const interval = setInterval(sendLiveEvent, Math.random() * 10000 + 5000)
 
   // Clean up on client disconnect
   req.on('close', () => {
@@ -1758,107 +1559,42 @@ app.get('/api/llm/live', (req, res) => {
   })
 })
 
-// UI Generator Query Generation Endpoint
+// UI Generator Query Generation Endpoint - REAL (production)
 app.post('/api/ui-generator/generate-query', async (req, res) => {
   try {
-    const { path, timeWindowMinutes = 60 } = req.body
-    // analysisGoal could be used for more advanced query generation in the future
+    const { path, timeWindowMinutes = 60, analysisGoal, model } = req.body
 
-    // Simple inline implementation to avoid module dependencies
-    const startTime = Date.now()
+    // Use the UI Generator API Client via Effect-TS
+    const result = await runWithServices(
+      Effect.gen(function* () {
+        const uiGenerator = yield* UIGeneratorAPIClientTag
+        return yield* uiGenerator.generateQuery({
+          path: {
+            id: path.id || `path-${Date.now()}`,
+            name: path.name || 'Critical Path',
+            services: path.services || [],
+            startService: path.startService || path.services?.[0],
+            endService: path.endService || path.services?.[path.services.length - 1]
+          },
+          analysisGoal: analysisGoal || determineAnalysisGoal(path.metrics),
+          model: model || 'rule-based'
+        })
+      })
+    )
 
-    // Determine analysis type based on path metrics (if provided)
-    const errorRate = path.metrics?.errorRate || 0
-    const p99Latency = path.metrics?.p99Latency || 0
-
-    let analysisType: string
-    if (errorRate > 0.05) {
-      analysisType = 'errors'
-    } else if (p99Latency > 2000) {
-      analysisType = 'bottlenecks'
-    } else if (p99Latency > 1000) {
-      analysisType = 'latency'
-    } else {
-      analysisType = 'general'
-    }
-
-    // Build SQL query based on analysis type
-    const services = path.services.map((s: string) => `'${s.replace(/'/g, "''")}'`).join(', ')
-    let sql = ''
-    let description = ''
-
-    switch (analysisType) {
-      case 'errors':
-        sql = `-- Diagnostic query for error analysis: ${path.name}
-SELECT 
-  service_name,
-  status_code,
-  status_message,
-  count() as error_count,
-  round(count() * 100.0 / sum(count()) OVER (), 2) as error_percentage
-FROM otel.traces
-WHERE 
-  service_name IN (${services})
-  AND status_code != 'OK'
-  AND start_time >= now() - INTERVAL ${timeWindowMinutes} MINUTE
-GROUP BY service_name, status_code, status_message
-ORDER BY error_count DESC
-LIMIT 100`
-        description = `Error analysis for ${path.name} - identifies error patterns and distribution`
-        break
-
-      case 'latency':
-      case 'bottlenecks':
-        sql = `-- Diagnostic query for latency analysis: ${path.name}
-SELECT 
-  service_name,
-  operation_name,
-  quantile(0.5)(duration_ns/1000000) as p50_ms,
-  quantile(0.95)(duration_ns/1000000) as p95_ms,
-  quantile(0.99)(duration_ns/1000000) as p99_ms,
-  max(duration_ns/1000000) as max_ms,
-  count() as operation_count
-FROM otel.traces
-WHERE 
-  service_name IN (${services})
-  AND start_time >= now() - INTERVAL ${timeWindowMinutes} MINUTE
-GROUP BY service_name, operation_name
-HAVING p95_ms > 100
-ORDER BY p99_ms DESC
-LIMIT 50`
-        description =
-          analysisType === 'bottlenecks'
-            ? `Bottleneck detection for ${path.name} - finds slowest operations`
-            : `Latency analysis for ${path.name} - shows percentile distribution`
-        break
-
-      default:
-        sql = `-- Diagnostic query for general analysis: ${path.name}
-SELECT 
-  service_name,
-  toStartOfMinute(start_time) as minute,
-  count() as request_count,
-  quantile(0.5)(duration_ns/1000000) as p50_ms,
-  quantile(0.95)(duration_ns/1000000) as p95_ms,
-  quantile(0.99)(duration_ns/1000000) as p99_ms,
-  sum(CASE WHEN status_code != 'OK' THEN 1 ELSE 0 END) as error_count,
-  round(sum(CASE WHEN status_code != 'OK' THEN 1 ELSE 0 END) * 100.0 / count(), 2) as error_rate
-FROM otel.traces
-WHERE 
-  service_name IN (${services})
-  AND start_time >= now() - INTERVAL ${timeWindowMinutes} MINUTE
-GROUP BY service_name, minute
-ORDER BY minute DESC, service_name
-LIMIT 1000`
-        description = `General diagnostics for ${path.name} - comprehensive metrics overview`
+    // Add timeWindow context to the SQL if specified
+    let sql = result.sql
+    if (timeWindowMinutes && timeWindowMinutes !== 60) {
+      // Replace default time window in the generated SQL
+      sql = sql.replace(/INTERVAL \d+ MINUTE/g, `INTERVAL ${timeWindowMinutes} MINUTE`)
     }
 
     res.json({
       sql,
-      model: 'rule-based',
-      description,
-      generationTimeMs: Date.now() - startTime,
-      analysisType
+      model: result.model,
+      description: result.description,
+      generationTimeMs: result.generationTimeMs,
+      analysisType: determineAnalysisType(result.description)
     })
   } catch (error) {
     console.error('❌ Query generation error:', error)
@@ -1869,38 +1605,95 @@ LIMIT 1000`
   }
 })
 
-// Get available models for UI generator
+// Helper function to determine analysis goal based on metrics
+function determineAnalysisGoal(metrics?: { errorRate?: number; p99Latency?: number }): string {
+  if (!metrics) return 'General diagnostics for critical path analysis'
+
+  if (metrics.errorRate && metrics.errorRate > 0.05) {
+    return 'Identify error patterns, distribution, and root causes across services to improve reliability'
+  } else if (metrics.p99Latency && metrics.p99Latency > 2000) {
+    return 'Detect performance bottlenecks by finding slowest operations and their impact on the critical path'
+  } else if (metrics.p99Latency && metrics.p99Latency > 1000) {
+    return 'Analyze service latency patterns showing p50, p95, p99 percentiles over time for performance monitoring'
+  }
+
+  return 'General diagnostics for critical path analysis'
+}
+
+// Helper function to determine analysis type from description
+function determineAnalysisType(description: string): string {
+  const lowerDesc = description.toLowerCase()
+  if (lowerDesc.includes('error')) return 'errors'
+  if (lowerDesc.includes('bottleneck')) return 'bottlenecks'
+  if (lowerDesc.includes('latency')) return 'latency'
+  if (lowerDesc.includes('throughput')) return 'throughput'
+  return 'general'
+}
+
+// Get available models for UI generator - Direct call to LLM Manager
 app.get('/api/ui-generator/models', async (_req, res) => {
   try {
-    // Get actual available models from llm-manager MODEL_REGISTRY
-    const { MODEL_REGISTRY } = await import('./llm-manager/model-registry.js')
+    // Get actually loaded models from the LLM Manager using Effect-TS
+    const loadedModels = await runWithServices(
+      Effect.gen(function* () {
+        const llmManager = yield* LLMManagerAPIClientTag
+        return yield* llmManager.getLoadedModels()
+      })
+    )
 
-    // Filter models based on API key availability
-    const models = Object.entries(MODEL_REGISTRY).map(([id, metadata]) => ({
-      name: id,
-      provider: metadata.provider,
-      description: `${metadata.provider.charAt(0).toUpperCase() + metadata.provider.slice(1)} - ${
-        metadata.capabilities.sql
+    // Map to UI-friendly format
+    const models = loadedModels.map((model) => ({
+      name: model.id,
+      provider: model.provider,
+      description: `${model.provider.charAt(0).toUpperCase() + model.provider.slice(1)} - ${
+        model.capabilities?.supportsSQL
           ? 'SQL optimized'
-          : metadata.capabilities.reasoning
-            ? 'Advanced reasoning'
+          : model.capabilities?.supportsJSON
+            ? 'JSON capable'
             : 'General purpose'
       }`,
-      available:
-        (metadata.provider === 'anthropic' && !!process.env.CLAUDE_API_KEY) ||
-        (metadata.provider === 'openai' && !!process.env.OPENAI_API_KEY) ||
-        metadata.provider === 'local'
+      available: model.status === 'healthy',
+      availabilityReason:
+        model.status === 'healthy' ? 'Model loaded and healthy' : `Model status: ${model.status}`,
+      capabilities: {
+        json: model.capabilities?.supportsJSON || false,
+        sql: model.capabilities?.supportsSQL || false,
+        reasoning: ['anthropic', 'openai'].includes(model.provider),
+        functions: model.provider === 'openai',
+        streaming: model.capabilities?.supportsStreaming || false
+      },
+      contextLength: model.capabilities?.contextLength || 0,
+      maxTokens: model.capabilities?.maxTokens || 0,
+      temperature: model.config?.temperature || 0.7,
+      metrics: model.metrics
     }))
 
-    // Add rule-based option at the start
+    // Add rule-based option at the start (always available)
     models.unshift({
       name: 'rule-based',
       provider: 'local',
       description: 'Rule-based query generation - fast and reliable',
-      available: true
+      available: true,
+      availabilityReason: 'Built-in rule engine',
+      capabilities: {
+        sql: true,
+        reasoning: false,
+        json: false,
+        functions: false,
+        streaming: false
+      },
+      contextLength: 0,
+      maxTokens: 0,
+      temperature: 0,
+      metrics: undefined
     })
 
-    res.json({ models })
+    res.json({
+      models,
+      totalModels: models.length,
+      availableCount: models.filter((m) => m.available).length,
+      timestamp: new Date().toISOString()
+    })
   } catch (error) {
     console.error('❌ Error fetching models:', error)
     res.status(500).json({
@@ -1921,6 +1714,198 @@ app.delete('/api/llm/interactions', async (_req, res) => {
   } catch (error) {
     res.status(500).json({
       error: 'Failed to clear logs',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// LLM Manager Status endpoint - Get actual loaded models and health
+app.get('/api/llm-manager/status', async (_req, res) => {
+  try {
+    const status = await runWithServices(
+      Effect.gen(function* () {
+        const llmManager = yield* LLMManagerAPIClientTag
+        return yield* llmManager.getStatus()
+      })
+    )
+
+    res.json({
+      ...status,
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('❌ Error getting LLM Manager status:', error)
+    res.status(500).json({
+      error: 'Failed to get LLM Manager status',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// LLM Manager Models endpoint - Get actually loaded models
+app.get('/api/llm-manager/models', async (_req, res) => {
+  try {
+    const models = await runWithServices(
+      Effect.gen(function* () {
+        const llmManager = yield* LLMManagerAPIClientTag
+        return yield* llmManager.getLoadedModels()
+      })
+    )
+
+    res.json({
+      models,
+      count: models.length,
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('❌ Error getting loaded models:', error)
+    res.status(500).json({
+      error: 'Failed to get loaded models',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// LLM Manager Model Selection endpoint - Select best model for task
+app.post('/api/llm-manager/select-model', async (req, res) => {
+  try {
+    const { taskType, requirements } = req.body
+
+    if (!taskType) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'taskType is required'
+      })
+      return
+    }
+
+    const selection = await runWithServices(
+      Effect.gen(function* () {
+        const llmManager = yield* LLMManagerAPIClientTag
+        return yield* llmManager.selectModel({
+          taskType,
+          requirements
+        })
+      })
+    )
+
+    res.json({
+      ...selection,
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('❌ Error selecting model:', error)
+    res.status(500).json({
+      error: 'Failed to select model',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// LLM Manager Health Check endpoint
+app.get('/api/llm-manager/health', async (_req, res) => {
+  try {
+    const status = await runWithServices(
+      Effect.gen(function* () {
+        const llmManager = yield* LLMManagerAPIClientTag
+        return yield* llmManager.getStatus()
+      })
+    )
+
+    const httpStatus = status.status === 'healthy' ? 200 : status.status === 'degraded' ? 207 : 503
+
+    res.status(httpStatus).json({
+      status: status.status,
+      loadedModels: status.loadedModels.length,
+      healthyModels: status.loadedModels.filter((m) => m.status === 'healthy').length,
+      uptime: status.systemMetrics?.uptime,
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('❌ LLM Manager health check error:', error)
+    res.status(503).json({
+      status: 'error',
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString()
+    })
+  }
+})
+
+// LLM Manager Reload Models endpoint - Reload models from environment
+app.post('/api/llm-manager/reload', async (_req, res) => {
+  try {
+    const result = await runWithServices(
+      Effect.gen(function* () {
+        const llmManager = yield* LLMManagerAPIClientTag
+
+        // Reload models from environment variables
+        yield* llmManager.reloadModels()
+
+        // Get updated status
+        const loadedModels = yield* llmManager.getLoadedModels()
+        const categories = yield* llmManager.getModelCategories()
+
+        return { loadedModels, categories }
+      })
+    )
+
+    res.json({
+      message: 'Models reloaded successfully',
+      loadedModels: result.loadedModels.map((m) => ({
+        id: m.id,
+        provider: m.provider,
+        status: m.status
+      })),
+      categories: result.categories,
+      totalModels: result.loadedModels.length,
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('❌ Failed to reload models:', error)
+    res.status(500).json({
+      error: 'Failed to reload models',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// LLM Manager Generate endpoint - Generate text using the manager
+app.post('/api/llm-manager/generate', async (req, res) => {
+  try {
+    const { prompt, model, taskType, maxTokens, temperature } = req.body
+
+    if (!prompt) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'prompt is required'
+      })
+      return
+    }
+
+    const response = await runWithServices(
+      Effect.gen(function* () {
+        const llmManager = yield* LLMManagerAPIClientTag
+        return yield* llmManager.generate({
+          prompt,
+          taskType: taskType || 'analysis',
+          preferences: {
+            model,
+            maxTokens: maxTokens || 1000,
+            temperature: temperature || 0.7,
+            requireStructuredOutput: false
+          }
+        })
+      })
+    )
+
+    res.json({
+      response,
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('❌ Generation error:', error)
+    res.status(500).json({
+      error: 'Failed to generate response',
       message: error instanceof Error ? error.message : 'Unknown error'
     })
   }

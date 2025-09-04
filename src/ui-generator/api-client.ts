@@ -61,7 +61,11 @@ export class UIGeneratorAPIClient {
         ),
         Effect.map((query: GeneratedQuery) => ({
           sql: query.sql,
-          model: request.model || 'claude-3-5-sonnet-20241022',
+          model:
+            request.model ||
+            process.env.LLM_SQL_MODEL_1 ||
+            process.env.LLM_GENERAL_MODEL_1 ||
+            'fallback',
           description: query.description,
           expectedColumns: Object.entries(query.expectedSchema || {}).map(([name, type]) => ({
             name,
@@ -107,29 +111,6 @@ export class UIGeneratorAPIClient {
     )
 
     return results
-  }
-
-  /**
-   * Get available models for query generation
-   */
-  static getAvailableModels(): Array<{ name: string; provider: string; description: string }> {
-    return [
-      {
-        name: 'claude-3-5-sonnet-20241022',
-        provider: 'anthropic',
-        description: 'Claude 3.5 Sonnet - Best for complex SQL generation'
-      },
-      {
-        name: 'gpt-4o',
-        provider: 'openai',
-        description: 'GPT-4 Optimized - Good balance of speed and quality'
-      },
-      {
-        name: 'sqlcoder-7b-2',
-        provider: 'local',
-        description: 'SQLCoder - Fast local SQL-specific model'
-      }
-    ]
   }
 
   /**
@@ -192,5 +173,4 @@ LIMIT 1000`
 export const generateQuery = UIGeneratorAPIClient.generateQuery.bind(UIGeneratorAPIClient)
 export const generateMultipleQueries =
   UIGeneratorAPIClient.generateMultipleQueries.bind(UIGeneratorAPIClient)
-export const getAvailableModels = UIGeneratorAPIClient.getAvailableModels.bind(UIGeneratorAPIClient)
 export const validateQuery = UIGeneratorAPIClient.validateQuery.bind(UIGeneratorAPIClient)

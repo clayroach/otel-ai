@@ -3,7 +3,6 @@ export {
   UIGeneratorAPIClient,
   generateQuery,
   generateMultipleQueries,
-  getAvailableModels,
   validateQuery
 } from './api-client.js'
 export type { QueryGenerationAPIRequest, QueryGenerationAPIResponse } from './api-client.js'
@@ -23,3 +22,13 @@ export type {
   QueryResult,
   QueryPattern
 } from './query-generator/types.js'
+
+// API Client Layer for server integration
+export {
+  UIGeneratorAPIClientTag,
+  UIGeneratorAPIClientLayer,
+  type UIGeneratorAPIClientService,
+  generateQuery as generateQueryEffect,
+  generateMultipleQueries as generateMultipleQueriesEffect,
+  validateQuery as validateQueryEffect
+} from './api-client-layer.js'

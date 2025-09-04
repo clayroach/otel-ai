@@ -1,8 +1,10 @@
 /**
  * Model Registry
  *
- * Central registry for LLM model configurations and metadata.
+ * INTERNAL: Central registry for LLM model configurations and metadata.
  * Defines model-specific behaviors, capabilities, and response handling.
+ * This registry is used internally by the LLM Manager to determine
+ * model parameters and capabilities based on configured models.
  */
 
 // Model capability flags
@@ -62,7 +64,8 @@ export interface ModelMetadata {
 }
 
 // Model Registry
-export const MODEL_REGISTRY: Record<string, ModelMetadata> = {
+// INTERNAL: Model registry - not exported externally
+const MODEL_REGISTRY: Record<string, ModelMetadata> = {
   'codellama-7b-instruct': {
     id: 'codellama-7b-instruct',
     displayName: 'Code Llama 7B Instruct',
@@ -536,10 +539,35 @@ export const MODEL_REGISTRY: Record<string, ModelMetadata> = {
 }
 
 /**
- * Get model metadata by ID
+ * INTERNAL: Get model metadata by ID
+ * This function is for internal LLM Manager use only
  */
 export const getModelMetadata = (modelId: string): ModelMetadata | undefined => {
   return MODEL_REGISTRY[modelId]
+}
+
+/**
+ * INTERNAL: Get model metadata for environment configuration
+ * Returns metadata only for models that should be loaded based on environment
+ */
+export const getModelMetadataForEnvironment = (modelIds: string[]): Map<string, ModelMetadata> => {
+  const metadata = new Map<string, ModelMetadata>()
+
+  for (const modelId of modelIds) {
+    const modelData = MODEL_REGISTRY[modelId]
+    if (modelData) {
+      metadata.set(modelId, modelData)
+    }
+  }
+
+  return metadata
+}
+
+/**
+ * INTERNAL: Get all model IDs in registry (for testing/debugging only)
+ */
+export const getAllRegistryModelIds = (): string[] => {
+  return Object.keys(MODEL_REGISTRY)
 }
 
 /**

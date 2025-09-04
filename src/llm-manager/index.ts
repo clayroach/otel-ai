@@ -45,5 +45,16 @@ export { ConversationStorageLayer } from './conversation-storage.js'
 export { MetricsLayer } from './metrics.js'
 export { ModelClientLayer } from './model-clients.js'
 
+// API Client Layer for server integration
+export {
+  LLMManagerAPIClientTag,
+  LLMManagerAPIClientLayer,
+  type LLMManagerAPIClientService,
+  getLoadedModels as getLoadedModelsEffect,
+  getLLMManagerStatus as getLLMManagerStatusEffect,
+  selectBestModel as selectBestModelEffect,
+  generateLLMResponse
+} from './api-client-layer.js'
+
 // Re-export Effect types for convenience
 export { Effect, Stream, Layer } from 'effect'
