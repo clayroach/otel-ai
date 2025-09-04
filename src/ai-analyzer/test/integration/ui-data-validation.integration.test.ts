@@ -53,9 +53,6 @@ describe('UI Data Validation Integration', () => {
         }
       })
       
-      console.log('🔍 Full analysis response for UI validation:')
-      console.log(JSON.stringify(analysis, null, 2))
-      
       // Check service names are clean strings, not JSON objects
       if (analysis.architecture && typeof analysis.architecture === 'object') {
         // Type guard to ensure services is an array
@@ -63,8 +60,6 @@ describe('UI Data Validation Integration', () => {
         const servicesArray = Array.isArray(services) ? services : []
         
         for (const service of servicesArray) {
-        console.log(`📋 Service name: "${service.service}"`)
-        
         // Should not be a JSON string
         expect(service.service.startsWith('{')).toBe(false)
         expect(service.service.includes('$typeName')).toBe(false)
@@ -173,17 +168,8 @@ describe('UI Data Validation Integration', () => {
       
       // Check each service's metadata for UI display
       if (analysis.architecture && typeof analysis.architecture === 'object' && Array.isArray(analysis.architecture.services)) {
-        for (const [index, service] of analysis.architecture.services.entries()) {
-        console.log(`🔧 Service ${index + 1} metadata validation:`)
-        console.log(`   Name: "${service.service}"`)
-        console.log(`   Type: "${service.type}"`)
-        console.log(`   Operations: ${service.operations.length}`)
-        console.log(`   Dependencies: ${service.dependencies.length}`)
-        
+        for (const service of analysis.architecture.services) {
         const metadata = service.metadata
-        console.log(`   Avg Latency: ${metadata.avgLatencyMs}ms`)
-        console.log(`   Error Rate: ${metadata.errorRate}`)
-        console.log(`   Total Spans: ${metadata.totalSpans}`)
         
         // Validate metadata is UI-ready
         if (metadata.avgLatencyMs !== undefined) {

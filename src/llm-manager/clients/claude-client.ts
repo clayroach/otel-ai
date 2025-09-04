@@ -5,9 +5,9 @@
  * Provides full feature parity with OpenAI and local clients.
  */
 
-import { Effect, Stream, Schedule, Duration } from 'effect'
 import { Schema } from '@effect/schema'
-import type { ModelClient, LLMRequest, LLMResponse, LLMError } from '../types.js'
+import { Duration, Effect, Schedule, Stream } from 'effect'
+import type { LLMError, LLMRequest, LLMResponse, ModelClient } from '../types.js'
 import { withLLMError } from './error-utils.js'
 
 /**
@@ -15,7 +15,7 @@ import { withLLMError } from './error-utils.js'
  */
 export const ClaudeConfigSchema = Schema.Struct({
   apiKey: Schema.String,
-  model: Schema.String, // "claude-3-opus-20240229", "claude-3-sonnet-20240229", etc.
+  model: Schema.String, // "claude-3-opus-20240229", "claude-3-7-sonnet-20250219", etc.
   maxTokens: Schema.Number,
   temperature: Schema.Number,
   timeout: Schema.Number,
@@ -30,7 +30,7 @@ export type ClaudeConfig = Schema.Schema.Type<typeof ClaudeConfigSchema>
  */
 export const defaultClaudeConfig: ClaudeConfig = {
   apiKey: process.env.CLAUDE_API_KEY || '',
-  model: 'claude-3-5-sonnet-20241022',
+  model: 'claude-3-7-sonnet-20250219',
   maxTokens: 4096,
   temperature: 0.7,
   timeout: 30000,
@@ -89,13 +89,12 @@ interface ClaudeStreamChunk {
 const calculateCost = (model: string, inputTokens: number, outputTokens: number): number => {
   const pricing: Record<string, { input: number; output: number }> = {
     'claude-3-opus-20240229': { input: 15 / 1000000, output: 75 / 1000000 },
-    'claude-3-sonnet-20240229': { input: 3 / 1000000, output: 15 / 1000000 },
-    'claude-3-5-sonnet-20241022': { input: 3 / 1000000, output: 15 / 1000000 },
+    'claude-3-7-sonnet-20250219': { input: 3 / 1000000, output: 15 / 1000000 },
     'claude-3-haiku-20240307': { input: 0.25 / 1000000, output: 1.25 / 1000000 }
   }
 
   const modelPricing = pricing[model] ||
-    pricing['claude-3-5-sonnet-20241022'] || { input: 3 / 1000000, output: 15 / 1000000 }
+    pricing['claude-3-7-sonnet-20250219'] || { input: 3 / 1000000, output: 15 / 1000000 }
   return inputTokens * modelPricing.input + outputTokens * modelPricing.output
 }
 

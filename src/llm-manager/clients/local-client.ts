@@ -71,19 +71,38 @@ interface OpenAIStreamChunk {
 }
 
 /**
+ * Extract model name from configuration
+ * Priority: modelPath > model > default
+ */
+const getModelName = (config: Record<string, unknown>): string => {
+  return (config.modelPath ||
+    config.model ||
+    process.env.LLM_SQL_MODEL_1 ||
+    'sqlcoder-7b-2') as string
+}
+
+/**
  * Create Local Model Client
  *
  * Creates a client for local models with LM Studio OpenAI-compatible API support.
  * Handles both direct API calls and streaming responses.
  */
-export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => ({
+export const makeLocalModelClient = (
+  config: LocalModelConfig | Record<string, unknown>
+): ModelClient => ({
   generate: (request: LLMRequest) =>
     Effect.gen(function* (_) {
       const startTime = Date.now()
 
+      const configAny = config as Record<string, unknown>
+      const configWithModel = {
+        ...config,
+        model: getModelName(configAny)
+      }
+
       // Validate configuration
       const validatedConfig = yield* _(
-        Schema.decodeUnknown(LocalModelConfigSchema)(config).pipe(
+        Schema.decodeUnknown(LocalModelConfigSchema)(configWithModel).pipe(
           Effect.mapError(
             (error): LLMError => ({
               _tag: 'ConfigurationError',
@@ -99,6 +118,11 @@ export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => (
         messages: [{ role: 'user', content: request.prompt }],
         max_tokens: request.preferences?.maxTokens ?? validatedConfig.maxTokens,
         temperature: request.preferences?.temperature ?? validatedConfig.temperature
+      }
+
+      // Debug logging for model selection
+      if (process.env.NODE_ENV === 'test') {
+        console.log(`   DEBUG: Sending request with model: ${openAIRequest.model}`)
       }
 
       // Make API call to local model
@@ -157,8 +181,17 @@ export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => (
   generateStream: (request: LLMRequest) =>
     Stream.unwrap(
       Effect.gen(function* (_) {
+        // Handle both 'model' and 'modelPath' properties for compatibility
+        // Priority: modelPath (from llm-query-generator) > model > default
+        const configAny = config as Record<string, unknown>
+        const configWithModel = {
+          ...config,
+          model:
+            configAny.modelPath || configAny.model || process.env.LLM_SQL_MODEL_1 || 'sqlcoder-7b-2'
+        }
+
         const validatedConfig = yield* _(
-          Schema.decodeUnknown(LocalModelConfigSchema)(config).pipe(
+          Schema.decodeUnknown(LocalModelConfigSchema)(configWithModel).pipe(
             Effect.mapError(
               (error): LLMError => ({
                 _tag: 'ConfigurationError',
@@ -276,8 +309,14 @@ export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => (
 
   isHealthy: () =>
     Effect.gen(function* (_) {
+      const configAny = config as Record<string, unknown>
+      const configWithModel = {
+        ...config,
+        model: getModelName(configAny)
+      }
+
       const validatedConfig = yield* _(
-        Schema.decodeUnknown(LocalModelConfigSchema)(config).pipe(
+        Schema.decodeUnknown(LocalModelConfigSchema)(configWithModel).pipe(
           Effect.mapError(
             (error): LLMError => ({
               _tag: 'ConfigurationError',
@@ -313,7 +352,7 @@ export const makeLocalModelClient = (config: LocalModelConfig): ModelClient => (
  */
 export const defaultLocalConfig: LocalModelConfig = {
   endpoint: 'http://localhost:1234/v1', // LM Studio default
-  model: 'openai/gpt-oss-20b', // or any loaded model
+  model: process.env.LLM_SQL_MODEL_1 || 'sqlcoder-7b-2', // Default to SQL model from environment
   maxTokens: 4096,
   temperature: 0.7,
   contextLength: 4096,

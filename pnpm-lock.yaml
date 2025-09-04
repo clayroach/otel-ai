@@ -118,7 +118,7 @@ importers:
         specifier: ^7.1.4
         version: 7.1.4
       testcontainers:
-        specifier: ^10.11.0
+        specifier: ^10.28.0
         version: 10.28.0
       tsx:
         specifier: ^4.16.0

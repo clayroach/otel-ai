@@ -163,6 +163,52 @@
       ],
       "stopOnEntry": false,
       "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Debug Current Integration Test",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "vitest",
+        "run",
+        "--config",
+        "vitest.integration.config.ts",
+        "${relativeFile}"
+      ],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": [
+        "<node_internals>/**",
+        "**/node_modules/**"
+      ],
+      "stopOnEntry": false,
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "NODE_ENV": "test",
+        "DEBUG": "testcontainers*"
+      }
+    },
+    {
+      "name": "Debug All Integration Tests",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "test:integration"
+      ],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": [
+        "<node_internals>/**",
+        "**/node_modules/**"
+      ],
+      "stopOnEntry": false,
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "NODE_ENV": "test",
+        "DEBUG": "testcontainers*"
+      }
     }
   ]
 }
