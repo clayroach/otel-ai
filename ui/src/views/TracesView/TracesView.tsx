@@ -5,10 +5,12 @@ import {
   FormatPainterOutlined,
   HistoryOutlined,
   PlayCircleOutlined,
-  SaveOutlined
+  SaveOutlined,
+  InfoCircleOutlined
 } from '@ant-design/icons'
-import { Button, Card, Col, Dropdown, Row, Space, Spin, Tooltip, Typography } from 'antd'
-import React, { useCallback, useState } from 'react'
+import { Button, Card, Col, Dropdown, Row, Space, Spin, Tooltip, Typography, App } from 'antd'
+import React, { useCallback, useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { format } from 'sql-formatter'
 import { MonacoQueryEditor } from '../../components/MonacoEditor/MonacoQueryEditor'
@@ -54,10 +56,25 @@ WHERE start_time >= subtractHours(now(), 3)
 ORDER BY start_time DESC 
 LIMIT 100`
 
+interface LocationState {
+  query?: string
+  metadata?: {
+    model: string
+    generatedAt: number
+    generationTime: number
+    criticalPath: string
+    description?: string
+  }
+}
+
 export const TracesView: React.FC = () => {
+  const { message } = App.useApp()
+  const location = useLocation()
+  const locationState = location.state as LocationState | null
   const { activeQuery, setActiveQuery, queryHistory, addToQueryHistory } = useAppStore()
   const [query, setQuery] = useState(activeQuery || DEFAULT_QUERY)
   const [isRunning, setIsRunning] = useState(false)
+  const [queryMetadata, setQueryMetadata] = useState<LocationState['metadata'] | null>(null)
 
   const {
     data: queryResults,
@@ -130,6 +147,31 @@ export const TracesView: React.FC = () => {
     setQuery(value)
   }, [])
 
+  // Handle incoming generated query from navigation
+  useEffect(() => {
+    if (locationState?.query) {
+      setQuery(locationState.query)
+      setQueryMetadata(locationState.metadata || null)
+
+      // Show notification about the generated query
+      if (locationState.metadata) {
+        message.info({
+          content: `Query generated with ${locationState.metadata.model} for ${locationState.metadata.criticalPath}`,
+          duration: 5,
+          icon: <InfoCircleOutlined />
+        })
+      }
+
+      // Auto-run the generated query
+      setTimeout(() => {
+        handleRunQuery()
+      }, 500)
+
+      // Clear the location state to prevent re-running on navigation
+      window.history.replaceState({}, document.title)
+    }
+  }, [locationState, handleRunQuery])
+
   return (
     <div
       style={{
@@ -172,7 +214,18 @@ export const TracesView: React.FC = () => {
               <div
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
               >
-                <span>Query Editor</span>
+                <Space>
+                  <span>Query Editor</span>
+                  {queryMetadata && (
+                    <Tooltip
+                      title={`Generated with ${queryMetadata.model} in ${queryMetadata.generationTime}ms`}
+                    >
+                      <span style={{ fontSize: '12px', color: '#1890ff' }}>
+                        (AI Generated for {queryMetadata.criticalPath})
+                      </span>
+                    </Tooltip>
+                  )}
+                </Space>
                 <Space size="small">
                   {queryHistory.length > 0 && (
                     <Dropdown

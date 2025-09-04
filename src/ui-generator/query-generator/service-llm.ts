@@ -6,14 +6,14 @@ import {
   QueryPattern,
   QueryThunk,
   QueryResult
-} from './types'
+} from './types.js'
 import { StorageAPIClientTag } from '../../storage/api-client'
 import { StorageError } from '../../storage/errors'
 import {
   generateQueryWithLLM,
   generateStandardQueries,
   ANALYSIS_GOALS
-} from './llm-query-generator'
+} from './llm-query-generator.js'
 
 // CriticalPathQueryGenerator implementation using LLM
 export const makeLLMBased = Effect.gen(function* () {

@@ -1,5 +1,5 @@
 import { Effect, pipe, Duration } from 'effect'
-import { CriticalPath, GeneratedQuery, QueryPattern } from './types'
+import { CriticalPath, GeneratedQuery, QueryPattern } from './types.js'
 import {
   type LLMRequest,
   type LLMResponse,

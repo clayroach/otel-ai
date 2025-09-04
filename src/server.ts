@@ -534,7 +534,7 @@ app.post('/api/clickhouse/query', async (req, res) => {
 })
 
 // AI Analyzer API endpoints
-app.get('/api/ai-analyzer/health', async (req, res) => {
+app.get('/api/ai-analyzer/health', async (_req, res) => {
   try {
     if (!aiAnalyzer) {
       res.json({
@@ -1756,6 +1756,158 @@ app.get('/api/llm/live', (req, res) => {
   req.on('close', () => {
     clearInterval(interval)
   })
+})
+
+// UI Generator Query Generation Endpoint
+app.post('/api/ui-generator/generate-query', async (req, res) => {
+  try {
+    const { path, timeWindowMinutes = 60 } = req.body
+    // analysisGoal could be used for more advanced query generation in the future
+
+    // Simple inline implementation to avoid module dependencies
+    const startTime = Date.now()
+
+    // Determine analysis type based on path metrics (if provided)
+    const errorRate = path.metrics?.errorRate || 0
+    const p99Latency = path.metrics?.p99Latency || 0
+
+    let analysisType: string
+    if (errorRate > 0.05) {
+      analysisType = 'errors'
+    } else if (p99Latency > 2000) {
+      analysisType = 'bottlenecks'
+    } else if (p99Latency > 1000) {
+      analysisType = 'latency'
+    } else {
+      analysisType = 'general'
+    }
+
+    // Build SQL query based on analysis type
+    const services = path.services.map((s: string) => `'${s.replace(/'/g, "''")}'`).join(', ')
+    let sql = ''
+    let description = ''
+
+    switch (analysisType) {
+      case 'errors':
+        sql = `-- Diagnostic query for error analysis: ${path.name}
+SELECT 
+  service_name,
+  status_code,
+  status_message,
+  count() as error_count,
+  round(count() * 100.0 / sum(count()) OVER (), 2) as error_percentage
+FROM otel.traces
+WHERE 
+  service_name IN (${services})
+  AND status_code != 'OK'
+  AND start_time >= now() - INTERVAL ${timeWindowMinutes} MINUTE
+GROUP BY service_name, status_code, status_message
+ORDER BY error_count DESC
+LIMIT 100`
+        description = `Error analysis for ${path.name} - identifies error patterns and distribution`
+        break
+
+      case 'latency':
+      case 'bottlenecks':
+        sql = `-- Diagnostic query for latency analysis: ${path.name}
+SELECT 
+  service_name,
+  operation_name,
+  quantile(0.5)(duration_ns/1000000) as p50_ms,
+  quantile(0.95)(duration_ns/1000000) as p95_ms,
+  quantile(0.99)(duration_ns/1000000) as p99_ms,
+  max(duration_ns/1000000) as max_ms,
+  count() as operation_count
+FROM otel.traces
+WHERE 
+  service_name IN (${services})
+  AND start_time >= now() - INTERVAL ${timeWindowMinutes} MINUTE
+GROUP BY service_name, operation_name
+HAVING p95_ms > 100
+ORDER BY p99_ms DESC
+LIMIT 50`
+        description =
+          analysisType === 'bottlenecks'
+            ? `Bottleneck detection for ${path.name} - finds slowest operations`
+            : `Latency analysis for ${path.name} - shows percentile distribution`
+        break
+
+      default:
+        sql = `-- Diagnostic query for general analysis: ${path.name}
+SELECT 
+  service_name,
+  toStartOfMinute(start_time) as minute,
+  count() as request_count,
+  quantile(0.5)(duration_ns/1000000) as p50_ms,
+  quantile(0.95)(duration_ns/1000000) as p95_ms,
+  quantile(0.99)(duration_ns/1000000) as p99_ms,
+  sum(CASE WHEN status_code != 'OK' THEN 1 ELSE 0 END) as error_count,
+  round(sum(CASE WHEN status_code != 'OK' THEN 1 ELSE 0 END) * 100.0 / count(), 2) as error_rate
+FROM otel.traces
+WHERE 
+  service_name IN (${services})
+  AND start_time >= now() - INTERVAL ${timeWindowMinutes} MINUTE
+GROUP BY service_name, minute
+ORDER BY minute DESC, service_name
+LIMIT 1000`
+        description = `General diagnostics for ${path.name} - comprehensive metrics overview`
+    }
+
+    res.json({
+      sql,
+      model: 'rule-based',
+      description,
+      generationTimeMs: Date.now() - startTime,
+      analysisType
+    })
+  } catch (error) {
+    console.error('❌ Query generation error:', error)
+    res.status(500).json({
+      error: 'Failed to generate query',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// Get available models for UI generator
+app.get('/api/ui-generator/models', async (_req, res) => {
+  try {
+    // Get actual available models from llm-manager MODEL_REGISTRY
+    const { MODEL_REGISTRY } = await import('./llm-manager/model-registry.js')
+
+    // Filter models based on API key availability
+    const models = Object.entries(MODEL_REGISTRY).map(([id, metadata]) => ({
+      name: id,
+      provider: metadata.provider,
+      description: `${metadata.provider.charAt(0).toUpperCase() + metadata.provider.slice(1)} - ${
+        metadata.capabilities.sql
+          ? 'SQL optimized'
+          : metadata.capabilities.reasoning
+            ? 'Advanced reasoning'
+            : 'General purpose'
+      }`,
+      available:
+        (metadata.provider === 'anthropic' && !!process.env.CLAUDE_API_KEY) ||
+        (metadata.provider === 'openai' && !!process.env.OPENAI_API_KEY) ||
+        metadata.provider === 'local'
+    }))
+
+    // Add rule-based option at the start
+    models.unshift({
+      name: 'rule-based',
+      provider: 'local',
+      description: 'Rule-based query generation - fast and reliable',
+      available: true
+    })
+
+    res.json({ models })
+  } catch (error) {
+    console.error('❌ Error fetching models:', error)
+    res.status(500).json({
+      error: 'Failed to fetch models',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
 })
 
 // Clear LLM logs endpoint

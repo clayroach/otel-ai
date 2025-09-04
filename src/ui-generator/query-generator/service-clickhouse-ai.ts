@@ -7,7 +7,7 @@
  */
 
 import { Context, Effect, Layer } from 'effect'
-import { CriticalPath, GeneratedQueryWithThunk, QueryPattern, QueryResult } from './types'
+import { CriticalPath, GeneratedQueryWithThunk, QueryPattern, QueryResult } from './types.js'
 import { StorageAPIClientTag } from '../../storage/api-client'
 import { createMultiModelSimpleLLMManager } from '../../llm-manager/multi-model-simple-manager'
 import { type LLMRequest } from '../../llm-manager'
