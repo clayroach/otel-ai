@@ -189,29 +189,29 @@ export const StorageLayer = ConfigServiceLive.pipe(Layer.provide(StorageServiceL
 // Convenience functions for common operations
 export namespace StorageOperations {
   export const writeOTLP = (data: OTLPData) =>
-    StorageServiceTag.pipe(Effect.flatMap(storage => storage.writeOTLP(data)))
+    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.writeOTLP(data)))
 
   export const queryTraces = (params: QueryParams) =>
-    StorageServiceTag.pipe(Effect.flatMap(storage => storage.queryTraces(params)))
+    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.queryTraces(params)))
 
   export const queryMetrics = (params: QueryParams) =>
-    StorageServiceTag.pipe(Effect.flatMap(storage => storage.queryMetrics(params)))
+    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.queryMetrics(params)))
 
   export const queryLogs = (params: QueryParams) =>
-    StorageServiceTag.pipe(Effect.flatMap(storage => storage.queryLogs(params)))
+    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.queryLogs(params)))
 
   export const queryForAI = (params: AIQueryParams) =>
-    StorageServiceTag.pipe(Effect.flatMap(storage => storage.queryForAI(params)))
+    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.queryForAI(params)))
 
   export const healthCheck = () =>
-    StorageServiceTag.pipe(Effect.flatMap(storage => storage.healthCheck()))
+    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.healthCheck()))
 
   export const getStats = () =>
-    StorageServiceTag.pipe(Effect.flatMap(storage => storage.getStorageStats()))
+    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.getStorageStats()))
 
   export const startRetentionSchedule = (intervalMinutes: number = 60) =>
     StorageServiceTag.pipe(
-      Effect.flatMap(storage =>
+      Effect.flatMap((storage) =>
         storage
           .applyRetentionPolicies()
           .pipe(Effect.repeat(Schedule.fixed(Duration.minutes(intervalMinutes))), Effect.forkDaemon)
