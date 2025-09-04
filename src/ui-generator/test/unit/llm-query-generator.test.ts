@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest"
-import { Effect, Layer, Duration } from "effect"
+import { Effect, Layer, Duration, pipe } from "effect"
 import { CriticalPath } from "../../query-generator/types"
 import {
   CriticalPathQueryGeneratorLLMTag,
@@ -9,6 +9,7 @@ import { generateQueryWithLLM, ANALYSIS_GOALS, validateGeneratedSQL } from "../.
 import { StorageAPIClientTag } from "../../../storage/api-client"
 import { createLLMManager } from "../../../llm-manager"
 import { getModelMetadata } from "../../../llm-manager/model-registry"
+import { LLMManagerLive } from "../../../llm-manager/llm-manager-live"
 
 // Test data representing a real critical path
 const testPath: CriticalPath = {
@@ -216,7 +217,10 @@ describe("LLM Query Generator", () => {
         return
       }
       const query = await Effect.runPromise(
-        generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency, llmConfig)
+        pipe(
+          generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency, llmConfig),
+          Effect.provide(LLMManagerLive)
+        )
       )
       
       expect(query.sql).toBeDefined()
@@ -255,7 +259,10 @@ describe("LLM Query Generator", () => {
         return
       }
       const query = await Effect.runPromise(
-        generateQueryWithLLM(testPath, ANALYSIS_GOALS.errors, llmConfig)
+        pipe(
+          generateQueryWithLLM(testPath, ANALYSIS_GOALS.errors, llmConfig),
+          Effect.provide(LLMManagerLive)
+        )
       )
       
       expect(query.sql).toBeDefined()
@@ -294,9 +301,9 @@ describe("LLM Query Generator", () => {
       
       // Generate the same query 3 times in parallel for speed
       const [query1, query2, query3] = await Promise.all([
-        Effect.runPromise(generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency, llmConfig)),
-        Effect.runPromise(generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency, llmConfig)),
-        Effect.runPromise(generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency, llmConfig))
+        Effect.runPromise(pipe(generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency, llmConfig), Effect.provide(LLMManagerLive))),
+        Effect.runPromise(pipe(generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency, llmConfig), Effect.provide(LLMManagerLive))),
+        Effect.runPromise(pipe(generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency, llmConfig), Effect.provide(LLMManagerLive)))
       ])
       
       // All should be valid
@@ -383,9 +390,9 @@ describe("LLM Query Generator", () => {
       
       // Generate different queries in parallel for speed
       const [latencyQuery, errorQuery, bottleneckQuery] = await Promise.all([
-        Effect.runPromise(generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency, llmConfig)),
-        Effect.runPromise(generateQueryWithLLM(testPath, ANALYSIS_GOALS.errors, llmConfig)),
-        Effect.runPromise(generateQueryWithLLM(testPath, ANALYSIS_GOALS.bottlenecks, llmConfig))
+        Effect.runPromise(pipe(generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency, llmConfig), Effect.provide(LLMManagerLive))),
+        Effect.runPromise(pipe(generateQueryWithLLM(testPath, ANALYSIS_GOALS.errors, llmConfig), Effect.provide(LLMManagerLive))),
+        Effect.runPromise(pipe(generateQueryWithLLM(testPath, ANALYSIS_GOALS.bottlenecks, llmConfig), Effect.provide(LLMManagerLive)))
       ])
       
       // All should be valid
@@ -429,7 +436,10 @@ describe("LLM Query Generator", () => {
       const customGoal = "Analyze the relationship between service latency and error rates, focusing on correlation patterns during peak load"
       
       const query = await Effect.runPromise(
-        generateQueryWithLLM(testPath, customGoal, llmConfig)
+        pipe(
+          generateQueryWithLLM(testPath, customGoal, llmConfig),
+          Effect.provide(LLMManagerLive)
+        )
       )
       
       expect(query.sql).toBeDefined()
@@ -452,7 +462,10 @@ describe("LLM Query Generator", () => {
       }
       
       const query = await Effect.runPromise(
-        generateQueryWithLLM(maliciousPath, ANALYSIS_GOALS.latency, llmConfig)
+        pipe(
+          generateQueryWithLLM(maliciousPath, ANALYSIS_GOALS.latency, llmConfig),
+          Effect.provide(LLMManagerLive)
+        )
       )
       
       // The service name should be escaped or quoted properly

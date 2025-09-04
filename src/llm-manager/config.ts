@@ -101,6 +101,59 @@ const loadConfigFromEnv = (): Effect.Effect<LLMConfig, LLMError, never> =>
       }
     }
 
+    // Load SQL-specific models from LLM_SQL_MODEL_* environment variables
+    const sqlModelKeys = Object.keys(process.env).filter((key) => key.startsWith('LLM_SQL_MODEL_'))
+    for (const key of sqlModelKeys) {
+      const modelName = process.env[key]
+      if (modelName) {
+        // Create a local model configuration for SQL models
+        baseConfig.models[modelName] = {
+          modelPath: modelName,
+          contextLength: 4096,
+          threads: 4,
+          gpuLayers: 0,
+          endpoint:
+            process.env.LM_STUDIO_ENDPOINT ||
+            process.env.LLM_ENDPOINT ||
+            'http://localhost:1234/v1',
+          maxTokens: 2048,
+          temperature: 0 // SQL models should be deterministic
+        }
+      }
+    }
+
+    // Load general models from LLM_GENERAL_MODEL_* environment variables
+    const generalModelKeys = Object.keys(process.env).filter((key) =>
+      key.startsWith('LLM_GENERAL_MODEL_')
+    )
+    for (const key of generalModelKeys) {
+      const modelName = process.env[key]
+      if (modelName) {
+        // Determine if this is a Claude, GPT, or local model based on name
+        if (modelName.includes('claude') && process.env.CLAUDE_API_KEY) {
+          // Already handled above in Claude configuration
+          continue
+        } else if (modelName.includes('gpt') && process.env.OPENAI_API_KEY) {
+          // Already handled above in GPT configuration
+          continue
+        } else {
+          // Assume it's a local model
+          baseConfig.models[modelName] = {
+            modelPath: modelName,
+            contextLength: 4096,
+            threads: 4,
+            gpuLayers: 0,
+            endpoint:
+              process.env.LM_STUDIO_ENDPOINT ||
+              process.env.LLM_ENDPOINT ||
+              'http://localhost:1234/v1',
+            maxTokens: 4096,
+            temperature: 0.7
+          }
+        }
+      }
+    }
+
     // Override routing strategy from environment
     const routingStrategy = process.env.LLM_ROUTING_STRATEGY
     if (routingStrategy && ['cost', 'performance', 'balanced'].includes(routingStrategy)) {

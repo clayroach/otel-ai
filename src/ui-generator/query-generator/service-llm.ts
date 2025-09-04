@@ -20,6 +20,7 @@ import {
   generateStandardQueries,
   ANALYSIS_GOALS
 } from './llm-query-generator.js'
+import { LLMManagerLive } from '../../llm-manager/index.js'
 
 // CriticalPathQueryGenerator implementation using LLM
 export const makeLLMBased = Effect.gen(function* () {
@@ -65,7 +66,8 @@ export const makeLLMBased = Effect.gen(function* () {
           ...query,
           executeThunk: createQueryThunk(query.id, query.sql)
         }))
-      )
+      ),
+      Effect.provide(LLMManagerLive)
     )
   }
 
@@ -90,7 +92,8 @@ export const makeLLMBased = Effect.gen(function* () {
 
     return pipe(
       generateQueryWithLLM(path, analysisGoal),
-      Effect.map((query) => createQueryThunk(query.id, query.sql))
+      Effect.map((query) => createQueryThunk(query.id, query.sql)),
+      Effect.provide(LLMManagerLive)
     )
   }
 
@@ -116,39 +119,42 @@ export const generateCustomQuery = (
   path: CriticalPath,
   analysisGoal: string
 ): Effect.Effect<GeneratedQueryWithThunk, Error, StorageAPIClientTag> => {
-  return Effect.gen(function* () {
-    const storage = yield* StorageAPIClientTag
-    const baseQuery = yield* generateQueryWithLLM(path, analysisGoal)
+  return pipe(
+    Effect.gen(function* () {
+      const storage = yield* StorageAPIClientTag
+      const baseQuery = yield* generateQueryWithLLM(path, analysisGoal)
 
-    const queryWithThunk: GeneratedQueryWithThunk = {
-      ...baseQuery,
-      executeThunk: () =>
-        pipe(
-          Effect.gen(function* () {
-            const startTime = Date.now()
-            const result = yield* storage.queryRaw(baseQuery.sql)
-            const executionTimeMs = Date.now() - startTime
+      const queryWithThunk: GeneratedQueryWithThunk = {
+        ...baseQuery,
+        executeThunk: () =>
+          pipe(
+            Effect.gen(function* () {
+              const startTime = Date.now()
+              const result = yield* storage.queryRaw(baseQuery.sql)
+              const executionTimeMs = Date.now() - startTime
 
-            return {
-              queryId: baseQuery.id,
-              data: result as Array<Record<string, unknown>>,
-              executionTimeMs,
-              rowCount: result.length,
-              error: undefined
-            } satisfies QueryResult
-          }),
-          Effect.catchAll((error: StorageError) =>
-            Effect.succeed({
-              queryId: baseQuery.id,
-              data: [],
-              executionTimeMs: 0,
-              rowCount: 0,
-              error: error._tag === 'QueryError' ? error.message : `Storage error: ${error._tag}`
-            } satisfies QueryResult)
+              return {
+                queryId: baseQuery.id,
+                data: result as Array<Record<string, unknown>>,
+                executionTimeMs,
+                rowCount: result.length,
+                error: undefined
+              } satisfies QueryResult
+            }),
+            Effect.catchAll((error: StorageError) =>
+              Effect.succeed({
+                queryId: baseQuery.id,
+                data: [],
+                executionTimeMs: 0,
+                rowCount: 0,
+                error: error._tag === 'QueryError' ? error.message : `Storage error: ${error._tag}`
+              } satisfies QueryResult)
+            )
           )
-        )
-    }
+      }
 
-    return queryWithThunk
-  })
+      return queryWithThunk
+    }),
+    Effect.provide(LLMManagerLive)
+  )
 }

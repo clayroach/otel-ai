@@ -1,6 +1,7 @@
 import { Effect, pipe } from 'effect'
 import type { CriticalPath, GeneratedQuery } from './query-generator/types.js'
 import { generateQueryWithLLM, ANALYSIS_GOALS } from './query-generator/llm-query-generator.js'
+import { LLMManagerLive } from '../llm-manager/llm-manager-live.js'
 
 export interface QueryGenerationAPIRequest {
   path: {
@@ -51,21 +52,20 @@ export class UIGeneratorAPIClient {
     // Use default analysis goal if not provided
     const analysisGoal = request.analysisGoal || ANALYSIS_GOALS.latency
 
-    // Run the Effect-based query generation
+    // Default to SQLCoder-7b-2 if no model specified
+    const targetModel = request.model || process.env.LLM_SQL_MODEL_1 || 'sqlcoder-7b-2'
+
+    // Run the Effect-based query generation with LLM Manager Layer
     const result = await Effect.runPromise(
       pipe(
         generateQueryWithLLM(
           criticalPath,
           analysisGoal,
-          request.model ? { model: request.model } : undefined
+          { model: targetModel } // Use SQLCoder-7b-2 by default
         ),
         Effect.map((query: GeneratedQuery) => ({
           sql: query.sql,
-          model:
-            request.model ||
-            process.env.LLM_SQL_MODEL_1 ||
-            process.env.LLM_GENERAL_MODEL_1 ||
-            'fallback',
+          model: targetModel,
           description: query.description,
           expectedColumns: Object.entries(query.expectedSchema || {}).map(([name, type]) => ({
             name,
@@ -79,10 +79,12 @@ export class UIGeneratorAPIClient {
             sql: UIGeneratorAPIClient.generateFallbackQuery(criticalPath),
             model: 'fallback',
             description: `Fallback query generated due to error: ${error.message}`,
-            expectedColumns: [],
+            expectedColumns: UIGeneratorAPIClient.getExpectedColumns(),
             generationTimeMs: Date.now() - startTime
           })
-        )
+        ),
+        // Provide the LLM Manager Layer
+        Effect.provide(LLMManagerLive)
       )
     )
 
@@ -140,6 +142,34 @@ export class UIGeneratorAPIClient {
       valid: errors.length === 0,
       errors
     }
+  }
+
+  /**
+   * Get expected columns for rule-based queries
+   */
+  private static getExpectedColumns(): Array<{ name: string; type: string; description: string }> {
+    return [
+      {
+        name: 'service_name',
+        type: 'String',
+        description: 'Name of the service in the critical path'
+      },
+      {
+        name: 'minute',
+        type: 'DateTime',
+        description: 'Minute-level timestamp for metrics aggregation'
+      },
+      { name: 'request_count', type: 'UInt64', description: 'Number of requests processed' },
+      { name: 'p50_ms', type: 'Float64', description: '50th percentile latency in milliseconds' },
+      { name: 'p95_ms', type: 'Float64', description: '95th percentile latency in milliseconds' },
+      { name: 'p99_ms', type: 'Float64', description: '99th percentile latency in milliseconds' },
+      { name: 'error_count', type: 'UInt64', description: 'Number of errors encountered' },
+      {
+        name: 'error_rate',
+        type: 'Float64',
+        description: 'Percentage of requests resulting in errors'
+      }
+    ]
   }
 
   /**

@@ -10,6 +10,29 @@ import { ModelRouterService, ModelClientService, LLMConfigService } from './serv
 import { LLMRequest, ModelType, TaskType, LLMConfig, ModelClient } from './types.js'
 
 /**
+ * Map generic model types to actual model names
+ * This is a bridge function to support the transition from hardcoded types to dynamic model loading
+ */
+const mapGenericToActualModel = (
+  genericType: string,
+  clients: { gpt?: ModelClient; claude?: ModelClient; llama?: ModelClient }
+): string => {
+  // For now, return actual model names based on what's available
+  if (genericType === 'claude' && clients.claude) {
+    return (
+      process.env.LLM_GENERAL_MODEL_1 || process.env.CLAUDE_MODEL || 'claude-3-7-sonnet-20250219'
+    )
+  }
+  if (genericType === 'gpt' && clients.gpt) {
+    return process.env.LLM_GENERAL_MODEL_2 || process.env.OPENAI_MODEL || 'gpt-3.5-turbo'
+  }
+  if (genericType === 'llama' && clients.llama) {
+    return process.env.LLM_SQL_MODEL_1 || process.env.LM_STUDIO_MODEL || 'sqlcoder-7b-2'
+  }
+  return genericType // fallback to original if no mapping found
+}
+
+/**
  * Enhanced Task-Based Routing Strategy
  *
  * Defines preferred models for different task types based on their strengths,
@@ -17,7 +40,7 @@ import { LLMRequest, ModelType, TaskType, LLMConfig, ModelClient } from './types
  */
 const TASK_ROUTING: Record<
   TaskType,
-  { preferred: ModelType; fallback: ModelType[]; multiModel?: boolean; reasoning?: string }
+  { preferred: string; fallback: string[]; multiModel?: boolean; reasoning?: string }
 > = {
   analysis: {
     preferred: 'claude', // Best for analytical tasks
@@ -111,20 +134,24 @@ export const makeModelRouter = (
           const taskRouting = TASK_ROUTING[request.taskType]
           const preferredModel = taskRouting.preferred
 
-          // Check if preferred model is available
+          // Map generic model type to actual model name and check availability
+          const actualPreferredModel = mapGenericToActualModel(preferredModel, clients)
           const isPreferredAvailable = yield* _(isModelAvailable(preferredModel, clients))
           if (isPreferredAvailable) {
-            return preferredModel
+            return actualPreferredModel // Return actual model name, not generic type
           }
 
           // Try fallback models in order
           for (const fallbackModel of taskRouting.fallback) {
+            const actualFallbackModel = mapGenericToActualModel(fallbackModel, clients)
             const isAvailable = yield* _(isModelAvailable(fallbackModel, clients))
             if (isAvailable) {
               yield* _(
-                Effect.log(`Using fallback model ${fallbackModel} for task ${request.taskType}`)
+                Effect.log(
+                  `Using fallback model ${actualFallbackModel} (${fallbackModel}) for task ${request.taskType}`
+                )
               )
-              return fallbackModel
+              return actualFallbackModel // Return actual model name, not generic type
             }
           }
 
@@ -164,20 +191,24 @@ export const makeModelRouter = (
               const taskRouting = TASK_ROUTING[request.taskType]
               const preferredModel = taskRouting.preferred
 
-              // Check if preferred model is available
+              // Map generic model type to actual model name and check availability
+              const actualPreferredModel = mapGenericToActualModel(preferredModel, clients)
               const isPreferredAvailable = yield* _(isModelAvailable(preferredModel, clients))
               if (isPreferredAvailable) {
-                return preferredModel
+                return actualPreferredModel // Return actual model name, not generic type
               }
 
               // Try fallback models in order
               for (const fallbackModel of taskRouting.fallback) {
+                const actualFallbackModel = mapGenericToActualModel(fallbackModel, clients)
                 const isAvailable = yield* _(isModelAvailable(fallbackModel, clients))
                 if (isAvailable) {
                   yield* _(
-                    Effect.log(`Using fallback model ${fallbackModel} for task ${request.taskType}`)
+                    Effect.log(
+                      `Using fallback model ${actualFallbackModel} (${fallbackModel}) for task ${request.taskType}`
+                    )
                   )
-                  return fallbackModel
+                  return actualFallbackModel // Return actual model name, not generic type
                 }
               }
 
@@ -192,13 +223,17 @@ export const makeModelRouter = (
             })
           )
 
-          // Get the appropriate client
-          const modelClient =
-            selectedModel === 'gpt'
-              ? clients.gpt
-              : selectedModel === 'claude'
-                ? clients.claude
-                : clients.llama
+          // Get the appropriate client based on actual model name
+          let modelClient: ModelClient | undefined
+
+          if (selectedModel.includes('claude')) {
+            modelClient = clients.claude
+          } else if (selectedModel.includes('gpt')) {
+            modelClient = clients.gpt
+          } else {
+            // Local model (sqlcoder, codellama, etc.)
+            modelClient = clients.llama
+          }
 
           if (!modelClient) {
             return yield* _(
@@ -280,8 +315,17 @@ const isModelAvailable = (
   }
 ) =>
   Effect.gen(function* (_) {
-    const client =
-      model === 'gpt' ? clients.gpt : model === 'claude' ? clients.claude : clients.llama
+    // Map actual model names to client types
+    let client: ModelClient | undefined
+
+    if (model.includes('claude')) {
+      client = clients.claude
+    } else if (model.includes('gpt')) {
+      client = clients.gpt
+    } else {
+      // Local model (sqlcoder, codellama, etc.)
+      client = clients.llama
+    }
 
     if (!client) {
       return false

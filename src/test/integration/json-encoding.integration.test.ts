@@ -157,8 +157,8 @@ describe('JSON Encoding Integration', () => {
     expect(row.service_name).toBe('integration-json-test')
     expect(row.operation_name).toBe('json-integration-operation')
     expect(row.encoding_type).toBe('json') // This should be 'json' not 'protobuf'
-    // Attributes are stored as JSON strings in ClickHouse
-    expect(JSON.parse(row.test_encoding || '{}').stringValue).toBe('json')
+    // Attributes are stored as JSON strings in ClickHouse - test_encoding should be just the string value
+    expect(row.test_encoding).toBe('json')
   })
 
   it('should differentiate between JSON and protobuf traces', async () => {

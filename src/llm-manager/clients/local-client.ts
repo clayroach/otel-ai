@@ -148,7 +148,7 @@ export const makeLocalModelClient = (
           },
           catch: (error) => ({
             _tag: 'ModelUnavailable' as const,
-            model: 'llama',
+            model: validatedConfig.model, // Use actual model name, not hardcoded 'llama'
             message: error instanceof Error ? error.message : 'Unknown error'
           })
         })
@@ -228,7 +228,7 @@ export const makeLocalModelClient = (
                     }),
                   catch: (error) => ({
                     _tag: 'ModelUnavailable' as const,
-                    model: 'llama',
+                    model: validatedConfig.model,
                     message: error instanceof Error ? error.message : 'Unknown error'
                   })
                 })
@@ -237,7 +237,7 @@ export const makeLocalModelClient = (
               if (!fetchResponse.ok) {
                 emit.fail({
                   _tag: 'ModelUnavailable',
-                  model: 'llama',
+                  model: validatedConfig.model,
                   message: `Local model API error: ${fetchResponse.status}`
                 })
                 return
@@ -247,7 +247,7 @@ export const makeLocalModelClient = (
               if (!reader) {
                 emit.fail({
                   _tag: 'ModelUnavailable',
-                  model: 'llama',
+                  model: validatedConfig.model,
                   message: 'No response body available'
                 })
                 return
@@ -293,7 +293,7 @@ export const makeLocalModelClient = (
                   },
                   catch: (error) => ({
                     _tag: 'NetworkError' as const,
-                    model: 'llama',
+                    model: validatedConfig.model,
                     message: error instanceof Error ? error.message : 'Streaming error'
                   })
                 })
@@ -337,7 +337,7 @@ export const makeLocalModelClient = (
           },
           catch: (error): LLMError => ({
             _tag: 'ModelUnavailable',
-            model: 'llama',
+            model: validatedConfig.model,
             message: error instanceof Error ? error.message : 'Health check failed'
           })
         }).pipe(Effect.catchAll(() => Effect.succeed(false)))

@@ -693,18 +693,90 @@ interface LLMDebugView {
   - [x] Added server endpoints for query generation
   - [x] Support for multiple LLM models (Claude, GPT-4, SQLCoder)
 
-### ⏳ Phase 3: Component Generation (PLANNED)
-- [ ] Build complete ECharts library reference for LLM
-- [ ] Create dynamic ECharts component factory
-- [ ] Implement component selection with multi-model support
-- [ ] Build LLMDebug View with query/response display
-- [ ] Create dynamic renderer without initial caching
-- [ ] Implement data bindings with ECharts
-- [ ] **Integrate Anomaly Detection Context**: Add `enhanceWithAnomalyContext` to enrich query results with anomaly scores from AI Analyzer
-  - Connect diagnostic queries with existing anomaly detection
-  - Add anomaly scores and context to query results
-  - Highlight anomalous patterns in generated visualizations
-  - Provide root cause suggestions based on anomaly patterns
+### 🔄 Phase 3: Component Generation (CURRENT FOCUS - Day 23)
+
+**Strategy: TraceView Panel as First Implementation Target**
+
+Instead of building a complete component factory, we're starting with a focused implementation that modifies the existing TraceView panel to handle dynamic queries and generate adaptable UI components.
+
+**Approach: Query-to-Component Pipeline**
+```typescript
+// Data flow: Query → Results → Analysis → UI Adaptation
+interface QueryToComponentPipeline {
+  // Step 1: Execute dynamic query
+  executeQuery: (sql: string) => Promise<QueryResult[]>
+  
+  // Step 2: Analyze result structure
+  analyzeResults: (results: QueryResult[]) => Promise<ResultMetadata>
+  
+  // Step 3: Generate component configuration
+  generateComponentConfig: (metadata: ResultMetadata) => Promise<ComponentConfiguration>
+  
+  // Step 4: Render adaptive UI
+  renderAdaptiveComponent: (config: ComponentConfiguration, data: QueryResult[]) => React.Component
+}
+```
+
+**Current Implementation Plan (Phase 3A):**
+- [x] Plan implementation approach with code-implementation-agent
+- [ ] **Modify TraceView panel** to accept dynamic queries
+- [ ] **Implement result analysis service** for column type detection and semantic understanding
+- [ ] **Create component selection logic** starting with dynamic table columns
+- [ ] **Build data structure analyzer** to detect time-series, categorical, and metric patterns
+- [ ] **Generate ECharts configurations** dynamically based on detected patterns
+
+**Target Query Example:**
+```sql
+SELECT 
+  service_name,
+  toStartOfMinute(start_time) as minute,
+  count() as request_count,
+  quantile(0.5)(duration_ns/1000000) as p50_ms,
+  quantile(0.95)(duration_ns/1000000) as p95_ms,
+  quantile(0.99)(duration_ns/1000000) as p99_ms,
+  sum(CASE WHEN status_code != 'OK' THEN 1 ELSE 0 END) as error_count,
+  round(sum(CASE WHEN status_code != 'OK' THEN 1 ELSE 0 END) * 100.0 / count(), 2) as error_rate
+FROM otel.traces
+WHERE 
+  service_name IN ('frontend', 'cart', 'checkout', 'payment', 'email')
+  AND start_time >= now() - INTERVAL 1 HOUR
+GROUP BY service_name, minute
+ORDER BY minute DESC, service_name
+LIMIT 1000
+```
+
+**Expected Component Adaptation:**
+1. **Column Detection**: Automatically detect column types (service_name: string, minute: datetime, metrics: numbers)
+2. **Semantic Understanding**: Recognize p50_ms/p95_ms as performance percentiles, error_rate as percentage
+3. **UI Generation**: Start with dynamic table with proper formatting, progress to time-series charts
+4. **Chart Selection**: Time-series data → Line charts, Categorical data → Bar charts, Correlations → Heatmaps
+
+**Architecture Changes:**
+- [ ] **TraceView Panel Enhancement** (`ui/src/views/TracesView/TracesView.tsx`)
+  - Accept dynamic SQL queries
+  - Analyze result structure for component selection
+  - Render adaptive components based on data patterns
+- [ ] **Component Generator Service** (`src/ui-generator/services/ComponentGeneratorService.ts`)
+  - Result metadata analysis using Effect-TS patterns
+  - Component selection logic with multi-model LLM support
+  - ECharts configuration generation
+- [ ] **Dynamic Visualization Components** (`ui/src/components/DynamicVisualization/`)
+  - DynamicTable with adaptive column formatting
+  - TimeSeriesChart for temporal data
+  - ServiceHeatmap for correlation data
+  - Component selection logic
+
+**Integration Points:**
+- [ ] **Backend API Layer** - New endpoints for result analysis and component configuration
+- [ ] **Frontend Hooks** - `useDynamicQuery` for executing queries and getting component configs
+- [ ] **Effect-TS Integration** - Service layer patterns for result analysis and component generation
+
+**Success Criteria Phase 3A:**
+- TraceView executes the example query and generates appropriate table columns
+- Column types are correctly detected (datetime, metrics, percentages)
+- Proper formatting applied (ms for latencies, % for rates, timestamps for minutes)
+- Component configuration generated through Effect-TS service layer
+- Foundation ready for advanced visualization types in Phase 3B
 
 ### ⏳ Phase 4: Dashboard Composition (PLANNED)
 - [ ] Multi-component dashboard generation

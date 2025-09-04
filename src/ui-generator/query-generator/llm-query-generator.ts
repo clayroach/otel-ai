@@ -1,6 +1,6 @@
 import { Effect, pipe, Duration } from 'effect'
 import { CriticalPath, GeneratedQuery, QueryPattern } from './types.js'
-import { type LLMRequest, createLLMManager } from '../../llm-manager/index.js'
+import { type LLMRequest, LLMManagerServiceTag } from '../../llm-manager/index.js'
 import { Schema } from '@effect/schema'
 import {
   isSQLSpecificModel as checkSQLModel,
@@ -264,7 +264,7 @@ export const generateQueryWithLLM = (
   path: CriticalPath,
   analysisGoal: string,
   llmConfig?: { endpoint?: string; model?: string }
-): Effect.Effect<GeneratedQuery, Error, never> => {
+): Effect.Effect<GeneratedQuery, Error, LLMManagerServiceTag> => {
   const modelName = llmConfig?.model || DEFAULT_MODEL
   const modelConfig = getModelConfig(modelName)
 
@@ -276,49 +276,23 @@ export const generateQueryWithLLM = (
       : `You are a ClickHouse SQL expert. Always return valid JSON responses. Generate consistent, optimal queries based on the examples provided.\n\n${prompt}`,
     taskType: 'analysis',
     preferences: {
-      model: modelName as 'gpt' | 'claude' | 'llama' | undefined, // Cast to expected type
+      model: modelName, // Use actual model name, not generic types
       maxTokens: modelConfig.maxTokens || 4000,
       temperature: modelName === llmConfig?.model ? 0 : (modelConfig.temperature ?? 0), // Use 0 for explicit model selection
       requireStructuredOutput: true
     }
   }
 
-  // Use unified LLM manager that handles model routing internally
-  const llmManager = createLLMManager({
-    models: {
-      llama: {
-        endpoint: llmConfig?.endpoint || 'http://localhost:1234/v1',
-        modelPath: modelName,
-        contextLength: modelConfig.contextLength || 32768,
-        threads: 4
-      },
-      ...(process.env.CLAUDE_API_KEY && {
-        claude: {
-          apiKey: process.env.CLAUDE_API_KEY,
-          model: modelName.includes('claude') ? modelName : 'claude-3-5-sonnet-20241022',
-          maxTokens: modelConfig.maxTokens || 4000,
-          temperature: request.preferences?.temperature || 0,
-          endpoint: 'https://api.anthropic.com'
-        }
-      }),
-      ...(process.env.OPENAI_API_KEY && {
-        gpt: {
-          apiKey: process.env.OPENAI_API_KEY,
-          model: modelName.startsWith('gpt') ? modelName : 'gpt-4',
-          maxTokens: modelConfig.maxTokens || 4000,
-          temperature: request.preferences?.temperature || 0,
-          endpoint: 'https://api.openai.com/v1'
-        }
-      })
-    }
+  // Use the LLM Manager Service Layer (proper Effect-TS pattern)
+  // This will reuse the singleton LLM Manager instead of creating a new one each time
+  const generateEffect = Effect.gen(function* () {
+    const llmManagerService = yield* LLMManagerServiceTag
+    return yield* llmManagerService.generate(request)
   })
-
-  // The manager will route to the appropriate model based on the request
-  const generateEffect = llmManager.generate(request)
 
   return pipe(
     generateEffect,
-    Effect.timeout(Duration.seconds(30)),
+    Effect.timeout(Duration.seconds(30)), // 30s timeout for all LLM requests
     Effect.map((response) => {
       try {
         const content = response.content.trim()
@@ -437,7 +411,7 @@ export const generateQueriesForGoals = (
   path: CriticalPath,
   analysisGoals: string[],
   llmConfig?: { endpoint?: string; model?: string }
-): Effect.Effect<GeneratedQuery[], Error, never> => {
+): Effect.Effect<GeneratedQuery[], Error, LLMManagerServiceTag> => {
   return Effect.all(
     analysisGoals.map((goal) => generateQueryWithLLM(path, goal, llmConfig)),
     { concurrency: 1 } // Sequential to avoid overwhelming the LLM
@@ -448,7 +422,7 @@ export const generateQueriesForGoals = (
 export const generateStandardQueries = (
   path: CriticalPath,
   llmConfig?: { endpoint?: string; model?: string }
-): Effect.Effect<GeneratedQuery[], Error, never> => {
+): Effect.Effect<GeneratedQuery[], Error, LLMManagerServiceTag> => {
   const standardGoals = [
     ANALYSIS_GOALS.latency,
     ANALYSIS_GOALS.errors,
@@ -465,7 +439,7 @@ export const generateQueryWithSQLModel = (
   path: CriticalPath,
   analysisGoal: string,
   endpoint?: string
-): Effect.Effect<GeneratedQuery, Error, never> => {
+): Effect.Effect<GeneratedQuery, Error, LLMManagerServiceTag> => {
   return generateQueryWithLLM(path, analysisGoal, {
     endpoint: endpoint || 'http://localhost:1234/v1',
     model: process.env.LLM_SQL_MODEL_1 || DEFAULT_MODEL // Use environment SQL model

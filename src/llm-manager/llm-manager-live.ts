@@ -11,35 +11,94 @@ import { createLLMManager } from './llm-manager.js'
 import type { LLMConfig } from './types.js'
 
 /**
- * Load LLM configuration from environment variables
+ * Helper function to create local model configuration
  */
-function loadConfigFromEnvironment(): Partial<LLMConfig> {
+function createLocalModelConfig(modelName: string, isSQL: boolean = false) {
   return {
-    models: {
-      llama: {
-        modelPath: process.env.LLM_MODEL || 'default-model',
-        contextLength: parseInt(process.env.LLM_CONTEXT_LENGTH || '2048'),
-        threads: parseInt(process.env.LLM_THREADS || '4'),
-        endpoint: process.env.LLM_ENDPOINT || 'http://localhost:1234/v1'
-      },
-      ...(process.env.OPENAI_API_KEY && {
-        gpt: {
-          apiKey: process.env.OPENAI_API_KEY,
-          model: process.env.OPENAI_MODEL || 'gpt-4',
-          maxTokens: parseInt(process.env.OPENAI_MAX_TOKENS || '4096'),
-          temperature: parseFloat(process.env.OPENAI_TEMPERATURE || '0.7')
+    modelPath: modelName,
+    contextLength: 4096,
+    threads: 4,
+    gpuLayers: 0,
+    endpoint:
+      process.env.LM_STUDIO_ENDPOINT || process.env.LLM_ENDPOINT || 'http://localhost:1234/v1',
+    maxTokens: isSQL ? 2048 : 4096,
+    temperature: isSQL ? 0 : 0.7 // SQL models should be deterministic
+  }
+}
+
+/**
+ * Helper function to load models from environment variable pattern
+ */
+function loadModelsFromPattern(pattern: string, isSQL: boolean = false) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic model configuration construction
+  const models: any = {}
+  const modelKeys = Object.keys(process.env).filter((key) => key.startsWith(pattern))
+
+  for (const key of modelKeys) {
+    const modelName = process.env[key]
+    if (modelName) {
+      if (pattern === 'LLM_GENERAL_MODEL_') {
+        // Determine if this is a Claude, GPT, or local model based on name
+        if (modelName.includes('claude') && process.env.CLAUDE_API_KEY) {
+          models.claude = {
+            apiKey: process.env.CLAUDE_API_KEY,
+            model: modelName,
+            maxTokens: parseInt(process.env.CLAUDE_MAX_TOKENS || '4096'),
+            temperature: parseFloat(process.env.CLAUDE_TEMPERATURE || '0.7')
+          }
+        } else if (modelName.includes('gpt') && process.env.OPENAI_API_KEY) {
+          models.gpt = {
+            apiKey: process.env.OPENAI_API_KEY,
+            model: modelName,
+            maxTokens: parseInt(process.env.OPENAI_MAX_TOKENS || '4096'),
+            temperature: parseFloat(process.env.OPENAI_TEMPERATURE || '0.7')
+          }
+        } else {
+          // Assume it's a local model
+          models[modelName] = createLocalModelConfig(modelName, isSQL)
         }
-      }),
-      ...(process.env.CLAUDE_API_KEY && {
-        claude: {
-          apiKey: process.env.CLAUDE_API_KEY,
-          model: process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022',
-          maxTokens: parseInt(process.env.CLAUDE_MAX_TOKENS || '4096'),
-          temperature: parseFloat(process.env.CLAUDE_TEMPERATURE || '0.7')
-        }
-      })
+      } else {
+        // SQL models are always local models
+        models[modelName] = createLocalModelConfig(modelName, isSQL)
+      }
     }
   }
+
+  return models
+}
+
+/**
+ * Load LLM configuration from environment variables
+ * Loads all LLM_SQL_MODEL_* and LLM_GENERAL_MODEL_* variables dynamically
+ */
+function loadConfigFromEnvironment(): Partial<LLMConfig> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic model configuration construction
+  const models: any = {}
+
+  // Load legacy llama model configuration if present
+  if (process.env.LLM_MODEL || process.env.LM_STUDIO_MODEL) {
+    models.llama = {
+      modelPath: process.env.LM_STUDIO_MODEL || process.env.LLM_MODEL || 'sqlcoder-7b-2',
+      contextLength: parseInt(process.env.LLM_CONTEXT_LENGTH || '2048'),
+      threads: parseInt(process.env.LLM_THREADS || '4'),
+      endpoint: process.env.LLM_ENDPOINT || 'http://localhost:1234/v1'
+    }
+  }
+
+  // Load SQL-specific models from LLM_SQL_MODEL_* environment variables
+  Object.assign(models, loadModelsFromPattern('LLM_SQL_MODEL_', true))
+
+  // Load general models from LLM_GENERAL_MODEL_* environment variables
+  Object.assign(models, loadModelsFromPattern('LLM_GENERAL_MODEL_', false))
+
+  // Fallback configurations if no models were loaded
+  if (Object.keys(models).length === 0) {
+    // Add default local model
+    const defaultModelName = process.env.LLM_SQL_MODEL_1 || 'sqlcoder-7b-2'
+    models[defaultModelName] = createLocalModelConfig(defaultModelName, true)
+  }
+
+  return { models }
 }
 
 /**

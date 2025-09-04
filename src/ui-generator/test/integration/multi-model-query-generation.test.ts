@@ -8,10 +8,11 @@
  */
 
 import { describe, it, expect, beforeAll } from "vitest"
-import { Effect } from "effect"
+import { Effect, pipe } from "effect"
 import { generateQueryWithLLM, ANALYSIS_GOALS, validateGeneratedSQL } from "../../query-generator/llm-query-generator"
 import { CriticalPath } from "../../query-generator/types"
 import { getModelMetadata } from "../../../llm-manager/model-registry"
+import { LLMManagerLive } from "../../../llm-manager/llm-manager-live"
 import { 
   shouldSkipLLMTests,
   hasOpenAIKey,
@@ -335,13 +336,16 @@ describe("Multi-Model Query Generation", () => {
           try {
             const config = MODEL_CONFIGS.find(c => c.modelId === model.modelId)
             const query = await Effect.runPromise(
-              generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency, 
-                config?.endpoint ? {
-                  endpoint: config.endpoint,
-                  model: model.modelId
-                } : {
-                  model: model.modelId
-                }
+              pipe(
+                generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency, 
+                  config?.endpoint ? {
+                    endpoint: config.endpoint,
+                    model: model.modelId
+                  } : {
+                    model: model.modelId
+                  }
+                ),
+                Effect.provide(LLMManagerLive)
               )
             )
             const duration = Date.now() - startTime
@@ -452,13 +456,16 @@ describe("Multi-Model Query Generation", () => {
           const config = MODEL_CONFIGS.find(c => c.modelId === model.modelId)
           try {
             const query = await Effect.runPromise(
-              generateQueryWithLLM(testPath, goal, 
-                config?.endpoint ? {
-                  endpoint: config.endpoint,
-                  model: model.modelId
-                } : {
-                  model: model.modelId
-                }
+              pipe(
+                generateQueryWithLLM(testPath, goal, 
+                  config?.endpoint ? {
+                    endpoint: config.endpoint,
+                    model: model.modelId
+                  } : {
+                    model: model.modelId
+                  }
+                ),
+                Effect.provide(LLMManagerLive)
               )
             )
             results.push({
@@ -520,13 +527,16 @@ describe("Multi-Model Query Generation", () => {
           
           try {
             await Effect.runPromise(
-              generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency, 
-                config?.endpoint ? {
-                  endpoint: config.endpoint,
-                  model: model.modelId
-                } : {
-                  model: model.modelId
-                }
+              pipe(
+                generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency, 
+                  config?.endpoint ? {
+                    endpoint: config.endpoint,
+                    model: model.modelId
+                  } : {
+                    model: model.modelId
+                  }
+                ),
+                Effect.provide(LLMManagerLive)
               )
             )
             const duration = Date.now() - startTime
