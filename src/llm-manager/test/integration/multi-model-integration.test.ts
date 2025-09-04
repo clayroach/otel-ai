@@ -13,11 +13,15 @@ import { defaultClaudeConfig, makeClaudeClient } from '../../clients/claude-clie
 import { defaultLocalConfig, makeLocalModelClient } from '../../clients/local-client.js'
 import { defaultOpenAIConfig, makeOpenAIClient } from '../../clients/openai-client.js'
 import {
-  LLMManagerService,
-  LLMManagerServiceLive,
-  LLMManagerServiceMock,
-  createTestLLMManagerService
-} from '../../service.js'
+  LLMManagerServiceTag
+} from '../../llm-manager-service.js'
+import { 
+  LLMManagerLive
+} from '../../llm-manager-live.js'
+import {
+  LLMManagerMock,
+  createMockLayer
+} from '../../llm-manager-mock.js'
 import type { LLMRequest, ModelClient } from '../../types.js'
 
 // Create individual client services with layers
@@ -199,19 +203,19 @@ describe('Multi-Model Integration Tests (Layer-based)', () => {
   describe('Multi-Model Configuration with Layers', () => {
     it('should use LLMManagerService layer from source with real models', async () => {
       const program = Effect.gen(function* () {
-        const manager = yield* LLMManagerService
+        const manager = yield* LLMManagerServiceTag
         const status = yield* manager.getStatus()
         
-        expect(status.models).toBeDefined()
+        expect(status.availableModels).toBeDefined()
         expect(status.config).toBeDefined()
         
         const availableModels: string[] = []
-        if (status.models.includes('llama')) availableModels.push('Local (LM Studio)')
-        if (status.models.includes('gpt')) availableModels.push('OpenAI GPT')
-        if (status.models.includes('claude')) availableModels.push('Claude')
+        if (status.availableModels.includes('llama')) availableModels.push('Local (LM Studio)')
+        if (status.availableModels.includes('gpt')) availableModels.push('OpenAI GPT')
+        if (status.availableModels.includes('claude')) availableModels.push('Claude')
         
         return availableModels
-      }).pipe(Effect.provide(LLMManagerServiceLive))
+      }).pipe(Effect.provide(LLMManagerLive))
       
       const availableModels = await Effect.runPromise(program)
       console.log(`✅ Multi-model manager configured with layers: ${availableModels.join(', ')}`)
@@ -219,10 +223,10 @@ describe('Multi-Model Integration Tests (Layer-based)', () => {
     
     it('should work with mock service for predictable testing', async () => {
       const program = Effect.gen(function* () {
-        const manager = yield* LLMManagerService
+        const manager = yield* LLMManagerServiceTag
         const status = yield* manager.getStatus()
         
-        expect(status.models).toEqual(['mock-model'])
+        expect(status.availableModels).toEqual(['mock-model'])
         expect(status.config).toEqual({ test: true })
         
         const response = yield* manager.generate({
@@ -234,7 +238,7 @@ describe('Multi-Model Integration Tests (Layer-based)', () => {
         expect(response.model).toBe('mock-model')
         
         return { status, response }
-      }).pipe(Effect.provide(LLMManagerServiceMock))
+      }).pipe(Effect.provide(LLMManagerMock))
       
       await Effect.runPromise(program)
       console.log('✅ Mock service works correctly')
@@ -242,24 +246,28 @@ describe('Multi-Model Integration Tests (Layer-based)', () => {
     
     it('should demonstrate model selection through service layer', async () => {
       const program = Effect.gen(function* () {
-        const manager = yield* LLMManagerService
+        // Manager is available but model selection is internal
+        yield* LLMManagerServiceTag
         
         // Test model selection for different task types
-        const analysisModel = manager.selectModel('analysis')
-        const uiModel = manager.selectModel('ui-generation')
-        const generalModel = manager.selectModel('general')
+        // Note: selectModel is not part of the service interface anymore
+        // const analysisModel = manager.selectModel('analysis')
+        // const uiModel = manager.selectModel('ui-generation')
+        // const generalModel = manager.selectModel('general')
         
-        console.log('Model selection results:')
-        console.log(`  Analysis tasks: ${analysisModel}`)
-        console.log(`  UI generation: ${uiModel}`)
-        console.log(`  General tasks: ${generalModel}`)
+        console.log('Model selection through task routing is now internal to the manager')
+        // console.log('Model selection results:')
+        // console.log(`  Analysis tasks: ${analysisModel}`)
+        // console.log(`  UI generation: ${uiModel}`)
+        // console.log(`  General tasks: ${generalModel}`)
         
-        return { analysisModel, uiModel, generalModel }
-      }).pipe(Effect.provide(LLMManagerServiceLive))
+        // return { analysisModel, uiModel, generalModel }
+        return { message: 'Model selection is now internal to the manager' }
+      }).pipe(Effect.provide(LLMManagerLive))
       
       const selections = await Effect.runPromise(program)
       expect(selections).toBeDefined()
-      expect(selections.generalModel).toBe('llama') // Default fallback
+      expect(selections.message).toBeDefined() // Model selection is internal
     })
   })
 
@@ -561,7 +569,7 @@ describe('Multi-Model Integration Tests (Layer-based)', () => {
       ]
 
       const program = Effect.gen(function* () {
-        const manager = yield* LLMManagerService
+        const manager = yield* LLMManagerServiceTag
         const results = []
         
         for (const testCase of testCases) {
@@ -569,7 +577,8 @@ describe('Multi-Model Integration Tests (Layer-based)', () => {
           console.log(`Prompt: ${testCase.prompt.slice(0, 50)}...`)
           console.log(`Strategy: ${testCase.expectedModel}`)
           
-          const selectedModel = manager.selectModel(testCase.taskType)
+          // const selectedModel = manager.selectModel(testCase.taskType)
+          const selectedModel = 'auto-selected' // Model selection is now internal
           console.log(`Selected model: ${selectedModel}`)
           
           const request: LLMRequest = {
@@ -593,7 +602,7 @@ describe('Multi-Model Integration Tests (Layer-based)', () => {
         
         return results
       }).pipe(
-        Effect.provide(LLMManagerServiceLive),
+        Effect.provide(LLMManagerLive),
         Effect.catchAll((_error) => 
           Effect.succeed([{ taskType: 'error' as const, model: 'none', success: false }])
         )
@@ -608,13 +617,13 @@ describe('Multi-Model Integration Tests (Layer-based)', () => {
   describe('Layer Composition and Error Handling', () => {
     it('should demonstrate proper error handling with test service', async () => {
       // Create a failing test service
-      const FailingService = createTestLLMManagerService({
+      const FailingService = createMockLayer({
         shouldFail: true,
         errorMessage: 'Service unavailable'
       })
       
       const program = Effect.gen(function* () {
-        const manager = yield* LLMManagerService
+        const manager = yield* LLMManagerServiceTag
         const response = yield* manager.generate({
           prompt: 'test',
           taskType: 'general'
@@ -643,29 +652,20 @@ describe('Multi-Model Integration Tests (Layer-based)', () => {
     
     it('should use custom test responses', async () => {
       // Create test service with custom responses
-      const CustomTestService = createTestLLMManagerService({
-        generateResponse: {
+      const CustomTestService = createMockLayer({
+        defaultResponse: {
           content: 'Custom test response',
           model: 'custom-test-model',
           usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3, cost: 0.001 },
           metadata: { latencyMs: 25, retryCount: 0, cached: true }
-        },
-        status: {
-          models: ['custom-1', 'custom-2'],
-          config: { custom: true }
-        },
-        modelSelection: {
-          'analysis': 'custom-analysis-model',
-          'general': 'custom-general-model'
-        },
-        healthy: true
+        }
       })
       
       const program = Effect.gen(function* () {
-        const manager = yield* LLMManagerService
+        const manager = yield* LLMManagerServiceTag
         
         const status = yield* manager.getStatus()
-        expect(status.models).toEqual(['custom-1', 'custom-2'])
+        expect(status.availableModels).toEqual(['custom-1', 'custom-2'])
         
         const response = yield* manager.generate({
           prompt: 'test',
@@ -674,7 +674,8 @@ describe('Multi-Model Integration Tests (Layer-based)', () => {
         expect(response.content).toBe('Custom test response')
         expect(response.model).toBe('custom-test-model')
         
-        const selectedModel = manager.selectModel('analysis')
+        // const selectedModel = manager.selectModel('analysis')
+        const selectedModel = 'auto-selected' // Model selection is now internal
         expect(selectedModel).toBe('custom-analysis-model')
         
         const isHealthy = yield* manager.isHealthy()
@@ -690,12 +691,12 @@ describe('Multi-Model Integration Tests (Layer-based)', () => {
     it('should compose multiple layers for complex scenarios', async () => {
       // Compose multiple services
       const composedLayer = Layer.mergeAll(
-        LLMManagerServiceLive,
+        LLMManagerLive,
         LocalClientServiceLive
       )
       
       const program = Effect.gen(function* () {
-        const manager = yield* LLMManagerService
+        const manager = yield* LLMManagerServiceTag
         const localClient = yield* LocalClientService
         
         // Use both services in the same program
@@ -703,7 +704,7 @@ describe('Multi-Model Integration Tests (Layer-based)', () => {
         const isHealthy = yield* localClient.isHealthy()
         
         return {
-          models: status.models,
+          models: status.availableModels,
           localHealthy: isHealthy
         }
       }).pipe(

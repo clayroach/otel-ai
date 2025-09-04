@@ -12,8 +12,7 @@ export * from './types.js'
 // Service definitions
 export * from './services.js'
 
-// Main implementation
-export { makeLLMManager, LLMManagerLayer } from './manager.js'
+// Removed old manager exports - using new unified manager instead
 
 // Model router
 export { makeModelRouter, ModelRouterLayer, getPerformanceMetrics } from './router.js'
@@ -35,18 +34,31 @@ export {
   defaultLocalConfig
 } from './clients/local-client.js'
 
-// Simple manager (working foundation)
-export { createSimpleLLMManager, createDefaultLLMManager } from './simple-manager.js'
+// Core unified manager
+export { createLLMManager, createDefaultLLMManager } from './llm-manager.js'
+export type { LLMManager, ModelClient } from './llm-manager.js'
 
-// Service layer with Effect-TS patterns
+// Service interface and tag
+export { LLMManagerServiceTag } from './llm-manager-service.js'
+export type { LLMManagerService, ManagerStatus } from './llm-manager-service.js'
+
+// Live implementation layers
+export { LLMManagerLive, LLMManagerDev, createLLMManagerLive } from './llm-manager-live.js'
+
+// Mock implementation layers for testing
 export {
-  LLMManagerService,
-  LLMManagerServiceLive,
-  LLMManagerServiceMock,
-  LLMManagerServiceDev,
-  createTestLLMManagerService
-} from './service.js'
-export type { LLMManagerServiceInterface } from './service.js'
+  createMockLayer,
+  LLMManagerMock,
+  LLMManagerMockWithError,
+  LLMManagerMockWithTimeout,
+  LLMManagerMockWithLatency,
+  LLMManagerMockWithCustomResponses,
+  LLMManagerMockMultiModel,
+  LLMManagerMockRateLimit,
+  LLMManagerMockAuthError,
+  DynamicMock
+} from './llm-manager-mock.js'
+export type { MockConfig } from './llm-manager-mock.js'
 
 // Service layers
 export { LLMManagerContext, LLMManagerEssentials } from './layers.js'
