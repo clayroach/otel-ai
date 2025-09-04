@@ -64,7 +64,7 @@ export class UIGeneratorAPIClient {
           { model: targetModel } // Use SQLCoder-7b-2 by default
         ),
         Effect.map((query: GeneratedQuery) => ({
-          sql: query.sql,
+          sql: UIGeneratorAPIClient.sanitizeSQL(query.sql), // Remove semicolons for ClickHouse compatibility
           model: targetModel,
           description: query.description,
           expectedColumns: Object.entries(query.expectedSchema || {}).map(([name, type]) => ({
@@ -170,6 +170,19 @@ export class UIGeneratorAPIClient {
         description: 'Percentage of requests resulting in errors'
       }
     ]
+  }
+
+  /**
+   * Sanitize SQL to be compatible with ClickHouse JSON format
+   */
+  private static sanitizeSQL(sql: string): string {
+    // Remove trailing semicolons that cause ClickHouse multi-statement errors
+    let sanitized = sql.replace(/;\s*$/, '').trim()
+    
+    // Fix table name - ensure we use otel.traces instead of just traces
+    sanitized = sanitized.replace(/FROM\s+traces\b/gi, 'FROM otel.traces')
+    
+    return sanitized
   }
 
   /**

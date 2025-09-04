@@ -1558,7 +1558,7 @@ app.post('/api/ui-generator/generate-query', async (req, res) => {
             endService: path.endService || path.services?.[path.services.length - 1]
           },
           analysisGoal: analysisGoal || determineAnalysisGoal(path.metrics),
-          model: model || 'rule-based'
+          model: model || process.env.LLM_SQL_MODEL_1 || 'sqlcoder-7b-2'
         })
       })
     )
