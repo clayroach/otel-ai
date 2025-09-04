@@ -83,15 +83,9 @@ export const makeStorageService = (
     }),
 
   writeBatch: (data: OTLPData[]) =>
-    Effect.gen(function* (_) {
-      // Process batches with controlled concurrency
-      yield* _(
-        Effect.forEach(
-          data,
-          (batch) => makeStorageService(clickhouse, s3, config).writeOTLP(batch),
-          { concurrency: config.performance.maxConcurrentWrites }
-        )
-      )
+    // Process batches with controlled concurrency
+    Effect.forEach(data, (batch) => makeStorageService(clickhouse, s3, config).writeOTLP(batch), {
+      concurrency: config.performance.maxConcurrentWrites
     }),
 
   queryTraces: (params: QueryParams) => clickhouse.queryTraces(params),
@@ -102,13 +96,10 @@ export const makeStorageService = (
   archiveData: (data: OTLPData, timestamp: number) => s3.archiveOTLPData(data, timestamp),
 
   applyRetentionPolicies: () =>
-    Effect.gen(function* (_) {
-      // Apply S3 retention policies
-      yield* _(s3.applyRetentionPolicy(config.retention))
-
-      // TODO: Implement ClickHouse retention policies
-      // This would involve running DELETE queries on old data
-    }),
+    // Apply S3 retention policies
+    // TODO: Implement ClickHouse retention policies
+    // This would involve running DELETE queries on old data
+    s3.applyRetentionPolicy(config.retention),
 
   healthCheck: () =>
     Effect.gen(function* (_) {

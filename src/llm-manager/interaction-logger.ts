@@ -381,23 +381,20 @@ export const makeInteractionLogger = () =>
         }),
 
       getRecentInteractions: (limit = 50, model?: ModelType) =>
-        Effect.gen(function* (_) {
-          const interactions = yield* _(Ref.get(interactionsRef))
+        Ref.get(interactionsRef).pipe(
+          Effect.map((interactions) => {
+            let entries = Array.from(interactions.values())
 
-          let entries = Array.from(interactions.values())
+            if (model) {
+              entries = entries.filter((entry) => entry.model === model)
+            }
 
-          if (model) {
-            entries = entries.filter((entry) => entry.model === model)
-          }
-
-          return entries.sort((a, b) => b.timestamp - a.timestamp).slice(0, limit)
-        }),
+            return entries.sort((a, b) => b.timestamp - a.timestamp).slice(0, limit)
+          })
+        ),
 
       getInteractionById: (id: string) =>
-        Effect.gen(function* (_) {
-          const interactions = yield* _(Ref.get(interactionsRef))
-          return interactions.get(id) || null
-        }),
+        Ref.get(interactionsRef).pipe(Effect.map((interactions) => interactions.get(id) || null)),
 
       getModelComparison: (taskType?: string, timeWindowMs = 24 * 60 * 60 * 1000) =>
         Effect.gen(function* (_) {
@@ -453,10 +450,9 @@ export const makeInteractionLogger = () =>
         }),
 
       clearLogs: () =>
-        Effect.gen(function* (_) {
-          yield* _(Ref.set(interactionsRef, new Map()))
-          yield* _(Effect.log('🧹 Cleared all interaction logs'))
-        })
+        Ref.set(interactionsRef, new Map()).pipe(
+          Effect.flatMap(() => Effect.log('🧹 Cleared all interaction logs'))
+        )
     }
   })
 

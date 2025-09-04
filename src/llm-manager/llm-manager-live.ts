@@ -125,26 +125,34 @@ export const LLMManagerDev = Layer.effect(
       },
 
       isHealthy: () =>
-        Effect.gen(function* () {
-          console.log('[LLM Manager] Checking health status...')
-          const healthy = yield* manager.isHealthy()
-          console.log(`[LLM Manager] Health status: ${healthy ? 'healthy' : 'unhealthy'}`)
-          return healthy
-        }),
+        manager.isHealthy().pipe(
+          Effect.tap((healthy) =>
+            Effect.sync(() => {
+              console.log('[LLM Manager] Checking health status...')
+              console.log(`[LLM Manager] Health status: ${healthy ? 'healthy' : 'unhealthy'}`)
+            })
+          )
+        ),
 
       getStatus: () =>
-        Effect.gen(function* () {
-          const status = yield* manager.getStatus()
-          console.log('[LLM Manager] Status:', JSON.stringify(status, null, 2))
-          return status
-        }),
+        manager
+          .getStatus()
+          .pipe(
+            Effect.tap((status) =>
+              Effect.sync(() =>
+                console.log('[LLM Manager] Status:', JSON.stringify(status, null, 2))
+              )
+            )
+          ),
 
       getAvailableModels: () =>
-        Effect.gen(function* () {
-          const models = yield* manager.getAvailableModels()
-          console.log('[LLM Manager] Available models:', models)
-          return models
-        })
+        manager
+          .getAvailableModels()
+          .pipe(
+            Effect.tap((models) =>
+              Effect.sync(() => console.log('[LLM Manager] Available models:', models))
+            )
+          )
     }
   })
 )

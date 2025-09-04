@@ -12,6 +12,13 @@ import { Effect } from "effect"
 import { generateQueryWithLLM, ANALYSIS_GOALS, validateGeneratedSQL } from "../../query-generator/llm-query-generator"
 import { CriticalPath } from "../../query-generator/types"
 import { getModelMetadata } from "../../../llm-manager/model-registry"
+import { 
+  shouldSkipLLMTests,
+  logAvailabilityStatus,
+  hasOpenAIKey,
+  hasClaudeKey,
+  isCI
+} from "../../../llm-manager/test/utils/llm-availability.js"
 
 // Test configuration for different model providers
 interface ModelTestConfig {
@@ -132,25 +139,43 @@ interface ModelAvailability {
 // Initialize model availability array that will be populated in beforeAll
 const modelAvailability: ModelAvailability[] = []
 
-// We'll determine if tests should be skipped based on actual model availability
-// This will be checked dynamically - for now assume we should not skip
-// The actual availability will be checked in beforeAll
-const shouldSkipTests = false
+// Use the shared utility for consistent skip behavior
+const shouldSkipTests = shouldSkipLLMTests
 
 describe("Multi-Model Query Generation", () => {
   
   beforeAll(async () => {
     console.log("\n🔍 Checking model availability across providers...")
+    
+    // Log CI environment detection
+    if (isCI) {
+      console.log("⚠️  CI environment detected")
+      if (!hasOpenAIKey && !hasClaudeKey) {
+        console.log("   No API keys configured - tests will be skipped")
+        return
+      }
+    }
+    
     console.log("   Using model preferences from environment:")
     console.log(`   SQL Models: ${[process.env.LLM_SQL_MODEL_1, process.env.LLM_SQL_MODEL_2, process.env.LLM_SQL_MODEL_3].filter(Boolean).join(', ') || 'defaults'}`)
     console.log(`   General Models: ${[process.env.LLM_GENERAL_MODEL_1, process.env.LLM_GENERAL_MODEL_2, process.env.LLM_GENERAL_MODEL_3].filter(Boolean).join(', ') || 'defaults'}`)
     
-    // Check local models via LM Studio
-    try {
-      const localEndpoint = process.env.LLM_ENDPOINT || 'http://localhost:1234/v1'
-      const response = await fetch(`${localEndpoint}/models`)
+    // Check local models via LM Studio (skip in CI without API keys)
+    if (!isCI || hasOpenAIKey || hasClaudeKey) {
+      try {
+        const localEndpoint = process.env.LLM_ENDPOINT || 'http://localhost:1234/v1'
+        
+        // Add timeout for the fetch to avoid hanging
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 3000) // 3 second timeout
+        
+        const response = await fetch(`${localEndpoint}/models`, {
+          signal: controller.signal
+        }).catch(() => null)
+        
+        clearTimeout(timeoutId)
       
-      if (response.ok) {
+        if (response?.ok) {
         const data = await response.json()
         const availableModels = (data.data || []).map((m: { id: string }) => m.id)
         console.log(`   ✅ Local models (LM Studio): ${availableModels.length} models available`)
@@ -179,13 +204,24 @@ describe("Multi-Model Query Generation", () => {
           })
         })
       }
-    } catch (error) {
-      console.log(`   ❌ Local models: ${error}`)
+      } catch (error) {
+        console.log(`   ❌ Local models: ${error}`)
+        MODEL_CONFIGS.filter(c => c.endpoint?.includes('localhost')).forEach(config => {
+          modelAvailability.push({
+            modelId: config.modelId,
+            available: false,
+            error: 'LM Studio connection failed'
+          })
+        })
+      }
+    } else {
+      // In CI without API keys, mark local models as unavailable
+      console.log("   ⏭️  Skipping local model check in CI without API keys")
       MODEL_CONFIGS.filter(c => c.endpoint?.includes('localhost')).forEach(config => {
         modelAvailability.push({
           modelId: config.modelId,
           available: false,
-          error: 'LM Studio connection failed'
+          error: 'CI environment - local models not available'
         })
       })
     }

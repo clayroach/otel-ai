@@ -10,6 +10,7 @@ import { LLMRequest, LLMResponse, LLMError, LLMConfig } from './types.js'
 import { makeLocalModelClient, defaultLocalConfig } from './clients/local-client.js'
 import { makeClaudeClient } from './clients/claude-client.js'
 import { makeOpenAIClient } from './clients/openai-client.js'
+import { makeModelRouter } from './router.js'
 import type { ManagerStatus } from './llm-manager-service.js'
 
 /**
@@ -19,21 +20,6 @@ interface ModelClient {
   generate: (request: LLMRequest) => Effect.Effect<LLMResponse, LLMError, never>
   generateStream?: (request: LLMRequest) => Stream.Stream<string, LLMError, never>
   isHealthy: () => Effect.Effect<boolean, LLMError, never>
-}
-
-/**
- * Task-based routing preferences
- */
-const TASK_ROUTING: Record<string, string[]> = {
-  'sql-generation': ['claude', 'openai', 'local'],
-  analysis: ['claude', 'openai', 'local'],
-  'ui-generation': ['openai', 'claude', 'local'],
-  'code-generation': ['openai', 'claude', 'local'],
-  'config-management': ['openai', 'claude', 'local'],
-  'anomaly-detection': ['claude', 'openai', 'local'],
-  'architectural-insights': ['claude', 'openai', 'local'],
-  'market-intelligence': ['openai', 'claude', 'local'],
-  general: ['local', 'claude', 'openai']
 }
 
 /**
@@ -80,47 +66,6 @@ function initializeClients(config?: Partial<LLMConfig>): Record<string, ModelCli
 }
 
 /**
- * Create model router that selects the best client for a request
- */
-function createModelRouter(clients: Record<string, ModelClient>) {
-  return {
-    selectClient: (request: LLMRequest): ModelClient | null => {
-      // Priority 1: Explicit model preference in request
-      if (request.preferences?.model) {
-        const preferredModel = request.preferences.model.toLowerCase()
-
-        // Map model names to client keys
-        if (preferredModel.includes('claude') && clients.claude) {
-          return clients.claude
-        }
-        if (preferredModel.includes('gpt') && clients.openai) {
-          return clients.openai
-        }
-        if (
-          (preferredModel.includes('llama') || preferredModel.includes('local')) &&
-          clients.local
-        ) {
-          return clients.local
-        }
-      }
-
-      // Priority 2: Task-based routing
-      const taskType = request.taskType || 'general'
-      const preferredOrder = TASK_ROUTING[taskType] || TASK_ROUTING.general || ['local']
-
-      for (const modelName of preferredOrder) {
-        if (clients[modelName]) {
-          return clients[modelName]
-        }
-      }
-
-      // Fallback to any available client
-      return clients.local || Object.values(clients)[0] || null
-    }
-  }
-}
-
-/**
  * Check health status of all clients
  */
 async function getClientsHealth(
@@ -148,47 +93,38 @@ async function getClientsHealth(
  */
 export const createLLMManager = (config?: Partial<LLMConfig>) => {
   const clients = initializeClients(config)
-  const router = createModelRouter(clients)
+
+  // Use the proper router with fallback logic
+  const routerEffect = makeModelRouter(config || {}, {
+    gpt: clients.openai,
+    claude: clients.claude,
+    llama: clients.local
+  })
 
   return {
     /**
      * Generate text using the best available model
      */
-    generate: (request: LLMRequest): Effect.Effect<LLMResponse, LLMError, never> => {
-      const client = router.selectClient(request)
-
-      if (!client) {
-        return Effect.fail({
-          _tag: 'ConfigurationError' as const,
-          message: 'No LLM clients available. Please configure at least one model.'
-        })
-      }
-
-      return client.generate(request)
-    },
+    generate: (request: LLMRequest): Effect.Effect<LLMResponse, LLMError, never> =>
+      Effect.gen(function* () {
+        const router = yield* routerEffect
+        // Use routeRequest which has proper fallback logic
+        return yield* router.routeRequest(request)
+      }),
 
     /**
      * Generate streaming text using the best available model
      */
-    generateStream: (request: LLMRequest): Stream.Stream<string, LLMError, never> => {
-      const client = router.selectClient(request)
-
-      if (!client) {
-        return Stream.fail({
-          _tag: 'ConfigurationError' as const,
-          message: 'No LLM clients available. Please configure at least one model.'
+    generateStream: (request: LLMRequest): Stream.Stream<string, LLMError, never> =>
+      Stream.fromEffect(
+        Effect.gen(function* () {
+          const router = yield* routerEffect
+          // For now, we'll use a simple approach for streaming
+          // TODO: Update router to support streaming selection
+          const response = yield* router.routeRequest(request)
+          return response.content
         })
-      }
-
-      if (!client.generateStream) {
-        return Stream.fail({
-          _tag: 'ConfigurationError' as const,
-          message: 'Selected model does not support streaming'
-        })
-      }
-
-      return client.generateStream(request)
-    },
+      ),
 
     /**
      * Check health of all configured models
@@ -241,18 +177,23 @@ export const createLLMManager = (config?: Partial<LLMConfig>) => {
      * Select the best model for a given task type
      */
     selectModel: (taskType: string): string | null => {
-      const request: LLMRequest = {
-        prompt: '',
-        taskType: taskType as LLMRequest['taskType']
+      // For now, return a simple selection based on task type
+      // This is a synchronous method, so we can't use the async router
+      const taskRouting = {
+        analysis: 'claude',
+        'ui-generation': 'gpt',
+        'config-management': 'llama',
+        general: 'llama'
       }
-      const client = router.selectClient(request)
+      const selected = taskRouting[taskType as keyof typeof taskRouting] || 'llama'
 
-      // Find which client was selected
-      for (const [name, c] of Object.entries(clients)) {
-        if (c === client) return name
-      }
+      // Check if the selected model client exists
+      if (selected === 'claude' && clients.claude) return 'claude'
+      if (selected === 'gpt' && clients.openai) return 'openai'
+      if (selected === 'llama' && clients.local) return 'local'
 
-      return null
+      // Return first available
+      return Object.keys(clients)[0] || null
     }
   }
 }
