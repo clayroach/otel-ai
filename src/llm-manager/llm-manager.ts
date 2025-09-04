@@ -115,7 +115,7 @@ export const createLLMManager = (config?: Partial<LLMConfig>) => {
   if (clients.openai) routerClients.gpt = clients.openai
   if (clients.claude) routerClients.claude = clients.claude
   if (clients.local) routerClients.llama = clients.local
-  
+
   const routerEffect = makeModelRouter(fullConfig, routerClients)
 
   return {
