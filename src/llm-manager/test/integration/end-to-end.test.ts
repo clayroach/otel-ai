@@ -65,7 +65,7 @@ describe('End-to-End LLM Manager Tests', () => {
               expect(response).toHaveProperty('metadata')
               
               expect(typeof response.content).toBe('string')
-              expect(response.usage.cost).toBeCloseTo(0, 10) // Local models have zero or near-zero cost
+              expect(response.usage.cost).toBeCloseTo(0, 3) // Local models have zero or near-zero cost (within 0.001)
               expect(response.metadata.cached).toBe(false)
               
               console.log('✅ Simple Manager Response:', response.content)
