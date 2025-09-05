@@ -30,7 +30,11 @@ export const defaultLLMConfig: LLMConfig = {
     strategy: 'balanced',
     fallbackOrder: ['llama', 'gpt', 'claude'],
     maxRetries: 3,
-    timeoutMs: 30000
+    timeoutMs: process.env.LLM_TIMEOUT_MS
+      ? parseInt(process.env.LLM_TIMEOUT_MS, 10)
+      : process.env.NODE_ENV === 'test' || process.env.CI
+        ? 90000
+        : 30000
   },
   cache: {
     enabled: true,
@@ -92,14 +96,8 @@ const loadConfigFromEnv = (): Effect.Effect<LLMConfig, LLMError, never> =>
       }
     }
 
-    if (process.env.LM_STUDIO_MODEL) {
-      if (baseConfig.models.llama) {
-        baseConfig.models.llama = {
-          ...baseConfig.models.llama,
-          modelPath: process.env.LM_STUDIO_MODEL
-        }
-      }
-    }
+    // NOTE: LM_STUDIO_MODEL removed - use LLM_SQL_MODEL_* instead
+    // The default llama model will be configured through LLM_SQL_MODEL_1 if available
 
     // Load SQL-specific models from LLM_SQL_MODEL_* environment variables
     const sqlModelKeys = Object.keys(process.env).filter((key) => key.startsWith('LLM_SQL_MODEL_'))
@@ -258,7 +256,6 @@ export const ENV_DOCS = {
 
   // Local Model Configuration
   LM_STUDIO_ENDPOINT: 'LM Studio endpoint (default: http://localhost:1234/v1)',
-  LM_STUDIO_MODEL: 'Local model name (default: openai/gpt-oss-20b)',
 
   // Routing Configuration
   LLM_ROUTING_STRATEGY: 'Routing strategy: cost, performance, or balanced',

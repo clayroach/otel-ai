@@ -192,9 +192,8 @@ services:
       # Local LLM (use host.docker.internal to reach host machine)
       - LM_STUDIO_ENDPOINT=http://host.docker.internal:1234/v1
       - LLM_ENDPOINT=http://host.docker.internal:1234/v1
-      - LM_STUDIO_MODEL=${LM_STUDIO_MODEL:-openai/gpt-oss-20b}
       # LLM Model Configuration for different tasks
-      - LLM_SQL_MODEL_1=${LLM_SQL_MODEL_1:-sqlcoder-7b-2}
+      - LLM_SQL_MODEL_1=${LLM_SQL_MODEL_1:-codellama-7b-instruct}
       - LLM_GENERAL_MODEL_1=${LLM_GENERAL_MODEL_1:-claude-3-7-sonnet-20250219}
       - LLM_GENERAL_MODEL_2=${LLM_GENERAL_MODEL_2:-gpt-3.5-turbo}
     depends_on:

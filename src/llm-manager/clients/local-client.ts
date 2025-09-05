@@ -356,7 +356,11 @@ export const defaultLocalConfig: LocalModelConfig = {
   maxTokens: 4096,
   temperature: 0.7,
   contextLength: 4096,
-  timeout: 30000
+  timeout: process.env.LLM_TIMEOUT_MS
+    ? parseInt(process.env.LLM_TIMEOUT_MS, 10)
+    : process.env.NODE_ENV === 'test' || process.env.CI
+      ? 90000
+      : 30000
 }
 
 /**
