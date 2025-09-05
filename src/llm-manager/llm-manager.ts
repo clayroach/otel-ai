@@ -86,12 +86,14 @@ async function getClientsHealth(
 }
 
 /**
- * Unified LLM Manager Factory
+ * Internal LLM Manager Factory
  *
  * Creates a multi-model LLM manager that intelligently routes requests
  * to the best available model based on task type and configuration.
+ *
+ * This is now an internal function - use Effect-TS Layers for instantiation.
  */
-export const createLLMManager = (config?: Partial<LLMConfig>) => {
+const createLLMManager = (config?: Partial<LLMConfig>) => {
   const clients = initializeClients(config)
 
   // Create a full config with defaults for the router
@@ -216,11 +218,18 @@ export const createLLMManager = (config?: Partial<LLMConfig>) => {
 }
 
 /**
- * Create Default LLM Manager
+ * Internal Default LLM Manager
  *
  * Quick factory for development and testing with default configuration.
+ * This is now an internal function - use Effect-TS Layers for instantiation.
  */
-export const createDefaultLLMManager = () => createLLMManager()
+const createDefaultLLMManager = () => createLLMManager()
+
+/**
+ * Export functions for internal use by layers only
+ * These should NOT be re-exported in index.ts
+ */
+export { createLLMManager, createDefaultLLMManager }
 
 /**
  * Export types for external use

@@ -34,16 +34,15 @@ export {
   defaultLocalConfig
 } from './clients/local-client.js'
 
-// Core unified manager
-export { createLLMManager, createDefaultLLMManager } from './llm-manager.js'
+// Core unified manager (only types, no direct constructors)
 export type { LLMManager, ModelClient } from './llm-manager.js'
 
 // Service interface and tag
 export { LLMManagerServiceTag } from './llm-manager-service.js'
 export type { LLMManagerService, ManagerStatus } from './llm-manager-service.js'
 
-// Live implementation layers
-export { LLMManagerLive, LLMManagerDev, createLLMManagerLive } from './llm-manager-live.js'
+// Live implementation layers (Layer-only, no factory functions)
+export { LLMManagerLive, LLMManagerDev } from './llm-manager-live.js'
 
 // Mock implementation layers for testing
 export {

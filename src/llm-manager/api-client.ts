@@ -8,9 +8,10 @@
  * - System resource usage
  */
 
-import { Effect } from 'effect'
-import type { LLMRequest, LLMResponse, LLMError, LLMConfig } from './types.js'
-import { createLLMManager } from './llm-manager.js'
+import { Effect, Layer } from 'effect'
+import type { LLMRequest, LLMResponse, LLMError } from './types.js'
+import { LLMManagerServiceTag } from './llm-manager-service.js'
+import { LLMManagerLive } from './llm-manager-live.js'
 
 export interface LoadedModel {
   id: string
@@ -75,7 +76,7 @@ export interface ModelSelectionResponse {
  * API Client for LLM Manager Service
  */
 export class LLMManagerAPIClient {
-  private manager: ReturnType<typeof createLLMManager> | null = null
+  private managerLayer: Layer.Layer<LLMManagerServiceTag> | null = null
   private loadedModels: Map<string, LoadedModel> = new Map()
   private metrics = {
     totalRequests: 0,
@@ -89,22 +90,21 @@ export class LLMManagerAPIClient {
    * Initialize the LLM Manager with configuration
    */
   async initialize(config?: {
-    models?: LLMConfig['models']
+    models?: unknown // Config is now ignored, using environment only
     defaultModel?: string
   }): Promise<void> {
-    // Initialize manager with base config
-    const modelConfig = config?.models || {
-      llama: {
-        endpoint: process.env.LLM_ENDPOINT || 'http://localhost:1234/v1',
-        modelPath: 'local-model',
-        contextLength: 32768,
-        threads: 4
-      }
+    // LLMManagerLive automatically loads configuration from environment variables
+    // Config parameter is ignored to enforce Layer-only pattern
+    if (config?.models) {
+      console.warn(
+        '⚠️ Custom model config is no longer supported. Using environment configuration.'
+      )
     }
 
-    this.manager = createLLMManager({ models: modelConfig })
+    // Use the predefined LLMManagerLive layer which loads config from environment
+    this.managerLayer = LLMManagerLive
 
-    // Load models from environment variables
+    // Load models from environment variables for metrics tracking
     await this.loadModelsFromEnvironment()
   }
 
@@ -421,27 +421,30 @@ export class LLMManagerAPIClient {
    * Generate completion using the manager
    */
   async generate(request: LLMRequest): Promise<LLMResponse> {
-    if (!this.manager) {
+    if (!this.managerLayer) {
       throw new Error('LLM Manager not initialized')
     }
 
     this.metrics.totalRequests++
 
-    // The new manager handles model selection internally
-    // We just need to pass the request through
+    // Use the Layer to access the LLM Manager service
+    const self = this
     const result = await Effect.runPromise(
-      this.manager.generate(request).pipe(
-        Effect.tap((response) =>
-          Effect.sync(() => {
-            // Update metrics based on the actual model used
-            const modelId = response.model || request.preferences?.model || 'local'
-            const model = this.loadedModels.get(modelId)
-            if (model && model.metrics) {
-              model.metrics.totalRequests++
-              model.metrics.lastUsed = new Date()
-            }
-          })
-        ),
+      Effect.gen(function* () {
+        const manager = yield* LLMManagerServiceTag
+        const response = yield* manager.generate(request)
+
+        // Update metrics based on the actual model used
+        const modelId = response.model || request.preferences?.model || 'local'
+        const model = self.loadedModels.get(modelId)
+        if (model && model.metrics) {
+          model.metrics.totalRequests++
+          model.metrics.lastUsed = new Date()
+        }
+
+        return response
+      }).pipe(
+        Effect.provide(this.managerLayer),
         Effect.catchAll((error: LLMError) =>
           Effect.fail(
             new Error(

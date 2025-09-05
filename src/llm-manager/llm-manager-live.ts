@@ -124,27 +124,6 @@ export const LLMManagerLive = Layer.effect(
 )
 
 /**
- * Live implementation with custom configuration
- *
- * Allows providing a custom configuration instead of loading from environment.
- */
-export const createLLMManagerLive = (config: Partial<LLMConfig>) =>
-  Layer.effect(
-    LLMManagerServiceTag,
-    Effect.sync(() => {
-      const manager = createLLMManager(config)
-
-      return {
-        generate: (request) => manager.generate(request),
-        generateStream: (request) => manager.generateStream(request),
-        isHealthy: () => manager.isHealthy(),
-        getStatus: () => manager.getStatus(),
-        getAvailableModels: () => manager.getAvailableModels()
-      }
-    })
-  )
-
-/**
  * Development layer with enhanced logging
  *
  * Wraps the live implementation with detailed logging for debugging.
