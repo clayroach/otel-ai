@@ -29,200 +29,28 @@ type LLMQueryResponse = Schema.Schema.Type<typeof LLMQueryResponseSchema>
 export const DEFAULT_MODEL =
   process.env.LLM_SQL_MODEL_1 || process.env.LLM_GENERAL_MODEL_1 || 'sqlcoder-7b-2' // Fallback if nothing configured
 
+import {
+  generateSQLModelPrompt,
+  generateGeneralLLMPrompt,
+  validateDiagnosticQuery,
+  CORE_DIAGNOSTIC_REQUIREMENTS
+} from './diagnostic-query-instructions.js'
+
 // Create a dynamic prompt with examples for the LLM
 const createDynamicQueryPrompt = (
   path: CriticalPath,
   analysisGoal: string,
   modelName?: string
 ): string => {
-  const services = path.services.map((s) => `'${s.replace(/'/g, "''")}'`).join(', ')
-
-  // For SQL-specific models, use a simpler prompt
+  // For SQL-specific models, use the unified diagnostic instructions
   if (modelName && checkSQLModel(modelName)) {
-    // Add specific requirements based on analysis goal
-    let additionalRequirements = ''
-    if (analysisGoal.toLowerCase().includes('error')) {
-      additionalRequirements = `
-- MUST filter for errors: WHERE status_code != 'OK'
-- Include status_code and status_message in output
-- Group by error type/status for analysis`
-    } else if (analysisGoal.toLowerCase().includes('latency')) {
-      additionalRequirements = `
-- Calculate percentiles: quantile(0.5), quantile(0.95), quantile(0.99)
-- Use duration_ns/1000000 to convert to milliseconds`
-    } else if (analysisGoal.toLowerCase().includes('bottleneck')) {
-      additionalRequirements = `
-- Find slowest operations: ORDER BY duration DESC
-- Include operation_name in output`
-    }
-
-    return `Generate a ClickHouse SQL query for the following analysis:
-    
-Table: traces
-Columns (use EXACTLY these names):
-- start_time (DateTime64) - Use this for time-based queries
-- end_time (DateTime64)
-- duration_ns (UInt64) - Duration in nanoseconds
-- service_name (String)
-- operation_name (String)
-- status_code (String)
-- status_message (String)
-- trace_id, span_id, parent_span_id (String)
-
-Services to analyze: ${services}
-Analysis goal: ${analysisGoal}
-
-Requirements:
-- Must use start_time for time filtering and grouping
-- Must filter by service_name IN (${services})${additionalRequirements}
-- Return ONLY the SQL query wrapped in \`\`\`sql blocks`
+    return generateSQLModelPrompt(path, analysisGoal, CORE_DIAGNOSTIC_REQUIREMENTS)
   }
 
-  // For general models, use the full prompt with JSON instructions
-  return `
-You are a ClickHouse SQL expert generating queries for observability data analysis.
-
-## Database Schema
-Table: traces
-Columns:
-- trace_id (String): Unique trace identifier
-- span_id (String): Unique span identifier  
-- parent_span_id (String): Parent span ID for trace hierarchy
-- service_name (String): Name of the service
-- operation_name (String): Name of the operation/endpoint
-- start_time (DateTime64): Start timestamp with nanosecond precision
-- end_time (DateTime64): End timestamp with nanosecond precision
-- duration_ns (UInt64): Duration in nanoseconds
-- status_code (String): Status code (OK, ERROR, etc.)
-- status_message (String): Status message details
-- attributes (Map(String, String)): Additional attributes
-- resource_attributes (Map(String, String)): Resource attributes
-
-## Critical Path Context
-- Path ID: ${path.id}
-- Path Name: ${path.name}
-- Services in path: ${path.services.join(' → ')}
-- Start Service: ${path.startService}
-- End Service: ${path.endService}
-- Services to analyze: ${services}
-
-## Example Query Patterns
-
-### Example 1: Latency Analysis
-Goal: Analyze p50, p95, p99 latencies across services
-\`\`\`sql
-SELECT 
-  service_name,
-  toStartOfMinute(start_time) as minute,
-  quantile(0.5)(duration_ns/1000000) as p50_ms,
-  quantile(0.95)(duration_ns/1000000) as p95_ms,
-  quantile(0.99)(duration_ns/1000000) as p99_ms,
-  count() as request_count
-FROM traces
-WHERE 
-  service_name IN ('service1', 'service2')
-  AND start_time >= now() - INTERVAL 60 MINUTE
-GROUP BY service_name, minute
-ORDER BY minute DESC, service_name
-\`\`\`
-
-### Example 2: Error Pattern Analysis
-Goal: Identify error distribution and patterns
-\`\`\`sql
-SELECT 
-  service_name,
-  status_code,
-  status_message,
-  count() as error_count,
-  round(count() * 100.0 / sum(count()) OVER (), 2) as error_percentage
-FROM traces
-WHERE 
-  service_name IN ('service1', 'service2')
-  AND status_code != 'OK'
-  AND start_time >= now() - INTERVAL 60 MINUTE
-GROUP BY service_name, status_code, status_message
-ORDER BY error_count DESC
-\`\`\`
-
-### Example 3: Bottleneck Detection
-Goal: Find slowest operations affecting performance
-\`\`\`sql
-SELECT 
-  service_name,
-  operation_name,
-  quantile(0.95)(duration_ns/1000000) as p95_ms,
-  max(duration_ns/1000000) as max_ms,
-  count() as operation_count
-FROM traces
-WHERE 
-  service_name IN ('service1', 'service2')
-  AND start_time >= now() - INTERVAL 60 MINUTE
-GROUP BY service_name, operation_name
-HAVING p95_ms > 100
-ORDER BY p95_ms DESC
-\`\`\`
-
-### Example 4: Throughput Analysis
-Goal: Measure request rates and success ratios
-\`\`\`sql
-SELECT 
-  service_name,
-  toStartOfMinute(start_time) as minute,
-  count() as requests_per_minute,
-  count() / 60.0 as requests_per_second,
-  sum(CASE WHEN status_code = 'OK' THEN 1 ELSE 0 END) as successful,
-  round(sum(CASE WHEN status_code = 'OK' THEN 1 ELSE 0 END) * 100.0 / count(), 2) as success_rate
-FROM traces
-WHERE 
-  service_name IN ('service1', 'service2')
-  AND start_time >= now() - INTERVAL 60 MINUTE
-GROUP BY service_name, minute
-ORDER BY minute DESC
-\`\`\`
-
-### Example 5: Time Period Comparison
-Goal: Compare current vs previous period performance
-\`\`\`sql
-WITH current_period AS (
-  SELECT 
-    service_name,
-    quantile(0.95)(duration_ns/1000000) as p95_ms,
-    count() as request_count
-  FROM traces
-  WHERE 
-    service_name IN ('service1', 'service2')
-    AND start_time >= now() - INTERVAL 60 MINUTE
-  GROUP BY service_name
-),
-previous_period AS (
-  SELECT 
-    service_name,
-    quantile(0.95)(duration_ns/1000000) as p95_ms,
-    count() as request_count
-  FROM traces
-  WHERE 
-    service_name IN ('service1', 'service2')
-    AND start_time >= now() - INTERVAL 120 MINUTE
-    AND start_time < now() - INTERVAL 60 MINUTE
-  GROUP BY service_name
-)
-SELECT 
-  c.service_name,
-  c.p95_ms as current_p95,
-  p.p95_ms as previous_p95,
-  round((c.p95_ms - p.p95_ms) / p.p95_ms * 100, 2) as p95_change_percent,
-  c.request_count as current_requests,
-  p.request_count as previous_requests
-FROM current_period c
-LEFT JOIN previous_period p ON c.service_name = p.service_name
-\`\`\`
-
-## Your Task
-Generate a ClickHouse query for the following analysis goal:
-"${analysisGoal}"
-
-Use the examples above as patterns, but create a query specifically optimized for the given critical path and analysis goal.
-Adapt the query structure, aggregations, and filters based on what would be most insightful.
+  // For general models, use the unified diagnostic instructions with JSON wrapping
+  const diagnosticPrompt = generateGeneralLLMPrompt(path, analysisGoal, CORE_DIAGNOSTIC_REQUIREMENTS)
+  
+  return `${diagnosticPrompt}
 
 Return a JSON response with:
 {
@@ -231,17 +59,8 @@ Return a JSON response with:
   "expectedColumns": [
     {"name": "column_name", "type": "ClickHouse type", "description": "What this column represents"}
   ],
-  "reasoning": "Why this query structure is optimal for the analysis goal",
-  "insights": "What insights this query will provide"
-}
-
-Important:
-- Use the actual service names: ${services}
-- Ensure proper escaping of service names
-- Include appropriate time filters
-- Choose aggregations that best match the analysis goal
-- Be creative but ensure the query is performant
-`
+  "reasoning": "Why this query structure is optimal for the analysis goal"
+}`
 }
 
 // Map of analysis goals for different contexts
@@ -370,9 +189,7 @@ export const generateQueryWithLLM = (
             const upperSQL = parsed.sql.toUpperCase()
             console.log('   DEBUG: Missing required elements:')
             if (!upperSQL.includes('SELECT')) console.log('     - SELECT')
-            if (!upperSQL.includes('FROM TRACES')) console.log('     - FROM traces')
-            if (!upperSQL.includes('WHERE')) console.log('     - WHERE')
-            if (!upperSQL.includes('SERVICE_NAME')) console.log('     - service_name')
+            if (!upperSQL.includes('FROM')) console.log('     - FROM clause')
           }
           throw new Error(
             'Generated SQL failed validation - contains forbidden operations or missing required elements'
@@ -448,17 +265,18 @@ export const generateQueryWithSQLModel = (
 
 // Validate generated SQL (basic validation)
 export const validateGeneratedSQL = (sql: string): boolean => {
-  const required = ['SELECT', 'FROM traces', 'WHERE', 'service_name']
-
   const forbidden = ['DROP', 'DELETE', 'TRUNCATE', 'ALTER', 'CREATE', 'INSERT', 'UPDATE']
 
   const upperSQL = sql.toUpperCase()
 
-  // Check for required elements
-  for (const req of required) {
-    if (!upperSQL.includes(req.toUpperCase())) {
-      return false
-    }
+  // Check for basic SQL structure
+  if (!upperSQL.includes('SELECT')) {
+    return false
+  }
+
+  // Check for FROM clause (can be any table/subquery, not just "traces")
+  if (!upperSQL.includes('FROM')) {
+    return false
   }
 
   // Check for forbidden operations
