@@ -10,18 +10,6 @@ import { describe, it, expect } from "vitest"
 describe("Trace-Level Diagnostic Analysis", () => {
   
   it("should demonstrate the value of trace-level filtering for diagnostics", () => {
-    const originalAggregateApproach = `
-      -- Original approach: aggregate ALL data
-      SELECT 
-        service_name,
-        quantile(0.95)(duration_ns/1000000) AS p95_ms,
-        count() AS request_count
-      FROM traces
-      WHERE service_name IN ('frontend', 'cart', 'checkout', 'payment', 'email')
-        AND start_time >= now() - INTERVAL 1 HOUR
-      GROUP BY service_name
-    `
-    
     const improvedTraceFilteredApproach = `
       -- Improved approach: identify problematic traces first, then analyze
       WITH problematic_traces AS (
@@ -191,7 +179,7 @@ describe("Trace-Level Diagnostic Analysis", () => {
     }
     
     // Validate patterns
-    Object.entries(requiredTracePatterns).forEach(([name, pattern]) => {
+    Object.entries(requiredTracePatterns).forEach(([_name, pattern]) => {
       expect(pattern.pattern).toBeDefined()
       expect(pattern.purpose).toBeDefined()
       expect(pattern.example).toBeDefined()
@@ -259,7 +247,7 @@ describe("Trace-Level Diagnostic Analysis", () => {
     }
     
     // Validate scenarios
-    Object.entries(checkoutFlowTraceScenarios).forEach(([scenario, details]) => {
+    Object.entries(checkoutFlowTraceScenarios).forEach(([_scenario, details]) => {
       expect(details.tracePattern).toBeDefined()
       expect(details.expectedFindings.length).toBeGreaterThanOrEqual(3)
       expect(details.diagnosticQuestions.length).toBeGreaterThanOrEqual(3)

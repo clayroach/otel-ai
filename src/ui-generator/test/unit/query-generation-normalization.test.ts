@@ -90,7 +90,7 @@ describe("Query Generation Normalization", () => {
     })
     
     it("should provide diagnostic query template for reference", () => {
-      const services = testCheckoutPath.services
+      const services = [...testCheckoutPath.services]
       const templateQuery = DIAGNOSTIC_QUERY_TEMPLATE(services)
       
       // Validate template contains all diagnostic patterns

@@ -12,7 +12,6 @@ import { StorageAPIClientTag } from '../../storage/api-client'
 import { type LLMRequest, LLMManagerServiceTag } from '../../llm-manager'
 import {
   generateGeneralLLMPrompt,
-  validateDiagnosticQuery,
   CORE_DIAGNOSTIC_REQUIREMENTS
 } from './diagnostic-query-instructions.js'
 
@@ -53,15 +52,6 @@ export const CriticalPathQueryGeneratorClickHouseAILive = Layer.effect(
      */
     const generateQueries = (path: CriticalPath) =>
       Effect.gen(function* () {
-        // Build context about the critical path
-        const pathContext = `
-          Critical Path: ${path.name}
-          Services: ${path.services.join(', ')}
-          Start Service: ${path.startService}
-          End Service: ${path.endService}
-          ${path.metadata ? `Metadata: ${JSON.stringify(path.metadata)}` : ''}
-        `
-
         // Define analysis scenarios for the critical path
         // In test environments, limit scenarios to speed up execution
         const isTestEnv = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'

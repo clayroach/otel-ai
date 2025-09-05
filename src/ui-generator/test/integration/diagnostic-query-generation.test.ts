@@ -10,6 +10,7 @@ import {
   shouldSkipLLMTests, 
   logAvailabilityStatus
 } from "../../../llm-manager/test/utils/llm-availability.js"
+import { LLMManagerLive, LLMManagerEssentials } from "../../../llm-manager"
 
 // Test data representing the checkout flow with improved diagnostic requirements
 const checkoutFlowPath: CriticalPath = {
@@ -99,7 +100,7 @@ describe("Diagnostic Query Generation", () => {
     
     const testLayer = Layer.provide(
       CriticalPathQueryGeneratorClickHouseAILive,
-      mockStorageAPIClient
+      Layer.merge(mockStorageAPIClient, Layer.provide(LLMManagerLive, LLMManagerEssentials))
     )
     
     it.skipIf(shouldSkipLLMTests)("should generate diagnostic queries with improved requirements", { timeout: 120000 }, async () => {
@@ -159,7 +160,7 @@ describe("Diagnostic Query Generation", () => {
       })
       
       // Show a sample of generated SQL for manual review
-      if (result.diagnosticAnalysis.length > 0) {
+      if (result.diagnosticAnalysis.length > 0 && result.diagnosticAnalysis[0]?.sql) {
         console.log(`\n📝 Sample Generated SQL (truncated):`)
         console.log(result.diagnosticAnalysis[0].sql.substring(0, 300) + "...")
       }
@@ -198,10 +199,10 @@ describe("Diagnostic Query Generation", () => {
         const firstRow = executionResult.result.data[0]
         console.log(`   Sample result:`, JSON.stringify(firstRow, null, 2))
         
-        // Check if the results contain diagnostic information
-        const hasHealthStatus = 'service_health_status' in firstRow
-        const hasErrorRates = 'error_rate_pct' in firstRow || 'error_count' in firstRow
-        const hasOperationDetail = 'operation_name' in firstRow || 'worst_operation' in firstRow
+        // Check if the results contain diagnostic information (with null safety)
+        const hasHealthStatus = firstRow && 'service_health_status' in firstRow
+        const hasErrorRates = firstRow && ('error_rate_pct' in firstRow || 'error_count' in firstRow)
+        const hasOperationDetail = firstRow && ('operation_name' in firstRow || 'worst_operation' in firstRow)
         
         console.log(`   🏥 Contains health status: ${hasHealthStatus}`)
         console.log(`   ❌ Contains error analysis: ${hasErrorRates}`)

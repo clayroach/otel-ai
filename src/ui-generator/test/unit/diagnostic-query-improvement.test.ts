@@ -272,7 +272,7 @@ describe("Diagnostic Query Improvement Analysis", () => {
       }
       
       // Validate each pattern has diagnostic value
-      Object.entries(diagnosticPatterns).forEach(([name, pattern]) => {
+      Object.entries(diagnosticPatterns).forEach(([_name, pattern]) => {
         expect(pattern.pattern).toBeDefined()
         expect(pattern.purpose).toBeDefined() 
         expect(pattern.example).toBeDefined()

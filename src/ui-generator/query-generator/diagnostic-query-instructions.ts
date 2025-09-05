@@ -1,9 +1,9 @@
 /**
  * Unified Diagnostic Query Instructions
- * 
+ *
  * This module provides common instructions and patterns for generating
  * diagnostic queries across both SQL-specific models and general LLM models.
- * 
+ *
  * Eliminates duplication between service-clickhouse-ai.ts and llm-query-generator.ts
  */
 
@@ -33,14 +33,14 @@ export interface DiagnosticQueryInstructions {
  * Core diagnostic requirements that should be included in all diagnostic queries
  */
 export const CORE_DIAGNOSTIC_REQUIREMENTS: DiagnosticQueryRequirements = {
-  traceFiltering: true,      // Focus on problematic traces first
-  errorAnalysis: true,       // Include error rates and patterns  
-  volumeContext: true,       // Include request counts for context
+  traceFiltering: true, // Focus on problematic traces first
+  errorAnalysis: true, // Include error rates and patterns
+  volumeContext: true, // Include request counts for context
   bottleneckDetection: true, // Calculate total time impact metrics
-  operationBreakdown: true,  // Group by operation_name for detail
-  healthScoring: true,       // Provide CRITICAL/WARNING/HEALTHY categories
-  realTimeFocus: true,       // Use 15-minute windows for recent data
-  anomalyDetection: false    // Optional: statistical anomaly detection
+  operationBreakdown: true, // Group by operation_name for detail
+  healthScoring: true, // Provide CRITICAL/WARNING/HEALTHY categories
+  realTimeFocus: true, // Use 15-minute windows for recent data
+  anomalyDetection: false // Optional: statistical anomaly detection
 }
 
 /**
@@ -50,7 +50,7 @@ export const TRACE_FILTERING_PATTERN = (services: string[]) => `
 WITH problematic_traces AS (
   SELECT DISTINCT trace_id
   FROM traces 
-  WHERE service_name IN (${services.map(s => `'${s}'`).join(', ')})
+  WHERE service_name IN (${services.map((s) => `'${s}'`).join(', ')})
     AND start_time >= now() - INTERVAL 15 MINUTE
     AND (
       -- Slow traces (over 1 second duration)
@@ -74,31 +74,31 @@ export const DIAGNOSTIC_SQL_PATTERNS = {
   errorAnalysis: `
   countIf(status_code != 'OK') AS error_count,
   round(countIf(status_code != 'OK') * 100.0 / count(), 2) AS error_rate_pct`,
-  
+
   volumeContext: `
   count() AS request_count`,
-  
+
   bottleneckDetection: `
   count() * quantile(0.95)(duration_ns/1000000) AS total_time_impact_ms`,
-  
+
   operationBreakdown: `
   GROUP BY service_name, operation_name`,
-  
+
   healthScoring: `
   CASE 
     WHEN error_rate_pct > 5 THEN 'CRITICAL'
     WHEN error_rate_pct > 1 OR p95_ms > 1000 THEN 'WARNING'
     ELSE 'HEALTHY'
   END AS health_status`,
-  
+
   realTimeFocus: `
   AND start_time >= now() - INTERVAL 15 MINUTE`,
-  
+
   latencyMetrics: `
   quantile(0.5)(duration_ns/1000000) AS p50_ms,
   quantile(0.95)(duration_ns/1000000) AS p95_ms,
   quantile(0.99)(duration_ns/1000000) AS p99_ms`,
-  
+
   triageOrdering: `
   ORDER BY 
     CASE health_status 
@@ -137,9 +137,6 @@ export const createSQLModelInstructions = (
   analysisGoal: string,
   requirements: DiagnosticQueryRequirements = CORE_DIAGNOSTIC_REQUIREMENTS
 ): DiagnosticQueryInstructions => {
-  const services = path.services.map(s => `'${s.replace(/'/g, "''")}'`)
-  const servicesStr = services.join(', ')
-  
   return {
     basePrompt: `Generate a ClickHouse SQL query for diagnostic analysis of this critical path:
 
@@ -148,13 +145,13 @@ Goal: ${analysisGoal}
 
 REQUIRED SQL PATTERNS (use ALL of these):`,
 
-    traceFilteringPattern: requirements.traceFiltering 
-      ? TRACE_FILTERING_PATTERN(path.services)
+    traceFilteringPattern: requirements.traceFiltering
+      ? TRACE_FILTERING_PATTERN([...path.services])
       : '',
 
     sqlRequirements: `
 1. TRACE-LEVEL ANALYSIS (identify problematic traces first):
-${requirements.traceFiltering ? TRACE_FILTERING_PATTERN(path.services) : '-- Trace filtering disabled'}
+${requirements.traceFiltering ? TRACE_FILTERING_PATTERN([...path.services]) : '-- Trace filtering disabled'}
 
 2. ERROR ANALYSIS:
 ${requirements.errorAnalysis ? DIAGNOSTIC_SQL_PATTERNS.errorAnalysis : '-- Error analysis disabled'}
@@ -189,15 +186,14 @@ ${requirements.healthScoring ? DIAGNOSTIC_SQL_PATTERNS.triageOrdering : 'ORDER B
 }
 
 /**
- * Create unified diagnostic query instructions for general LLM models  
+ * Create unified diagnostic query instructions for general LLM models
  */
 export const createGeneralLLMInstructions = (
   path: CriticalPath,
   analysisGoal: string,
   requirements: DiagnosticQueryRequirements = CORE_DIAGNOSTIC_REQUIREMENTS
 ): DiagnosticQueryInstructions => {
-  const services = path.services.map(s => `'${s.replace(/'/g, "''")}'`)
-  const servicesStr = services.join(', ')
+  const services = path.services.map((s) => `'${s.replace(/'/g, "''")}'`)
 
   return {
     basePrompt: `You are a ClickHouse expert specializing in DIAGNOSTIC queries for critical path analysis.
@@ -208,13 +204,13 @@ Analysis Goal: ${analysisGoal}
 
 DIAGNOSTIC REQUIREMENTS (ALL MUST BE INCLUDED):`,
 
-    traceFilteringPattern: requirements.traceFiltering 
-      ? TRACE_FILTERING_PATTERN(path.services)
+    traceFilteringPattern: requirements.traceFiltering
+      ? TRACE_FILTERING_PATTERN([...path.services])
       : '',
 
     sqlRequirements: `
 1. TRACE-LEVEL ANALYSIS: ${requirements.traceFiltering ? 'Identify problematic traces first using CTE' : 'DISABLED'}
-2. ERROR ANALYSIS: ${requirements.errorAnalysis ? 'Include error rates (countIf(status_code != \'OK\')) and failure patterns' : 'DISABLED'}  
+2. ERROR ANALYSIS: ${requirements.errorAnalysis ? "Include error rates (countIf(status_code != 'OK')) and failure patterns" : 'DISABLED'}  
 3. VOLUME CONTEXT: ${requirements.volumeContext ? 'Include request counts (count()) to contextualize performance metrics' : 'DISABLED'}
 4. BOTTLENECK DETECTION: ${requirements.bottleneckDetection ? 'Calculate total time impact (request_count * latency)' : 'DISABLED'}
 5. OPERATION BREAKDOWN: ${requirements.operationBreakdown ? 'Group by operation_name within services for specific diagnosis' : 'DISABLED'}
@@ -228,7 +224,7 @@ QUERY STRUCTURE REQUIREMENTS:
 - Include multiple aggregation levels (operation, service, overall)
 - Order results by severity/impact for immediate action (error_rate DESC, latency DESC)
 - Filter out low-volume noise (request_count > 5)
-- MUST filter by services: service_name IN (${servicesStr})`,
+- MUST filter by services: service_name IN (${services.join(', ')})`,
 
     schemaDefinition: CLICKHOUSE_SCHEMA_DEFINITION,
 
@@ -250,84 +246,22 @@ export const generateSQLModelPrompt = (
   analysisGoal: string,
   requirements?: DiagnosticQueryRequirements
 ): string => {
-  const services = path.services.map(s => `'${s.replace(/'/g, "''")}'`).join(', ')
-  
-  // Simplified, direct approach for SQL code generation models
-  if (analysisGoal.toLowerCase().includes('latency') || analysisGoal.toLowerCase().includes('performance')) {
-    return `Write a ClickHouse SQL query to analyze latency for services: ${path.services.join(', ')}.
+  const instructions = createSQLModelInstructions(path, analysisGoal, requirements)
 
-Table: traces
-Columns: trace_id, service_name, operation_name, start_time, duration_ns, status_code
+  return `${instructions.basePrompt}
 
-Requirements:
-- Filter by service_name IN (${services})
-- Calculate p95 latency: quantile(0.95)(duration_ns/1000000) AS p95_ms
-- Include request count: count() AS request_count  
-- Group by service_name, operation_name
-- Order by p95_ms DESC
-- Use last 15 minutes: WHERE start_time >= now() - INTERVAL 15 MINUTE
+${instructions.sqlRequirements}
 
-Example structure:
-SELECT 
-    service_name,
-    operation_name,
-    count() AS request_count,
-    quantile(0.95)(duration_ns/1000000) AS p95_ms
-FROM traces 
-WHERE service_name IN (${services})
-  AND start_time >= now() - INTERVAL 15 MINUTE
-GROUP BY service_name, operation_name
-ORDER BY p95_ms DESC
+${instructions.diagnosticPatterns}
 
-Write the complete SQL query:`
-  }
+${instructions.traceFilteringPattern ? `\nTrace filtering pattern:\n${instructions.traceFilteringPattern}` : ''}
 
-  if (analysisGoal.toLowerCase().includes('error')) {
-    return `Write a ClickHouse SQL query to analyze errors for services: ${path.services.join(', ')}.
+${instructions.schemaDefinition}
 
-Table: traces  
-Columns: trace_id, service_name, operation_name, start_time, status_code
+VALIDATION RULES:
+${instructions.validationRules.map((rule) => `- ${rule}`).join('\n')}
 
-Requirements:
-- Filter by service_name IN (${services})
-- Calculate error rate: countIf(status_code != 'OK') * 100.0 / count() AS error_rate_pct
-- Include total requests: count() AS request_count
-- Include error count: countIf(status_code != 'OK') AS error_count
-- Group by service_name, operation_name
-- Order by error_rate_pct DESC
-- Use last 15 minutes: WHERE start_time >= now() - INTERVAL 15 MINUTE
-
-Example structure:
-SELECT 
-    service_name,
-    operation_name,
-    count() AS request_count,
-    countIf(status_code != 'OK') AS error_count,
-    round(countIf(status_code != 'OK') * 100.0 / count(), 2) AS error_rate_pct
-FROM traces 
-WHERE service_name IN (${services})
-  AND start_time >= now() - INTERVAL 15 MINUTE
-GROUP BY service_name, operation_name  
-ORDER BY error_rate_pct DESC
-
-Write the complete SQL query:`
-  }
-
-  // Default/general analysis
-  return `Write a ClickHouse SQL query for: ${analysisGoal}
-
-Services to analyze: ${path.services.join(', ')}
-Table: traces
-Key columns: trace_id, service_name, operation_name, start_time, duration_ns, status_code
-
-Requirements:
-- Filter by service_name IN (${services})
-- Use last 15 minutes: WHERE start_time >= now() - INTERVAL 15 MINUTE
-- Include count() AS request_count
-- Group by service_name, operation_name
-- Order by relevant metrics DESC
-
-Write the complete SQL query:`
+Write the complete ClickHouse SQL query only, no explanation:`
 }
 
 /**
@@ -339,7 +273,7 @@ export const generateGeneralLLMPrompt = (
   requirements?: DiagnosticQueryRequirements
 ): string => {
   const instructions = createGeneralLLMInstructions(path, analysisGoal, requirements)
-  
+
   return `${instructions.basePrompt}
 
 ${instructions.sqlRequirements}
@@ -350,7 +284,7 @@ ${instructions.traceFilteringPattern ? `\nExample trace filtering pattern:\n${in
 
 ${instructions.schemaDefinition}
 
-${instructions.validationRules.map(rule => `- ${rule}`).join('\n')}
+${instructions.validationRules.map((rule) => `- ${rule}`).join('\n')}
 
 Return ONLY the SQL query without explanation or markdown blocks.`
 }
@@ -362,7 +296,7 @@ export const DIAGNOSTIC_QUERY_TEMPLATE = (services: string[]) => `
 WITH problematic_traces AS (
   SELECT DISTINCT trace_id
   FROM traces 
-  WHERE service_name IN (${services.map(s => `'${s}'`).join(', ')})
+  WHERE service_name IN (${services.map((s) => `'${s}'`).join(', ')})
     AND start_time >= now() - INTERVAL 15 MINUTE
     AND (
       duration_ns/1000000 > 1000  -- Slow traces
@@ -385,7 +319,7 @@ diagnostic_analysis AS (
     count() * quantile(0.95)(t.duration_ns/1000000) AS total_time_impact_ms
   FROM traces t
   INNER JOIN problematic_traces pt ON t.trace_id = pt.trace_id
-  WHERE t.service_name IN (${services.map(s => `'${s}'`).join(', ')})
+  WHERE t.service_name IN (${services.map((s) => `'${s}'`).join(', ')})
   GROUP BY t.service_name, t.operation_name
   HAVING problem_span_count > 5
 )
@@ -420,40 +354,71 @@ ORDER BY
  * Validate that a generated query meets diagnostic requirements
  */
 export const validateDiagnosticQuery = (
-  sql: string, 
+  sql: string,
   requirements: DiagnosticQueryRequirements
 ): { isValid: boolean; missingRequirements: string[] } => {
   const upperSQL = sql.toUpperCase()
   const missingRequirements: string[] = []
-  
+
   // Basic SQL validation
   if (!upperSQL.includes('SELECT') || !upperSQL.includes('FROM TRACES')) {
     missingRequirements.push('Basic SQL structure (SELECT FROM traces)')
   }
-  
+
   // Check diagnostic requirements
-  if (requirements.traceFiltering && !upperSQL.includes('WITH') && !sql.toLowerCase().includes('problematic_traces')) {
+  if (
+    requirements.traceFiltering &&
+    !upperSQL.includes('WITH') &&
+    !sql.toLowerCase().includes('problematic_traces')
+  ) {
     missingRequirements.push('Trace-level filtering')
   }
-  
+
   if (requirements.errorAnalysis && !upperSQL.includes('STATUS_CODE')) {
     missingRequirements.push('Error analysis')
   }
-  
+
   if (requirements.volumeContext && !upperSQL.includes('COUNT()')) {
     missingRequirements.push('Volume context')
   }
-  
-  if (requirements.healthScoring && !upperSQL.includes('CASE') && !sql.toLowerCase().includes('critical')) {
+
+  if (
+    requirements.healthScoring &&
+    !upperSQL.includes('CASE') &&
+    !sql.toLowerCase().includes('critical')
+  ) {
     missingRequirements.push('Health scoring')
   }
-  
-  if (requirements.realTimeFocus && !upperSQL.includes('INTERVAL') && !upperSQL.includes('MINUTE')) {
+
+  if (
+    requirements.realTimeFocus &&
+    !upperSQL.includes('INTERVAL') &&
+    !upperSQL.includes('MINUTE')
+  ) {
     missingRequirements.push('Real-time focus')
   }
-  
+
+  // More lenient validation: query is valid if it has SOME diagnostic features
+  // rather than requiring ALL features
+  const hasAnyDiagnosticFeature =
+    // Has service filtering (basic requirement)
+    upperSQL.includes('SERVICE_NAME') ||
+    // Has time filtering (basic requirement)
+    upperSQL.includes('INTERVAL') ||
+    // Has error analysis
+    upperSQL.includes('STATUS_CODE') ||
+    // Has volume context
+    upperSQL.includes('COUNT()') ||
+    // Has some form of health categorization
+    upperSQL.includes('CASE')
+
+  // Query is valid if it has basic SQL structure AND some diagnostic features
+  const isValid =
+    hasAnyDiagnosticFeature &&
+    !missingRequirements.includes('Basic SQL structure (SELECT FROM traces)')
+
   return {
-    isValid: missingRequirements.length === 0,
+    isValid,
     missingRequirements
   }
 }

@@ -6,7 +6,7 @@ import {
   CriticalPathQueryGeneratorClickHouseAILive
 } from "../../query-generator/service-clickhouse-ai"
 import { generateQueryWithLLM } from "../../query-generator/llm-query-generator"
-import { LLMManagerServiceTag, LLMManagerLive } from "../../../llm-manager"
+import { LLMManagerLive, LLMManagerEssentials } from "../../../llm-manager"
 import { StorageAPIClientTag } from "../../../storage/api-client"
 import { 
   shouldSkipLLMTests, 
@@ -137,9 +137,13 @@ describe("SQL Model vs GPT Model Query Generation Comparison", () => {
     }
   )
 
-  const testLayer = Layer.provideMerge(
-    Layer.provide(CriticalPathQueryGeneratorClickHouseAILive, mockStorageAPIClient),
-    LLMManagerLive
+  // Create a complete layer that provides all dependencies
+  const testLayer = Layer.mergeAll(
+    mockStorageAPIClient,
+    Layer.provide(LLMManagerLive, LLMManagerEssentials),
+    Layer.provide(CriticalPathQueryGeneratorClickHouseAILive, 
+      Layer.merge(mockStorageAPIClient, Layer.provide(LLMManagerLive, LLMManagerEssentials))
+    )
   )
   
   // Helper function to analyze SQL query patterns
@@ -181,7 +185,7 @@ describe("SQL Model vs GPT Model Query Generation Comparison", () => {
         const sqlQuery = yield* generateQueryWithLLM(
           { ...checkoutFlowPath, id: `${checkoutFlowPath.id}-sql` },
           analysisGoal,
-          { model: 'sqlcoder-7b-2' } // Force SQL model
+          { model: 'codellama-7b-instruct' } // Force SQL model
         )
         const sqlEndTime = Date.now()
         
@@ -214,7 +218,7 @@ describe("SQL Model vs GPT Model Query Generation Comparison", () => {
         const comparison: QueryComparison = {
           analysisGoal,
           sqlModelResult: {
-            model: 'sqlcoder-7b-2',
+            model: 'codellama-7b-instruct',
             sql: sqlQuery.sql,
             generationTimeMs: sqlEndTime - sqlStartTime,
             diagnosticValidation: sqlValidation,
@@ -238,7 +242,7 @@ describe("SQL Model vs GPT Model Query Generation Comparison", () => {
         comparisons.push(comparison)
         
         // Log detailed comparison for this analysis goal
-        console.log(`   SQL Model (sqlcoder-7b-2): ${sqlValidation.isValid ? '✅' : '❌'} valid, ${sqlScore}/7 diagnostic features`)
+        console.log(`   SQL Model (codellama-7b-instruct): ${sqlValidation.isValid ? '✅' : '❌'} valid, ${sqlScore}/7 diagnostic features`)
         if (sqlValidation.missingRequirements.length > 0) {
           console.log(`     Missing: ${sqlValidation.missingRequirements.join(', ')}`)
         }
@@ -300,6 +304,10 @@ describe("SQL Model vs GPT Model Query Generation Comparison", () => {
       // Test one analysis goal with query execution
       const testGoal = analysisGoals[0] // Use first goal
       
+      if (!testGoal) {
+        throw new Error("No test goals available for query execution test")
+      }
+      
       console.log(`\n🔍 Executing queries for: "${testGoal.substring(0, 60)}..."`)
       
       // Generate and execute GPT query
@@ -316,7 +324,7 @@ describe("SQL Model vs GPT Model Query Generation Comparison", () => {
       const sqlQuery = yield* generateQueryWithLLM(
         { ...checkoutFlowPath, id: `${checkoutFlowPath.id}-sql-exec` },
         testGoal,
-        { model: 'sqlcoder-7b-2' }
+        { model: 'codellama-7b-instruct' }
       )
       
       // Create execution thunk for SQL query
@@ -361,8 +369,9 @@ describe("SQL Model vs GPT Model Query Generation Comparison", () => {
       const gptSample = executionResult.gptQuery.result.data[0]
       console.log(`   GPT Sample result:`, JSON.stringify(gptSample, null, 2))
       
-      // Check for diagnostic fields
-      const hasDiagnosticFields = 'health_status' in gptSample || 'error_rate_pct' in gptSample
+      // Check for diagnostic fields (with null safety)
+      const hasDiagnosticFields = gptSample && typeof gptSample === 'object' && gptSample !== null && 
+        ('health_status' in gptSample || 'error_rate_pct' in gptSample)
       console.log(`   GPT Has diagnostic fields: ${hasDiagnosticFields}`)
     }
     
@@ -370,8 +379,9 @@ describe("SQL Model vs GPT Model Query Generation Comparison", () => {
       const sqlSample = executionResult.sqlQuery.result.data[0] 
       console.log(`   SQL Sample result:`, JSON.stringify(sqlSample, null, 2))
       
-      // Check for diagnostic fields
-      const hasDiagnosticFields = 'health_status' in sqlSample || 'error_rate_pct' in sqlSample
+      // Check for diagnostic fields (with null safety)
+      const hasDiagnosticFields = sqlSample && typeof sqlSample === 'object' && sqlSample !== null && 
+        ('health_status' in sqlSample || 'error_rate_pct' in sqlSample)
       console.log(`   SQL Has diagnostic fields: ${hasDiagnosticFields}`)
     }
     

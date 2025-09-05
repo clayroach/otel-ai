@@ -27,12 +27,11 @@ type LLMQueryResponse = Schema.Schema.Type<typeof LLMQueryResponseSchema>
 
 // Get default SQL model from environment or fallback
 export const DEFAULT_MODEL =
-  process.env.LLM_SQL_MODEL_1 || process.env.LLM_GENERAL_MODEL_1 || 'sqlcoder-7b-2' // Fallback if nothing configured
+  process.env.LLM_SQL_MODEL_1 || process.env.LLM_GENERAL_MODEL_1 || 'codellama-7b-instruct' // Fallback if nothing configured
 
 import {
   generateSQLModelPrompt,
   generateGeneralLLMPrompt,
-  validateDiagnosticQuery,
   CORE_DIAGNOSTIC_REQUIREMENTS
 } from './diagnostic-query-instructions.js'
 
@@ -48,8 +47,12 @@ const createDynamicQueryPrompt = (
   }
 
   // For general models, use the unified diagnostic instructions with JSON wrapping
-  const diagnosticPrompt = generateGeneralLLMPrompt(path, analysisGoal, CORE_DIAGNOSTIC_REQUIREMENTS)
-  
+  const diagnosticPrompt = generateGeneralLLMPrompt(
+    path,
+    analysisGoal,
+    CORE_DIAGNOSTIC_REQUIREMENTS
+  )
+
   return `${diagnosticPrompt}
 
 Return a JSON response with:
