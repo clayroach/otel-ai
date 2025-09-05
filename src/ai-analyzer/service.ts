@@ -19,7 +19,6 @@ import type {
 import { discoverApplicationTopology } from './topology.js'
 import { PromptTemplates, PromptUtils } from './prompts.js'
 import { LLMManagerService } from '../llm-manager/services.js'
-import { createLLMManager } from '../llm-manager/index.js'
 import { StorageServiceTag } from '../storage/services.js'
 
 /**
@@ -76,8 +75,7 @@ export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
     const llmManagerService = yield* _(LLMManagerService)
     const storageService = yield* _(StorageServiceTag)
 
-    // Initialize LLM manager for advanced insights
-    const llmManager = createLLMManager({})
+    // Use the injected LLM manager service for advanced insights
 
     const analyzeArchitecture = (
       request: AnalysisRequest
@@ -173,13 +171,7 @@ export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
           )
 
           const llmResponse = yield* _(
-            generateEnhancedInsights(
-              request.type,
-              architecture,
-              llmManagerService,
-              llmManager,
-              effectiveConfig
-            )
+            generateEnhancedInsights(request.type, architecture, llmManagerService, effectiveConfig)
           )
 
           // Step 4: Generate insights based on the data with model-specific analysis
@@ -267,7 +259,7 @@ export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
           const llmPrompt = generatePromptForAnalysisType(request.type, architecture, request)
 
           // Stream the LLM response with enhanced task type
-          return llmManager
+          return llmManagerService
             .generateStream({
               prompt: llmPrompt,
               taskType: 'architectural-insights',
@@ -804,13 +796,12 @@ export const AIAnalyzerLayer = (config: AnalyzerConfig = defaultAnalyzerConfig) 
   Layer.effect(AIAnalyzerService, makeAIAnalyzerService(config))
 
 /**
- * Generate Enhanced Insights using Multi-Model Orchestrator
+ * Generate Enhanced Insights using LLM Manager Service
  */
 const generateEnhancedInsights = (
   analysisType: AnalysisRequest['type'],
   architecture: ApplicationArchitecture,
   llmManager: Context.Tag.Service<typeof LLMManagerService>,
-  multiModelOrchestrator: ReturnType<typeof createLLMManager>,
   config: AnalyzerConfig
 ): Effect.Effect<{ content: string }, AnalysisError, never> =>
   Effect.gen(function* (_) {
@@ -914,7 +905,7 @@ const generateEnhancedInsights = (
     const prompt = `Analyze the following ${analysisType} data and provide insights:\n\n${JSON.stringify(analysisData, null, 2)}`
 
     const multiModelResponse = yield* _(
-      multiModelOrchestrator
+      llmManager
         .generate({
           prompt,
           taskType,

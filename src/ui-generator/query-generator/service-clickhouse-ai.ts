@@ -9,7 +9,7 @@
 import { Context, Effect, Layer } from 'effect'
 import { CriticalPath, GeneratedQueryWithThunk, QueryPattern, QueryResult } from './types.js'
 import { StorageAPIClientTag } from '../../storage/api-client'
-import { type LLMRequest, createLLMManager } from '../../llm-manager'
+import { type LLMRequest, LLMManagerServiceTag } from '../../llm-manager'
 import {
   generateGeneralLLMPrompt,
   validateDiagnosticQuery,
@@ -41,12 +41,10 @@ export const CriticalPathQueryGeneratorClickHouseAILive = Layer.effect(
   CriticalPathQueryGeneratorClickHouseAI,
   Effect.gen(function* () {
     const storageClient = yield* StorageAPIClientTag
-
-    // Create a unified LLM manager with multi-model support
-    const llmManager = createLLMManager()
+    const llmManagerService = yield* LLMManagerServiceTag
 
     // Log which models are available
-    const availableModels = yield* llmManager.getAvailableModels()
+    const availableModels = yield* llmManagerService.getAvailableModels()
     console.log('🤖 ClickHouse AI Query Generator initialized')
     console.log(`   Available models: ${availableModels.join(', ')}`)
 
@@ -111,7 +109,7 @@ export const CriticalPathQueryGeneratorClickHouseAILive = Layer.effect(
             }
           }
 
-          const response = yield* llmManager
+          const response = yield* llmManagerService
             .generate(request)
             .pipe(
               Effect.mapError(
@@ -222,7 +220,7 @@ export const CriticalPathQueryGeneratorClickHouseAILive = Layer.effect(
           }
         }
 
-        const response = yield* llmManager
+        const response = yield* llmManagerService
           .generate(request)
           .pipe(
             Effect.mapError(
@@ -271,7 +269,7 @@ export const CriticalPathQueryGeneratorClickHouseAILive = Layer.effect(
           }
         }
 
-        const response = yield* llmManager
+        const response = yield* llmManagerService
           .generate(request)
           .pipe(
             Effect.mapError(

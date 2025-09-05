@@ -7,7 +7,7 @@ import {
 } from "../../query-generator/service-llm"
 import { generateQueryWithLLM, ANALYSIS_GOALS, validateGeneratedSQL } from "../../query-generator/llm-query-generator"
 import { StorageAPIClientTag } from "../../../storage/api-client"
-import { createLLMManager } from "../../../llm-manager"
+import { LLMManagerServiceTag } from "../../../llm-manager"
 import { getModelMetadata } from "../../../llm-manager/model-registry"
 import { LLMManagerLive } from "../../../llm-manager/llm-manager-live"
 
@@ -122,17 +122,14 @@ describe("LLM Query Generator", () => {
       const selectedMetadata = getModelMetadata(selectedModel.id)
       console.log(`   Selected model for testing: ${selectedModel.id} (${selectedMetadata?.displayName || 'Unknown'})`)
       
-      // Try to actually generate a simple test query to verify the LLM is working
-      const llmManager = createLLMManager({
-        models: {
-          llama: {
-            endpoint,
-            modelPath: selectedModel.id,
-            contextLength: 32768, // Increased context for codellama models
-            threads: 4
-          }
-        }
-      })
+      // Set environment variables for the test
+      const originalEndpoint = process.env.LM_STUDIO_ENDPOINT
+      const originalModel = process.env.LLM_SQL_MODEL_1
+      
+      process.env.LM_STUDIO_ENDPOINT = endpoint
+      process.env.LLM_SQL_MODEL_1 = selectedModel.id
+      
+      // Use the standard LLMManagerLive layer which loads from environment
       
       // Try a real generation request with a simple prompt
       const testRequest = {
@@ -150,17 +147,36 @@ describe("LLM Query Generator", () => {
       // Log the actual request being sent
       console.log(`   Request details:`, JSON.stringify(testRequest, null, 2))
       
-      const testResponse = await Effect.runPromise(
-        llmManager.generate(testRequest).pipe(
-          Effect.timeout(Duration.seconds(10)),
-          Effect.catchAll((error) => {
-            console.log(`   Request failed:`, error)
-            return Effect.succeed({ content: '', model: 'error', usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 } })
-          })
+      let testResponse
+      try {
+        testResponse = await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* LLMManagerServiceTag
+            return yield* service.generate(testRequest)
+          }).pipe(
+            Effect.provide(LLMManagerLive),
+            Effect.timeout(Duration.seconds(10)),
+            Effect.catchAll((error) => {
+              console.log(`   Request failed:`, error)
+              return Effect.succeed({ content: '', model: 'error', usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 } })
+            })
+          )
         )
-      )
-      
-      console.log(`   Response received:`, JSON.stringify(testResponse, null, 2))
+        
+        console.log(`   Response received:`, JSON.stringify(testResponse, null, 2))
+      } finally {
+        // Restore original environment variables
+        if (originalEndpoint) {
+          process.env.LM_STUDIO_ENDPOINT = originalEndpoint
+        } else {
+          delete process.env.LM_STUDIO_ENDPOINT
+        }
+        if (originalModel) {
+          process.env.LLM_SQL_MODEL_1 = originalModel
+        } else {
+          delete process.env.LLM_SQL_MODEL_1
+        }
+      }
       
       if (testResponse && testResponse.content) {
         llmAvailable = true

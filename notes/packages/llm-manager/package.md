@@ -371,13 +371,13 @@ The LLM Manager package is **fully implemented and tested** with 55/55 tests pas
 
 **✅ Completed Features:**
 - **Multi-model Support**: GPT, Claude, and local Llama models with unified API
-- **Simple Manager**: Working foundation with `createDefaultLLMManager()` 
+- **Layer-Based Architecture**: Strict Effect-TS Layer pattern for instantiation
 - **Local Model Integration**: LM Studio integration with streaming support
 - **OpenAI Client**: Complete GPT integration with streaming and error handling
 - **Claude Client**: Full Claude API integration with conversation management
 - **Configuration**: Environment-based config with comprehensive validation
 - **Error Handling**: Tagged union error types with fallback strategies
-- **Testing**: Comprehensive test suite with real API integration
+- **Testing**: Comprehensive test suite with Layer-based patterns
 
 **🧪 Test Coverage:**
 - **55/55 tests passing** across all client implementations
@@ -388,7 +388,7 @@ The LLM Manager package is **fully implemented and tested** with 55/55 tests pas
 - **Error Handling Tests**: Authentication, timeout, and retry scenarios
 
 **🚀 Ready for Production:**
-- Working simple manager for immediate use
+- Layer-based architecture following strict Effect-TS patterns
 - Multi-model performance comparison
 - Intelligent task type routing strategy
 - Cost tracking and optimization
@@ -513,9 +513,95 @@ Use this in Copilot Chat:
 - **Batch processing**: Support for bulk operations
 - **Streaming**: Real-time response streaming for long outputs
 
+## Layer-Only Instantiation Pattern
+
+**CRITICAL: The LLM Manager ONLY supports Layer-based instantiation following strict Effect-TS patterns. Direct constructor functions are NOT exported.**
+
+### Available Layers
+
+```typescript
+// Default production layer (uses environment configuration)
+import { LLMManagerLive } from '@/llm-manager'
+
+// Development layer (with enhanced logging)
+import { LLMManagerDev } from '@/llm-manager'
+
+// Custom configuration layer
+import { createLLMManagerLive } from '@/llm-manager'
+const customLayer = createLLMManagerLive(config)
+```
+
+### Usage Examples
+
+```typescript
+import { Effect } from 'effect'
+import { LLMManagerServiceTag, LLMManagerLive } from '@/llm-manager'
+import type { LLMRequest } from '@/llm-manager'
+
+// Generate response using Layer pattern
+const generateResponse = (request: LLMRequest) =>
+  Effect.gen(function* () {
+    const service = yield* LLMManagerServiceTag
+    return yield* service.generate(request)
+  }).pipe(Effect.provide(LLMManagerLive))
+
+// Example usage
+const request: LLMRequest = {
+  prompt: 'Analyze this telemetry data',
+  taskType: 'analysis',
+  preferences: {
+    maxTokens: 1000,
+    temperature: 0.7
+  }
+}
+
+const response = await Effect.runPromise(generateResponse(request))
+```
+
+### Service Methods Available via Layers
+
+```typescript
+interface LLMManagerService {
+  generate: (request: LLMRequest) => Effect.Effect<LLMResponse, LLMError, never>
+  generateStream: (request: LLMRequest) => Stream.Stream<string, LLMError, never>
+  isHealthy: () => Effect.Effect<boolean, LLMError, never>
+  getStatus: () => Effect.Effect<ManagerStatus, LLMError, never>
+  getAvailableModels: () => Effect.Effect<string[], LLMError, never>
+}
+```
+
+### Testing with Layers
+
+```typescript
+import { LLMManagerLive } from '@/llm-manager'
+
+// Test example
+it('should generate response using Layer pattern', async () => {
+  const request: LLMRequest = { /* ... */ }
+  
+  const response = await Effect.runPromise(
+    Effect.gen(function* () {
+      const service = yield* LLMManagerServiceTag
+      return yield* service.generate(request)
+    }).pipe(Effect.provide(LLMManagerLive))
+  )
+  
+  expect(response.content).toBeDefined()
+})
+```
+
 ## Change Log
 
 <!-- Auto-updated by Copilot when code changes -->
+
+### 2025-09-05 - REFACTOR: Layer-Only Instantiation Pattern
+
+- **BREAKING**: Removed `createLLMManager` and `createDefaultLLMManager` exports from index.ts
+- **ARCHITECTURE**: Enforced strict Effect-TS Layer pattern - only Layer-based instantiation allowed
+- **INTERNAL**: Made direct constructor functions internal to llm-manager.ts (not exported publicly)
+- **TESTS**: Updated all tests to use Layer pattern instead of direct instantiation
+- **DOCS**: Added comprehensive Layer-only usage examples and patterns
+- **COMPLIANCE**: Ensures architectural consistency across the entire platform
 
 ### 2025-08-22 (Day 9)
 
