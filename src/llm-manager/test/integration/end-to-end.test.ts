@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { Effect, Stream } from 'effect'
+import { Effect, Stream, pipe } from 'effect'
 import { LLMManagerServiceTag } from '../../llm-manager-service.js'
 import { LLMManagerLive } from '../../llm-manager-live.js'
 import { LLMManagerContext, LLMManagerEssentials } from '../../layers.js'
@@ -293,14 +293,18 @@ describe('End-to-End LLM Manager Tests', () => {
       const startTime = Date.now()
       
       try {
-        const responses = await Promise.all(
-          requests.map(request => 
-            Effect.runPromise(
-              Effect.gen(function* () {
-                const service = yield* LLMManagerServiceTag
-                return yield* service.generate(request)
-              }).pipe(Effect.provide(LLMManagerLive))
-            )
+        // Use Effect-TS parallel execution instead of Promise.all for better composability
+        const requestEffects = requests.map(request =>
+          Effect.gen(function* () {
+            const service = yield* LLMManagerServiceTag
+            return yield* service.generate(request)
+          })
+        )
+
+        const responses = await Effect.runPromise(
+          pipe(
+            Effect.all(requestEffects, { concurrency: 'unbounded' }),
+            Effect.provide(LLMManagerLive)
           )
         )
         

@@ -49,7 +49,7 @@ describe("ClickHouse AI Prompt Strategy Comparison", () => {
       
       // SQL Model should include direct SQL patterns
       expect(sqlModelPrompt).toContain("count() AS request_count")
-      expect(sqlModelPrompt).toContain("Write the complete SQL query:")
+      expect(sqlModelPrompt).toContain("Write the complete ClickHouse SQL query only")
       expect(sqlModelPrompt).toContain("FROM traces")
       
       // General LLM should have richer context

@@ -160,7 +160,7 @@ describe("SQL Model vs GPT Model Query Generation Comparison", () => {
     }
   }
   
-  it.skipIf(shouldSkipLLMTests)("should compare SQL model vs GPT model query generation quality", { timeout: 300000 }, async () => {
+  it("should compare SQL model vs GPT model query generation quality", { timeout: 300000 }, async () => {
     
     const program = Effect.gen(function* () {
       const clickHouseAI = yield* CriticalPathQueryGeneratorClickHouseAI
@@ -296,7 +296,7 @@ describe("SQL Model vs GPT Model Query Generation Comparison", () => {
     return comparisons
   })
   
-  it.skipIf(shouldSkipLLMTests)("should execute and compare query results", { timeout: 180000 }, async () => {
+  it("should execute and compare query results", { timeout: 180000 }, async () => {
     
     const program = Effect.gen(function* () {
       const clickHouseAI = yield* CriticalPathQueryGeneratorClickHouseAI

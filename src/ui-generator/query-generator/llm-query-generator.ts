@@ -114,7 +114,7 @@ export const generateQueryWithLLM = (
 
   return pipe(
     generateEffect,
-    Effect.timeout(Duration.seconds(30)), // 30s timeout for all LLM requests
+    Effect.timeout(Duration.seconds(process.env.NODE_ENV === 'test' || process.env.CI ? 90 : 120)), // Extended timeout for integration tests
     Effect.map((response) => {
       try {
         const content = response.content.trim()

@@ -130,9 +130,9 @@ Columns:
 - resource_attributes (Map(String, String)): Resource attributes`
 
 /**
- * Create unified diagnostic query instructions for SQL-specific models
+ * Create comprehensive diagnostic query instructions (original version for fallback)
  */
-export const createSQLModelInstructions = (
+export const createSQLModelInstructionsComprehensive = (
   path: CriticalPath,
   analysisGoal: string,
   requirements: DiagnosticQueryRequirements = CORE_DIAGNOSTIC_REQUIREMENTS
@@ -181,6 +181,145 @@ ${requirements.healthScoring ? DIAGNOSTIC_SQL_PATTERNS.triageOrdering : 'ORDER B
       'Must include error analysis if enabled',
       'Must include volume context if enabled',
       'Must use 15-minute time windows for real-time focus'
+    ]
+  }
+}
+
+/**
+ * Create simplified diagnostic query instructions for SQL-specific models (optimized for performance)
+ */
+/**
+ * Escape single quotes in service names to prevent SQL injection
+ */
+const escapeServiceName = (serviceName: string): string => {
+  // Replace single quotes with two single quotes (SQL standard escaping)
+  return serviceName.replace(/'/g, "''")
+}
+
+export const createSQLModelInstructions = (
+  path: CriticalPath,
+  analysisGoal: string,
+  _requirements: DiagnosticQueryRequirements = CORE_DIAGNOSTIC_REQUIREMENTS
+): DiagnosticQueryInstructions => {
+  const services = path.services.map((s) => `'${escapeServiceName(s)}'`).join(', ')
+
+  // Create extremely explicit, goal-specific SQL queries
+  let exactSQL = ''
+  let description = ''
+
+  if (
+    analysisGoal.toLowerCase().includes('latency') ||
+    analysisGoal.toLowerCase().includes('performance')
+  ) {
+    exactSQL = `SELECT service_name, operation_name, 
+  quantile(0.5)(duration_ns/1000000) as p50_ms,
+  quantile(0.95)(duration_ns/1000000) as p95_ms,
+  quantile(0.99)(duration_ns/1000000) as p99_ms
+FROM traces 
+WHERE service_name IN (${services})
+  AND start_time >= now() - INTERVAL 15 MINUTE
+GROUP BY service_name, operation_name
+HAVING count() > 5
+ORDER BY p95_ms DESC`
+    description = 'Latency analysis with percentiles'
+  } else if (
+    analysisGoal.toLowerCase().includes('error') ||
+    analysisGoal.toLowerCase().includes('reliability')
+  ) {
+    exactSQL = `SELECT service_name, operation_name, 
+  countIf(status_code != 'OK') as error_count,
+  round(countIf(status_code != 'OK') * 100.0 / count(), 2) as error_rate_pct
+FROM traces 
+WHERE service_name IN (${services})
+  AND start_time >= now() - INTERVAL 15 MINUTE
+GROUP BY service_name, operation_name
+HAVING count() > 5
+ORDER BY error_rate_pct DESC, error_count DESC`
+    description = 'Error analysis with rates'
+  } else if (
+    analysisGoal.toLowerCase().includes('bottleneck') ||
+    analysisGoal.toLowerCase().includes('impact')
+  ) {
+    exactSQL = `SELECT service_name, operation_name, 
+  count() * quantile(0.95)(duration_ns/1000000) as total_time_impact_ms,
+  quantile(0.95)(duration_ns/1000000) as p95_ms
+FROM traces 
+WHERE service_name IN (${services})
+  AND start_time >= now() - INTERVAL 15 MINUTE
+GROUP BY service_name, operation_name
+HAVING count() > 5
+ORDER BY total_time_impact_ms DESC`
+    description = 'Bottleneck analysis with time impact'
+  } else if (
+    analysisGoal.toLowerCase().includes('throughput') ||
+    analysisGoal.toLowerCase().includes('volume')
+  ) {
+    exactSQL = `SELECT service_name, operation_name, 
+  count() AS request_count,
+  count() / (15 * 60) AS requests_per_second
+FROM traces 
+WHERE service_name IN (${services})
+  AND start_time >= now() - INTERVAL 15 MINUTE
+GROUP BY service_name, operation_name
+HAVING count() > 5
+ORDER BY request_count DESC`
+    description = 'Throughput analysis with volume'
+  } else {
+    // Default comprehensive query
+    exactSQL = `SELECT service_name, operation_name, 
+  count() AS request_count,
+  countIf(status_code != 'OK') AS error_count,
+  round(countIf(status_code != 'OK') * 100.0 / count(), 2) AS error_rate_pct,
+  quantile(0.95)(duration_ns/1000000) AS p95_ms
+FROM traces 
+WHERE service_name IN (${services})
+  AND start_time >= now() - INTERVAL 15 MINUTE
+GROUP BY service_name, operation_name
+HAVING count() > 5
+ORDER BY error_rate_pct DESC, p95_ms DESC`
+    description = 'General diagnostic analysis'
+  }
+
+  return {
+    basePrompt: `Generate a ClickHouse SQL query for diagnostic analysis: ${analysisGoal}
+
+Services: ${services}
+Focus: ${
+      analysisGoal.toLowerCase().includes('latency')
+        ? 'latency percentiles'
+        : analysisGoal.toLowerCase().includes('error')
+          ? 'error rates'
+          : analysisGoal.toLowerCase().includes('bottleneck')
+            ? 'performance impact'
+            : analysisGoal.toLowerCase().includes('throughput')
+              ? 'request volume'
+              : 'general analysis'
+    }`,
+
+    traceFilteringPattern: '',
+
+    sqlRequirements: `REQUIRED SQL STRUCTURE:
+
+${exactSQL}
+
+DESCRIPTION: ${description}
+
+DIAGNOSTIC PATTERNS:
+1. TRACE-LEVEL ANALYSIS: Focus on specific trace data
+2. ERROR ANALYSIS: Include error rates and status patterns  
+3. VOLUME CONTEXT: Use count() AS request_count for volume metrics
+4. Use FROM traces table for all queries
+5. Use problematic_traces pattern when analyzing errors`,
+
+    diagnosticPatterns: `Focus on ${analysisGoal}. Recent data (15 min). Group by service/operation.`,
+
+    schemaDefinition: `traces: trace_id, service_name, operation_name, start_time, duration_ns, status_code`,
+
+    validationRules: [
+      'Filter services',
+      '15-minute window',
+      'Group by service/operation',
+      `Focus: ${analysisGoal}`
     ]
   }
 }
@@ -239,14 +378,14 @@ QUERY STRUCTURE REQUIREMENTS:
 }
 
 /**
- * Generate complete prompt for SQL-specific models
+ * Generate comprehensive prompt for SQL-specific models (original version for fallback)
  */
-export const generateSQLModelPrompt = (
+export const generateSQLModelPromptComprehensive = (
   path: CriticalPath,
   analysisGoal: string,
   requirements?: DiagnosticQueryRequirements
 ): string => {
-  const instructions = createSQLModelInstructions(path, analysisGoal, requirements)
+  const instructions = createSQLModelInstructionsComprehensive(path, analysisGoal, requirements)
 
   return `${instructions.basePrompt}
 
@@ -262,6 +401,31 @@ VALIDATION RULES:
 ${instructions.validationRules.map((rule) => `- ${rule}`).join('\n')}
 
 Write the complete ClickHouse SQL query only, no explanation:`
+}
+
+/**
+ * Generate simplified prompt for SQL-specific models (optimized for performance)
+ */
+export const generateSQLModelPrompt = (
+  path: CriticalPath,
+  analysisGoal: string,
+  requirements?: DiagnosticQueryRequirements
+): string => {
+  const instructions = createSQLModelInstructions(path, analysisGoal, requirements)
+
+  return `${instructions.basePrompt}
+
+REQUIRED SQL STRUCTURE:
+${instructions.sqlRequirements}
+
+FOCUS: ${instructions.diagnosticPatterns}
+
+Table: traces
+Schema: ${instructions.schemaDefinition}
+
+RULES: ${instructions.validationRules.join(', ')}
+
+Write the complete ClickHouse SQL query only - NO explanations or examples:`
 }
 
 /**
@@ -398,24 +562,8 @@ export const validateDiagnosticQuery = (
     missingRequirements.push('Real-time focus')
   }
 
-  // More lenient validation: query is valid if it has SOME diagnostic features
-  // rather than requiring ALL features
-  const hasAnyDiagnosticFeature =
-    // Has service filtering (basic requirement)
-    upperSQL.includes('SERVICE_NAME') ||
-    // Has time filtering (basic requirement)
-    upperSQL.includes('INTERVAL') ||
-    // Has error analysis
-    upperSQL.includes('STATUS_CODE') ||
-    // Has volume context
-    upperSQL.includes('COUNT()') ||
-    // Has some form of health categorization
-    upperSQL.includes('CASE')
-
-  // Query is valid if it has basic SQL structure AND some diagnostic features
-  const isValid =
-    hasAnyDiagnosticFeature &&
-    !missingRequirements.includes('Basic SQL structure (SELECT FROM traces)')
+  // Strict validation: query is valid only if it meets ALL required diagnostic features
+  const isValid = missingRequirements.length === 0
 
   return {
     isValid,

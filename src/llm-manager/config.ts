@@ -30,7 +30,11 @@ export const defaultLLMConfig: LLMConfig = {
     strategy: 'balanced',
     fallbackOrder: ['llama', 'gpt', 'claude'],
     maxRetries: 3,
-    timeoutMs: 30000
+    timeoutMs: process.env.LLM_TIMEOUT_MS
+      ? parseInt(process.env.LLM_TIMEOUT_MS, 10)
+      : process.env.NODE_ENV === 'test' || process.env.CI
+        ? 90000
+        : 30000
   },
   cache: {
     enabled: true,

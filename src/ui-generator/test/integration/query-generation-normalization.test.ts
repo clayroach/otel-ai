@@ -37,12 +37,12 @@ describe("Query Generation Normalization", () => {
       const sqlPrompt = generateSQLModelPrompt(testCheckoutPath, analysisGoal, CORE_DIAGNOSTIC_REQUIREMENTS)
       
       // Validate SQL prompt uses simplified, direct approach for code generation models
-      expect(sqlPrompt).toContain("Write a ClickHouse SQL query")
+      expect(sqlPrompt).toContain("Generate a ClickHouse SQL query")
       expect(sqlPrompt).toContain("Table: traces")
       expect(sqlPrompt).toContain("latency")  // Should contain latency-related content for performance analysis
       expect(sqlPrompt).toContain("quantile(0.95)") // Should include performance patterns
       expect(sqlPrompt).toContain("15 MINUTE")
-      expect(sqlPrompt).toContain("Write the complete SQL query:")
+      expect(sqlPrompt).toContain("Write the complete ClickHouse SQL query only")
       
       // Validate service filtering
       expect(sqlPrompt).toContain("'frontend'")
@@ -232,7 +232,7 @@ describe("Query Generation Normalization", () => {
       
       // SQL models use simplified patterns
       const sqlSpecificPatterns = [
-        "Write the complete SQL query:",
+        "Write the complete ClickHouse SQL query only",
         "Table: traces"
       ]
       
@@ -332,7 +332,7 @@ describe("Query Generation Normalization", () => {
       const generalPrompt = generateGeneralLLMPrompt(testCheckoutPath, analysisGoal, CORE_DIAGNOSTIC_REQUIREMENTS)
       
       // SQL model prompts should be more concise and SQL-focused
-      expect(sqlPrompt).toContain("Write the complete SQL query:")
+      expect(sqlPrompt).toContain("Write the complete ClickHouse SQL query only")
       expect(sqlPrompt).not.toContain("JSON response")
       
       // General model prompts should request structured output
@@ -350,7 +350,7 @@ describe("Query Generation Normalization", () => {
       // SQL prompts use simplified, focused approach
       const sqlRequirements = [
         "Table: traces",
-        "Write the complete SQL query:",
+        "Write the complete ClickHouse SQL query only",
         "15 MINUTE"
       ]
       
