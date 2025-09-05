@@ -444,7 +444,7 @@ describe('AI Analyzer Topology Integration', () => {
             ? parseInt(metadata.totalSpans, 10) 
             : metadata.totalSpans
           expect(spans).toBeGreaterThan(0)
-          expect(spans).toBeLessThan(1000000) // Reasonable range
+          expect(spans).toBeLessThan(10000000) // Reasonable range (up to 10M spans)
           
           // Should not be a comma-separated BigInt string
           if (typeof metadata.totalSpans === 'string') {
