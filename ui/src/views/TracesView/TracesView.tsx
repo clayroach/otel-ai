@@ -16,8 +16,11 @@ import { format } from 'sql-formatter'
 import { MonacoQueryEditor } from '../../components/MonacoEditor/MonacoQueryEditor'
 import { TimeRangeSelector } from '../../components/TimeRangeSelector/TimeRangeSelector'
 import { TraceResults } from '../../components/TraceResults/TraceResults'
+import { DynamicTable } from '../../components/DynamicTable'
+import { VisualizationToggle } from '../../components/VisualizationToggle'
 import { useClickhouseQuery, type ClickhouseQueryResult } from '../../hooks/useClickhouseQuery'
 import { useAppStore } from '../../store/appStore'
+import { analyzeResults, type ResultAnalysis, type ChartType } from '../../services/result-analysis'
 
 // Interface for trace data from ClickHouse matching what TraceResults expects
 interface TraceRow {
@@ -75,6 +78,10 @@ export const TracesView: React.FC = () => {
   const [query, setQuery] = useState(activeQuery || DEFAULT_QUERY)
   const [isRunning, setIsRunning] = useState(false)
   const [queryMetadata, setQueryMetadata] = useState<LocationState['metadata'] | null>(null)
+  
+  // Dynamic visualization state
+  const [visualizationType, setVisualizationType] = useState<ChartType>('table')
+  const [resultAnalysis, setResultAnalysis] = useState<ResultAnalysis | null>(null)
 
   const {
     data: queryResults,
@@ -147,6 +154,22 @@ export const TracesView: React.FC = () => {
     setQuery(value)
   }, [])
 
+  // Analyze results when query data changes
+  React.useEffect(() => {
+    if (queryResults?.data && Array.isArray(queryResults.data)) {
+      console.log('TracesView: Analyzing query results:', queryResults.data.length, 'rows')
+      const analysis = analyzeResults(queryResults.data)
+      console.log('TracesView: Result analysis:', analysis)
+      setResultAnalysis(analysis)
+      
+      // Auto-switch to recommended visualization if different from current
+      if (analysis.recommendedChartType !== visualizationType && analysis.confidence > 0.7) {
+        console.log('TracesView: Auto-switching to recommended visualization:', analysis.recommendedChartType)
+        setVisualizationType(analysis.recommendedChartType)
+      }
+    }
+  }, [queryResults, visualizationType])
+
   // Handle incoming generated query from navigation
   useEffect(() => {
     if (locationState?.query) {
@@ -192,6 +215,15 @@ export const TracesView: React.FC = () => {
         <Col>
           <Space>
             <TimeRangeSelector />
+            {resultAnalysis && (
+              <VisualizationToggle
+                value={visualizationType}
+                onChange={setVisualizationType}
+                recommendedType={resultAnalysis.recommendedChartType}
+                availableTypes={['table']} // Start with just table, expand later
+                disabled={!queryResults?.data || isLoading}
+              />
+            )}
             <Button
               type="primary"
               icon={<PlayCircleOutlined />}
@@ -388,7 +420,12 @@ export const TracesView: React.FC = () => {
                 Query Error: {error.message}
               </div>
             ) : queryResults ? (
-              <TraceResults data={queryResults as ClickhouseQueryResult<TraceRow>} />
+              // Always use DynamicTable for now - simplify the logic
+              <DynamicTable 
+                data={queryResults.data || []}
+                analysis={resultAnalysis || undefined}
+                loading={isLoading}
+              />
             ) : (
               <div
                 style={{
