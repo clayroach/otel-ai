@@ -135,14 +135,12 @@ describe('LLM Manager Model Loading Validation', () => {
         }
       }
       
-      // Check if LM_STUDIO_MODEL environment variable is respected
-      if (process.env.LM_STUDIO_MODEL) {
-        const expectedLocalModel = process.env.LM_STUDIO_MODEL
-        const localModel = loadedModels.find(m => 
-          m.id === expectedLocalModel || 
-          m.provider === 'local'
-        )
-        expect(localModel).toBeDefined()
+      // Check if local models are properly configured through LLM_SQL_MODEL_*
+      const localModels = loadedModels.filter(m => m.provider === 'local')
+      if (localModels.length > 0) {
+        // Should have at least one local model if any SQL models are configured
+        const hasLocalModel = localModels.some(m => m.capabilities?.supportsSQL)
+        expect(hasLocalModel).toBeTruthy()
       }
     })
 

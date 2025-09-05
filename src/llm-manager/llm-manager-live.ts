@@ -75,15 +75,8 @@ function loadConfigFromEnvironment(): Partial<LLMConfig> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic model configuration construction
   const models: any = {}
 
-  // Load legacy llama model configuration if present
-  if (process.env.LLM_MODEL || process.env.LM_STUDIO_MODEL) {
-    models.llama = {
-      modelPath: process.env.LM_STUDIO_MODEL || process.env.LLM_MODEL || 'sqlcoder-7b-2',
-      contextLength: parseInt(process.env.LLM_CONTEXT_LENGTH || '2048'),
-      threads: parseInt(process.env.LLM_THREADS || '4'),
-      endpoint: process.env.LLM_ENDPOINT || 'http://localhost:1234/v1'
-    }
-  }
+  // NOTE: Legacy llama model configuration removed - use LLM_SQL_MODEL_* instead
+  // This ensures consistent configuration through the structured model system
 
   // Load SQL-specific models from LLM_SQL_MODEL_* environment variables
   Object.assign(models, loadModelsFromPattern('LLM_SQL_MODEL_', true))

@@ -10,6 +10,11 @@ import { Context, Effect, Layer } from 'effect'
 import { CriticalPath, GeneratedQueryWithThunk, QueryPattern, QueryResult } from './types.js'
 import { StorageAPIClientTag } from '../../storage/api-client'
 import { type LLMRequest, createLLMManager } from '../../llm-manager'
+import {
+  generateGeneralLLMPrompt,
+  validateDiagnosticQuery,
+  CORE_DIAGNOSTIC_REQUIREMENTS
+} from './diagnostic-query-instructions.js'
 
 /**
  * Service definition for ClickHouse AI Query Generator
@@ -93,33 +98,8 @@ export const CriticalPathQueryGeneratorClickHouseAILive = Layer.effect(
 
         for (const scenario of analysisScenarios) {
           queryCounter++
-          const prompt = `
-            You are a ClickHouse query expert. Generate an optimized ClickHouse query for the following scenario:
-            
-            ${pathContext}
-            
-            Analysis Goal: ${scenario.goal}
-            
-            IMPORTANT: The query MUST filter by the services listed above (${path.services.join(', ')}) using a WHERE clause with service_name IN (...).
-            
-            Use the following ClickHouse-specific features when appropriate:
-            - Quantile functions (quantile, quantileExact, quantileTiming)
-            - Time window functions (tumbleWindow, hopWindow)
-            - Array functions for trace analysis
-            - Materialized views for performance
-            - Sampling for large datasets
-            
-            The traces table has these columns:
-            - trace_id, span_id, parent_span_id
-            - service_name, operation_name
-            - start_time (DateTime64), end_time (DateTime64)
-            - duration_ns (UInt64)
-            - status_code, status_message
-            - span_kind, span_attributes (Map)
-            - resource_attributes (Map)
-            
-            Return ONLY the SQL query without any explanation or markdown blocks.
-          `
+          // Use unified diagnostic instructions
+          const prompt = generateGeneralLLMPrompt(path, scenario.goal, CORE_DIAGNOSTIC_REQUIREMENTS)
 
           const request: LLMRequest = {
             prompt,

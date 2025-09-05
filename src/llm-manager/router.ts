@@ -27,7 +27,7 @@ const mapGenericToActualModel = (
     return process.env.LLM_GENERAL_MODEL_2 || process.env.OPENAI_MODEL || 'gpt-3.5-turbo'
   }
   if (genericType === 'llama' && clients.llama) {
-    return process.env.LLM_SQL_MODEL_1 || process.env.LM_STUDIO_MODEL || 'sqlcoder-7b-2'
+    return process.env.LLM_SQL_MODEL_1 || 'sqlcoder-7b-2'
   }
   return genericType // fallback to original if no mapping found
 }
