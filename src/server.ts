@@ -1940,7 +1940,7 @@ app.get('/api/critical-services', async (req, res) => {
 // Generate targeted investigation query for a critical service
 function generateInvestigationQuery(service: Record<string, unknown>): string {
   const service_name = String(service.service_name || 'unknown')
-  const operation_name = String(service.operation_name || 'unknown')  
+  const operation_name = String(service.operation_name || 'unknown')
   const error_rate = Number(service.error_rate || 0)
 
   return `-- Investigation Query for ${service_name}:${operation_name} (${error_rate.toFixed(2)}% error rate)
