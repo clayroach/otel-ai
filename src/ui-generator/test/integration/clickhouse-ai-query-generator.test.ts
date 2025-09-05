@@ -6,7 +6,11 @@ import {
   CriticalPathQueryGeneratorClickHouseAILive
 } from "../../query-generator/service-clickhouse-ai"
 import { StorageAPIClientTag } from "../../../storage/api-client"
-// LLMManagerContext not needed - service creates its own multi-model manager
+import { 
+  shouldSkipLLMTests, 
+  logAvailabilityStatus
+} from "../../../llm-manager/test/utils/llm-availability.js"
+import { LLMManagerLive } from "../../../llm-manager/index.js"
 
 // Test data representing a real critical path
 const testPath: CriticalPath = {
@@ -21,45 +25,17 @@ const testPath: CriticalPath = {
   }
 }
 
-// Check availability at module load time for skipIf
-const isAvailable = (() => {
-  if (process.env.SKIP_LLM_TESTS === 'true') {
-    console.log("⏭️  Skipping ClickHouse AI tests (SKIP_LLM_TESTS=true)")
-    return false
-  }
-  
-  const hasOpenAIKey = !!process.env.OPENAI_API_KEY
-  const hasClaudeKey = !!process.env.CLAUDE_API_KEY
-  const hasLocalEndpoint = !!process.env.LLM_ENDPOINT
-  
-  const hasExternalAPIs = hasOpenAIKey || hasClaudeKey
-  
-  if (hasExternalAPIs) {
-    console.log("✅ ClickHouse AI Query Generator using EXTERNAL LLMs")
-    console.log(`   🌐 Path 1: External API Mode`)
-    console.log(`   Claude API: ${hasClaudeKey ? '✓ configured' : '✗ not configured'}`)
-    console.log(`   OpenAI API: ${hasOpenAIKey ? '✓ configured' : '✗ not configured'}`)
-    return true
-  } else if (hasLocalEndpoint) {
-    console.log("✅ ClickHouse AI Query Generator using LOCAL models")
-    console.log(`   💻 Path 2: Local Model Fallback`)
-    console.log(`   Local endpoint: ${process.env.LLM_ENDPOINT}`)
-    console.log(`   Will use SQL models: ${process.env.LLM_SQL_MODEL_1 || 'sqlcoder-7b-2'}`)
-    return true
-  } else {
-    console.log("❌ No AI models configured for ClickHouse AI Query Generator")
-    console.log("   Path 1 (preferred): Set OPENAI_API_KEY or CLAUDE_API_KEY")
-    console.log("   Path 2 (fallback): Set LLM_ENDPOINT for local models")
-    return false
-  }
-})()
-
 describe("ClickHouse AI Query Generator", () => {
   
   beforeAll(() => {
-    // Just log status since we already checked at module load
-    if (!isAvailable) {
+    // Log availability status using shared utility
+    console.log("\n🔧 ClickHouse AI Query Generator Test Configuration")
+    logAvailabilityStatus()
+    
+    if (shouldSkipLLMTests) {
       console.log("⏭️  Tests will be skipped - no AI models available")
+    } else {
+      console.log("✅ Tests will run with available LLM models")
     }
   })
   
@@ -96,13 +72,14 @@ describe("ClickHouse AI Query Generator", () => {
     
     // Build the complete layer stack
     // mockStorageAPIClient provides storage
-    // CriticalPathQueryGeneratorClickHouseAILive creates its own multi-model manager
+    // LLMManagerLive provides the LLM manager service
+    // CriticalPathQueryGeneratorClickHouseAILive uses both dependencies
     const testLayer = Layer.provide(
       CriticalPathQueryGeneratorClickHouseAILive,
-      mockStorageAPIClient
+      Layer.merge(mockStorageAPIClient, LLMManagerLive)
     )
     
-    it.skipIf(!isAvailable)("should generate multiple analysis queries for a critical path", { timeout: 120000 }, async () => {
+    it.skipIf(shouldSkipLLMTests)("should generate multiple analysis queries for a critical path", { timeout: 120000 }, async () => {
       
       const program = Effect.gen(function* () {
         const queryGenerator = yield* CriticalPathQueryGeneratorClickHouseAI
@@ -139,7 +116,7 @@ describe("ClickHouse AI Query Generator", () => {
       })
     })
     
-    it.skipIf(!isAvailable)("should optimize an existing query", { timeout: 30000 }, async () => {
+    it.skipIf(shouldSkipLLMTests)("should optimize an existing query", { timeout: 30000 }, async () => {
       
       const originalQuery = `
         SELECT service_name, COUNT(*) as count
@@ -173,7 +150,7 @@ describe("ClickHouse AI Query Generator", () => {
       console.log("   Optimized query length:", optimized.length)
     })
     
-    it.skipIf(!isAvailable)("should explain what a query does", { timeout: 30000 }, async () => {
+    it.skipIf(shouldSkipLLMTests)("should explain what a query does", { timeout: 30000 }, async () => {
       
       const complexQuery = `
         SELECT 
@@ -217,7 +194,7 @@ describe("ClickHouse AI Query Generator", () => {
       console.log("   ", explanation.substring(0, 200) + "...")
     })
     
-    it.skipIf(!isAvailable)("should execute generated queries", { timeout: 60000 }, async () => {
+    it.skipIf(shouldSkipLLMTests)("should execute generated queries", { timeout: 60000 }, async () => {
       
       const program = Effect.gen(function* () {
         const queryGenerator = yield* CriticalPathQueryGeneratorClickHouseAI
@@ -248,7 +225,7 @@ describe("ClickHouse AI Query Generator", () => {
   })
   
   describe("Model Selection", () => {
-    it.skipIf(!isAvailable)("should use configured general models from environment", () => {
+    it.skipIf(shouldSkipLLMTests)("should use configured general models from environment", () => {
       const generalModel1 = process.env.LLM_GENERAL_MODEL_1
       const generalModel2 = process.env.LLM_GENERAL_MODEL_2
       const generalModel3 = process.env.LLM_GENERAL_MODEL_3

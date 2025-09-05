@@ -2,6 +2,8 @@
  * Temporary helpers for integration tests during TypeScript migration
  */
 
+import { Effect } from 'effect'
+
 interface TopologyService {
   serviceName: string
   dependencies: string[]
@@ -41,10 +43,10 @@ export const waitForTelemetryData = async (
       }
 
       // Wait 2 seconds before retry
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      await Effect.runPromise(Effect.sleep(2000))
     } catch (error) {
       // Continue waiting on errors
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      await Effect.runPromise(Effect.sleep(2000))
     }
   }
 
@@ -125,9 +127,9 @@ export const waitForArchitectureData = async (
       }
 
       // Wait 2 seconds before retry
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      await Effect.runPromise(Effect.sleep(2000))
     } catch (error) {
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      await Effect.runPromise(Effect.sleep(2000))
     }
   }
 

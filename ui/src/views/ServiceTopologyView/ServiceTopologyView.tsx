@@ -7,7 +7,7 @@ import {
   Alert,
   // Tabs, // Not used with new topology
   Tag,
-  message
+  App
 } from 'antd'
 import { LineChartOutlined as TrendingUpIcon } from '@ant-design/icons'
 // import ReactMarkdown from 'react-markdown'; // Commented out - not available
@@ -20,6 +20,7 @@ import { analysisEventBus } from '../../utils/eventBus'
 const { Text } = Typography
 
 const ServiceTopologyView: React.FC = () => {
+  const { message } = App.useApp()
   // const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null) // Not used with new topology
   // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
   const [_loading, setLoading] = useState(false)

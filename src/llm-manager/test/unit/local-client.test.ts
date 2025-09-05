@@ -136,8 +136,7 @@ describe('Local Model Client (Effect-TS)', () => {
   describe('Service Layer Configuration', () => {
     it('should provide model client service through Effect layer', async () => {
       const result = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
+        Effect.map(ModelClientService, client => {
           expect(client).toBeDefined()
           expect(client.llama).toBeDefined()
           expect(client.gpt).toBeUndefined() // Not enabled in mock
@@ -150,10 +149,9 @@ describe('Local Model Client (Effect-TS)', () => {
 
     it('should provide configuration through Effect layer', async () => {
       const config = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const configService = yield* _(LLMConfigService)
-          return yield* _(configService.getConfig())
-        }).pipe(Effect.provide(TestLLMLayer))
+        Effect.flatMap(LLMConfigService, configService =>
+          configService.getConfig()
+        ).pipe(Effect.provide(TestLLMLayer))
       )
       // Type guard for config structure
       if (!config || typeof config !== 'object' || !('models' in config)) {
@@ -169,13 +167,12 @@ describe('Local Model Client (Effect-TS)', () => {
   describe('Health Check', () => {
     it('should check local model health through service layer', async () => {
       const isHealthy = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
+        Effect.flatMap(ModelClientService, client => {
           const llamaClient = client.llama
           if (!llamaClient) {
-            return false
+            return Effect.succeed(false)
           }
-          return yield* _(llamaClient.isHealthy())
+          return llamaClient.isHealthy()
         }).pipe(Effect.provide(TestLLMLayer))
       )
       expect(isHealthy).toBe(true)
@@ -183,8 +180,7 @@ describe('Local Model Client (Effect-TS)', () => {
 
     it('should handle health check for unavailable models', async () => {
       const result = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
+        Effect.map(ModelClientService, client => {
           // GPT and Claude are not available in our mock
           expect(client.gpt).toBeUndefined()
           expect(client.claude).toBeUndefined()
@@ -207,13 +203,16 @@ describe('Local Model Client (Effect-TS)', () => {
 
     it('should handle basic generation request through Effect service', async () => {
       const response = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
+        Effect.flatMap(ModelClientService, client => {
           const llamaClient = client.llama
           if (!llamaClient) {
-            throw new Error('Llama client not available')
+            return Effect.fail({
+              _tag: 'ModelUnavailable' as const,
+              model: 'llama',
+              message: 'Llama client not available'
+            } as LLMError)
           }
-          return yield* _(llamaClient.generate(testRequest))
+          return llamaClient.generate(testRequest)
         }).pipe(Effect.provide(TestLLMLayer))
       )
       
@@ -247,13 +246,16 @@ describe('Local Model Client (Effect-TS)', () => {
       }
 
       const response = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
+        Effect.flatMap(ModelClientService, client => {
           const llamaClient = client.llama
           if (!llamaClient) {
-            throw new Error('Llama client not available')
+            return Effect.fail({
+              _tag: 'ModelUnavailable' as const,
+              model: 'llama',
+              message: 'Llama client not available'
+            } as LLMError)
           }
-          return yield* _(llamaClient.generate(customRequest))
+          return llamaClient.generate(customRequest)
         }).pipe(Effect.provide(TestLLMLayer))
       )
       
@@ -273,20 +275,22 @@ describe('Local Model Client (Effect-TS)', () => {
       }))
 
       const responses = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
-          
-          return yield* _(Effect.all(
+        Effect.flatMap(ModelClientService, client =>
+          Effect.all(
             requests.map(request => {
               const llamaClient = client.llama
               if (!llamaClient) {
-                throw new Error('Llama client not available')
+                return Effect.fail({
+                  _tag: 'ModelUnavailable' as const,
+                  model: 'llama',
+                  message: 'Llama client not available'
+                } as LLMError)
               }
               return llamaClient.generate(request)
             }),
             { concurrency: 'unbounded' }
-          ))
-        }).pipe(Effect.provide(TestLLMLayer))
+          )
+        ).pipe(Effect.provide(TestLLMLayer))
       )
 
       expect(responses).toHaveLength(3)
@@ -307,18 +311,21 @@ describe('Local Model Client (Effect-TS)', () => {
       }
 
       const chunks = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
+        Effect.flatMap(ModelClientService, client => {
           const llamaClient = client.llama
           if (!llamaClient?.generateStream) {
-            throw new Error('Llama client streaming not available')
+            return Effect.fail({
+              _tag: 'ModelUnavailable' as const,
+              model: 'llama',
+              message: 'Llama client streaming not available'
+            } as LLMError)
           }
           const stream = llamaClient.generateStream(request)
           
-          return yield* _(stream.pipe(
+          return stream.pipe(
             Stream.runCollect,
             Effect.map(chunks => Array.from(chunks))
-          ))
+          )
         }).pipe(Effect.provide(TestLLMLayer))
       )
       
@@ -353,11 +360,14 @@ describe('Local Model Client (Effect-TS)', () => {
       )
 
       const result = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
+        Effect.flatMap(ModelClientService, client => {
           const llamaClient = client.llama
           if (!llamaClient?.generateStream) {
-            throw new Error('Llama client streaming not available')
+            return Effect.fail({
+              _tag: 'ModelUnavailable' as const,
+              model: 'llama',
+              message: 'Llama client streaming not available'
+            } as LLMError)
           }
           const stream = llamaClient.generateStream({
             prompt: 'This should fail',
@@ -365,10 +375,10 @@ describe('Local Model Client (Effect-TS)', () => {
             streaming: true
           })
           
-          return yield* _(stream.pipe(
+          return stream.pipe(
             Stream.runCollect,
             Effect.option // Convert failure to None
-          ))
+          )
         }).pipe(Effect.provide(FailingLayer))
       )
 
@@ -379,10 +389,9 @@ describe('Local Model Client (Effect-TS)', () => {
   describe('Integration with Other Services', () => {
     it('should integrate with metrics service', async () => {
       const metrics = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const metricsService = yield* _(LLMMetricsService)
-          return yield* _(metricsService.getMetrics())
-        }).pipe(Effect.provide(TestLLMLayer))
+        Effect.flatMap(LLMMetricsService, metricsService =>
+          metricsService.getMetrics()
+        ).pipe(Effect.provide(TestLLMLayer))
       )
       
       expect(metrics).toBeDefined()
@@ -439,9 +448,7 @@ describe('Local Model Client (Effect-TS)', () => {
   describe('Error Handling and Type Safety', () => {
     it('should provide structured error types with Effect-TS', async () => {
       const result = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
-          
+        Effect.map(ModelClientService, client => {
           // Test that methods exist and have proper types
           const llamaClient = client.llama
           if (!llamaClient) {
@@ -459,9 +466,7 @@ describe('Local Model Client (Effect-TS)', () => {
 
     it('should handle service unavailability gracefully', async () => {
       const result = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
-          
+        Effect.map(ModelClientService, client => {
           // These services are not available in our mock configuration
           expect(client.gpt).toBeUndefined()
           expect(client.claude).toBeUndefined()

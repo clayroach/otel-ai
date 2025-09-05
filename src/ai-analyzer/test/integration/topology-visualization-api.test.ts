@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, it, beforeAll, afterAll } from 'vitest'
+import { Effect } from 'effect'
 
 describe('Topology Visualization API Integration', () => {
   let baseUrl: string
@@ -31,7 +32,7 @@ describe('Topology Visualization API Integration', () => {
         if (i === maxRetries - 1) {
           throw new Error('Backend service failed to start')
         }
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        await Effect.runPromise(Effect.sleep(1000))
       }
     }
   })

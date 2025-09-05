@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Spin, Alert, Empty, Button, message, Card, Space, Typography } from 'antd'
+import { Spin, Alert, Empty, Button, Card, Space, Typography, App } from 'antd'
 import { ApartmentOutlined } from '@ant-design/icons'
 import ServiceTopologyGraph from './ServiceTopologyGraph'
 import type { ServiceNode, TopologyVisualizationData } from './ServiceTopologyGraph'
@@ -41,6 +41,9 @@ export const ServiceTopologyPanel: React.FC<ServiceTopologyPanelProps> = ({
   const [_selectedNode, setSelectedNode] = useState<ServiceNode | null>(null)
   // const [lastUpdated, setLastUpdated] = useState<Date | null>(null) // Not currently used
   const [filteredHealthStatuses, setFilteredHealthStatuses] = useState<string[]>([])
+
+  // Get message from App context
+  const { message } = App.useApp()
 
   // Get LIVE mode setting from global store
   // IMPORTANT: The UI toggle uses useMockData, so we need to invert it to get useRealService
@@ -369,9 +372,11 @@ export const ServiceTopologyPanel: React.FC<ServiceTopologyPanelProps> = ({
 
   if (loading && !topologyData) {
     return (
-      <div style={{ textAlign: 'center', padding: '50px' }}>
-        <Spin size="large" tip="Loading topology data..." />
-      </div>
+      <Spin size="large" spinning={true}>
+        <div style={{ textAlign: 'center', padding: '50px', minHeight: '200px' }}>
+          Loading topology data...
+        </div>
+      </Spin>
     )
   }
 

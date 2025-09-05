@@ -54,15 +54,18 @@ export const TraceResults: React.FC<TraceResultsProps> = ({ data }) => {
       dataIndex: 'trace_id',
       key: 'trace_id',
       width: 180,
-      render: (traceId: string) => (
-        <Text
-          code
-          copyable={{ text: traceId, tooltips: ['Copy Trace ID', 'Copied!'] }}
-          style={{ fontSize: '12px' }}
-        >
-          {traceId.substring(0, 16)}...
-        </Text>
-      )
+      render: (traceId: string) => {
+        if (!traceId) return '-'
+        return (
+          <Text
+            code
+            copyable={{ text: traceId, tooltips: ['Copy Trace ID', 'Copied!'] }}
+            style={{ fontSize: '12px' }}
+          >
+            {traceId.substring(0, 16)}...
+          </Text>
+        )
+      }
     },
     {
       title: 'Service',
@@ -259,7 +262,7 @@ export const TraceResults: React.FC<TraceResultsProps> = ({ data }) => {
         <Table
           columns={columns}
           dataSource={data.data}
-          rowKey="trace_id"
+          rowKey={(record) => record.trace_id || `row-${Math.random().toString(36).substring(7)}`}
           pagination={{
             pageSize: 50,
             showSizeChanger: true,

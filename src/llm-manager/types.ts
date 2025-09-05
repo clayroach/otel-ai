@@ -57,7 +57,7 @@ export const LLMRequestSchema = Schema.Struct({
   context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
   preferences: Schema.optional(
     Schema.Struct({
-      model: Schema.optional(Schema.Literal('gpt', 'claude', 'llama')),
+      model: Schema.optional(Schema.String), // Accept any model name, not just generic types
       maxTokens: Schema.optional(Schema.Number),
       temperature: Schema.optional(Schema.Number),
       priority: Schema.optional(Schema.Literal('low', 'medium', 'high')),
@@ -130,7 +130,7 @@ export type LLMError =
   | { _tag: 'AllModelsUnavailable'; message: string }
 
 // Model type definitions
-export type ModelType = 'gpt' | 'claude' | 'llama'
+export type ModelType = string // Accept any model name, not just hardcoded generic types
 export type TaskType = 'analysis' | 'ui-generation' | 'config-management' | 'general' | 'market-intelligence' | 'architectural-insights' | 'anomaly-detection'
 export type RoutingStrategy = 'cost' | 'performance' | 'balanced'
 

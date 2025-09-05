@@ -15,4 +15,4 @@ TODOs:
 * Telemetry data, processing speed, AI Processing are all great system health metrics and can move to it's own menu
 * Critical Paths should generate additional queries that can be used to create visualizations automatically - should include 2 queries along with descriptions of the queries
 * Counter for how many queries are being made against an LLM
-* 
+* llm-manager refactor: sql-generation should have proper order defined by .env.  dotenv to read env.  makeLocalModelClient shouldn't have OpenAI code.  llm-query-generator should be using the llm manager via a layer, and not "const llmManager = createLLMManager".  Tests that use the llm-manager-mock.ts, ideally the ones from ui-generator.  Effect.Adaptor seems like a workaround for circumventing typesafe calls to functions?  Test cases for llm-manager should be using the layers.

@@ -186,10 +186,8 @@ export const makeStorageAPIClient: Effect.Effect<
       }),
 
     queryRaw: (sql: string) =>
-      Effect.gen(function* (_) {
-        // Delegate to clickhouse storage for raw query execution
-        return yield* _(clickhouseStorage.queryRaw(sql))
-      })
+      // Delegate to clickhouse storage for raw query execution
+      clickhouseStorage.queryRaw(sql)
   }
 })
 

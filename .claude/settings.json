@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker system prune:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker restart:*)",
+      "Bash(docker ps:*)",
+      "Bash(curl:*)",
+      "Bash(docker:*)",
+      "Read(//Users/croach/.claude/projects/-Users-croach-projects-otel-ai/**)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Read(/Users/croach/.claude/projects/-Users-croach-projects-otel-ai/**)",
+      "Read(/Users/croach/.claude/projects/**)",
+      "Bash(jq:*)",
+      "Bash(sed:*)",
+      "Bash(pkill:*)",
+      "Bash(VITEST=true pnpm test:integration --reporter=dot)",
+      "Bash(rg:*)"
+    ],
+    "deny": [],
+    "ask": [],
+    "defaultMode": "acceptEdits",
+    "additionalDirectories": []
+  }
+}

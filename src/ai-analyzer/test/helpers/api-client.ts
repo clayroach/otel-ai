@@ -6,6 +6,7 @@
  */
 
 import { Schema, ParseResult } from '@effect/schema'
+import { Effect } from 'effect'
 import {
   HealthCheckResponseSchema,
   TopologyResponseSchema,
@@ -139,10 +140,10 @@ export async function waitForTelemetryData(
       }
 
       // Wait 2 seconds before retry
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      await Effect.runPromise(Effect.sleep(2000))
     } catch (error) {
       // Continue waiting on errors
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      await Effect.runPromise(Effect.sleep(2000))
     }
   }
 
@@ -195,9 +196,9 @@ export async function waitForArchitectureData(
       }
 
       // Wait 2 seconds before retry
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      await Effect.runPromise(Effect.sleep(2000))
     } catch (error) {
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      await Effect.runPromise(Effect.sleep(2000))
     }
   }
 

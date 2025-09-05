@@ -2,7 +2,8 @@
 
 ## Status: Phase 1 Complete ✅ | Phase 2 In Progress 🔄
 
-**Last Updated**: 2025-09-03
+**Last Updated**: 2025-01-04 (Day 23)
+**Current Sprint**: Extended 10-hour session before 4-day break
 
 ## Overview
 
@@ -360,38 +361,110 @@ const COMMON_CHART_PATTERNS = {
 }
 ```
 
-## Phase 2 User Workflow: Query Testing Integration
+## Phase 2: Diagnostic Query Integration
+
+### Overview
+
+The "Diagnostic Query" feature provides on-demand, intelligent query generation for critical paths. When users identify issues in their service topology, they can generate targeted diagnostic queries that help investigate the root cause.
 
 ### Workflow Steps
 
 1. **User views Service Topology page**
    - Critical Path cards displayed in left panel
-   - Each card shows detected issues and metrics
+   - Each card shows detected issues and metrics (errors, latency, throughput)
 
-2. **User sees "Generate Query" button on Critical Path card**
-   - Button displays: "Generate Query with [Model Name]"
-   - Model automatically selected based on availability and capability
-   - Example: "Generate Query with Claude" or "Generate Query with GPT-4"
+2. **User clicks "Generate Diagnostic Query" button**
+   - Available on each Critical Path card
+   - Triggers LLM-based analysis of the path characteristics
+   - Determines optimal query type based on detected issues:
+     - High errors → Error distribution query
+     - High latency → Percentile analysis query
+     - Bottlenecks → Operation breakdown query
+     - Volume issues → Throughput analysis query
 
-3. **User clicks the Generate Query button**
-   - Query generator creates optimized ClickHouse SQL for the critical path
-   - Based on detected issues (high latency, errors, bottlenecks, etc.)
-   - Generation happens in real-time (2-5 seconds)
+3. **Query Generation Process**
+   - LLM analyzes critical path context (2-5 seconds)
+   - Generates optimized ClickHouse SQL
+   - Includes appropriate time windows and aggregations
+   - Tailored to the specific diagnostic need
 
-4. **System navigates to Traces view**
+4. **Automatic Navigation to Traces View**
    - Query field auto-populated with generated SQL
-   - User can see the exact query that was generated
-   - Model name and generation time displayed
+   - Metadata displayed: "AI Generated for [Path Name]"
+   - Shows which model generated the query and generation time
 
-5. **Query automatically executes**
+5. **Automatic Query Execution**
+   - Query runs immediately upon navigation
    - Results displayed in table format
-   - User can validate query correctness
-   - User can modify and re-run if needed
+   - User can validate and refine the query
+   - Query saved to history for future use
 
-6. **Feedback loop for improvement**
-   - User can report if query was helpful/accurate
-   - System learns from successful query patterns
-   - Prompts refined based on real-world usage
+6. **Future Enhancement: Auto-Generated UI Components**
+   - Phase 3 will automatically generate visualization components
+   - Charts selected based on query results and data patterns
+   - No manual dashboard configuration required
+
+### Diagnostic Query Types
+
+Based on the critical path characteristics, different diagnostic queries are generated:
+
+#### 1. Error Diagnosis Query
+Generated when error rate > 5%:
+```sql
+-- Diagnostic query for error patterns
+SELECT 
+  service_name,
+  status_code,
+  status_message,
+  count() as error_count,
+  round(count() * 100.0 / sum(count()) OVER (), 2) as error_percentage
+FROM traces
+WHERE 
+  service_name IN ('{services}')
+  AND status_code != 'OK'
+  AND start_time >= now() - INTERVAL 1 HOUR
+GROUP BY service_name, status_code, status_message
+ORDER BY error_count DESC
+```
+
+#### 2. Latency Diagnosis Query  
+Generated when P99 latency > 1000ms:
+```sql
+-- Diagnostic query for latency analysis
+SELECT 
+  service_name,
+  operation_name,
+  quantile(0.5)(duration_ns/1000000) as p50_ms,
+  quantile(0.95)(duration_ns/1000000) as p95_ms,
+  quantile(0.99)(duration_ns/1000000) as p99_ms,
+  max(duration_ns/1000000) as max_ms
+FROM traces
+WHERE 
+  service_name IN ('{services}')
+  AND start_time >= now() - INTERVAL 1 HOUR
+GROUP BY service_name, operation_name
+HAVING p95_ms > 100
+ORDER BY p99_ms DESC
+```
+
+#### 3. Bottleneck Diagnosis Query
+Generated for slowest operations:
+```sql
+-- Diagnostic query for bottleneck detection
+SELECT 
+  service_name,
+  operation_name,
+  count() as operation_count,
+  sum(duration_ns/1000000) as total_time_ms,
+  avg(duration_ns/1000000) as avg_time_ms
+FROM traces
+WHERE 
+  service_name IN ('{services}')
+  AND start_time >= now() - INTERVAL 1 HOUR
+GROUP BY service_name, operation_name
+ORDER BY total_time_ms DESC
+LIMIT 20
+```
 
 ### Implementation Example
 
@@ -595,34 +668,115 @@ interface LLMDebugView {
 - [x] **Comprehensive Testing**: 95%+ unit test coverage, integration tests for all providers
 - [x] **Test Containerization**: Isolated ClickHouse testing environment
 
-### 🔄 Phase 2: Query Integration & Testing (IN PROGRESS)
+### 🔄 Phase 2: Diagnostic Query Integration (IN PROGRESS - Day 23)
+
+**Day 23 Focus Areas:**
+- **LLM Manager Refactor**: Integrating stashed multi-model support changes
+- **Intelligent Model Routing**: Claude for complex UI, GPT-4 for simple visualizations
+- **Component Validation**: Safety checks before rendering dynamic components
+- **Performance Metrics**: Collecting model selection and generation timing data
+
+**Completed Phase 2 Items:**
 - [x] Build model registry with capabilities mapping
 - [x] Create SQL-specific prompts for different models
-- [ ] **Update Critical Path cards with query generation thunks**
-  - [ ] Add query generation button to each Critical Path card
-  - [ ] Display model name that will generate the query (e.g., "Generate with Claude")
-  - [ ] Implement thunk pattern for lazy query execution
-- [ ] **Connect to Traces view for query testing**
-  - [ ] Navigate to Traces view when button clicked
-  - [ ] Auto-populate query field with generated SQL
-  - [ ] Display raw query results for validation
-- [ ] **Validate generated queries with real data**
-  - [ ] Test query execution against live ClickHouse data
-  - [ ] Verify query results match expected patterns
-  - [ ] Collect feedback for prompt optimization
+- [x] **Implement Diagnostic Query feature**
+  - [x] Add "Generate Diagnostic Query" button to each Critical Path card
+  - [x] Implement intelligent query generation based on path characteristics
+  - [x] Use thunk pattern for lazy query execution
+- [x] **Connect to Traces view for query testing**
+  - [x] Navigate to Traces view when button clicked
+  - [x] Auto-populate query field with generated SQL
+  - [x] Display generation metadata (model, time, path name)
+  - [x] Auto-execute query for immediate results
+- [x] **API Integration**
+  - [x] Created consistent API client pattern (`api-client.ts`)
+  - [x] Added server endpoints for query generation
+  - [x] Support for multiple LLM models (Claude, GPT-4, SQLCoder)
 
-### ⏳ Phase 3: Component Generation (PLANNED)
-- [ ] Build complete ECharts library reference for LLM
-- [ ] Create dynamic ECharts component factory
-- [ ] Implement component selection with multi-model support
-- [ ] Build LLMDebug View with query/response display
-- [ ] Create dynamic renderer without initial caching
-- [ ] Implement data bindings with ECharts
-- [ ] **Integrate Anomaly Detection Context**: Add `enhanceWithAnomalyContext` to enrich query results with anomaly scores from AI Analyzer
-  - Connect diagnostic queries with existing anomaly detection
-  - Add anomaly scores and context to query results
-  - Highlight anomalous patterns in generated visualizations
-  - Provide root cause suggestions based on anomaly patterns
+### 🔄 Phase 3: Component Generation (CURRENT FOCUS - Day 23)
+
+**kl**
+
+Instead of building a complete component factory, we're starting with a focused implementation that modifies the existing TraceView panel to handle dynamic queries and generate adaptable UI components.
+
+**Approach: Query-to-Component Pipeline**
+```typescript
+// Data flow: Query → Results → Analysis → UI Adaptation
+interface QueryToComponentPipeline {
+  // Step 1: Execute dynamic query
+  executeQuery: (sql: string) => Promise<QueryResult[]>
+  
+  // Step 2: Analyze result structure
+  analyzeResults: (results: QueryResult[]) => Promise<ResultMetadata>
+  
+  // Step 3: Generate component configuration
+  generateComponentConfig: (metadata: ResultMetadata) => Promise<ComponentConfiguration>
+  
+  // Step 4: Render adaptive UI
+  renderAdaptiveComponent: (config: ComponentConfiguration, data: QueryResult[]) => React.Component
+}
+```
+
+**Current Implementation Plan (Phase 3A):**
+- [x] Plan implementation approach with code-implementation-agent
+- [ ] **Modify TraceView panel** to accept dynamic queries
+- [ ] **Implement result analysis service** for column type detection and semantic understanding
+- [ ] **Create component selection logic** starting with dynamic table columns
+- [ ] **Build data structure analyzer** to detect time-series, categorical, and metric patterns
+- [ ] **Generate ECharts configurations** dynamically based on detected patterns
+
+**Target Query Example:**
+```sql
+SELECT 
+  service_name,
+  toStartOfMinute(start_time) as minute,
+  count() as request_count,
+  quantile(0.5)(duration_ns/1000000) as p50_ms,
+  quantile(0.95)(duration_ns/1000000) as p95_ms,
+  quantile(0.99)(duration_ns/1000000) as p99_ms,
+  sum(CASE WHEN status_code != 'OK' THEN 1 ELSE 0 END) as error_count,
+  round(sum(CASE WHEN status_code != 'OK' THEN 1 ELSE 0 END) * 100.0 / count(), 2) as error_rate
+FROM otel.traces
+WHERE 
+  service_name IN ('frontend', 'cart', 'checkout', 'payment', 'email')
+  AND start_time >= now() - INTERVAL 1 HOUR
+GROUP BY service_name, minute
+ORDER BY minute DESC, service_name
+LIMIT 1000
+```
+
+**Expected Component Adaptation:**
+1. **Column Detection**: Automatically detect column types (service_name: string, minute: datetime, metrics: numbers)
+2. **Semantic Understanding**: Recognize p50_ms/p95_ms as performance percentiles, error_rate as percentage
+3. **UI Generation**: Start with dynamic table with proper formatting, progress to time-series charts
+4. **Chart Selection**: Time-series data → Line charts, Categorical data → Bar charts, Correlations → Heatmaps
+
+**Architecture Changes:**
+- [ ] **TraceView Panel Enhancement** (`ui/src/views/TracesView/TracesView.tsx`)
+  - Accept dynamic SQL queries
+  - Analyze result structure for component selection
+  - Render adaptive components based on data patterns
+- [ ] **Component Generator Service** (`src/ui-generator/services/ComponentGeneratorService.ts`)
+  - Result metadata analysis using Effect-TS patterns
+  - Component selection logic with multi-model LLM support
+  - ECharts configuration generation
+- [ ] **Dynamic Visualization Components** (`ui/src/components/DynamicVisualization/`)
+  - DynamicTable with adaptive column formatting
+  - TimeSeriesChart for temporal data
+  - ServiceHeatmap for correlation data
+  - Component selection logic
+
+**Integration Points:**
+- [ ] **Backend API Layer** - New endpoints for result analysis and component configuration
+- [ ] **Frontend Hooks** - `useDynamicQuery` for executing queries and getting component configs
+- [ ] **Effect-TS Integration** - Service layer patterns for result analysis and component generation
+
+**Success Criteria Phase 3A:**
+- TraceView executes the example query and generates appropriate table columns
+- Column types are correctly detected (datetime, metrics, percentages)
+- Proper formatting applied (ms for latencies, % for rates, timestamps for minutes)
+- Component configuration generated through Effect-TS service layer
+- Foundation ready for advanced visualization types in Phase 3B
 
 ### ⏳ Phase 4: Dashboard Composition (PLANNED)
 - [ ] Multi-component dashboard generation
@@ -695,6 +849,21 @@ interface DynamicUIConfig {
 3. Should the LLM explain its visualization choice to users?
 4. Do we need a feedback mechanism to improve selections over time?
 5. How do we handle real-time data updates in generated components?
+
+## Design Decisions
+
+### User-Triggered Diagnostic Queries
+
+**Decision**: Generate diagnostic queries on-demand through user interaction rather than pre-generating them when critical paths are created.
+
+**Rationale**:
+1. **Resource Efficiency**: Avoids unnecessary LLM calls for paths that users may never investigate
+2. **Context Awareness**: Can use real-time metrics and current issues when generating queries
+3. **User Control**: Users decide which paths warrant deeper investigation
+4. **Iterative Refinement**: Allows for query regeneration with different parameters or models
+5. **Clean Architecture**: Keeps critical path generation focused on topology discovery
+
+**Future Enhancement**: Phase 3 will explore automatic generation of both queries and UI components based on detected anomalies, creating a fully autonomous diagnostic system.
 
 ## Key Achievements (Phase 1) ✅
 

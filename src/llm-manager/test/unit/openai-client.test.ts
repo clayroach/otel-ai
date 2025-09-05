@@ -134,8 +134,7 @@ describe('OpenAI Client (Effect-TS)', () => {
   describe('Service Layer Configuration', () => {
     it('should provide OpenAI client service through Effect layer', async () => {
       const result = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
+        Effect.map(ModelClientService, client => {
           expect(client).toBeDefined()
           
           // Safe access to client properties with proper typing
@@ -154,10 +153,9 @@ describe('OpenAI Client (Effect-TS)', () => {
 
     it('should provide configuration with OpenAI settings', async () => {
       const config = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const configService = yield* _(LLMConfigService)
-          return yield* _(configService.getConfig())
-        }).pipe(Effect.provide(TestOpenAILayer))
+        Effect.flatMap(LLMConfigService, configService =>
+          configService.getConfig()
+        ).pipe(Effect.provide(TestOpenAILayer))
       )
       // Type guard for config structure
       if (!config || typeof config !== 'object' || !('models' in config)) {
@@ -188,15 +186,17 @@ describe('OpenAI Client (Effect-TS)', () => {
 
     it('should handle basic generation request through Effect service', async () => {
       const response = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
-          
+        Effect.flatMap(ModelClientService, client => {
           // Extract client reference for safe access
           const gptClient = client.gpt
           if (!gptClient) {
-            throw new Error('GPT client not available')
+            return Effect.fail({
+              _tag: 'ModelUnavailable' as const,
+              model: 'gpt',
+              message: 'GPT client not available'
+            } as LLMError)
           }
-          return yield* _(gptClient.generate(testRequest))
+          return gptClient.generate(testRequest)
         }).pipe(Effect.provide(TestOpenAILayer))
       )
       
@@ -227,15 +227,17 @@ describe('OpenAI Client (Effect-TS)', () => {
       }
 
       const response = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
-          
+        Effect.flatMap(ModelClientService, client => {
           // Extract client reference for safe access
           const gptClient = client.gpt
           if (!gptClient) {
-            throw new Error('GPT client not available')
+            return Effect.fail({
+              _tag: 'ModelUnavailable' as const,
+              model: 'gpt',
+              message: 'GPT client not available'
+            } as LLMError)
           }
-          return yield* _(gptClient.generate(codeRequest))
+          return gptClient.generate(codeRequest)
         }).pipe(Effect.provide(TestOpenAILayer))
       )
       
@@ -255,23 +257,29 @@ describe('OpenAI Client (Effect-TS)', () => {
       }
 
       const chunks = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
-          
+        Effect.flatMap(ModelClientService, client => {
           // Extract client reference for safe streaming access
           const gptClient = client.gpt
           if (!gptClient) {
-            throw new Error('GPT client not available')
+            return Effect.fail({
+              _tag: 'ModelUnavailable' as const,
+              model: 'gpt',
+              message: 'GPT client not available'
+            } as LLMError)
           }
           if (!gptClient.generateStream) {
-            throw new Error('GPT streaming not available')
+            return Effect.fail({
+              _tag: 'ModelUnavailable' as const,
+              model: 'gpt',
+              message: 'GPT streaming not available'
+            } as LLMError)
           }
           const stream = gptClient.generateStream(request)
           
-          return yield* _(stream.pipe(
+          return stream.pipe(
             Stream.runCollect,
             Effect.map(chunks => Array.from(chunks))
-          ))
+          )
         }).pipe(Effect.provide(TestOpenAILayer))
       )
       
@@ -285,15 +293,17 @@ describe('OpenAI Client (Effect-TS)', () => {
   describe('Health and Performance', () => {
     it('should report healthy status', async () => {
       const isHealthy = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
-          
+        Effect.flatMap(ModelClientService, client => {
           // Extract client reference for safe access
           const gptClient = client.gpt
           if (!gptClient) {
-            throw new Error('GPT client not available')
+            return Effect.fail({
+              _tag: 'ModelUnavailable' as const,
+              model: 'gpt',
+              message: 'GPT client not available'
+            } as LLMError)
           }
-          return yield* _(gptClient.isHealthy())
+          return gptClient.isHealthy()
         }).pipe(Effect.provide(TestOpenAILayer))
       )
       expect(isHealthy).toBe(true)
@@ -301,10 +311,9 @@ describe('OpenAI Client (Effect-TS)', () => {
 
     it('should integrate with metrics for cost tracking', async () => {
       const metrics = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const metricsService = yield* _(LLMMetricsService)
-          return yield* _(metricsService.getMetrics())
-        }).pipe(Effect.provide(TestOpenAILayer))
+        Effect.flatMap(LLMMetricsService, metricsService =>
+          metricsService.getMetrics()
+        ).pipe(Effect.provide(TestOpenAILayer))
       )
       
       expect(metrics).toBeDefined()
@@ -346,19 +355,21 @@ describe('OpenAI Client (Effect-TS)', () => {
       )
 
       const result = await Effect.runPromise(
-        Effect.gen(function* (_) {
-          const client = yield* _(ModelClientService)
-          
+        Effect.flatMap(ModelClientService, client => {
           // Extract client reference for safe access
           const gptClient = client.gpt
           if (!gptClient) {
-            throw new Error('GPT client not available')
+            return Effect.fail({
+              _tag: 'ModelUnavailable' as const,
+              model: 'gpt',
+              message: 'GPT client not available'
+            } as LLMError)
           }
           
-          return yield* _(gptClient.generate({
+          return gptClient.generate({
             prompt: 'This should fail',
             taskType: 'general'
-          }).pipe(Effect.option))
+          }).pipe(Effect.option)
         }).pipe(Effect.provide(FailingLayer))
       )
 

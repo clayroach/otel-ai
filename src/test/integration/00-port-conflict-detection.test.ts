@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createServer } from 'net'
+import { Effect } from 'effect'
 
 /**
  * Port Conflict Detection Tests - Integration Test Gatekeeper
@@ -26,7 +27,7 @@ describe('Port Conflict Detection', () => {
     })
   }
 
-  const waitFor = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+  const waitFor = (ms: number) => Effect.runPromise(Effect.sleep(ms))
 
   it('should use non-conflicting ClickHouse port (8124, not 8123)', async () => {
     // Check if standard ClickHouse port 8123 is available
