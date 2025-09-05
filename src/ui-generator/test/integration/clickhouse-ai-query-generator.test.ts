@@ -10,6 +10,7 @@ import {
   shouldSkipLLMTests, 
   logAvailabilityStatus
 } from "../../../llm-manager/test/utils/llm-availability.js"
+import { LLMManagerLive } from "../../../llm-manager/index.js"
 
 // Test data representing a real critical path
 const testPath: CriticalPath = {
@@ -71,10 +72,11 @@ describe("ClickHouse AI Query Generator", () => {
     
     // Build the complete layer stack
     // mockStorageAPIClient provides storage
-    // CriticalPathQueryGeneratorClickHouseAILive creates its own multi-model manager
+    // LLMManagerLive provides the LLM manager service
+    // CriticalPathQueryGeneratorClickHouseAILive uses both dependencies
     const testLayer = Layer.provide(
       CriticalPathQueryGeneratorClickHouseAILive,
-      mockStorageAPIClient
+      Layer.merge(mockStorageAPIClient, LLMManagerLive)
     )
     
     it.skipIf(shouldSkipLLMTests)("should generate multiple analysis queries for a critical path", { timeout: 120000 }, async () => {
