@@ -1,13 +1,25 @@
 /**
  * Frontend Result Analysis Service
- * 
+ *
  * Client-side implementation for analyzing query results and generating component configurations.
  * This mirrors the backend service but runs in the browser for immediate analysis.
  */
 
 export type ColumnType = 'string' | 'number' | 'datetime' | 'boolean' | 'json'
-export type DataPattern = 'time-series' | 'categorical' | 'metrics' | 'hierarchical' | 'correlation' | 'distribution'
-export type ChartType = 'table' | 'line-chart' | 'bar-chart' | 'heatmap' | 'pie-chart' | 'scatter-plot'
+export type DataPattern =
+  | 'time-series'
+  | 'categorical'
+  | 'metrics'
+  | 'hierarchical'
+  | 'correlation'
+  | 'distribution'
+export type ChartType =
+  | 'table'
+  | 'line-chart'
+  | 'bar-chart'
+  | 'heatmap'
+  | 'pie-chart'
+  | 'scatter-plot'
 
 export interface ColumnAnalysis {
   name: string
@@ -54,7 +66,7 @@ export function analyzeResults(results: unknown[]): ResultAnalysis {
   for (const columnName of columnNames) {
     const columnAnalysis = analyzeColumn(
       columnName,
-      results.map(row => (row as Record<string, unknown>)[columnName])
+      results.map((row) => (row as Record<string, unknown>)[columnName])
     )
     columns.push(columnAnalysis)
   }
@@ -80,7 +92,7 @@ export function analyzeResults(results: unknown[]): ResultAnalysis {
  * Analyze a single column to determine its characteristics
  */
 function analyzeColumn(name: string, values: unknown[]): ColumnAnalysis {
-  const nonNullValues = values.filter(v => v != null)
+  const nonNullValues = values.filter((v) => v != null)
 
   // Determine column type
   const type = inferColumnType(nonNullValues)
@@ -117,22 +129,28 @@ function inferColumnType(values: unknown[]): ColumnType {
   // Check for datetime patterns
   if (typeof firstValue === 'string') {
     // Check if it looks like a timestamp
-    if (/^\d{4}-\d{2}-\d{2}/.test(firstValue) ||
-        /^\d{10,13}$/.test(firstValue) ||
-        (firstValue.includes('T') && firstValue.includes(':'))) {
+    if (
+      /^\d{4}-\d{2}-\d{2}/.test(firstValue) ||
+      /^\d{10,13}$/.test(firstValue) ||
+      (firstValue.includes('T') && firstValue.includes(':'))
+    ) {
       return 'datetime'
     }
   }
 
   // Check for numbers
-  if (typeof firstValue === 'number' ||
-      (typeof firstValue === 'string' && !isNaN(Number(firstValue)))) {
+  if (
+    typeof firstValue === 'number' ||
+    (typeof firstValue === 'string' && !isNaN(Number(firstValue)))
+  ) {
     return 'number'
   }
 
   // Check for booleans
-  if (typeof firstValue === 'boolean' ||
-      (typeof firstValue === 'string' && ['true', 'false'].includes(firstValue.toLowerCase()))) {
+  if (
+    typeof firstValue === 'boolean' ||
+    (typeof firstValue === 'string' && ['true', 'false'].includes(firstValue.toLowerCase()))
+  ) {
     return 'boolean'
   }
 
@@ -151,13 +169,24 @@ function isMetricColumn(name: string, type: ColumnType): boolean {
   if (type !== 'number') return false
 
   const metricKeywords = [
-    'count', 'rate', 'duration', 'latency', 'time', 'ms', 'seconds',
-    'p50', 'p95', 'p99', 'avg', 'max', 'min', 'sum', 'percent'
+    'count',
+    'rate',
+    'duration',
+    'latency',
+    'time',
+    'ms',
+    'seconds',
+    'p50',
+    'p95',
+    'p99',
+    'avg',
+    'max',
+    'min',
+    'sum',
+    'percent'
   ]
 
-  return metricKeywords.some(keyword =>
-    name.toLowerCase().includes(keyword)
-  )
+  return metricKeywords.some((keyword) => name.toLowerCase().includes(keyword))
 }
 
 /**
@@ -167,9 +196,7 @@ function isTemporalColumn(name: string, type: ColumnType): boolean {
   if (type !== 'datetime') return false
 
   const timeKeywords = ['time', 'timestamp', 'date', 'minute', 'hour', 'day']
-  return timeKeywords.some(keyword =>
-    name.toLowerCase().includes(keyword)
-  )
+  return timeKeywords.some((keyword) => name.toLowerCase().includes(keyword))
 }
 
 /**
@@ -188,7 +215,12 @@ function detectSemanticType(
   }
 
   // Latency metrics
-  if ((lowerName.includes('latency') || lowerName.includes('duration') || lowerName.includes('_ms')) && type === 'number') {
+  if (
+    (lowerName.includes('latency') ||
+      lowerName.includes('duration') ||
+      lowerName.includes('_ms')) &&
+    type === 'number'
+  ) {
     return 'latency_ms'
   }
 
@@ -212,24 +244,22 @@ function detectPatterns(columns: ColumnAnalysis[], results: unknown[]): DataPatt
   const patterns: DataPattern[] = []
 
   // Time-series: has temporal column + metrics
-  const hasTimeColumn = columns.some(c => c.isTemporal)
-  const hasMetrics = columns.some(c => c.isMetric)
+  const hasTimeColumn = columns.some((c) => c.isTemporal)
+  const hasMetrics = columns.some((c) => c.isMetric)
   if (hasTimeColumn && hasMetrics) {
     patterns.push('time-series')
   }
 
   // Categorical: string columns with low cardinality + metrics
-  const categoricalColumns = columns.filter(c =>
-    c.type === 'string' &&
-    c.cardinality > 1 &&
-    c.cardinality < results.length * 0.5 // Less than 50% unique
+  const categoricalColumns = columns.filter(
+    (c) => c.type === 'string' && c.cardinality > 1 && c.cardinality < results.length * 0.5 // Less than 50% unique
   )
   if (categoricalColumns.length > 0 && hasMetrics) {
     patterns.push('categorical')
   }
 
   // Metrics: multiple numeric columns
-  const metricColumns = columns.filter(c => c.isMetric)
+  const metricColumns = columns.filter((c) => c.isMetric)
   if (metricColumns.length >= 2) {
     patterns.push('metrics')
   }
@@ -243,7 +273,7 @@ function detectPatterns(columns: ColumnAnalysis[], results: unknown[]): DataPatt
 function recommendChart(
   columns: ColumnAnalysis[],
   patterns: DataPattern[]
-): {chartType: ChartType, confidence: number, reasoning: string} {
+): { chartType: ChartType; confidence: number; reasoning: string } {
   // High confidence recommendations
   if (patterns.includes('time-series')) {
     return {
@@ -262,7 +292,7 @@ function recommendChart(
   }
 
   // Medium confidence
-  const hasMultipleMetrics = columns.filter(c => c.isMetric).length >= 3
+  const hasMultipleMetrics = columns.filter((c) => c.isMetric).length >= 3
   if (hasMultipleMetrics) {
     return {
       chartType: 'heatmap',

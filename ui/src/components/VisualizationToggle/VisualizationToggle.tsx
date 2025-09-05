@@ -1,18 +1,18 @@
 import React from 'react'
 import { Segmented, Tooltip } from 'antd'
-import { 
-  TableOutlined, 
-  LineChartOutlined, 
-  BarChartOutlined, 
+import {
+  TableOutlined,
+  LineChartOutlined,
+  BarChartOutlined,
   HeatMapOutlined,
   PieChartOutlined,
-  DotChartOutlined 
+  DotChartOutlined
 } from '@ant-design/icons'
 import type { ChartType } from '../../services/result-analysis'
 
 /**
  * VisualizationToggle Component
- * 
+ *
  * Allows users to switch between different visualization types.
  * Shows recommended option with a badge and provides tooltips explaining when each chart is optimal.
  */
@@ -38,7 +38,7 @@ const VISUALIZATION_OPTIONS: VisualizationOption[] = [
     description: 'Perfect for time-series data and trend analysis'
   },
   {
-    value: 'bar-chart', 
+    value: 'bar-chart',
     label: 'Bar Chart',
     icon: <BarChartOutlined />,
     description: 'Great for comparing categories and discrete values'
@@ -79,12 +79,12 @@ export const VisualizationToggle: React.FC<VisualizationToggleProps> = ({
   disabled = false
 }) => {
   // Filter options to only show available types
-  const availableOptions = VISUALIZATION_OPTIONS.filter(option =>
+  const availableOptions = VISUALIZATION_OPTIONS.filter((option) =>
     availableTypes.includes(option.value)
   )
 
   // Create options for Segmented component
-  const segmentedOptions = availableOptions.map(option => ({
+  const segmentedOptions = availableOptions.map((option) => ({
     value: option.value,
     label: (
       <Tooltip title={option.description}>
@@ -121,9 +121,11 @@ export const VisualizationToggle: React.FC<VisualizationToggleProps> = ({
         size="small"
       />
       {recommendedType && recommendedType !== value && (
-        <Tooltip title={`AI recommends ${VISUALIZATION_OPTIONS.find(opt => opt.value === recommendedType)?.label} for this data pattern`}>
+        <Tooltip
+          title={`AI recommends ${VISUALIZATION_OPTIONS.find((opt) => opt.value === recommendedType)?.label} for this data pattern`}
+        >
           <div style={{ fontSize: '11px', color: '#52c41a', cursor: 'help' }}>
-            💡 Try {VISUALIZATION_OPTIONS.find(opt => opt.value === recommendedType)?.label}
+            💡 Try {VISUALIZATION_OPTIONS.find((opt) => opt.value === recommendedType)?.label}
           </div>
         </Tooltip>
       )}

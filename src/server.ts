@@ -1882,6 +1882,95 @@ app.post('/api/llm-manager/generate', async (req, res) => {
   }
 })
 
+// Critical Service Detection API - Find real issues for investigation
+app.get('/api/critical-services', async (req, res) => {
+  try {
+    const timeHours = parseInt(req.query.timeHours as string) || 3
+    const minErrorRate = parseFloat(req.query.minErrorRate as string) || 0.1
+
+    const criticalServicesQuery = `
+      SELECT 
+        service_name,
+        operation_name,
+        COUNT(*) as total_traces,
+        countIf(status_code = 'ERROR' OR is_error = 1) as error_count,
+        (countIf(status_code = 'ERROR' OR is_error = 1) * 100.0 / COUNT(*)) as error_rate,
+        max(start_time) as latest_error,
+        min(start_time) as first_error,
+        avgIf(duration_ms, status_code = 'ERROR' OR is_error = 1) as avg_error_duration,
+        avgIf(duration_ms, status_code != 'ERROR' AND is_error != 1) as avg_success_duration
+      FROM traces 
+      WHERE start_time >= subtractHours(now(), ${timeHours})
+      GROUP BY service_name, operation_name 
+      HAVING error_count > 0 AND error_rate >= ${minErrorRate}
+      ORDER BY error_rate DESC, error_count DESC 
+      LIMIT 10
+    `
+
+    console.log('🔍 Finding critical services with query:', criticalServicesQuery)
+    const result = await queryWithResults(criticalServicesQuery)
+
+    // Generate investigation queries for each critical service
+    const criticalServices = result.data.map((service: Record<string, unknown>) => {
+      const error_rate = Number(service.error_rate || 0)
+      return {
+        ...service,
+        investigationQuery: generateInvestigationQuery(service),
+        severity: error_rate >= 10 ? 'critical' : error_rate >= 5 ? 'high' : 'medium',
+        actionable: true
+      }
+    })
+
+    res.json({
+      critical_services: criticalServices,
+      total_found: criticalServices.length,
+      time_range_hours: timeHours,
+      min_error_rate: minErrorRate,
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('❌ Error finding critical services:', error)
+    res.status(500).json({
+      error: 'Failed to find critical services',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// Generate targeted investigation query for a critical service
+function generateInvestigationQuery(service: Record<string, unknown>): string {
+  const service_name = String(service.service_name || 'unknown')
+  const operation_name = String(service.operation_name || 'unknown')  
+  const error_rate = Number(service.error_rate || 0)
+
+  return `-- Investigation Query for ${service_name}:${operation_name} (${error_rate.toFixed(2)}% error rate)
+-- This query shows error patterns, timing, and root cause insights
+
+SELECT 
+  trace_id,
+  start_time,
+  duration_ms,
+  status_code,
+  is_error,
+  span_attributes,
+  -- Error analysis fields
+  CASE 
+    WHEN is_error = 1 OR status_code = 'ERROR' THEN 'ERROR'
+    WHEN duration_ms > 5000 THEN 'SLOW'  
+    ELSE 'SUCCESS'
+  END as issue_type,
+  -- Performance comparison
+  duration_ms - (SELECT avg(duration_ms) FROM traces WHERE service_name = '${service_name}' AND operation_name = '${operation_name}' AND is_error != 1) as duration_vs_avg
+FROM traces
+WHERE service_name = '${service_name}' 
+  AND operation_name = '${operation_name}'
+  AND start_time >= subtractHours(now(), 3)
+ORDER BY 
+  CASE WHEN is_error = 1 OR status_code = 'ERROR' THEN 0 ELSE 1 END,  -- Errors first
+  start_time DESC
+LIMIT 100`
+}
+
 // Graceful shutdown with Effect-TS cleanup
 async function gracefulShutdown(signal: string) {
   console.log(`🛑 Received ${signal}, shutting down gracefully...`)

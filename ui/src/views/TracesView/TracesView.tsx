@@ -8,39 +8,81 @@ import {
   SaveOutlined,
   InfoCircleOutlined
 } from '@ant-design/icons'
-import { Button, Card, Col, Dropdown, Row, Space, Spin, Tooltip, Typography, App } from 'antd'
+import {
+  Button,
+  Card,
+  Col,
+  Dropdown,
+  Row,
+  Space,
+  Spin,
+  Tooltip,
+  Typography,
+  App,
+  Table
+} from 'antd'
 import React, { useCallback, useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { format } from 'sql-formatter'
 import { MonacoQueryEditor } from '../../components/MonacoEditor/MonacoQueryEditor'
 import { TimeRangeSelector } from '../../components/TimeRangeSelector/TimeRangeSelector'
-import { TraceResults } from '../../components/TraceResults/TraceResults'
-import { DynamicTable } from '../../components/DynamicTable'
-import { VisualizationToggle } from '../../components/VisualizationToggle'
-import { useClickhouseQuery, type ClickhouseQueryResult } from '../../hooks/useClickhouseQuery'
+import { useClickhouseQuery } from '../../hooks/useClickhouseQuery'
 import { useAppStore } from '../../store/appStore'
-import { analyzeResults, type ResultAnalysis, type ChartType } from '../../services/result-analysis'
-
-// Interface for trace data from ClickHouse matching what TraceResults expects
-interface TraceRow {
-  trace_id: string
-  service_name: string
-  operation_name: string
-  duration_ms: number
-  timestamp: string
-  status_code: string
-  is_error: number
-  span_kind?: string
-  span_id?: string
-  parent_span_id?: string
-  is_root?: number
-  encoding_type?: 'json' | 'protobuf'
-  attributes?: Record<string, unknown>
-  resource_attributes?: Record<string, unknown>
-}
 
 const { Title } = Typography
+
+// Generate table columns from data
+const generateColumns = (data: Record<string, unknown>[]) => {
+  if (!data || data.length === 0) return []
+
+  const firstRow = data[0]
+  if (!firstRow) return []
+
+  return Object.keys(firstRow).map((key) => ({
+    title: key.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
+    dataIndex: key,
+    key,
+    render: (value: unknown) => {
+      if (value === null || value === undefined) return '-'
+
+      // Handle timestamps
+      if (key.includes('time') && typeof value === 'string') {
+        try {
+          const date = new Date(value)
+          if (!isNaN(date.getTime())) {
+            return date.toLocaleString()
+          }
+        } catch (e) {
+          // Ignore parsing errors
+        }
+      }
+
+      // Handle duration
+      if (key.includes('duration') && typeof value === 'number') {
+        return `${value.toFixed(2)}ms`
+      }
+
+      // Handle boolean-like values
+      if (key.includes('is_') && (value === 0 || value === 1)) {
+        return value === 1 ? 'Yes' : 'No'
+      }
+
+      return String(value)
+    },
+    sorter: (a: Record<string, unknown>, b: Record<string, unknown>) => {
+      const aVal = a[key]
+      const bVal = b[key]
+
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return aVal - bVal
+      }
+
+      return String(aVal || '').localeCompare(String(bVal || ''))
+    },
+    width: key === 'trace_id' || key === 'span_id' ? 200 : undefined
+  }))
+}
 
 const DEFAULT_QUERY = `-- Query traces from simplified single-path ingestion
 SELECT 
@@ -78,10 +120,6 @@ export const TracesView: React.FC = () => {
   const [query, setQuery] = useState(activeQuery || DEFAULT_QUERY)
   const [isRunning, setIsRunning] = useState(false)
   const [queryMetadata, setQueryMetadata] = useState<LocationState['metadata'] | null>(null)
-  
-  // Dynamic visualization state
-  const [visualizationType, setVisualizationType] = useState<ChartType>('table')
-  const [resultAnalysis, setResultAnalysis] = useState<ResultAnalysis | null>(null)
 
   const {
     data: queryResults,
@@ -154,21 +192,18 @@ export const TracesView: React.FC = () => {
     setQuery(value)
   }, [])
 
-  // Analyze results when query data changes
+  // Log query results
   React.useEffect(() => {
     if (queryResults?.data && Array.isArray(queryResults.data)) {
-      console.log('TracesView: Analyzing query results:', queryResults.data.length, 'rows')
-      const analysis = analyzeResults(queryResults.data)
-      console.log('TracesView: Result analysis:', analysis)
-      setResultAnalysis(analysis)
-      
-      // Auto-switch to recommended visualization if different from current
-      if (analysis.recommendedChartType !== visualizationType && analysis.confidence > 0.7) {
-        console.log('TracesView: Auto-switching to recommended visualization:', analysis.recommendedChartType)
-        setVisualizationType(analysis.recommendedChartType)
+      console.log('TracesView: Query results:', queryResults.data.length, 'rows')
+      if (queryResults.data.length > 0) {
+        console.log(
+          'TracesView: Sample columns:',
+          Object.keys(queryResults.data[0] as Record<string, unknown>)
+        )
       }
     }
-  }, [queryResults, visualizationType])
+  }, [queryResults])
 
   // Handle incoming generated query from navigation
   useEffect(() => {
@@ -215,15 +250,6 @@ export const TracesView: React.FC = () => {
         <Col>
           <Space>
             <TimeRangeSelector />
-            {resultAnalysis && (
-              <VisualizationToggle
-                value={visualizationType}
-                onChange={setVisualizationType}
-                recommendedType={resultAnalysis.recommendedChartType}
-                availableTypes={['table']} // Start with just table, expand later
-                disabled={!queryResults?.data || isLoading}
-              />
-            )}
             <Button
               type="primary"
               icon={<PlayCircleOutlined />}
@@ -420,11 +446,28 @@ export const TracesView: React.FC = () => {
                 Query Error: {error.message}
               </div>
             ) : queryResults ? (
-              // Always use DynamicTable for now - simplify the logic
-              <DynamicTable 
-                data={queryResults.data || []}
-                analysis={resultAnalysis || undefined}
+              // Simple table showing actual query columns
+              <Table
+                dataSource={(queryResults.data as Record<string, unknown>[]) || []}
+                columns={generateColumns((queryResults.data as Record<string, unknown>[]) || [])}
                 loading={isLoading}
+                size="small"
+                scroll={{ x: true, y: 400 }}
+                pagination={{
+                  showSizeChanger: true,
+                  showQuickJumper: true,
+                  showTotal: (total) => `${total} rows`,
+                  defaultPageSize: 50,
+                  pageSizeOptions: ['20', '50', '100', '200']
+                }}
+                rowKey={(record, index) => {
+                  // Generate unique keys safely
+                  const typedRecord = record as Record<string, unknown>
+                  const traceId = typedRecord?.trace_id
+                  const spanId = typedRecord?.span_id
+                  const timestamp = typedRecord?.timestamp || typedRecord?.start_time
+                  return `${traceId || 'unknown'}-${spanId || index}-${timestamp || Math.random()}`
+                }}
               />
             ) : (
               <div

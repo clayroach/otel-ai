@@ -178,10 +178,10 @@ export class UIGeneratorAPIClient {
   private static sanitizeSQL(sql: string): string {
     // Remove trailing semicolons that cause ClickHouse multi-statement errors
     let sanitized = sql.replace(/;\s*$/, '').trim()
-    
+
     // Fix table name - ensure we use otel.traces instead of just traces
     sanitized = sanitized.replace(/FROM\s+traces\b/gi, 'FROM otel.traces')
-    
+
     return sanitized
   }
 

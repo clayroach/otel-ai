@@ -19,8 +19,8 @@ test.describe('Dynamic Table Functionality', () => {
     // Run the default query
     await page.click('[data-testid="traces-run-query-button"]')
     
-    // Wait for query to complete and results to show
-    await page.waitForSelector('.ant-table-tbody tr', { timeout: 10000 })
+    // Wait for query to complete and results to show (excluding measure rows)
+    await page.waitForSelector('.ant-table-tbody tr:not(.ant-table-measure-row)', { timeout: 10000 })
     
     // Verify table is displayed
     const table = page.locator('.ant-table')
@@ -40,7 +40,7 @@ test.describe('Dynamic Table Functionality', () => {
   test('should show analysis summary when available', async ({ page }) => {
     // Run query and wait for results
     await page.click('[data-testid="traces-run-query-button"]')
-    await page.waitForSelector('.ant-table-tbody tr', { timeout: 10000 })
+    await page.waitForSelector('.ant-table-tbody tr:not(.ant-table-measure-row)', { timeout: 10000 })
     
     // Check if analysis summary appears (it should show row count, column count, etc.)
     const analysisInfo = page.locator('text=/\\d+ rows, \\d+ columns/')
@@ -57,7 +57,7 @@ test.describe('Dynamic Table Functionality', () => {
   test('should display intelligent column formatting', async ({ page }) => {
     // Run query and wait for results  
     await page.click('[data-testid="traces-run-query-button"]')
-    await page.waitForSelector('.ant-table-tbody tr', { timeout: 10000 })
+    await page.waitForSelector('.ant-table-tbody tr:not(.ant-table-measure-row)', { timeout: 10000 })
     
     // Verify columns have proper titles (should be formatted from snake_case)
     const serviceNameHeader = page.locator('.ant-table-thead th:has-text("Service Name")')
@@ -84,7 +84,7 @@ test.describe('Dynamic Table Functionality', () => {
   test('should show visualization toggle when results are available', async ({ page }) => {
     // Run query and wait for results
     await page.click('[data-testid="traces-run-query-button"]')
-    await page.waitForSelector('.ant-table-tbody tr', { timeout: 10000 })
+    await page.waitForSelector('.ant-table-tbody tr:not(.ant-table-measure-row)', { timeout: 10000 })
     
     // Check if visualization toggle appears
     const viewLabel = page.locator('text=View:')
@@ -225,7 +225,7 @@ test.describe('Dynamic Table Edge Cases', () => {
   test('should maintain table state during loading', async ({ page }) => {
     // Run initial query
     await page.click('[data-testid="traces-run-query-button"]')
-    await page.waitForSelector('.ant-table-tbody tr', { timeout: 10000 })
+    await page.waitForSelector('.ant-table-tbody tr:not(.ant-table-measure-row)', { timeout: 10000 })
     
     // Run another query and verify loading state
     await page.click('[data-testid="traces-run-query-button"]')
