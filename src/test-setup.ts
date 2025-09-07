@@ -9,10 +9,29 @@ import { join } from 'path'
 console.log('🧪 Test environment setup')
 
 // Load .env file if it exists
-const envPath = join(process.cwd(), '.env')
-if (existsSync(envPath)) {
-  const envContent = readFileSync(envPath, 'utf-8')
+// Check multiple possible locations for .env file
+const possibleEnvPaths = [
+  join(process.cwd(), '.env'),           // Current working directory
+  join(process.cwd(), '..', '.env'),     // Parent directory (likely fix for CI)
+  join(process.cwd(), '../..', '.env'),  // Grandparent directory (just in case)
+]
 
+let envPath: string | null = null
+let envContent = ''
+
+// Find the first existing .env file
+for (const path of possibleEnvPaths) {
+  if (existsSync(path)) {
+    envPath = path
+    envContent = readFileSync(path, 'utf-8')
+    console.log(`✅ Found .env file at: ${path}`)
+    break
+  } else {
+    console.log(`❌ No .env file at: ${path}`)
+  }
+}
+
+if (envPath && envContent) {
   // Debug: Show what's in the .env file for CI troubleshooting
   const llmModelLines = envContent
     .split('\n')
@@ -43,7 +62,8 @@ if (existsSync(envPath)) {
     console.log('❌ No LLM model env vars found in process.env after loading .env')
   }
 } else {
-  console.log('❌ No .env file found at', envPath)
+  console.log('❌ No .env file found in any of the checked locations:')
+  possibleEnvPaths.forEach(path => console.log(`   - ${path}`))
 }
 
 // Set test environment variables if not already set
