@@ -145,8 +145,27 @@ describe('LLM Manager Model Loading Validation', () => {
         m.provider === 'deepseek'
       )
       if (localStyleModels.length > 0) {
+        // Debug: Log model details for CI troubleshooting
+        if (process.env.CI) {
+          console.log('🔍 Local-style models found:', localStyleModels.map(m => ({
+            id: m.id,
+            provider: m.provider,
+            supportsSQL: m.capabilities?.supportsSQL,
+            status: m.status
+          })))
+        }
+        
         // Should have at least one local-style model if any SQL models are configured
         const hasLocalStyleModel = localStyleModels.some(m => m.capabilities?.supportsSQL)
+        
+        // More informative failure message for CI
+        if (!hasLocalStyleModel) {
+          const sqlModelEnvs = Object.keys(process.env).filter(key => key.startsWith('LLM_SQL_MODEL_'))
+          console.error('❌ No local-style models with SQL capabilities found.')
+          console.error('📊 Configured SQL model envs:', sqlModelEnvs.map(key => `${key}=${process.env[key]}`))
+          console.error('🔍 Local-style models loaded:', localStyleModels.map(m => `${m.id} (${m.provider}) - SQL: ${m.capabilities?.supportsSQL}`))
+        }
+        
         expect(hasLocalStyleModel).toBeTruthy()
       }
     })
