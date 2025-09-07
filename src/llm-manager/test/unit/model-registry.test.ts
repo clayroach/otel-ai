@@ -127,14 +127,15 @@ describe("Model Registry", () => {
 
   describe("getModelConfig", () => {
     it("should return config for valid model IDs", () => {
-      const config = getModelConfig("gpt-3.5-turbo", { temperature: 0.7 })
+      const config = getModelConfig("gpt-3.5-turbo")
       expect(config).toBeDefined()
       expect(typeof config).toBe("object")
     })
 
-    it("should handle empty options", () => {
-      const config = getModelConfig("gpt-3.5-turbo", {})
+    it("should handle invalid model IDs", () => {
+      const config = getModelConfig("invalid-model")
       expect(config).toBeDefined()
+      expect(config).toEqual({})
     })
   })
 
@@ -153,8 +154,18 @@ describe("Model Registry", () => {
 
   describe("needsResponseWrapping", () => {
     it("should return boolean for response wrapping requirement", () => {
-      const needs = needsResponseWrapping("sqlcoder-7b-2")
+      const needs = needsResponseWrapping("sqlcoder-7b-2", "sql")
       expect(typeof needs).toBe("boolean")
+    })
+    
+    it("should handle different task types", () => {
+      const sqlNeeds = needsResponseWrapping("gpt-3.5-turbo", "sql")
+      const jsonNeeds = needsResponseWrapping("gpt-3.5-turbo", "json") 
+      const generalNeeds = needsResponseWrapping("gpt-3.5-turbo", "general")
+      
+      expect(typeof sqlNeeds).toBe("boolean")
+      expect(typeof jsonNeeds).toBe("boolean")
+      expect(typeof generalNeeds).toBe("boolean")
     })
   })
 })

@@ -19,8 +19,8 @@ describe("LLM Manager Config", () => {
     it("should provide sensible defaults", () => {
       expect(defaultLLMConfig).toBeDefined()
       expect(defaultLLMConfig.models.llama).toBeDefined()
-      expect(defaultLLMConfig.models.llama.endpoint).toBe("http://localhost:1234/v1")
-      expect(defaultLLMConfig.models.llama.contextLength).toBe(4096)
+      expect(defaultLLMConfig.models.llama?.endpoint).toBe("http://localhost:1234/v1")
+      expect(defaultLLMConfig.models.llama?.contextLength).toBe(4096)
       expect(defaultLLMConfig.routing.strategy).toBe("balanced")
       expect(defaultLLMConfig.routing.fallbackOrder).toContain("llama")
       expect(defaultLLMConfig.cache.enabled).toBe(true)
