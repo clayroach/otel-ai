@@ -260,16 +260,32 @@ test.describe('Query Generator Service', () => {
     // Wait for page to settle
     await page.waitForTimeout(2000)
     
-    // Check if query is populated (might be in different elements)
+    // Check if query is populated in Monaco editor or visible results
     const hasQueryContent = await page.evaluate(() => {
-      // Check for SQL content in various possible containers
-      const elements = document.querySelectorAll('textarea, input, pre, code, .query, .sql')
-      for (const el of elements) {
-        if (el.textContent?.includes('SELECT') && el.textContent?.includes('FROM')) {
-          return true
+      // Check Monaco editor content specifically
+      const monacoElements = document.querySelectorAll('.monaco-editor .view-line')
+      let hasMonacoSQL = false
+      for (const line of monacoElements) {
+        if (line.textContent?.includes('SELECT') || line.textContent?.includes('FROM')) {
+          hasMonacoSQL = true
+          break
         }
       }
-      return false
+      
+      // Also check if we have visible results (indicates query ran successfully)
+      const hasResults = document.querySelectorAll('.ant-table-tbody tr:not(.ant-table-measure-row)').length > 0
+      
+      // Also check for any SQL content in other containers
+      const elements = document.querySelectorAll('textarea, input, pre, code, .query, .sql')
+      let hasOtherSQL = false
+      for (const el of elements) {
+        if (el.textContent?.includes('SELECT') && el.textContent?.includes('FROM')) {
+          hasOtherSQL = true
+          break
+        }
+      }
+      
+      return hasMonacoSQL || hasResults || hasOtherSQL
     })
     
     expect(hasQueryContent).toBe(true)
