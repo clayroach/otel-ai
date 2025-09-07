@@ -396,7 +396,15 @@ export class LLMManagerAPIClient {
     if (request.requirements?.maxLatency) {
       // Prefer local models for low latency
       if (request.requirements.maxLatency < 500) {
-        const localModel = healthyModels.find((m) => m.provider === 'local')
+        const localModel = healthyModels.find(
+          (m) =>
+            m.provider === 'local' ||
+            m.provider === 'meta' ||
+            m.provider === 'defog' ||
+            m.provider === 'bigcode' ||
+            m.provider === 'alibaba' ||
+            m.provider === 'deepseek'
+        )
         if (localModel) {
           selectedModel = localModel.id
           reason = 'Local model for low latency requirement'
