@@ -73,8 +73,22 @@ jobs:
             
       - name: Setup environment variables
         run: |
+          # Debug: Show working directory and files
+          echo "🔍 Current working directory: $(pwd)"
+          echo "📁 Files in current directory:"
+          ls -la
+          
           # Copy GitHub CI environment file
           cp .env.github .env
+          
+          # Debug: Verify .env file was created and show its content
+          echo "✅ .env file created, checking contents:"
+          echo "📄 .env file exists: $(test -f .env && echo 'YES' || echo 'NO')"
+          if [ -f .env ]; then
+            echo "📊 .env file size: $(wc -l .env)"
+            echo "🔍 LLM model variables in .env:"
+            grep "LLM_.*MODEL" .env || echo "❌ No LLM model variables found"
+          fi
           
           # Override sensitive values from GitHub secrets
           if [ -n "${{ secrets.OPENAI_API_KEY }}" ]; then
@@ -84,6 +98,11 @@ jobs:
           if [ -n "${{ secrets.CLAUDE_API_KEY }}" ]; then
             sed -i "s/CLAUDE_API_KEY=placeholder_will_be_replaced_by_github_secret/CLAUDE_API_KEY=${{ secrets.CLAUDE_API_KEY }}/g" .env
           fi
+          
+          # Final verification
+          echo "🎯 Final .env verification:"
+          echo "📄 .env file exists: $(test -f .env && echo 'YES' || echo 'NO')"
+          echo "📊 Total lines in .env: $(wc -l .env 2>/dev/null || echo '0')"
           
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -113,7 +132,22 @@ jobs:
         run: pnpm demo:up
           
       - name: Integration tests
-        run: pnpm test:integration
+        run: |
+          # Debug: Check for .env file before running integration tests
+          echo "🔍 Pre-integration test environment check:"
+          echo "📍 Working directory: $(pwd)"
+          echo "📄 .env file exists: $(test -f .env && echo 'YES' || echo 'NO')"
+          if [ -f .env ]; then
+            echo "📊 .env file size: $(wc -l .env)"
+            echo "🔍 LLM model variables in .env:"
+            grep "LLM_.*MODEL" .env || echo "❌ No LLM model variables found in .env"
+          else
+            echo "❌ .env file missing, listing current directory:"
+            ls -la
+          fi
+          
+          # Run integration tests
+          pnpm test:integration
         env:
           CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
