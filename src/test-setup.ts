@@ -11,9 +11,9 @@ console.log('🧪 Test environment setup')
 // Load .env file if it exists
 // Check multiple possible locations for .env file
 const possibleEnvPaths = [
-  join(process.cwd(), '.env'),           // Current working directory
-  join(process.cwd(), '..', '.env'),     // Parent directory (likely fix for CI)
-  join(process.cwd(), '../..', '.env'),  // Grandparent directory (just in case)
+  join(process.cwd(), '.env'), // Current working directory
+  join(process.cwd(), '..', '.env'), // Parent directory (likely fix for CI)
+  join(process.cwd(), '../..', '.env') // Grandparent directory (just in case)
 ]
 
 let envPath: string | null = null
@@ -63,7 +63,7 @@ if (envPath && envContent) {
   }
 } else {
   console.log('❌ No .env file found in any of the checked locations:')
-  possibleEnvPaths.forEach(path => console.log(`   - ${path}`))
+  possibleEnvPaths.forEach((path) => console.log(`   - ${path}`))
 }
 
 // Set test environment variables if not already set
