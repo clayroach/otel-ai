@@ -12,9 +12,11 @@ console.log('🧪 Test environment setup')
 const envPath = join(process.cwd(), '.env')
 if (existsSync(envPath)) {
   const envContent = readFileSync(envPath, 'utf-8')
-  
+
   // Debug: Show what's in the .env file for CI troubleshooting
-  const llmModelLines = envContent.split('\n').filter(line => line.startsWith('LLM_') && line.includes('MODEL'))
+  const llmModelLines = envContent
+    .split('\n')
+    .filter((line) => line.startsWith('LLM_') && line.includes('MODEL'))
   if (llmModelLines.length > 0) {
     console.log('🔍 LLM Model env vars found in .env file:', llmModelLines)
   } else {
@@ -22,7 +24,7 @@ if (existsSync(envPath)) {
     // Show first 10 lines of .env for debugging
     console.log('📄 .env file preview:', envContent.split('\n').slice(0, 10))
   }
-  
+
   envContent.split('\n').forEach((line) => {
     const [key, ...values] = line.split('=')
     if (key && values.length > 0 && !process.env[key]) {
@@ -30,9 +32,11 @@ if (existsSync(envPath)) {
     }
   })
   console.log('📄 Loaded .env file for tests')
-  
+
   // Debug: Verify the LLM model env vars were actually loaded into process.env
-  const loadedLLMVars = Object.keys(process.env).filter(key => key.startsWith('LLM_') && key.includes('MODEL'))
+  const loadedLLMVars = Object.keys(process.env).filter(
+    (key) => key.startsWith('LLM_') && key.includes('MODEL')
+  )
   if (loadedLLMVars.length > 0) {
     console.log('✅ LLM Model env vars loaded into process.env:', loadedLLMVars)
   } else {
