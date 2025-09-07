@@ -20,6 +20,8 @@
       "Bash(sed:*)",
       "Bash(pkill:*)",
       "Bash(VITEST=true pnpm test:integration --reporter=dot)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
       "Bash(rg:*)"
     ],
     "deny": [],
