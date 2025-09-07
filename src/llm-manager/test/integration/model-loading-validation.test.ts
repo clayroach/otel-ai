@@ -135,12 +135,19 @@ describe('LLM Manager Model Loading Validation', () => {
         }
       }
       
-      // Check if local models are properly configured through LLM_SQL_MODEL_*
-      const localModels = loadedModels.filter(m => m.provider === 'local')
-      if (localModels.length > 0) {
-        // Should have at least one local model if any SQL models are configured
-        const hasLocalModel = localModels.some(m => m.capabilities?.supportsSQL)
-        expect(hasLocalModel).toBeTruthy()
+      // Check if local-style models are properly configured through LLM_SQL_MODEL_*
+      const localStyleModels = loadedModels.filter(m => 
+        m.provider === 'local' || 
+        m.provider === 'meta' || 
+        m.provider === 'defog' || 
+        m.provider === 'bigcode' || 
+        m.provider === 'alibaba' || 
+        m.provider === 'deepseek'
+      )
+      if (localStyleModels.length > 0) {
+        // Should have at least one local-style model if any SQL models are configured
+        const hasLocalStyleModel = localStyleModels.some(m => m.capabilities?.supportsSQL)
+        expect(hasLocalStyleModel).toBeTruthy()
       }
     })
 
