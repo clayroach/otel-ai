@@ -148,6 +148,17 @@ describe('LLM Manager Model Loading Validation', () => {
       if (localStyleModels.length > 0) {
         // Should have at least one local-style model with SQL capabilities
         const hasLocalStyleModel = localStyleModels.some(m => m.capabilities?.supportsSQL)
+        
+        if (!hasLocalStyleModel) {
+          console.log('❌ No local-style models found with SQL capabilities')
+          console.log('📊 Local-style models loaded:', localStyleModels.map(m => ({
+            id: m.id,
+            provider: m.provider,
+            status: m.status,
+            supportsSQL: m.capabilities?.supportsSQL
+          })))
+        }
+        
         expect(hasLocalStyleModel).toBeTruthy()
       }
     })
