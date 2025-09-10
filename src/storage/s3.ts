@@ -53,32 +53,26 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
     )
 
     const storeRawData = (data: Uint8Array, key: string): Effect.Effect<void, StorageError> =>
-      Effect.gen(function* (_) {
-        yield* _(
-          Effect.tryPromise({
-            try: () =>
-              client.send(
-                new PutObjectCommand({
-                  Bucket: config.bucket,
-                  Key: key,
-                  Body: data,
-                  ContentType: 'application/octet-stream',
-                  ...(config.enableEncryption && { ServerSideEncryption: 'AES256' })
-                })
-              ),
-            catch: (error) =>
-              StorageErrorConstructors.QueryError(
-                `Failed to store data at key ${key}: ${error}`,
-                `PUT ${key}`,
-                error
-              )
-          }).pipe(
-            Effect.retry(
-              Schedule.exponential('100 millis').pipe(Schedule.compose(Schedule.recurs(3)))
-            )
+      Effect.tryPromise({
+        try: () =>
+          client.send(
+            new PutObjectCommand({
+              Bucket: config.bucket,
+              Key: key,
+              Body: data,
+              ContentType: 'application/octet-stream',
+              ...(config.enableEncryption && { ServerSideEncryption: 'AES256' })
+            })
+          ),
+        catch: (error) =>
+          StorageErrorConstructors.QueryError(
+            `Failed to store data at key ${key}: ${error}`,
+            `PUT ${key}`,
+            error
           )
-        )
-      })
+      }).pipe(
+        Effect.retry(Schedule.exponential('100 millis').pipe(Schedule.compose(Schedule.recurs(3))))
+      )
 
     const retrieveRawData = (key: string): Effect.Effect<Uint8Array, StorageError> =>
       Effect.gen(function* (_) {
@@ -130,24 +124,20 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
       })
 
     const deleteRawData = (key: string): Effect.Effect<void, StorageError> =>
-      Effect.gen(function* (_) {
-        yield* _(
-          Effect.tryPromise({
-            try: () =>
-              client.send(
-                new DeleteObjectCommand({
-                  Bucket: config.bucket,
-                  Key: key
-                })
-              ),
-            catch: (error) =>
-              StorageErrorConstructors.QueryError(
-                `Failed to delete data at key ${key}: ${error}`,
-                `DELETE ${key}`,
-                error
-              )
-          })
-        )
+      Effect.tryPromise({
+        try: () =>
+          client.send(
+            new DeleteObjectCommand({
+              Bucket: config.bucket,
+              Key: key
+            })
+          ),
+        catch: (error) =>
+          StorageErrorConstructors.QueryError(
+            `Failed to delete data at key ${key}: ${error}`,
+            `DELETE ${key}`,
+            error
+          )
       })
 
     const archiveOTLPData = (
@@ -266,43 +256,35 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
       })
 
     const listObjects = (prefix?: string): Effect.Effect<string[], StorageError> =>
-      Effect.gen(function* (_) {
-        const objects = yield* _(
-          Effect.tryPromise({
-            try: async () => {
-              const keys: string[] = []
-              let continuationToken: string | undefined
+      Effect.tryPromise({
+        try: async () => {
+          const keys: string[] = []
+          let continuationToken: string | undefined
 
-              do {
-                const response = await client.send(
-                  new ListObjectsV2Command({
-                    Bucket: config.bucket,
-                    Prefix: prefix,
-                    ContinuationToken: continuationToken
-                  })
-                )
+          do {
+            const response = await client.send(
+              new ListObjectsV2Command({
+                Bucket: config.bucket,
+                Prefix: prefix,
+                ContinuationToken: continuationToken
+              })
+            )
 
-                if (response.Contents) {
-                  keys.push(
-                    ...(response.Contents.map((obj) => obj.Key).filter(Boolean) as string[])
-                  )
-                }
+            if (response.Contents) {
+              keys.push(...(response.Contents.map((obj) => obj.Key).filter(Boolean) as string[]))
+            }
 
-                continuationToken = response.NextContinuationToken
-              } while (continuationToken)
+            continuationToken = response.NextContinuationToken
+          } while (continuationToken)
 
-              return keys
-            },
-            catch: (error) =>
-              StorageErrorConstructors.QueryError(
-                `Failed to list objects: ${error}`,
-                `LIST ${prefix || 'all'}`,
-                error
-              )
-          })
-        )
-
-        return objects
+          return keys
+        },
+        catch: (error) =>
+          StorageErrorConstructors.QueryError(
+            `Failed to list objects: ${error}`,
+            `LIST ${prefix || 'all'}`,
+            error
+          )
       })
 
     const healthCheck = (): Effect.Effect<boolean, StorageError> =>

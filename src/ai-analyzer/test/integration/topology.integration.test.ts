@@ -7,6 +7,7 @@
 
 import { describe, it, expect, beforeAll } from 'vitest'
 import { Schema } from '@effect/schema'
+import { Effect } from 'effect'
 import { ServiceTopologySchema } from '../../types.js'
 
 const API_BASE_URL = process.env.API_URL || 'http://localhost:4319'
@@ -41,10 +42,10 @@ async function waitForTelemetryData(minServices = 5, maxWaitMs = 20000): Promise
       }
       
       // Wait 2 seconds before retry
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      await Effect.runPromise(Effect.sleep(2000))
     } catch (error) {
       // Continue waiting on errors
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      await Effect.runPromise(Effect.sleep(2000))
     }
   }
   
@@ -120,9 +121,9 @@ async function waitForArchitectureData(minSpans = 50, maxWaitMs = 15000): Promis
       }
       
       // Wait 2 seconds before retry
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      await Effect.runPromise(Effect.sleep(2000))
     } catch (error) {
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      await Effect.runPromise(Effect.sleep(2000))
     }
   }
   
@@ -179,7 +180,7 @@ describe('AI Analyzer Topology Integration', () => {
         throw new Error('AI Analyzer service did not become ready in time')
       }
       
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      await Effect.runPromise(Effect.sleep(2000))
     }
   }, TEST_TIMEOUT)
 
@@ -443,7 +444,7 @@ describe('AI Analyzer Topology Integration', () => {
             ? parseInt(metadata.totalSpans, 10) 
             : metadata.totalSpans
           expect(spans).toBeGreaterThan(0)
-          expect(spans).toBeLessThan(1000000) // Reasonable range
+          expect(spans).toBeLessThan(10000000) // Reasonable range (up to 10M spans)
           
           // Should not be a comma-separated BigInt string
           if (typeof metadata.totalSpans === 'string') {

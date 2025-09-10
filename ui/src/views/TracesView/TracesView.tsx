@@ -4,18 +4,22 @@ import {
   DownOutlined,
   FormatPainterOutlined,
   HistoryOutlined,
+  InfoCircleOutlined,
   PlayCircleOutlined,
   SaveOutlined
 } from '@ant-design/icons'
-import { Button, Card, Col, Dropdown, Row, Space, Spin, Tooltip, Typography } from 'antd'
-import React, { useCallback, useState } from 'react'
+import { App, Button, Card, Col, Dropdown, Row, Space, Spin, Tooltip, Typography } from 'antd'
+import React, { useCallback, useEffect, useState } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
+import { useLocation } from 'react-router-dom'
 import { format } from 'sql-formatter'
 import { MonacoQueryEditor } from '../../components/MonacoEditor/MonacoQueryEditor'
 import { TimeRangeSelector } from '../../components/TimeRangeSelector/TimeRangeSelector'
 import { TraceResults } from '../../components/TraceResults/TraceResults'
-import { useClickhouseQuery, type ClickhouseQueryResult } from '../../hooks/useClickhouseQuery'
+import { useClickhouseQuery } from '../../hooks/useClickhouseQuery'
 import { useAppStore } from '../../store/appStore'
+
+const { Title } = Typography
 
 // Interface for trace data from ClickHouse matching what TraceResults expects
 interface TraceRow {
@@ -35,11 +39,10 @@ interface TraceRow {
   resource_attributes?: Record<string, unknown>
 }
 
-const { Title } = Typography
-
 const DEFAULT_QUERY = `-- Query traces from simplified single-path ingestion
 SELECT 
   trace_id,
+  span_id,
   service_name,
   operation_name,
   duration_ms,
@@ -48,23 +51,39 @@ SELECT
   is_error,
   span_kind,
   is_root,
-  encoding_type
+  encoding_type,
+  parent_span_id
 FROM otel.traces 
 WHERE start_time >= subtractHours(now(), 3)
 ORDER BY start_time DESC 
 LIMIT 100`
 
+interface LocationState {
+  query?: string
+  metadata?: {
+    model: string
+    generatedAt: number
+    generationTime: number
+    criticalPath: string
+    description?: string
+  }
+}
+
 export const TracesView: React.FC = () => {
+  const { message } = App.useApp()
+  const location = useLocation()
+  const locationState = location.state as LocationState | null
   const { activeQuery, setActiveQuery, queryHistory, addToQueryHistory } = useAppStore()
   const [query, setQuery] = useState(activeQuery || DEFAULT_QUERY)
   const [isRunning, setIsRunning] = useState(false)
+  const [queryMetadata, setQueryMetadata] = useState<LocationState['metadata'] | null>(null)
 
   const {
     data: queryResults,
     isLoading,
     error,
     refetch
-  } = useClickhouseQuery(query, {
+  } = useClickhouseQuery<TraceRow>(query, {
     enabled: false // Don't auto-run, only on explicit execution
   })
 
@@ -130,6 +149,41 @@ export const TracesView: React.FC = () => {
     setQuery(value)
   }, [])
 
+  // Log query results
+  React.useEffect(() => {
+    if (queryResults?.data && Array.isArray(queryResults.data)) {
+      console.log('TracesView: Query results:', queryResults.data.length, 'rows')
+      if (queryResults.data.length > 0) {
+        console.log('TracesView: Sample columns:', Object.keys(queryResults.data[0]))
+      }
+    }
+  }, [queryResults])
+
+  // Handle incoming generated query from navigation
+  useEffect(() => {
+    if (locationState?.query) {
+      setQuery(locationState.query)
+      setQueryMetadata(locationState.metadata || null)
+
+      // Show notification about the generated query
+      if (locationState.metadata) {
+        message.info({
+          content: `Query generated with ${locationState.metadata.model} for ${locationState.metadata.criticalPath}`,
+          duration: 5,
+          icon: <InfoCircleOutlined />
+        })
+      }
+
+      // Auto-run the generated query
+      setTimeout(() => {
+        handleRunQuery()
+      }, 500)
+
+      // Clear the location state to prevent re-running on navigation
+      window.history.replaceState({}, document.title)
+    }
+  }, [locationState, handleRunQuery])
+
   return (
     <div
       style={{
@@ -172,7 +226,18 @@ export const TracesView: React.FC = () => {
               <div
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
               >
-                <span>Query Editor</span>
+                <Space>
+                  <span>Query Editor</span>
+                  {queryMetadata && (
+                    <Tooltip
+                      title={`Generated with ${queryMetadata.model} in ${queryMetadata.generationTime}ms`}
+                    >
+                      <span style={{ fontSize: '12px', color: '#1890ff' }}>
+                        (AI Generated for {queryMetadata.criticalPath})
+                      </span>
+                    </Tooltip>
+                  )}
+                </Space>
                 <Space size="small">
                   {queryHistory.length > 0 && (
                     <Dropdown
@@ -335,7 +400,14 @@ export const TracesView: React.FC = () => {
                 Query Error: {error.message}
               </div>
             ) : queryResults ? (
-              <TraceResults data={queryResults as ClickhouseQueryResult<TraceRow>} />
+              // Use the rich TraceResults component with statistics and formatting
+              <TraceResults
+                data={{
+                  data: queryResults.data,
+                  rows: queryResults.rows,
+                  statistics: queryResults.statistics
+                }}
+              />
             ) : (
               <div
                 style={{

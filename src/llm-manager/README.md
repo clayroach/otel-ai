@@ -126,7 +126,6 @@ The LLM Manager supports configuration via environment variables:
 ```bash
 # Local Model (LM Studio)
 LM_STUDIO_ENDPOINT=http://localhost:1234/v1
-LM_STUDIO_MODEL=openai/gpt-oss-20b
 
 # Model Preference Configuration (Primary)
 # These take precedence over legacy individual model configs

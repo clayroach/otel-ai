@@ -1,6 +1,6 @@
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { ConfigProvider, theme } from 'antd'
+import { ConfigProvider, theme, App as AntdApp } from 'antd'
 import { QueryClient, QueryClientProvider } from 'react-query'
 import { Layout } from './components/Layout/Layout'
 import { TracesView } from './views/TracesView/TracesView'
@@ -55,14 +55,16 @@ const App: React.FC = () => {
           }
         }}
       >
-        <Router
-          future={{
-            v7_startTransition: true,
-            v7_relativeSplatPath: true
-          }}
-        >
-          <AppContent />
-        </Router>
+        <AntdApp>
+          <Router
+            future={{
+              v7_startTransition: true,
+              v7_relativeSplatPath: true
+            }}
+          >
+            <AppContent />
+          </Router>
+        </AntdApp>
       </ConfigProvider>
     </QueryClientProvider>
   )

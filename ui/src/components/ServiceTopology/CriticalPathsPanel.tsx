@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Card,
   List,
@@ -18,9 +19,12 @@ import {
   ForkOutlined,
   ClockCircleOutlined,
   WarningOutlined,
-  ThunderboltOutlined
+  ThunderboltOutlined,
+  CodeOutlined,
+  LoadingOutlined
 } from '@ant-design/icons'
 import type { CriticalPath, PanelProps } from './types'
+import { useQueryGenerator } from '../../services/query-generator'
 
 const { Text } = Typography
 const { Search } = Input
@@ -39,8 +43,11 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
   onShowAll,
   width = '100%'
 }) => {
+  const navigate = useNavigate()
+  const queryGenerator = useQueryGenerator()
   const [searchTerm, setSearchTerm] = useState('')
   const [filterBy, setFilterBy] = useState<'all' | 'critical' | 'errors' | 'slow'>('all')
+  const [generatingQuery, setGeneratingQuery] = useState<string | null>(null)
 
   // Filter paths based on search and filter criteria
   const filteredPaths = paths.filter((path) => {
@@ -88,6 +95,37 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
 
   const handleClearSelection = () => {
     onPathSelect([])
+  }
+
+  const handleGenerateQuery = async (path: CriticalPath, event: React.MouseEvent) => {
+    // Prevent path selection when clicking the button
+    event.stopPropagation()
+
+    setGeneratingQuery(path.id)
+
+    try {
+      // Generate the query using the service
+      const result = await queryGenerator.generateQuery({ path })
+
+      // Navigate to Traces view with the generated query
+      navigate('/traces', {
+        state: {
+          query: result.sql,
+          metadata: {
+            model: result.model,
+            generatedAt: Date.now(),
+            generationTime: result.generationTime,
+            criticalPath: path.name,
+            description: result.description
+          }
+        }
+      })
+    } catch (error) {
+      console.error('Failed to generate query:', error)
+      // Could show a notification here
+    } finally {
+      setGeneratingQuery(null)
+    }
   }
 
   const getPriorityColor = (priority: CriticalPath['priority']) => {
@@ -201,6 +239,7 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
             renderItem={(path) => (
               <List.Item
                 key={path.id}
+                data-testid={`critical-path-item-${path.id}`}
                 style={{
                   cursor: 'pointer',
                   backgroundColor: selectedPaths.includes(path.id) ? '#e6f7ff' : 'transparent',
@@ -249,6 +288,20 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
                       {path.description}
                     </Text>
                   )}
+
+                  <Button
+                    size="small"
+                    type="primary"
+                    data-testid={`diagnostic-query-button-${path.id}`}
+                    icon={generatingQuery === path.id ? <LoadingOutlined /> : <CodeOutlined />}
+                    onClick={(e) => handleGenerateQuery(path, e)}
+                    loading={generatingQuery === path.id}
+                    style={{ marginTop: '8px', width: '100%' }}
+                  >
+                    {generatingQuery === path.id
+                      ? 'Generating Diagnostic Query...'
+                      : 'Generate Diagnostic Query'}
+                  </Button>
                 </Space>
               </List.Item>
             )}

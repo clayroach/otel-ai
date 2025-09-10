@@ -5,20 +5,46 @@
 import { readFileSync, existsSync } from 'fs'
 import { join } from 'path'
 
-// Global test setup
-console.log('🧪 Test environment setup')
-
 // Load .env file if it exists
-const envPath = join(process.cwd(), '.env')
-if (existsSync(envPath)) {
+// Check multiple possible locations for .env file (CI fix)
+const possibleEnvPaths = [
+  join(process.cwd(), '.env'), // Current working directory
+  join(process.cwd(), '..', '.env'), // Parent directory (CI fix)
+  join(process.cwd(), '../..', '.env') // Grandparent directory
+]
+
+let envPath: string | null = null
+for (const path of possibleEnvPaths) {
+  if (existsSync(path)) {
+    envPath = path
+    break
+  }
+}
+
+if (envPath) {
   const envContent = readFileSync(envPath, 'utf-8')
+
+  // Show configured LLM models for debugging
+  const llmModelLines = envContent
+    .split('\n')
+    .filter((line) => line.startsWith('LLM_') && line.includes('MODEL'))
+
+  if (llmModelLines.length > 0) {
+    console.log(
+      '📋 LLM models configured:',
+      llmModelLines.map((line) => {
+        const [key, value] = line.split('=')
+        return `${key}=${value}`
+      })
+    )
+  }
+
   envContent.split('\n').forEach((line) => {
     const [key, ...values] = line.split('=')
     if (key && values.length > 0 && !process.env[key]) {
       process.env[key] = values.join('=').trim()
     }
   })
-  console.log('📄 Loaded .env file for tests')
 }
 
 // Set test environment variables if not already set
@@ -37,6 +63,3 @@ if (!process.env.CLICKHOUSE_USERNAME) {
 if (!process.env.CLICKHOUSE_PASSWORD) {
   process.env.CLICKHOUSE_PASSWORD = 'otel123'
 }
-
-// Global test setup complete
-console.log('✅ Test setup complete')

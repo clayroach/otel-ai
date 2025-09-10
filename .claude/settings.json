@@ -1,0 +1,48 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker system prune:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker restart:*)",
+      "Bash(docker ps:*)",
+      "Bash(curl:*)",
+      "Bash(docker:*)",
+      "Read(//Users/croach/.claude/projects/-Users-croach-projects-otel-ai/**)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Read(/Users/croach/.claude/projects/-Users-croach-projects-otel-ai/**)",
+      "Read(/Users/croach/.claude/projects/**)",
+      "Bash(jq:*)",
+      "Bash(sed:*)",
+      "Bash(pkill:*)",
+      "Bash(VITEST=true pnpm test:integration --reporter=dot)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr view:*)",
+      "Bash(cat:*)",
+      "Bash(rg:*)"
+    ],
+    "deny": [],
+    "ask": [],
+    "defaultMode": "acceptEdits",
+    "additionalDirectories": []
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'if [[ \"$CLAUDE_TOOL_INPUT\" == *\"git commit\"* ]]; then cd /Users/croach/projects/otel-ai && echo \"🔍 Running pre-commit checks...\" && pnpm format:check && pnpm typecheck:all && echo \"✅ Pre-commit checks passed!\"; fi'"
+          }
+        ]
+      }
+    ]
+  }
+}

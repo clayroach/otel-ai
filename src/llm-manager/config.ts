@@ -30,7 +30,11 @@ export const defaultLLMConfig: LLMConfig = {
     strategy: 'balanced',
     fallbackOrder: ['llama', 'gpt', 'claude'],
     maxRetries: 3,
-    timeoutMs: 30000
+    timeoutMs: process.env.LLM_TIMEOUT_MS
+      ? parseInt(process.env.LLM_TIMEOUT_MS, 10)
+      : process.env.NODE_ENV === 'test' || process.env.CI
+        ? 90000
+        : 30000
   },
   cache: {
     enabled: true,
@@ -92,11 +96,58 @@ const loadConfigFromEnv = (): Effect.Effect<LLMConfig, LLMError, never> =>
       }
     }
 
-    if (process.env.LM_STUDIO_MODEL) {
-      if (baseConfig.models.llama) {
-        baseConfig.models.llama = {
-          ...baseConfig.models.llama,
-          modelPath: process.env.LM_STUDIO_MODEL
+    // NOTE: LM_STUDIO_MODEL removed - use LLM_SQL_MODEL_* instead
+    // The default llama model will be configured through LLM_SQL_MODEL_1 if available
+
+    // Load SQL-specific models from LLM_SQL_MODEL_* environment variables
+    const sqlModelKeys = Object.keys(process.env).filter((key) => key.startsWith('LLM_SQL_MODEL_'))
+    for (const key of sqlModelKeys) {
+      const modelName = process.env[key]
+      if (modelName) {
+        // Create a local model configuration for SQL models
+        baseConfig.models[modelName] = {
+          modelPath: modelName,
+          contextLength: 4096,
+          threads: 4,
+          gpuLayers: 0,
+          endpoint:
+            process.env.LM_STUDIO_ENDPOINT ||
+            process.env.LLM_ENDPOINT ||
+            'http://localhost:1234/v1',
+          maxTokens: 2048,
+          temperature: 0 // SQL models should be deterministic
+        }
+      }
+    }
+
+    // Load general models from LLM_GENERAL_MODEL_* environment variables
+    const generalModelKeys = Object.keys(process.env).filter((key) =>
+      key.startsWith('LLM_GENERAL_MODEL_')
+    )
+    for (const key of generalModelKeys) {
+      const modelName = process.env[key]
+      if (modelName) {
+        // Determine if this is a Claude, GPT, or local model based on name
+        if (modelName.includes('claude') && process.env.CLAUDE_API_KEY) {
+          // Already handled above in Claude configuration
+          continue
+        } else if (modelName.includes('gpt') && process.env.OPENAI_API_KEY) {
+          // Already handled above in GPT configuration
+          continue
+        } else {
+          // Assume it's a local model
+          baseConfig.models[modelName] = {
+            modelPath: modelName,
+            contextLength: 4096,
+            threads: 4,
+            gpuLayers: 0,
+            endpoint:
+              process.env.LM_STUDIO_ENDPOINT ||
+              process.env.LLM_ENDPOINT ||
+              'http://localhost:1234/v1',
+            maxTokens: 4096,
+            temperature: 0.7
+          }
         }
       }
     }
@@ -205,7 +256,6 @@ export const ENV_DOCS = {
 
   // Local Model Configuration
   LM_STUDIO_ENDPOINT: 'LM Studio endpoint (default: http://localhost:1234/v1)',
-  LM_STUDIO_MODEL: 'Local model name (default: openai/gpt-oss-20b)',
 
   // Routing Configuration
   LLM_ROUTING_STRATEGY: 'Routing strategy: cost, performance, or balanced',

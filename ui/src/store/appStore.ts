@@ -137,7 +137,7 @@ export const useAppStore = create<AppState>()(
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
 
       // Data Source
-      useMockData: true, // Default to mock data for safety
+      useMockData: false, // Default to live data for better user experience
       setUseMockData: (useMock: boolean) => set({ useMockData: useMock }),
 
       // Query state
@@ -195,28 +195,30 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'otel-ai-app-storage',
-      version: 3, // Increment to force storage reset and clear activeQuery
+      version: 4, // Increment to add useMockData persistence
       partialize: (state) => ({
         darkMode: state.darkMode,
         sidebarCollapsed: state.sidebarCollapsed,
+        useMockData: state.useMockData, // Persist data source selection
         clickhouseUrl: state.clickhouseUrl,
         clickhouseAuth: state.clickhouseAuth,
         queryHistory: state.queryHistory
         // Note: activeQuery is deliberately NOT persisted
       }),
       migrate: (persistedState: unknown, version: number) => {
-        // Force reset to ensure we use proxy URL and new history format
-        if (version < 3) {
+        // Handle migration for version updates
+        if (version < 4) {
           const state = persistedState as Record<string, unknown> | null | undefined
           return {
             darkMode: (state?.darkMode as boolean) || false,
             sidebarCollapsed: (state?.sidebarCollapsed as boolean) || false,
+            useMockData: (state?.useMockData as boolean) ?? false, // Default to live data (false)
             clickhouseUrl: '/api/clickhouse',
             clickhouseAuth: {
               username: 'otel',
               password: 'otel123'
             },
-            queryHistory: [] // Reset to new format
+            queryHistory: (state?.queryHistory as Array<unknown>) || []
             // activeQuery will default to '' which forces use of DEFAULT_QUERY
           }
         }

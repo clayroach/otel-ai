@@ -1,12 +1,12 @@
 // Main exports for query generator module
-export * from './types'
-export * from './llm-query-generator'
+export * from './types.js'
+export * from './llm-query-generator.js'
 export {
   CriticalPathQueryGeneratorLLMTag,
   CriticalPathQueryGeneratorLLMLive,
   generateCustomQuery
-} from './service-llm'
-export { generateQueryWithSQLModel } from './llm-query-generator'
+} from './service-llm.js'
+export { generateQueryWithSQLModel } from './llm-query-generator.js'
 
 // Re-export commonly used types for convenience
 export type {
@@ -16,6 +16,6 @@ export type {
   QueryResult,
   QueryThunk,
   QueryConfig
-} from './types'
+} from './types.js'
 
-export { QueryPattern } from './types'
+export { QueryPattern } from './types.js'

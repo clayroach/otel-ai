@@ -412,32 +412,18 @@ export const ServiceTopologyGraph: React.FC<ServiceTopologyGraphProps> = ({
           return ''
         }
       },
-      legend: [
-        {
-          data: ['Rate', 'Errors', 'Duration', 'OTel'],
-          orient: 'horizontal',
-          left: 'center',
-          bottom: 20,
-          itemWidth: 15,
-          itemHeight: 15,
-          formatter: (name: string) => {
-            const icons: Record<string, string> = {
-              Rate: '📊',
-              Errors: '⚠️',
-              Duration: '⏱️',
-              OTel: '📡'
-            }
-            return `${icons[name] || ''} ${name}`
-          }
-        },
-        {
-          data: data.runtimeEnvironments || [],
-          orient: 'vertical',
-          left: 'left',
-          top: 'center',
-          formatter: (name: string) => `${getRuntimeIcon(name)} ${name}`
-        }
-      ],
+      legend:
+        data.runtimeEnvironments && data.runtimeEnvironments.length > 0
+          ? [
+              {
+                data: data.runtimeEnvironments,
+                orient: 'vertical',
+                left: 'left',
+                top: 'center',
+                formatter: (name: string) => `${getRuntimeIcon(name)} ${name}`
+              }
+            ]
+          : undefined,
       animationDuration: 1500,
       animationEasingUpdate: 'quinticInOut',
       series: [graphSeries]

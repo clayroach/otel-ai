@@ -11,7 +11,6 @@ import ServiceDetailsTab from './ServiceDetailsTab'
 import type { AnalysisTab, PanelProps } from './types'
 
 const { Text } = Typography
-const { TabPane } = Tabs
 
 interface AIAnalysisPanelProps extends PanelProps {
   tabs: AnalysisTab[]
@@ -151,33 +150,30 @@ export const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
           }}
           style={{ height: '100%' }}
           data-testid="analysis-tabs"
-        >
-          {tabs.map((tab) => (
-            <TabPane
-              tab={
-                <Space size="small">
-                  {tab.type === 'global' ? <GlobalOutlined /> : <AppstoreOutlined />}
-                  <span>{tab.title}</span>
-                  {tab.type === 'service' && (
-                    <Tooltip title="Service Analysis">
-                      <Badge status="processing" />
-                    </Tooltip>
-                  )}
-                </Space>
-              }
-              key={tab.id}
-              closable={tab.type === 'service'}
-            >
-              {loading && tab.id === activeTabId ? (
+          items={tabs.map((tab) => ({
+            key: tab.id,
+            label: (
+              <Space size="small">
+                {tab.type === 'global' ? <GlobalOutlined /> : <AppstoreOutlined />}
+                <span>{tab.title}</span>
+                {tab.type === 'service' && (
+                  <Tooltip title="Service Analysis">
+                    <Badge status="processing" />
+                  </Tooltip>
+                )}
+              </Space>
+            ),
+            closable: tab.type === 'service',
+            children:
+              loading && tab.id === activeTabId ? (
                 <div style={{ textAlign: 'center', padding: '40px' }}>
                   <Spin size="large" />
                 </div>
               ) : (
                 renderTabContent(tab)
-              )}
-            </TabPane>
-          ))}
-        </Tabs>
+              )
+          }))}
+        />
       )}
     </Card>
   )

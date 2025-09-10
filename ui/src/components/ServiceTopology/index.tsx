@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react'
-import { Row, Col, message, Alert } from 'antd'
+import { Row, Col, Alert, App } from 'antd'
 import { CriticalPathsPanel } from './CriticalPathsPanel'
 import { AIAnalysisPanel } from './AIAnalysisPanel'
 import { ServiceTopologyPanel } from './ServiceTopologyPanel'
@@ -235,6 +235,7 @@ export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
   },
   className = ''
 }) => {
+  const { message } = App.useApp()
   // State management
   const [state, setState] = useState<TopologyState>({
     availablePaths: propsPaths || generateMockPaths(),
