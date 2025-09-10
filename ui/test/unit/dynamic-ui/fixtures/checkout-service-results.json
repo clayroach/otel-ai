@@ -1,0 +1,1117 @@
+{
+	"meta":
+	[
+		{
+			"name": "service_name",
+			"type": "LowCardinality(String)"
+		},
+		{
+			"name": "operation_name",
+			"type": "LowCardinality(String)"
+		},
+		{
+			"name": "minute",
+			"type": "DateTime"
+		},
+		{
+			"name": "p50_ms",
+			"type": "Float64"
+		},
+		{
+			"name": "p95_ms",
+			"type": "Float64"
+		},
+		{
+			"name": "p99_ms",
+			"type": "Float64"
+		},
+		{
+			"name": "request_count",
+			"type": "UInt64"
+		}
+	],
+
+	"data":
+	[
+		{
+			"service_name": "cart",
+			"operation_name": "EXPIRE",
+			"minute": "2025-09-10 03:08:00",
+			"p50_ms": 0.157952,
+			"p95_ms": 0.1993216,
+			"p99_ms": 0.20759552,
+			"request_count": "9"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "EXPIRE",
+			"minute": "2025-09-10 03:10:00",
+			"p50_ms": 0.17164800000000002,
+			"p95_ms": 0.274688,
+			"p99_ms": 0.2761216,
+			"request_count": "6"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "EXPIRE",
+			"minute": "2025-09-10 03:13:00",
+			"p50_ms": 0.12416,
+			"p95_ms": 0.148864,
+			"p99_ms": 0.14917119999999998,
+			"request_count": "7"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "EXPIRE",
+			"minute": "2025-09-10 03:16:00",
+			"p50_ms": 0.186368,
+			"p95_ms": 0.6419967999999997,
+			"p99_ms": 0.8347545599999999,
+			"request_count": "9"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "EXPIRE",
+			"minute": "2025-09-10 03:17:00",
+			"p50_ms": 0.153856,
+			"p95_ms": 0.2406912,
+			"p99_ms": 0.24249344,
+			"request_count": "9"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "EXPIRE",
+			"minute": "2025-09-10 03:18:00",
+			"p50_ms": 0.15744,
+			"p95_ms": 0.43398400000000004,
+			"p99_ms": 0.49025280000000004,
+			"request_count": "6"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "HGET",
+			"minute": "2025-09-10 03:08:00",
+			"p50_ms": 0.202112,
+			"p95_ms": 0.4144000000000001,
+			"p99_ms": 0.5301631999999998,
+			"request_count": "20"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "HGET",
+			"minute": "2025-09-10 03:09:00",
+			"p50_ms": 0.269312,
+			"p95_ms": 0.5741312,
+			"p99_ms": 0.6116710399999999,
+			"request_count": "7"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "HGET",
+			"minute": "2025-09-10 03:10:00",
+			"p50_ms": 0.213376,
+			"p95_ms": 0.3517952,
+			"p99_ms": 0.35216384,
+			"request_count": "10"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "HGET",
+			"minute": "2025-09-10 03:11:00",
+			"p50_ms": 0.191104,
+			"p95_ms": 0.29332479999999994,
+			"p99_ms": 0.3388313600000001,
+			"request_count": "12"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "HGET",
+			"minute": "2025-09-10 03:12:00",
+			"p50_ms": 0.267264,
+			"p95_ms": 0.6309375999999999,
+			"p99_ms": 0.7035187199999999,
+			"request_count": "9"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "HGET",
+			"minute": "2025-09-10 03:13:00",
+			"p50_ms": 0.182016,
+			"p95_ms": 0.5249023999999994,
+			"p99_ms": 1.09867008,
+			"request_count": "17"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "HGET",
+			"minute": "2025-09-10 03:15:00",
+			"p50_ms": 0.232576,
+			"p95_ms": 0.4319743999999999,
+			"p99_ms": 0.47326208000000003,
+			"request_count": "10"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "HGET",
+			"minute": "2025-09-10 03:16:00",
+			"p50_ms": 0.32320000000000004,
+			"p95_ms": 0.48188159999999974,
+			"p99_ms": 0.5983411199999996,
+			"request_count": "18"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "HGET",
+			"minute": "2025-09-10 03:17:00",
+			"p50_ms": 0.213504,
+			"p95_ms": 0.4988800000000001,
+			"p99_ms": 0.6068607999999999,
+			"request_count": "20"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "HGET",
+			"minute": "2025-09-10 03:18:00",
+			"p50_ms": 0.211968,
+			"p95_ms": 0.471808,
+			"p99_ms": 0.5514752,
+			"request_count": "11"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "HGET",
+			"minute": "2025-09-10 03:20:00",
+			"p50_ms": 0.223488,
+			"p95_ms": 0.39505919999999994,
+			"p99_ms": 0.42471424,
+			"request_count": "9"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "HMSET",
+			"minute": "2025-09-10 03:08:00",
+			"p50_ms": 0.207872,
+			"p95_ms": 0.3792896,
+			"p99_ms": 0.40108032,
+			"request_count": "9"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "HMSET",
+			"minute": "2025-09-10 03:10:00",
+			"p50_ms": 0.25062399999999996,
+			"p95_ms": 0.301312,
+			"p99_ms": 0.30929920000000005,
+			"request_count": "6"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "HMSET",
+			"minute": "2025-09-10 03:13:00",
+			"p50_ms": 0.167168,
+			"p95_ms": 0.20372479999999998,
+			"p99_ms": 0.21380095999999998,
+			"request_count": "7"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "HMSET",
+			"minute": "2025-09-10 03:16:00",
+			"p50_ms": 0.246016,
+			"p95_ms": 0.322816,
+			"p99_ms": 0.34329600000000005,
+			"request_count": "9"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "HMSET",
+			"minute": "2025-09-10 03:17:00",
+			"p50_ms": 0.172032,
+			"p95_ms": 0.5341695999999999,
+			"p99_ms": 0.6305075199999999,
+			"request_count": "9"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "HMSET",
+			"minute": "2025-09-10 03:18:00",
+			"p50_ms": 0.183808,
+			"p95_ms": 0.327232,
+			"p99_ms": 0.3552384,
+			"request_count": "6"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "POST \/oteldemo.CartService\/AddItem",
+			"minute": "2025-09-10 03:08:00",
+			"p50_ms": 0.744448,
+			"p95_ms": 1.4388223999999998,
+			"p99_ms": 1.4893260799999997,
+			"request_count": "7"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "POST \/oteldemo.CartService\/AddItem",
+			"minute": "2025-09-10 03:13:00",
+			"p50_ms": 0.639232,
+			"p95_ms": 0.9612160000000001,
+			"p99_ms": 1.0302848,
+			"request_count": "6"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "POST \/oteldemo.CartService\/AddItem",
+			"minute": "2025-09-10 03:16:00",
+			"p50_ms": 1.050112,
+			"p95_ms": 2.0243968,
+			"p99_ms": 2.09406976,
+			"request_count": "7"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "POST \/oteldemo.CartService\/AddItem",
+			"minute": "2025-09-10 03:17:00",
+			"p50_ms": 0.7614719999999999,
+			"p95_ms": 1.6445439999999998,
+			"p99_ms": 1.8151423999999998,
+			"request_count": "8"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "POST \/oteldemo.CartService\/GetCart",
+			"minute": "2025-09-10 03:08:00",
+			"p50_ms": 0.306432,
+			"p95_ms": 2.826444799999993,
+			"p99_ms": 5.162639359999996,
+			"request_count": "13"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "POST \/oteldemo.CartService\/GetCart",
+			"minute": "2025-09-10 03:09:00",
+			"p50_ms": 0.68736,
+			"p95_ms": 0.905856,
+			"p99_ms": 0.9395456000000001,
+			"request_count": "6"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "POST \/oteldemo.CartService\/GetCart",
+			"minute": "2025-09-10 03:10:00",
+			"p50_ms": 0.297856,
+			"p95_ms": 1.329088,
+			"p99_ms": 1.6007040000000003,
+			"request_count": "6"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "POST \/oteldemo.CartService\/GetCart",
+			"minute": "2025-09-10 03:11:00",
+			"p50_ms": 0.312064,
+			"p95_ms": 1.0727423999999997,
+			"p99_ms": 1.3405388799999998,
+			"request_count": "8"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "POST \/oteldemo.CartService\/GetCart",
+			"minute": "2025-09-10 03:12:00",
+			"p50_ms": 0.44736,
+			"p95_ms": 0.742208,
+			"p99_ms": 0.7765632,
+			"request_count": "6"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "POST \/oteldemo.CartService\/GetCart",
+			"minute": "2025-09-10 03:13:00",
+			"p50_ms": 0.260096,
+			"p95_ms": 1.02976,
+			"p99_ms": 1.3321472000000003,
+			"request_count": "11"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "POST \/oteldemo.CartService\/GetCart",
+			"minute": "2025-09-10 03:15:00",
+			"p50_ms": 0.470272,
+			"p95_ms": 1.1317631999999995,
+			"p99_ms": 1.3513190399999997,
+			"request_count": "8"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "POST \/oteldemo.CartService\/GetCart",
+			"minute": "2025-09-10 03:16:00",
+			"p50_ms": 0.49024,
+			"p95_ms": 0.8968959999999999,
+			"p99_ms": 0.9152256,
+			"request_count": "11"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "POST \/oteldemo.CartService\/GetCart",
+			"minute": "2025-09-10 03:17:00",
+			"p50_ms": 0.32012799999999997,
+			"p95_ms": 0.5760767999999999,
+			"p99_ms": 0.6294681600000002,
+			"request_count": "12"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "POST \/oteldemo.CartService\/GetCart",
+			"minute": "2025-09-10 03:18:00",
+			"p50_ms": 0.31616,
+			"p95_ms": 0.4008192,
+			"p99_ms": 0.40088063999999995,
+			"request_count": "7"
+		},
+		{
+			"service_name": "cart",
+			"operation_name": "POST \/oteldemo.CartService\/GetCart",
+			"minute": "2025-09-10 03:20:00",
+			"p50_ms": 0.3264,
+			"p95_ms": 0.49817599999999995,
+			"p99_ms": 0.5284864,
+			"request_count": "6"
+		},
+		{
+			"service_name": "checkout",
+			"operation_name": "HTTP POST",
+			"minute": "2025-09-10 03:08:00",
+			"p50_ms": 4.2366719999999995,
+			"p95_ms": 9.820288,
+			"p99_ms": 9.927091200000001,
+			"request_count": "6"
+		},
+		{
+			"service_name": "checkout",
+			"operation_name": "HTTP POST",
+			"minute": "2025-09-10 03:10:00",
+			"p50_ms": 3.322496,
+			"p95_ms": 11.606912,
+			"p99_ms": 12.2408704,
+			"request_count": "6"
+		},
+		{
+			"service_name": "checkout",
+			"operation_name": "HTTP POST",
+			"minute": "2025-09-10 03:16:00",
+			"p50_ms": 3.032832,
+			"p95_ms": 10.043584,
+			"p99_ms": 10.3696768,
+			"request_count": "6"
+		},
+		{
+			"service_name": "checkout",
+			"operation_name": "HTTP POST",
+			"minute": "2025-09-10 03:18:00",
+			"p50_ms": 2.9552639999999997,
+			"p95_ms": 10.069887999999999,
+			"p99_ms": 10.1947136,
+			"request_count": "6"
+		},
+		{
+			"service_name": "checkout",
+			"operation_name": "HTTP POST",
+			"minute": "2025-09-10 03:20:00",
+			"p50_ms": 3.038336,
+			"p95_ms": 11.319808,
+			"p99_ms": 11.748659199999999,
+			"request_count": "6"
+		},
+		{
+			"service_name": "checkout",
+			"operation_name": "oteldemo.CurrencyService\/Convert",
+			"minute": "2025-09-10 03:16:00",
+			"p50_ms": 2.0096,
+			"p95_ms": 3.6106751999999993,
+			"p99_ms": 3.8365286399999996,
+			"request_count": "7"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "GET",
+			"minute": "2025-09-10 03:06:00",
+			"p50_ms": 1.78816,
+			"p95_ms": 6.004659199999999,
+			"p99_ms": 7.287178240000002,
+			"request_count": "12"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "GET",
+			"minute": "2025-09-10 03:07:00",
+			"p50_ms": 2.498048,
+			"p95_ms": 7.107865599999997,
+			"p99_ms": 8.622750719999999,
+			"request_count": "15"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "GET",
+			"minute": "2025-09-10 03:08:00",
+			"p50_ms": 2.9952,
+			"p95_ms": 6.783897599999999,
+			"p99_ms": 6.9259571200000005,
+			"request_count": "23"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "GET",
+			"minute": "2025-09-10 03:09:00",
+			"p50_ms": 4.20224,
+			"p95_ms": 8.720588800000002,
+			"p99_ms": 8.72329216,
+			"request_count": "13"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "GET",
+			"minute": "2025-09-10 03:10:00",
+			"p50_ms": 3.456128,
+			"p95_ms": 6.371776000000003,
+			"p99_ms": 9.771711999999996,
+			"request_count": "20"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "GET",
+			"minute": "2025-09-10 03:11:00",
+			"p50_ms": 3.030272,
+			"p95_ms": 5.6460032,
+			"p99_ms": 10.402795520000009,
+			"request_count": "23"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "GET",
+			"minute": "2025-09-10 03:12:00",
+			"p50_ms": 3.486976,
+			"p95_ms": 7.09696000000001,
+			"p99_ms": 18.08765439999998,
+			"request_count": "20"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "GET",
+			"minute": "2025-09-10 03:13:00",
+			"p50_ms": 2.148608,
+			"p95_ms": 6.538342399999994,
+			"p99_ms": 56.23441407999987,
+			"request_count": "25"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "GET",
+			"minute": "2025-09-10 03:14:00",
+			"p50_ms": 3.444096,
+			"p95_ms": 9.465011200000001,
+			"p99_ms": 9.56112384,
+			"request_count": "20"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "GET",
+			"minute": "2025-09-10 03:15:00",
+			"p50_ms": 3.387136,
+			"p95_ms": 5.125376,
+			"p99_ms": 5.761280000000001,
+			"request_count": "21"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "GET",
+			"minute": "2025-09-10 03:16:00",
+			"p50_ms": 3.168256,
+			"p95_ms": 7.046144,
+			"p99_ms": 7.6804096,
+			"request_count": "21"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "GET",
+			"minute": "2025-09-10 03:17:00",
+			"p50_ms": 2.574336,
+			"p95_ms": 6.413824,
+			"p99_ms": 7.5189248000000015,
+			"request_count": "21"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "GET",
+			"minute": "2025-09-10 03:18:00",
+			"p50_ms": 2.83136,
+			"p95_ms": 5.703936,
+			"p99_ms": 6.6126336000000006,
+			"request_count": "21"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "GET",
+			"minute": "2025-09-10 03:19:00",
+			"p50_ms": 2.5873920000000004,
+			"p95_ms": 6.415871999999999,
+			"p99_ms": 6.651187200000001,
+			"request_count": "16"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "GET",
+			"minute": "2025-09-10 03:20:00",
+			"p50_ms": 3.276032,
+			"p95_ms": 5.79776,
+			"p99_ms": 6.405824,
+			"request_count": "26"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "GET",
+			"minute": "2025-09-10 03:21:00",
+			"p50_ms": 4.482304,
+			"p95_ms": 4.864691199999999,
+			"p99_ms": 4.89240064,
+			"request_count": "7"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "GET \/api\/cart",
+			"minute": "2025-09-10 03:15:00",
+			"p50_ms": 3.456896,
+			"p95_ms": 4.779392,
+			"p99_ms": 4.878617600000001,
+			"request_count": "6"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "POST",
+			"minute": "2025-09-10 03:08:00",
+			"p50_ms": 3.952384,
+			"p95_ms": 50.2710272,
+			"p99_ms": 51.03017984,
+			"request_count": "9"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "POST",
+			"minute": "2025-09-10 03:10:00",
+			"p50_ms": 4.565887999999999,
+			"p95_ms": 55.878464,
+			"p99_ms": 56.1620608,
+			"request_count": "6"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "POST",
+			"minute": "2025-09-10 03:13:00",
+			"p50_ms": 2.90944,
+			"p95_ms": 42.23142399999996,
+			"p99_ms": 55.666815999999976,
+			"request_count": "7"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "POST",
+			"minute": "2025-09-10 03:16:00",
+			"p50_ms": 4.853248,
+			"p95_ms": 58.53690879999999,
+			"p99_ms": 63.11361535999999,
+			"request_count": "9"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "POST",
+			"minute": "2025-09-10 03:17:00",
+			"p50_ms": 3.331072,
+			"p95_ms": 34.35315199999998,
+			"p99_ms": 49.184358399999994,
+			"request_count": "9"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "POST",
+			"minute": "2025-09-10 03:18:00",
+			"p50_ms": 4.33664,
+			"p95_ms": 66.44371199999999,
+			"p99_ms": 69.87703040000001,
+			"request_count": "6"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "POST \/api\/cart",
+			"minute": "2025-09-10 03:08:00",
+			"p50_ms": 3.015424,
+			"p95_ms": 5.0622463999999985,
+			"p99_ms": 5.520097279999998,
+			"request_count": "7"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "POST \/api\/cart",
+			"minute": "2025-09-10 03:13:00",
+			"p50_ms": 2.697088,
+			"p95_ms": 2.8562559999999997,
+			"p99_ms": 2.8652159999999998,
+			"request_count": "6"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "POST \/api\/cart",
+			"minute": "2025-09-10 03:16:00",
+			"p50_ms": 4.371712,
+			"p95_ms": 5.243136,
+			"p99_ms": 5.436672,
+			"request_count": "7"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "POST \/api\/cart",
+			"minute": "2025-09-10 03:17:00",
+			"p50_ms": 2.9651199999999998,
+			"p95_ms": 5.337203199999999,
+			"p99_ms": 5.99042304,
+			"request_count": "8"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "executing api route (pages) \/api\/cart",
+			"minute": "2025-09-10 03:08:00",
+			"p50_ms": 2.439168,
+			"p95_ms": 4.104192,
+			"p99_ms": 4.730880000000001,
+			"request_count": "11"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "executing api route (pages) \/api\/cart",
+			"minute": "2025-09-10 03:11:00",
+			"p50_ms": 1.714432,
+			"p95_ms": 3.6997375999999997,
+			"p99_ms": 3.7994547199999995,
+			"request_count": "7"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "executing api route (pages) \/api\/cart",
+			"minute": "2025-09-10 03:12:00",
+			"p50_ms": 2.744704,
+			"p95_ms": 4.475776,
+			"p99_ms": 4.5373184,
+			"request_count": "6"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "executing api route (pages) \/api\/cart",
+			"minute": "2025-09-10 03:13:00",
+			"p50_ms": 2.419072,
+			"p95_ms": 12.263449599999982,
+			"p99_ms": 18.171089920000004,
+			"request_count": "10"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "executing api route (pages) \/api\/cart",
+			"minute": "2025-09-10 03:15:00",
+			"p50_ms": 2.461696,
+			"p95_ms": 3.300352,
+			"p99_ms": 3.3792,
+			"request_count": "8"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "executing api route (pages) \/api\/cart",
+			"minute": "2025-09-10 03:16:00",
+			"p50_ms": 3.357696,
+			"p95_ms": 4.5697024,
+			"p99_ms": 4.768686079999999,
+			"request_count": "9"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "executing api route (pages) \/api\/cart",
+			"minute": "2025-09-10 03:17:00",
+			"p50_ms": 2.285824,
+			"p95_ms": 4.48448,
+			"p99_ms": 5.314022400000001,
+			"request_count": "11"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "executing api route (pages) \/api\/products\/[productId]",
+			"minute": "2025-09-10 03:06:00",
+			"p50_ms": 1.020416,
+			"p95_ms": 2.3365760000000004,
+			"p99_ms": 2.6340992000000005,
+			"request_count": "6"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "executing api route (pages) \/api\/products\/[productId]",
+			"minute": "2025-09-10 03:07:00",
+			"p50_ms": 2.234496,
+			"p95_ms": 3.3205119999999995,
+			"p99_ms": 3.5577216,
+			"request_count": "6"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "executing api route (pages) \/api\/products\/[productId]",
+			"minute": "2025-09-10 03:08:00",
+			"p50_ms": 1.0565120000000001,
+			"p95_ms": 3.729984,
+			"p99_ms": 4.3426944,
+			"request_count": "16"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "executing api route (pages) \/api\/products\/[productId]",
+			"minute": "2025-09-10 03:10:00",
+			"p50_ms": 1.8976000000000002,
+			"p95_ms": 3.063872,
+			"p99_ms": 3.0836864,
+			"request_count": "16"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "executing api route (pages) \/api\/products\/[productId]",
+			"minute": "2025-09-10 03:11:00",
+			"p50_ms": 1.746176,
+			"p95_ms": 2.8313344,
+			"p99_ms": 3.02489088,
+			"request_count": "14"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "executing api route (pages) \/api\/products\/[productId]",
+			"minute": "2025-09-10 03:12:00",
+			"p50_ms": 2.186368,
+			"p95_ms": 12.267788799999982,
+			"p99_ms": 18.528309760000003,
+			"request_count": "10"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "executing api route (pages) \/api\/products\/[productId]",
+			"minute": "2025-09-10 03:13:00",
+			"p50_ms": 1.077504,
+			"p95_ms": 1.9327487999999993,
+			"p99_ms": 2.17568256,
+			"request_count": "13"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "executing api route (pages) \/api\/products\/[productId]",
+			"minute": "2025-09-10 03:14:00",
+			"p50_ms": 1.38368,
+			"p95_ms": 2.3690752,
+			"p99_ms": 2.37251584,
+			"request_count": "9"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "executing api route (pages) \/api\/products\/[productId]",
+			"minute": "2025-09-10 03:15:00",
+			"p50_ms": 1.229824,
+			"p95_ms": 2.074624,
+			"p99_ms": 2.0824064,
+			"request_count": "9"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "executing api route (pages) \/api\/products\/[productId]",
+			"minute": "2025-09-10 03:16:00",
+			"p50_ms": 1.387008,
+			"p95_ms": 2.9811711999999995,
+			"p99_ms": 3.14558464,
+			"request_count": "13"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "executing api route (pages) \/api\/products\/[productId]",
+			"minute": "2025-09-10 03:17:00",
+			"p50_ms": 1.595648,
+			"p95_ms": 2.5942016,
+			"p99_ms": 2.8783411199999995,
+			"request_count": "15"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "executing api route (pages) \/api\/products\/[productId]",
+			"minute": "2025-09-10 03:18:00",
+			"p50_ms": 1.3242880000000001,
+			"p95_ms": 2.789632,
+			"p99_ms": 3.522611199999999,
+			"request_count": "16"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "executing api route (pages) \/api\/products\/[productId]",
+			"minute": "2025-09-10 03:19:00",
+			"p50_ms": 1.594112,
+			"p95_ms": 2.82048,
+			"p99_ms": 3.1212288000000004,
+			"request_count": "11"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "executing api route (pages) \/api\/products\/[productId]",
+			"minute": "2025-09-10 03:20:00",
+			"p50_ms": 1.47328,
+			"p95_ms": 3.0192384000000003,
+			"p99_ms": 3.04403968,
+			"request_count": "15"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.CartService\/AddItem",
+			"minute": "2025-09-10 03:08:00",
+			"p50_ms": 1.402624,
+			"p95_ms": 2.945561599999999,
+			"p99_ms": 3.2044083199999993,
+			"request_count": "7"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.CartService\/AddItem",
+			"minute": "2025-09-10 03:13:00",
+			"p50_ms": 1.2994560000000002,
+			"p95_ms": 1.6034559999999998,
+			"p99_ms": 1.6439039999999998,
+			"request_count": "6"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.CartService\/AddItem",
+			"minute": "2025-09-10 03:16:00",
+			"p50_ms": 1.981184,
+			"p95_ms": 2.9205504,
+			"p99_ms": 2.9440204800000003,
+			"request_count": "7"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.CartService\/AddItem",
+			"minute": "2025-09-10 03:17:00",
+			"p50_ms": 1.471232,
+			"p95_ms": 2.8527359999999993,
+			"p99_ms": 3.1545087999999994,
+			"request_count": "8"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.CartService\/GetCart",
+			"minute": "2025-09-10 03:08:00",
+			"p50_ms": 1.003008,
+			"p95_ms": 2.039936,
+			"p99_ms": 2.0676864000000004,
+			"request_count": "11"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.CartService\/GetCart",
+			"minute": "2025-09-10 03:11:00",
+			"p50_ms": 0.952064,
+			"p95_ms": 2.445721599999999,
+			"p99_ms": 2.8443443199999994,
+			"request_count": "7"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.CartService\/GetCart",
+			"minute": "2025-09-10 03:12:00",
+			"p50_ms": 1.243136,
+			"p95_ms": 3.080064,
+			"p99_ms": 3.5168000000000004,
+			"request_count": "6"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.CartService\/GetCart",
+			"minute": "2025-09-10 03:13:00",
+			"p50_ms": 0.8343039999999999,
+			"p95_ms": 9.461593599999986,
+			"p99_ms": 13.97162752,
+			"request_count": "10"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.CartService\/GetCart",
+			"minute": "2025-09-10 03:15:00",
+			"p50_ms": 1.53536,
+			"p95_ms": 2.7454592,
+			"p99_ms": 2.85104384,
+			"request_count": "8"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.CartService\/GetCart",
+			"minute": "2025-09-10 03:16:00",
+			"p50_ms": 1.431552,
+			"p95_ms": 2.0715519999999996,
+			"p99_ms": 2.3017472000000003,
+			"request_count": "9"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.CartService\/GetCart",
+			"minute": "2025-09-10 03:17:00",
+			"p50_ms": 0.946176,
+			"p95_ms": 1.747584,
+			"p99_ms": 1.7579264000000001,
+			"request_count": "11"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.ProductCatalogService\/GetProduct",
+			"minute": "2025-09-10 03:06:00",
+			"p50_ms": 0.881152,
+			"p95_ms": 2.2364927999999997,
+			"p99_ms": 2.38429696,
+			"request_count": "15"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.ProductCatalogService\/GetProduct",
+			"minute": "2025-09-10 03:07:00",
+			"p50_ms": 1.76064,
+			"p95_ms": 2.6742143999999994,
+			"p99_ms": 2.93899008,
+			"request_count": "10"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.ProductCatalogService\/GetProduct",
+			"minute": "2025-09-10 03:08:00",
+			"p50_ms": 0.870912,
+			"p95_ms": 2.3048191999999994,
+			"p99_ms": 3.5681587199999982,
+			"request_count": "27"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.ProductCatalogService\/GetProduct",
+			"minute": "2025-09-10 03:09:00",
+			"p50_ms": 1.244288,
+			"p95_ms": 1.9490431999999995,
+			"p99_ms": 2.434531839999999,
+			"request_count": "14"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.ProductCatalogService\/GetProduct",
+			"minute": "2025-09-10 03:10:00",
+			"p50_ms": 1.415808,
+			"p95_ms": 2.264832,
+			"p99_ms": 2.3407359999999997,
+			"request_count": "26"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.ProductCatalogService\/GetProduct",
+			"minute": "2025-09-10 03:11:00",
+			"p50_ms": 1.106432,
+			"p95_ms": 2.7409919999999994,
+			"p99_ms": 2.789888,
+			"request_count": "25"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.ProductCatalogService\/GetProduct",
+			"minute": "2025-09-10 03:12:00",
+			"p50_ms": 1.018496,
+			"p95_ms": 3.032460799999992,
+			"p99_ms": 6.652802559999991,
+			"request_count": "18"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.ProductCatalogService\/GetProduct",
+			"minute": "2025-09-10 03:13:00",
+			"p50_ms": 0.776448,
+			"p95_ms": 1.4407679999999998,
+			"p99_ms": 1.6799129599999993,
+			"request_count": "25"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.ProductCatalogService\/GetProduct",
+			"minute": "2025-09-10 03:14:00",
+			"p50_ms": 1.070848,
+			"p95_ms": 1.7618431999999995,
+			"p99_ms": 1.8867711999999999,
+			"request_count": "25"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.ProductCatalogService\/GetProduct",
+			"minute": "2025-09-10 03:15:00",
+			"p50_ms": 0.936448,
+			"p95_ms": 1.58592,
+			"p99_ms": 1.6039424000000002,
+			"request_count": "17"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.ProductCatalogService\/GetProduct",
+			"minute": "2025-09-10 03:16:00",
+			"p50_ms": 1.455488,
+			"p95_ms": 2.090048,
+			"p99_ms": 2.425216,
+			"request_count": "26"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.ProductCatalogService\/GetProduct",
+			"minute": "2025-09-10 03:17:00",
+			"p50_ms": 1.02272,
+			"p95_ms": 1.99296,
+			"p99_ms": 2.2389248,
+			"request_count": "21"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.ProductCatalogService\/GetProduct",
+			"minute": "2025-09-10 03:18:00",
+			"p50_ms": 0.965632,
+			"p95_ms": 1.9108607999999998,
+			"p99_ms": 2.482698239999999,
+			"request_count": "27"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.ProductCatalogService\/GetProduct",
+			"minute": "2025-09-10 03:19:00",
+			"p50_ms": 1.241984,
+			"p95_ms": 2.2527359999999996,
+			"p99_ms": 2.4752000000000005,
+			"request_count": "12"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.ProductCatalogService\/GetProduct",
+			"minute": "2025-09-10 03:20:00",
+			"p50_ms": 0.87552,
+			"p95_ms": 2.3845888,
+			"p99_ms": 2.41160192,
+			"request_count": "29"
+		},
+		{
+			"service_name": "frontend",
+			"operation_name": "grpc.oteldemo.ProductCatalogService\/GetProduct",
+			"minute": "2025-09-10 03:21:00",
+			"p50_ms": 0.83328,
+			"p95_ms": 2.0291583999999996,
+			"p99_ms": 2.1923020799999997,
+			"request_count": "8"
+		}
+	],
+
+	"rows": 119,
+
+	"statistics":
+	{
+		"elapsed": 0.008149375,
+		"rows_read": 21574,
+		"bytes_read": 243562
+	}
+}
