@@ -35,6 +35,20 @@ export default defineConfig({
     // Reporters
     reporters: ['verbose'],
     
+    // Output files to target directory
+    outputFile: {
+      json: './target/test-results/integration-results.json',
+      junit: './target/test-results/integration-junit.xml',
+      html: './target/test-results/integration-index.html'
+    },
+    
+    // Coverage settings
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'json', 'json-summary'],
+      reportsDirectory: './target/coverage-integration'
+    },
+    
     // Globals
     globals: true,
   },
