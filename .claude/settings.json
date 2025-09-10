@@ -24,6 +24,7 @@
       "Bash(gh run view:*)",
       "Bash(gh pr list:*)",
       "Bash(gh pr view:*)",
+      "Bash(cat:*)",
       "Bash(rg:*)"
     ],
     "deny": [],
