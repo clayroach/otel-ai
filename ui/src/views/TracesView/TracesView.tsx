@@ -538,6 +538,7 @@ export const TracesView: React.FC = () => {
                       }
                     }}
                     style={{ marginLeft: 16 }}
+                    data-testid="view-mode-toggle"
                   />
                 )}
               </Space>
@@ -580,7 +581,10 @@ export const TracesView: React.FC = () => {
               // Render based on view mode
               viewMode === 'dynamic' && dynamicComponent && !dynamicViewError ? (
                 // Dynamic view with generated charts
-                <div style={{ padding: '16px', height: '100%', overflow: 'auto' }}>
+                <div
+                  style={{ padding: '16px', height: '100%', overflow: 'auto' }}
+                  data-testid="dynamic-view-container"
+                >
                   <DynamicChartRenderer
                     component={dynamicComponent}
                     loading={false}

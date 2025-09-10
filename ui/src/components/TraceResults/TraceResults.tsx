@@ -230,7 +230,10 @@ export const TraceResults: React.FC<TraceResultsProps> = ({ data }) => {
   }
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div
+      style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+      data-testid="table-view-container"
+    >
       {/* Statistics Bar */}
       <div
         style={{

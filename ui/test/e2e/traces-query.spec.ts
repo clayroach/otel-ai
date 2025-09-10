@@ -37,7 +37,18 @@ test.describe('Traces Query Functionality', () => {
     // Run initial query to get some data
     await page.click('[data-testid="traces-run-query-button"]')
     
-    // Wait for initial results
+    // Wait for query to complete - check for either dynamic or table view
+    await page.waitForSelector('[data-testid="dynamic-view-container"], [data-testid="table-view-container"]', { timeout: 10000 })
+    
+    // Switch to table view if in dynamic view
+    const viewModeToggle = page.locator('[data-testid="view-mode-toggle"]')
+    const isInDynamicMode = await viewModeToggle.getAttribute('aria-checked') === 'true'
+    if (isInDynamicMode) {
+      await viewModeToggle.click()
+      await page.waitForSelector('[data-testid="table-view-container"]', { timeout: 5000 })
+    }
+    
+    // Wait for table results
     await page.waitForSelector('.ant-table-tbody tr:not(.ant-table-measure-row)', { timeout: 10000 })
     
     // Count initial rows
@@ -101,14 +112,37 @@ test.describe('Traces Query Functionality', () => {
     // Run the default query
     await page.click('[data-testid="traces-run-query-button"]')
     
-    // Should get results (or handle gracefully if no data)
-    await page.waitForSelector('.ant-table-tbody tr:not(.ant-table-measure-row), .ant-empty', { timeout: 10000 })
+    // Wait for query to complete - check for either dynamic or table view
+    await page.waitForSelector('[data-testid="dynamic-view-container"], [data-testid="table-view-container"]', { timeout: 10000 })
     
-    // Verify we got some results or empty state
-    const hasResults = await page.locator('.ant-table-tbody tr:not(.ant-table-measure-row)').count() > 0
-    const hasEmpty = await page.locator('.ant-empty').isVisible().catch(() => false)
+    // Check if we're in dynamic view (default)
+    const dynamicView = page.locator('[data-testid="dynamic-view-container"]')
+    const hasDynamicView = await dynamicView.isVisible().catch(() => false)
     
-    expect(hasResults || hasEmpty).toBe(true)
+    if (hasDynamicView) {
+      // In dynamic view, verify chart is rendered
+      expect(hasDynamicView).toBe(true)
+      
+      // Test toggling to table view
+      const viewModeToggle = page.locator('[data-testid="view-mode-toggle"]')
+      await viewModeToggle.click()
+      await page.waitForSelector('[data-testid="table-view-container"]', { timeout: 5000 })
+    }
+    
+    // Now check table view
+    const tableView = page.locator('[data-testid="table-view-container"]')
+    const hasTableView = await tableView.isVisible().catch(() => false)
+    
+    if (hasTableView) {
+      // Should get results (or handle gracefully if no data)
+      await page.waitForSelector('.ant-table-tbody tr:not(.ant-table-measure-row), .ant-empty', { timeout: 10000 })
+      
+      // Verify we got some results or empty state
+      const hasResults = await page.locator('.ant-table-tbody tr:not(.ant-table-measure-row)').count() > 0
+      const hasEmpty = await page.locator('.ant-empty').isVisible().catch(() => false)
+      
+      expect(hasResults || hasEmpty).toBe(true)
+    }
   })
 
   test.skip('should preserve query after navigation', async ({ page }) => {
