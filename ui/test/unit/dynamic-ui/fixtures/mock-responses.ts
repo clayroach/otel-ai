@@ -3,7 +3,7 @@
  */
 
 import type { CriticalPath } from '../../../../src/components/ServiceTopology/types'
-import type { QueryGenerationResult, LLMModel } from '../../../../src/services/query-generator'
+import type { LLMModel, QueryGenerationResult } from '../../../../src/services/query-generator'
 
 /**
  * Mock critical paths for testing
@@ -85,7 +85,7 @@ GROUP BY
     service_name,
     operation_name,
     time_bucket`,
-    model: 'claude-3-5-sonnet-20241022',
+    model: 'claude-3-haiku-20240307',
     generationTime: 250,
     description: 'Analyzing checkout flow performance metrics',
     criticalPath: 'Checkout Flow',
@@ -134,7 +134,7 @@ ORDER BY p99_ms DESC`,
  */
 export const mockAvailableModels: LLMModel[] = [
   {
-    name: 'claude-3-5-sonnet-20241022',
+    name: 'claude-3-haiku-20240307',
     provider: 'anthropic',
     description: 'Claude 3.5 Sonnet - Best for complex SQL generation',
     available: true

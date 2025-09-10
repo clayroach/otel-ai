@@ -111,7 +111,7 @@ export class LLMQueryGenerator {
         { role: 'system', content: this.buildSystemPrompt() },
         { role: 'user', content: this.buildUserPrompt(userQuery) }
       ],
-      model: options.preferredModel || 'claude-3-5-sonnet-20241022',
+      model: options.preferredModel || 'claude-3-haiku-20240307',
       temperature: 0.1
     })
     
@@ -123,7 +123,7 @@ export class LLMQueryGenerator {
 #### 3. Model Registry (COMPLETE)
 ```typescript
 export const MODEL_REGISTRY = {
-  'claude-3-5-sonnet-20241022': {
+  'claude-3-haiku-20240307': {
     provider: 'anthropic',
     capabilities: ['sql', 'analysis', 'code'],
     sqlOptimized: true,
@@ -165,7 +165,7 @@ interface CriticalPathCard {
   // New: Query generation button with model info
   queryGenerationButton: {
     label: string // e.g., "Generate Query with Claude"
-    model: string // e.g., "claude-3-5-sonnet-20241022"
+    model: string // e.g., "claude-3-haiku-20240307"
     onClick: () => void // Execute thunk and navigate to Traces view
   }
   
@@ -1027,7 +1027,7 @@ interface DynamicUIConfig {
   }
   modelRegistry: {
     sqlModels: [
-      'claude-3-5-sonnet-20241022', // ✅ Primary SQL model
+      'claude-3-haiku-20240307', // ✅ Primary SQL model
       'gpt-4o', // ✅ Fallback model
       'sqlcoder-7b-2' // ✅ Local SQL-specific model
     ],

@@ -29,7 +29,7 @@ export const DynamicDataTable: React.FC<DynamicDataTableProps> = ({
     )
   }
 
-  if (!data || data.length === 0) {
+  if (!data || !Array.isArray(data) || data.length === 0) {
     return (
       <div className="bg-gray-50 border border-gray-200 rounded p-4">
         <p className="text-gray-600">No data available</p>
@@ -37,9 +37,17 @@ export const DynamicDataTable: React.FC<DynamicDataTableProps> = ({
     )
   }
 
-  // Get column headers from first row
-  const firstRow = data[0] as Record<string, unknown>
-  const columns = Object.keys(firstRow)
+  // Get column headers from first row - ensure it's a valid object
+  const firstRow = data[0]
+  if (!firstRow || typeof firstRow !== 'object' || firstRow === null) {
+    return (
+      <div className="bg-yellow-50 border border-yellow-200 rounded p-4">
+        <p className="text-yellow-600">Invalid data format - expected array of objects</p>
+      </div>
+    )
+  }
+
+  const columns = Object.keys(firstRow as Record<string, unknown>)
   const displayData = data.slice(0, maxRows)
 
   const formatCellValue = (value: unknown): string => {

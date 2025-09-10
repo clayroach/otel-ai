@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { Effect } from 'effect'
-import { ResultAnalysisService } from '../../services/result-analysis-service'
+import { 
+  ResultAnalysisServiceTag,
+  ResultAnalysisServiceLive
+} from '../../services/result-analysis-service'
 
 describe('ResultAnalysisService', () => {
   describe('analyzeResults', () => {
@@ -12,7 +15,10 @@ describe('ResultAnalysisService', () => {
       ]
 
       const analysis = await Effect.runPromise(
-        ResultAnalysisService.analyzeResults(results)
+        Effect.gen(function* () {
+          const service = yield* ResultAnalysisServiceTag
+          return yield* service.analyzeResults(results)
+        }).pipe(Effect.provide(ResultAnalysisServiceLive))
       )
 
       expect(analysis.rowCount).toBe(3)
@@ -38,7 +44,10 @@ describe('ResultAnalysisService', () => {
       ]
 
       const analysis = await Effect.runPromise(
-        ResultAnalysisService.analyzeResults(results)
+        Effect.gen(function* () {
+          const service = yield* ResultAnalysisServiceTag
+          return yield* service.analyzeResults(results)
+        }).pipe(Effect.provide(ResultAnalysisServiceLive))
       )
 
       // Should detect either categorical or metrics pattern
@@ -62,7 +71,10 @@ describe('ResultAnalysisService', () => {
       ]
 
       const analysis = await Effect.runPromise(
-        ResultAnalysisService.analyzeResults(results)
+        Effect.gen(function* () {
+          const service = yield* ResultAnalysisServiceTag
+          return yield* service.analyzeResults(results)
+        }).pipe(Effect.provide(ResultAnalysisServiceLive))
       )
 
       expect(analysis.detectedPatterns).toContain('metrics')
@@ -81,7 +93,10 @@ describe('ResultAnalysisService', () => {
       ]
 
       const analysis = await Effect.runPromise(
-        ResultAnalysisService.analyzeResults(results)
+        Effect.gen(function* () {
+          const service = yield* ResultAnalysisServiceTag
+          return yield* service.analyzeResults(results)
+        }).pipe(Effect.provide(ResultAnalysisServiceLive))
       )
 
       const serviceCol = analysis.columns.find(c => c.name === 'service_name')
@@ -99,7 +114,10 @@ describe('ResultAnalysisService', () => {
 
     it('should handle empty results', async () => {
       const analysis = await Effect.runPromise(
-        ResultAnalysisService.analyzeResults([])
+        Effect.gen(function* () {
+          const service = yield* ResultAnalysisServiceTag
+          return yield* service.analyzeResults([])
+        }).pipe(Effect.provide(ResultAnalysisServiceLive))
       )
 
       expect(analysis.rowCount).toBe(0)
@@ -118,7 +136,10 @@ describe('ResultAnalysisService', () => {
       ]
 
       const analysis = await Effect.runPromise(
-        ResultAnalysisService.analyzeResults(results)
+        Effect.gen(function* () {
+          const service = yield* ResultAnalysisServiceTag
+          return yield* service.analyzeResults(results)
+        }).pipe(Effect.provide(ResultAnalysisServiceLive))
       )
 
       const dateCol = analysis.columns.find(c => c.name === 'date')
@@ -134,7 +155,10 @@ describe('ResultAnalysisService', () => {
       ]
 
       const analysis = await Effect.runPromise(
-        ResultAnalysisService.analyzeResults(results)
+        Effect.gen(function* () {
+          const service = yield* ResultAnalysisServiceTag
+          return yield* service.analyzeResults(results)
+        }).pipe(Effect.provide(ResultAnalysisServiceLive))
       )
 
       const activeCol = analysis.columns.find(c => c.name === 'active')
@@ -148,7 +172,10 @@ describe('ResultAnalysisService', () => {
       ]
 
       const analysis = await Effect.runPromise(
-        ResultAnalysisService.analyzeResults(results)
+        Effect.gen(function* () {
+          const service = yield* ResultAnalysisServiceTag
+          return yield* service.analyzeResults(results)
+        }).pipe(Effect.provide(ResultAnalysisServiceLive))
       )
 
       const configCol = analysis.columns.find(c => c.name === 'config')
@@ -165,7 +192,10 @@ describe('ResultAnalysisService', () => {
       ]
 
       const analysis = await Effect.runPromise(
-        ResultAnalysisService.analyzeResults(results)
+        Effect.gen(function* () {
+          const service = yield* ResultAnalysisServiceTag
+          return yield* service.analyzeResults(results)
+        }).pipe(Effect.provide(ResultAnalysisServiceLive))
       )
 
       const categoryCol = analysis.columns.find(c => c.name === 'category')
@@ -186,7 +216,10 @@ describe('ResultAnalysisService', () => {
       ]
 
       const analysis = await Effect.runPromise(
-        ResultAnalysisService.analyzeResults(results)
+        Effect.gen(function* () {
+          const service = yield* ResultAnalysisServiceTag
+          return yield* service.analyzeResults(results)
+        }).pipe(Effect.provide(ResultAnalysisServiceLive))
       )
 
       const statusCol = analysis.columns.find(c => c.name === 'status')
@@ -202,7 +235,10 @@ describe('ResultAnalysisService', () => {
       ]
 
       const analysis = await Effect.runPromise(
-        ResultAnalysisService.analyzeResults(results)
+        Effect.gen(function* () {
+          const service = yield* ResultAnalysisServiceTag
+          return yield* service.analyzeResults(results)
+        }).pipe(Effect.provide(ResultAnalysisServiceLive))
       )
 
       const metricColumns = analysis.columns.filter(c => c.isMetric)
@@ -219,7 +255,10 @@ describe('ResultAnalysisService', () => {
       ]
 
       const analysis = await Effect.runPromise(
-        ResultAnalysisService.analyzeResults(results)
+        Effect.gen(function* () {
+          const service = yield* ResultAnalysisServiceTag
+          return yield* service.analyzeResults(results)
+        }).pipe(Effect.provide(ResultAnalysisServiceLive))
       )
 
       expect(analysis.rowCount).toBe(3)

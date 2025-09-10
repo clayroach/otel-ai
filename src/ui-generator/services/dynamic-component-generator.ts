@@ -1,7 +1,7 @@
 import { Schema } from '@effect/schema'
 import { Effect, Context, Layer } from 'effect'
-import { ResultAnalysisService } from './result-analysis-service.js'
-import { ChartConfigGenerator } from './chart-config-generator.js'
+import { ResultAnalysisServiceTag } from './result-analysis-service.js'
+import { ChartConfigGeneratorServiceTag } from './chart-config-generator.js'
 import type { ColumnAnalysis } from './types.js'
 
 /**
@@ -53,61 +53,67 @@ export const DynamicComponentGeneratorServiceTag =
 // Service Implementation
 // ========================
 
-export const DynamicComponentGeneratorServiceLive = Layer.succeed(
+export const DynamicComponentGeneratorServiceLive = Layer.effect(
   DynamicComponentGeneratorServiceTag,
-  DynamicComponentGeneratorServiceTag.of({
-    generateComponent: (request: GenerationRequest) =>
-      Effect.gen(function* () {
-        // Step 1: Analyze the query results
-        const analysis = yield* ResultAnalysisService.analyzeResults([...request.queryResults])
+  Effect.gen(function* () {
+    // Get dependency services provided by the layer
+    const resultAnalysisService = yield* ResultAnalysisServiceTag
+    const chartConfigService = yield* ChartConfigGeneratorServiceTag
 
-        // Step 2: Generate chart configuration
-        const chartConfig = yield* ChartConfigGenerator.generateConfig(
-          {
-            ...analysis,
-            columns: analysis.columns.map((col) => ({
-              name: col.name,
-              type: col.type,
-              isMetric: col.isMetric,
-              isTemporal: col.isTemporal,
-              cardinality: col.cardinality,
-              sampleValues: [...col.sampleValues],
-              ...(col.semanticType !== undefined && { semanticType: col.semanticType })
-            })) as ColumnAnalysis[],
-            detectedPatterns: [...analysis.detectedPatterns]
-          },
-          [...request.queryResults]
-        )
+    return DynamicComponentGeneratorServiceTag.of({
+      generateComponent: (request: GenerationRequest) =>
+        Effect.gen(function* () {
+          // Step 1: Analyze the query results
+          const analysis = yield* resultAnalysisService.analyzeResults([...request.queryResults])
 
-        // Step 3: Map to React component
-        const componentMapping = getComponentMapping(chartConfig.type)
+          // Step 2: Generate chart configuration
+          const chartConfig = yield* chartConfigService.generateConfig(
+            {
+              ...analysis,
+              columns: analysis.columns.map((col) => ({
+                name: col.name,
+                type: col.type,
+                isMetric: col.isMetric,
+                isTemporal: col.isTemporal,
+                cardinality: col.cardinality,
+                sampleValues: [...col.sampleValues],
+                ...(col.semanticType !== undefined && { semanticType: col.semanticType })
+              })) as ColumnAnalysis[],
+              detectedPatterns: [...analysis.detectedPatterns]
+            },
+            [...request.queryResults]
+          )
 
-        // Step 4: Create component specification
-        const component: DynamicComponent = {
-          id: `dynamic-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          type: chartConfig.type === 'table' ? 'table' : 'chart',
-          title: chartConfig.title,
-          description: chartConfig.description,
-          component: componentMapping.component,
-          props: {
-            data: request.queryResults,
-            config: chartConfig.config,
-            analysis: {
-              patterns: analysis.detectedPatterns,
-              columns: analysis.columns,
+          // Step 3: Map to React component
+          const componentMapping = getComponentMapping(chartConfig.type)
+
+          // Step 4: Create component specification
+          const component: DynamicComponent = {
+            id: `dynamic-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+            type: chartConfig.type === 'table' ? 'table' : 'chart',
+            title: chartConfig.title,
+            description: chartConfig.description,
+            component: componentMapping.component,
+            props: {
+              data: request.queryResults,
+              config: chartConfig.config,
+              analysis: {
+                patterns: analysis.detectedPatterns,
+                columns: analysis.columns,
+                confidence: analysis.confidence
+              }
+            },
+            metadata: {
+              generatedAt: Date.now(),
+              dataSource: request.userIntent || 'dynamic-query',
+              rowCount: analysis.rowCount,
               confidence: analysis.confidence
             }
-          },
-          metadata: {
-            generatedAt: Date.now(),
-            dataSource: request.userIntent || 'dynamic-query',
-            rowCount: analysis.rowCount,
-            confidence: analysis.confidence
           }
-        }
 
-        return component
-      })
+          return component
+        })
+    })
   })
 )
 
@@ -180,7 +186,10 @@ export class DynamicUIGenerator {
       })
     })
 
-    return Effect.runPromise(Effect.provide(program, DynamicComponentGeneratorServiceLive))
+    // Use composite layer that includes all dependencies
+    const { UIGeneratorServicesLive } = await import('./composite-layer.js')
+
+    return Effect.runPromise(program.pipe(Effect.provide(UIGeneratorServicesLive)))
   }
 
   /**

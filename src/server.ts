@@ -486,6 +486,89 @@ app.post('/api/ai-analyzer/topology', async (req, res) => {
   }
 })
 
+// UI Generator endpoints
+app.post('/api/ui-generator/from-sql', async (req, res) => {
+  try {
+    const { sql, queryResults, context } = req.body
+
+    // Import the UI generation services
+    const {
+      ResultAnalysisServiceTag,
+      ResultAnalysisServiceLive,
+      ChartConfigGeneratorServiceTag,
+      ChartConfigGeneratorServiceLive
+    } = await import('./ui-generator/services/index.js')
+    const { Effect, Layer } = await import('effect')
+
+    // Create layer composition
+    const ServiceLayers = Layer.mergeAll(ResultAnalysisServiceLive, ChartConfigGeneratorServiceLive)
+
+    // Extract the actual data array from queryResults
+    const dataArray = Array.isArray(queryResults)
+      ? queryResults
+      : queryResults?.data || queryResults
+
+    // Analyze the query results to determine the best visualization
+    const analysis = await Effect.runPromise(
+      Effect.gen(function* () {
+        const service = yield* ResultAnalysisServiceTag
+        return yield* service.analyzeResults(dataArray)
+      }).pipe(Effect.provide(ServiceLayers))
+    )
+
+    // Generate chart configuration based on the analysis
+    // Deep copy the analysis to convert readonly types to mutable
+    const chartConfig = await Effect.runPromise(
+      Effect.gen(function* () {
+        const service = yield* ChartConfigGeneratorServiceTag
+        return yield* service.generateConfig(
+          {
+            ...analysis,
+            columns: analysis.columns.map((col) => ({
+              ...col,
+              sampleValues: [...col.sampleValues],
+              semanticType: col.semanticType || ''
+            })),
+            detectedPatterns: [...analysis.detectedPatterns]
+          },
+          dataArray
+        )
+      }).pipe(Effect.provide(ServiceLayers))
+    )
+
+    // Return the component specification
+    res.json({
+      component: {
+        component:
+          chartConfig.type === 'table'
+            ? 'DynamicDataTable'
+            : chartConfig.type === 'line'
+              ? 'DynamicLineChart'
+              : chartConfig.type === 'bar'
+                ? 'DynamicBarChart'
+                : 'DynamicDataTable',
+        props: {
+          config: chartConfig.config,
+          data: Array.isArray(queryResults) ? queryResults : queryResults?.data || queryResults,
+          height: '400px'
+        }
+      },
+      analysis,
+      metadata: {
+        sql,
+        context,
+        generatedAt: Date.now()
+      }
+    })
+  } catch (error) {
+    console.error('❌ UI Generator error:', error)
+    res.status(500).json({
+      error: 'UI generation failed',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
 // New endpoint for topology visualization with force-directed graph data
 app.post('/api/ai-analyzer/topology-visualization', async (req, res) => {
   try {

@@ -1,7 +1,10 @@
-import { Effect, Context, Layer } from 'effect'
 import { Schema } from '@effect/schema'
-import { DynamicUIGenerator, type DynamicComponent } from './dynamic-component-generator.js'
-import { ResultAnalysisService } from './result-analysis-service.js'
+import { Context, Effect, Layer } from 'effect'
+import {
+  DynamicComponentGeneratorServiceTag,
+  type DynamicComponent
+} from './dynamic-component-generator.js'
+import { ResultAnalysisServiceTag } from './result-analysis-service.js'
 
 /**
  * UI Generation Pipeline Service - Phase 3D
@@ -79,64 +82,158 @@ export const UIGenerationPipelineServiceTag = Context.GenericTag<UIGenerationPip
 // Service Implementation
 // ========================
 
-export const UIGenerationPipelineServiceLive = Layer.succeed(
+export const UIGenerationPipelineServiceLive = Layer.effect(
   UIGenerationPipelineServiceTag,
-  UIGenerationPipelineServiceTag.of({
-    generateUI: (request: PipelineRequest) =>
-      Effect.gen(function* () {
-        const startTime = Date.now()
-        const steps: Array<{
-          name: string
-          duration: number
-          status: 'success' | 'error' | 'skipped'
-        }> = []
+  Effect.gen(function* () {
+    // Get dependency services provided by the layer
+    const resultAnalysisService = yield* ResultAnalysisServiceTag
+    const componentGeneratorService = yield* DynamicComponentGeneratorServiceTag
 
-        try {
-          // Step 1: Generate SQL query from natural language (mocked for now)
+    return UIGenerationPipelineServiceTag.of({
+      generateUI: (request: PipelineRequest) =>
+        Effect.gen(function* () {
+          const startTime = Date.now()
+          const steps: Array<{
+            name: string
+            duration: number
+            status: 'success' | 'error' | 'skipped'
+          }> = []
+
+          try {
+            // Step 1: Generate SQL query from natural language (mocked for now)
+            const queryStartTime = Date.now()
+            const queryResult = yield* Effect.succeed({
+              sql: generateMockSQL(request.naturalLanguageQuery),
+              description: `Generated query for: ${request.naturalLanguageQuery}`,
+              expectedColumns: [
+                { name: 'time_bucket', type: 'DateTime', description: 'Time aggregation bucket' },
+                { name: 'service_name', type: 'String', description: 'Service identifier' },
+                { name: 'metric_value', type: 'Float64', description: 'Computed metric' }
+              ],
+              reasoning: 'Mock query for UI generation pipeline development'
+            })
+            steps.push({
+              name: 'query-generation',
+              duration: Date.now() - queryStartTime,
+              status: 'success'
+            })
+
+            // Step 2: Execute query (mock for now - would connect to ClickHouse)
+            const execStartTime = Date.now()
+            const queryResults = yield* mockExecuteQuery(queryResult.sql)
+            steps.push({
+              name: 'query-execution',
+              duration: Date.now() - execStartTime,
+              status: 'success'
+            })
+
+            // Step 3: Analyze results
+            const analysisStartTime = Date.now()
+            yield* resultAnalysisService.analyzeResults(queryResults.data)
+            steps.push({
+              name: 'result-analysis',
+              duration: Date.now() - analysisStartTime,
+              status: 'success'
+            })
+
+            // Step 4: Generate component
+            const componentStartTime = Date.now()
+            const component = yield* componentGeneratorService.generateComponent({
+              queryResults: queryResults.data,
+              userIntent: request.naturalLanguageQuery
+            })
+            steps.push({
+              name: 'component-generation',
+              duration: Date.now() - componentStartTime,
+              status: 'success'
+            })
+
+            return {
+              query: {
+                sql: queryResult.sql,
+                model: request.options?.preferredModel || 'unknown',
+                generationTime: steps[0]?.duration || 0,
+                explanation: queryResult.description
+              },
+              results: queryResults,
+              component,
+              metadata: {
+                totalTime: Date.now() - startTime,
+                steps
+              }
+            }
+          } catch (error) {
+            // Add error step
+            steps.push({
+              name: 'error',
+              duration: 0,
+              status: 'error'
+            })
+
+            throw error
+          }
+        }),
+
+      generateDiagnosticUI: (
+        criticalPath: string,
+        issueType: 'latency' | 'errors' | 'throughput'
+      ): Effect.Effect<PipelineResponse, Error, never> =>
+        Effect.gen(function* () {
+          // Generate diagnostic query based on issue type
+          const diagnosticQuery = generateDiagnosticQuery(criticalPath, issueType)
+
+          // Use the UI generation logic directly (avoid circular service dependency)
+          const startTime = Date.now()
+          const steps: Array<{
+            name: string
+            duration: number
+            status: 'success' | 'error' | 'skipped'
+          }> = []
+
+          // Mock query generation for diagnostic
           const queryStartTime = Date.now()
-          const queryResult = yield* Effect.succeed({
-            sql: generateMockSQL(request.naturalLanguageQuery),
-            description: `Generated query for: ${request.naturalLanguageQuery}`,
+          const queryResult = {
+            sql: generateMockSQL(diagnosticQuery.prompt),
+            description: `Diagnostic analysis for ${issueType} in ${criticalPath}`,
             expectedColumns: [
               { name: 'time_bucket', type: 'DateTime', description: 'Time aggregation bucket' },
               { name: 'service_name', type: 'String', description: 'Service identifier' },
-              { name: 'metric_value', type: 'Float64', description: 'Computed metric' }
+              { name: 'metric_value', type: 'Float64', description: 'Computed diagnostic metric' }
             ],
-            reasoning: 'Mock query for UI generation pipeline development'
-          })
+            reasoning: `Mock diagnostic query for ${issueType} analysis`
+          }
           steps.push({
-            name: 'query-generation',
+            name: 'diagnostic-query-generation',
             duration: Date.now() - queryStartTime,
             status: 'success'
           })
 
-          // Step 2: Execute query (mock for now - would connect to ClickHouse)
+          // Execute mock query
           const execStartTime = Date.now()
           const queryResults = yield* mockExecuteQuery(queryResult.sql)
           steps.push({
-            name: 'query-execution',
+            name: 'diagnostic-query-execution',
             duration: Date.now() - execStartTime,
             status: 'success'
           })
 
-          // Step 3: Analyze results
+          // Analyze results
           const analysisStartTime = Date.now()
-          yield* ResultAnalysisService.analyzeResults(queryResults.data)
+          yield* resultAnalysisService.analyzeResults(queryResults.data)
           steps.push({
-            name: 'result-analysis',
+            name: 'diagnostic-result-analysis',
             duration: Date.now() - analysisStartTime,
             status: 'success'
           })
 
-          // Step 4: Generate component
+          // Generate component
           const componentStartTime = Date.now()
-          const component = yield* Effect.tryPromise(() =>
-            DynamicUIGenerator.generateFromQueryResults(queryResults.data, {
-              userIntent: request.naturalLanguageQuery
-            })
-          )
+          const component = yield* componentGeneratorService.generateComponent({
+            queryResults: queryResults.data,
+            userIntent: diagnosticQuery.prompt
+          })
           steps.push({
-            name: 'component-generation',
+            name: 'diagnostic-component-generation',
             duration: Date.now() - componentStartTime,
             status: 'success'
           })
@@ -144,7 +241,7 @@ export const UIGenerationPipelineServiceLive = Layer.succeed(
           return {
             query: {
               sql: queryResult.sql,
-              model: request.options?.preferredModel || 'unknown',
+              model: 'diagnostic-mock',
               generationTime: steps[0]?.duration || 0,
               explanation: queryResult.description
             },
@@ -155,98 +252,8 @@ export const UIGenerationPipelineServiceLive = Layer.succeed(
               steps
             }
           }
-        } catch (error) {
-          // Add error step
-          steps.push({
-            name: 'error',
-            duration: 0,
-            status: 'error'
-          })
-
-          throw error
-        }
-      }),
-
-    generateDiagnosticUI: (
-      criticalPath: string,
-      issueType: 'latency' | 'errors' | 'throughput'
-    ): Effect.Effect<PipelineResponse, Error, never> =>
-      Effect.gen(function* () {
-        // Generate diagnostic query based on issue type
-        const diagnosticQuery = generateDiagnosticQuery(criticalPath, issueType)
-
-        // Use the UI generation logic directly (avoid circular service dependency)
-        const startTime = Date.now()
-        const steps: Array<{
-          name: string
-          duration: number
-          status: 'success' | 'error' | 'skipped'
-        }> = []
-
-        // Mock query generation for diagnostic
-        const queryStartTime = Date.now()
-        const queryResult = {
-          sql: generateMockSQL(diagnosticQuery.prompt),
-          description: `Diagnostic analysis for ${issueType} in ${criticalPath}`,
-          expectedColumns: [
-            { name: 'time_bucket', type: 'DateTime', description: 'Time aggregation bucket' },
-            { name: 'service_name', type: 'String', description: 'Service identifier' },
-            { name: 'metric_value', type: 'Float64', description: 'Computed diagnostic metric' }
-          ],
-          reasoning: `Mock diagnostic query for ${issueType} analysis`
-        }
-        steps.push({
-          name: 'diagnostic-query-generation',
-          duration: Date.now() - queryStartTime,
-          status: 'success'
         })
-
-        // Execute mock query
-        const execStartTime = Date.now()
-        const queryResults = yield* mockExecuteQuery(queryResult.sql)
-        steps.push({
-          name: 'diagnostic-query-execution',
-          duration: Date.now() - execStartTime,
-          status: 'success'
-        })
-
-        // Analyze results
-        const analysisStartTime = Date.now()
-        yield* ResultAnalysisService.analyzeResults(queryResults.data)
-        steps.push({
-          name: 'diagnostic-result-analysis',
-          duration: Date.now() - analysisStartTime,
-          status: 'success'
-        })
-
-        // Generate component
-        const componentStartTime = Date.now()
-        const component = yield* Effect.tryPromise(() =>
-          DynamicUIGenerator.generateFromQueryResults(queryResults.data, {
-            userIntent: diagnosticQuery.prompt
-          })
-        )
-        steps.push({
-          name: 'diagnostic-component-generation',
-          duration: Date.now() - componentStartTime,
-          status: 'success'
-        })
-
-        return {
-          query: {
-            sql: queryResult.sql,
-            model: 'diagnostic-mock',
-            generationTime: steps[0]?.duration || 0,
-            explanation: queryResult.description
-          },
-          results: queryResults,
-          component,
-          metadata: {
-            totalTime: Date.now() - startTime,
-            steps
-          }
-        }
-      })
+    })
   })
 )
 
@@ -450,7 +457,10 @@ export class UIGenerationPipeline {
       })
     })
 
-    return Effect.runPromise(program.pipe(Effect.provide(UIGenerationPipelineServiceLive)))
+    // Use composite layer that includes all dependencies
+    const { UIGeneratorPipelineServicesLive } = await import('./composite-layer.js')
+
+    return Effect.runPromise(program.pipe(Effect.provide(UIGeneratorPipelineServicesLive)))
   }
 
   /**
@@ -466,7 +476,10 @@ export class UIGenerationPipeline {
       return yield* service.generateDiagnosticUI(criticalPath, issueType)
     })
 
-    return Effect.runPromise(program.pipe(Effect.provide(UIGenerationPipelineServiceLive)))
+    // Use composite layer that includes all dependencies
+    const { UIGeneratorPipelineServicesLive } = await import('./composite-layer.js')
+
+    return Effect.runPromise(program.pipe(Effect.provide(UIGeneratorPipelineServicesLive)))
   }
 
   /**
@@ -476,7 +489,7 @@ export class UIGenerationPipeline {
     try {
       const result = await UIGenerationPipeline.generateFromNaturalLanguage(
         'Show service latency over time',
-        { preferredModel: 'claude-3-5-sonnet-20241022' }
+        { preferredModel: 'claude-3-haiku-20240307' }
       )
 
       return !!(result.query && result.component && result.results)
@@ -490,4 +503,4 @@ export class UIGenerationPipeline {
 // Export Types
 // ========================
 
-export type { PipelineRequest, PipelineResponse, DynamicComponent }
+export type { DynamicComponent, PipelineRequest, PipelineResponse }

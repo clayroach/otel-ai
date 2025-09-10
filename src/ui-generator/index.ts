@@ -33,6 +33,36 @@ export {
   validateQuery as validateQueryEffect
 } from './api-client-layer.js'
 
-// Export UI Generation Pipeline for server usage
-export { UIGenerationPipeline } from './services/ui-generation-pipeline.js'
-export type { DynamicComponent } from './services/dynamic-component-generator.js'
+// Export all services and their layers
+export {
+  // Result Analysis Service
+  ResultAnalysisServiceTag,
+  ResultAnalysisServiceLive,
+  type ResultAnalysisService,
+
+  // Chart Config Generator Service
+  ChartConfigGeneratorServiceTag,
+  ChartConfigGeneratorServiceLive,
+  type ChartConfigGeneratorService,
+
+  // Dynamic Component Generator Service
+  DynamicComponentGeneratorServiceTag,
+  DynamicComponentGeneratorServiceLive,
+  type DynamicComponentGeneratorService,
+  DynamicUIGenerator,
+  type DynamicComponent,
+  type GenerationRequest,
+
+  // UI Generation Pipeline
+  UIGenerationPipelineServiceTag,
+  UIGenerationPipelineServiceLive,
+  type UIGenerationPipelineService,
+  UIGenerationPipeline,
+  type PipelineRequest,
+  type PipelineResponse,
+
+  // Types
+  type ColumnAnalysis,
+  type ResultAnalysis,
+  type ChartAnalysisInput
+} from './services/index.js'

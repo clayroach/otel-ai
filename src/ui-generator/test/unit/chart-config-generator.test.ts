@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { Effect } from 'effect'
-import { ChartConfigGenerator } from '../../services/chart-config-generator'
+import { 
+  ChartConfigGeneratorServiceTag,
+  ChartConfigGeneratorServiceLive
+} from '../../services/chart-config-generator'
 import type { ChartAnalysisInput } from '../../services/types'
 
 // Type for testing with invalid chart types
@@ -55,7 +58,10 @@ describe('ChartConfigGenerator', () => {
       }))
 
       const result = await Effect.runPromise(
-        ChartConfigGenerator.generateConfig(analysis, data)
+        Effect.gen(function* () {
+          const service = yield* ChartConfigGeneratorServiceTag
+          return yield* service.generateConfig(analysis, data)
+        }).pipe(Effect.provide(ChartConfigGeneratorServiceLive))
       )
 
       expect(result.type).toBe('line')
@@ -100,7 +106,10 @@ describe('ChartConfigGenerator', () => {
       ]
 
       const result = await Effect.runPromise(
-        ChartConfigGenerator.generateConfig(analysis, data)
+        Effect.gen(function* () {
+          const service = yield* ChartConfigGeneratorServiceTag
+          return yield* service.generateConfig(analysis, data)
+        }).pipe(Effect.provide(ChartConfigGeneratorServiceLive))
       )
 
       expect(result.type).toBe('bar')
@@ -153,7 +162,10 @@ describe('ChartConfigGenerator', () => {
       }))
 
       const result = await Effect.runPromise(
-        ChartConfigGenerator.generateConfig(analysis, data)
+        Effect.gen(function* () {
+          const service = yield* ChartConfigGeneratorServiceTag
+          return yield* service.generateConfig(analysis, data)
+        }).pipe(Effect.provide(ChartConfigGeneratorServiceLive))
       )
 
       expect(result.type).toBe('heatmap')
@@ -197,7 +209,10 @@ describe('ChartConfigGenerator', () => {
       ]
 
       const result = await Effect.runPromise(
-        ChartConfigGenerator.generateConfig(analysis, data)
+        Effect.gen(function* () {
+          const service = yield* ChartConfigGeneratorServiceTag
+          return yield* service.generateConfig(analysis, data)
+        }).pipe(Effect.provide(ChartConfigGeneratorServiceLive))
       )
 
       expect(result.type).toBe('pie')
@@ -239,7 +254,10 @@ describe('ChartConfigGenerator', () => {
       }))
 
       const result = await Effect.runPromise(
-        ChartConfigGenerator.generateConfig(analysis, data)
+        Effect.gen(function* () {
+          const service = yield* ChartConfigGeneratorServiceTag
+          return yield* service.generateConfig(analysis, data)
+        }).pipe(Effect.provide(ChartConfigGeneratorServiceLive))
       )
 
       expect(result.type).toBe('scatter')
@@ -273,7 +291,10 @@ describe('ChartConfigGenerator', () => {
       ]
 
       const result = await Effect.runPromise(
-        ChartConfigGenerator.generateConfig(analysis as ChartAnalysisInput, data)
+        Effect.gen(function* () {
+          const service = yield* ChartConfigGeneratorServiceTag
+          return yield* service.generateConfig(analysis as ChartAnalysisInput, data)
+        }).pipe(Effect.provide(ChartConfigGeneratorServiceLive))
       )
 
       expect(result.type).toBe('table')
@@ -292,7 +313,10 @@ describe('ChartConfigGenerator', () => {
       }
 
       const result = await Effect.runPromise(
-        ChartConfigGenerator.generateConfig(analysis, [])
+        Effect.gen(function* () {
+          const service = yield* ChartConfigGeneratorServiceTag
+          return yield* service.generateConfig(analysis, [])
+        }).pipe(Effect.provide(ChartConfigGeneratorServiceLive))
       )
 
       expect(result.type).toBe('table')
@@ -324,7 +348,10 @@ describe('ChartConfigGenerator', () => {
       }))
 
       const result = await Effect.runPromise(
-        ChartConfigGenerator.generateConfig(analysis, data)
+        Effect.gen(function* () {
+          const service = yield* ChartConfigGeneratorServiceTag
+          return yield* service.generateConfig(analysis, data)
+        }).pipe(Effect.provide(ChartConfigGeneratorServiceLive))
       )
 
       // Should fallback to table when line chart requirements aren't met

@@ -3,14 +3,14 @@
  * Using Effect-TS Layers for type-safe, composable mocking
  */
 
-import { Effect, Layer, Context } from 'effect'
+import { Context, Effect, Layer } from 'effect'
 import type {
-  QueryGenerationResult,
+  LLMModel,
   QueryGenerationRequest,
-  LLMModel
+  QueryGenerationResult
 } from '../../../../src/services/query-generator'
-import { checkoutFlowQuery } from './diagnostic-queries'
 import checkoutResultsData from './checkout-service-results.json'
+import { checkoutFlowQuery } from './diagnostic-queries'
 
 /**
  * Query Generator Service Interface
@@ -46,7 +46,7 @@ export const MockQueryGeneratorSuccessLayer = Layer.succeed(MockQueryGeneratorSe
   getAvailableModels: () =>
     Effect.succeed([
       {
-        name: 'claude-3-5-sonnet-20241022',
+        name: 'claude-3-haiku-20240307',
         provider: 'anthropic',
         description: 'Claude 3.5 Sonnet - Best for complex SQL generation',
         available: true

@@ -94,7 +94,7 @@ export class QueryGeneratorService {
 
       return {
         sql: response.data.sql,
-        model: response.data.model || 'claude-3-5-sonnet-20241022',
+        model: response.data.model || 'claude-3-haiku-20240307',
         generationTime: response.data.generationTimeMs || Date.now() - startTime,
         description: response.data.description,
         criticalPath: request.path.name,
@@ -118,7 +118,7 @@ export class QueryGeneratorService {
       // Return default models if API fails
       return [
         {
-          name: 'claude-3-5-sonnet-20241022',
+          name: 'claude-3-haiku-20240307',
           provider: 'anthropic',
           description: 'Claude 3.5 Sonnet - Best for complex SQL generation',
           available: false
@@ -182,7 +182,7 @@ export class QueryGeneratorService {
    * Get the currently selected model from local storage
    */
   static getSelectedModel(): string {
-    return localStorage.getItem('preferred-llm-model') || 'claude-3-5-sonnet-20241022'
+    return localStorage.getItem('preferred-llm-model') || 'claude-3-haiku-20240307'
   }
 
   /**

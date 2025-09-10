@@ -2,19 +2,19 @@
  * Unit tests for Query Generator Service
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { 
-  checkoutFlowQuery,
-  productSearchQuery,
-  currencyConversionQuery,
-  shippingCalculatorQuery,
-  fraudDetectionQuery
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+    checkoutFlowQuery,
+    currencyConversionQuery,
+    fraudDetectionQuery,
+    productSearchQuery,
+    shippingCalculatorQuery
 } from './fixtures/diagnostic-queries'
-import { 
-  mockCriticalPaths, 
-  mockQueryResults,
-  mockAvailableModels,
-  mockErrorResponses 
+import {
+    mockAvailableModels,
+    mockCriticalPaths,
+    mockErrorResponses,
+    mockQueryResults
 } from './fixtures/mock-responses'
 
 // Setup module mocks
@@ -312,7 +312,7 @@ describe('QueryGeneratorService', () => {
       const models = await QueryGeneratorService.getAvailableModels()
 
       expect(models).toHaveLength(4)
-      expect(models[0].name).toBe('claude-3-5-sonnet-20241022')
+      expect(models[0].name).toBe('claude-3-haiku-20240307')
       expect(models[1].name).toBe('gpt-4o')
       expect(models[2].name).toBe('codellama')
       expect(models[3].name).toBe('rule-based')
@@ -326,7 +326,7 @@ describe('QueryGeneratorService', () => {
       const models = await QueryGeneratorService.getAvailableModels()
 
       expect(models).toHaveLength(3) // Default models
-      expect(models[0].name).toBe('claude-3-5-sonnet-20241022')
+      expect(models[0].name).toBe('claude-3-haiku-20240307')
       expect(models[0].available).toBe(false) // Not available when API fails
       expect(models[2].name).toBe('rule-based')
       expect(models[2].available).toBe(true) // Local model still available
@@ -404,7 +404,7 @@ describe('QueryGeneratorService', () => {
   describe('model selection persistence', () => {
     it('should get default model when not set', () => {
       const model = QueryGeneratorService.getSelectedModel()
-      expect(model).toBe('claude-3-5-sonnet-20241022')
+      expect(model).toBe('claude-3-haiku-20240307')
     })
 
     it('should persist selected model to localStorage', () => {
