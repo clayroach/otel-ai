@@ -1,8 +1,8 @@
-import React, { useState } from 'react'
-import { Table, Tag, Typography, Button, Space, Modal, Descriptions, Timeline } from 'antd'
-import { EyeOutlined, ClockCircleOutlined, BugOutlined } from '@ant-design/icons'
+import { BugOutlined, ClockCircleOutlined, EyeOutlined } from '@ant-design/icons'
+import { Button, Descriptions, Modal, Space, Table, Tag, Timeline, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
+import React, { useState } from 'react'
 import { cleanServiceName } from '../../utils/protobuf-cleaner'
 
 const { Text, Title } = Typography
@@ -42,6 +42,17 @@ interface TraceResultsProps {
 export const TraceResults: React.FC<TraceResultsProps> = ({ data }) => {
   const [selectedTrace, setSelectedTrace] = useState<UnifiedTrace | null>(null)
   const [detailsVisible, setDetailsVisible] = useState(false)
+  
+  // Debug: Log the data to see what columns we're receiving
+  React.useEffect(() => {
+    if (data?.data?.length > 0) {
+      console.log('TraceResults received data:', {
+        rowCount: data.data.length,
+        firstRow: data.data[0],
+        columns: Object.keys(data.data[0])
+      })
+    }
+  }, [data])
 
   const handleViewTrace = (trace: UnifiedTrace) => {
     setSelectedTrace(trace)

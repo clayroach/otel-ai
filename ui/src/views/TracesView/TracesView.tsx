@@ -4,11 +4,12 @@ import {
   DownOutlined,
   FormatPainterOutlined,
   HistoryOutlined,
+  InfoCircleOutlined,
   PlayCircleOutlined,
-  SaveOutlined,
-  InfoCircleOutlined
+  SaveOutlined
 } from '@ant-design/icons'
 import {
+  App,
   Button,
   Card,
   Col,
@@ -17,76 +18,42 @@ import {
   Space,
   Spin,
   Tooltip,
-  Typography,
-  App,
-  Table
+  Typography
 } from 'antd'
-import React, { useCallback, useState, useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import React, { useCallback, useEffect, useState } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
+import { useLocation } from 'react-router-dom'
 import { format } from 'sql-formatter'
 import { MonacoQueryEditor } from '../../components/MonacoEditor/MonacoQueryEditor'
 import { TimeRangeSelector } from '../../components/TimeRangeSelector/TimeRangeSelector'
+import { TraceResults } from '../../components/TraceResults/TraceResults'
 import { useClickhouseQuery } from '../../hooks/useClickhouseQuery'
 import { useAppStore } from '../../store/appStore'
 
 const { Title } = Typography
 
-// Generate table columns from data
-const generateColumns = (data: Record<string, unknown>[]) => {
-  if (!data || data.length === 0) return []
-
-  const firstRow = data[0]
-  if (!firstRow) return []
-
-  return Object.keys(firstRow).map((key) => ({
-    title: key.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
-    dataIndex: key,
-    key,
-    render: (value: unknown) => {
-      if (value === null || value === undefined) return '-'
-
-      // Handle timestamps
-      if (key.includes('time') && typeof value === 'string') {
-        try {
-          const date = new Date(value)
-          if (!isNaN(date.getTime())) {
-            return date.toLocaleString()
-          }
-        } catch (e) {
-          // Ignore parsing errors
-        }
-      }
-
-      // Handle duration
-      if (key.includes('duration') && typeof value === 'number') {
-        return `${value.toFixed(2)}ms`
-      }
-
-      // Handle boolean-like values
-      if (key.includes('is_') && (value === 0 || value === 1)) {
-        return value === 1 ? 'Yes' : 'No'
-      }
-
-      return String(value)
-    },
-    sorter: (a: Record<string, unknown>, b: Record<string, unknown>) => {
-      const aVal = a[key]
-      const bVal = b[key]
-
-      if (typeof aVal === 'number' && typeof bVal === 'number') {
-        return aVal - bVal
-      }
-
-      return String(aVal || '').localeCompare(String(bVal || ''))
-    },
-    width: key === 'trace_id' || key === 'span_id' ? 200 : undefined
-  }))
+// Interface for trace data from ClickHouse matching what TraceResults expects
+interface TraceRow {
+  trace_id: string
+  service_name: string
+  operation_name: string
+  duration_ms: number
+  timestamp: string
+  status_code: string
+  is_error: number
+  span_kind?: string
+  span_id?: string
+  parent_span_id?: string
+  is_root?: number
+  encoding_type?: 'json' | 'protobuf'
+  attributes?: Record<string, unknown>
+  resource_attributes?: Record<string, unknown>
 }
 
 const DEFAULT_QUERY = `-- Query traces from simplified single-path ingestion
 SELECT 
   trace_id,
+  span_id,
   service_name,
   operation_name,
   duration_ms,
@@ -95,10 +62,11 @@ SELECT
   is_error,
   span_kind,
   is_root,
-  encoding_type
+  encoding_type,
+  parent_span_id
 FROM otel.traces 
 WHERE start_time >= subtractHours(now(), 3)
-ORDER BY start_time DESC
+ORDER BY start_time DESC 
 LIMIT 100`
 
 interface LocationState {
@@ -126,7 +94,7 @@ export const TracesView: React.FC = () => {
     isLoading,
     error,
     refetch
-  } = useClickhouseQuery(query, {
+  } = useClickhouseQuery<TraceRow>(query, {
     enabled: false // Don't auto-run, only on explicit execution
   })
 
@@ -199,7 +167,7 @@ export const TracesView: React.FC = () => {
       if (queryResults.data.length > 0) {
         console.log(
           'TracesView: Sample columns:',
-          Object.keys(queryResults.data[0] as Record<string, unknown>)
+          Object.keys(queryResults.data[0])
         )
       }
     }
@@ -446,29 +414,13 @@ export const TracesView: React.FC = () => {
                 Query Error: {error.message}
               </div>
             ) : queryResults ? (
-              // Simple table showing actual query columns
-              <Table
-                dataSource={(queryResults.data as Record<string, unknown>[]) || []}
-                columns={generateColumns((queryResults.data as Record<string, unknown>[]) || [])}
-                loading={isLoading}
-                size="small"
-                scroll={{ x: true, y: 400 }}
-                pagination={{
-                  showSizeChanger: true,
-                  showQuickJumper: true,
-                  showTotal: (total) => `${total} rows`,
-                  defaultPageSize: 50,
-                  pageSizeOptions: ['20', '50', '100', '200']
-                }}
-                rowKey={(record) => {
-                  // Generate unique keys safely without using deprecated index parameter
-                  const typedRecord = record as Record<string, unknown>
-                  const traceId = typedRecord?.trace_id
-                  const spanId = typedRecord?.span_id
-                  const timestamp = typedRecord?.timestamp || typedRecord?.start_time
-                  // Use a combination of available fields to create unique key
-                  return `${traceId || 'unknown'}-${spanId || Math.random()}-${timestamp || Date.now()}`
-                }}
+              // Use the rich TraceResults component with statistics and formatting
+              <TraceResults 
+                data={{
+                  data: queryResults.data,
+                  rows: queryResults.rows,
+                  statistics: queryResults.statistics
+                }} 
               />
             ) : (
               <div
