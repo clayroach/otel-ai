@@ -129,8 +129,8 @@ describe('Visualization Pipeline with Real Data', () => {
       expect(frontendMetrics).not.toBeNull()
       expect(frontendMetrics?.service).toBe('frontend')
       expect(frontendMetrics?.avgP50).toBeGreaterThan(0)
-      expect(frontendMetrics?.avgP95).toBeGreaterThan(frontendMetrics.avgP50)
-      expect(frontendMetrics?.avgP99).toBeGreaterThan(frontendMetrics.avgP95)
+      expect(frontendMetrics?.avgP95).toBeGreaterThan(frontendMetrics?.avgP50 ?? 0)
+      expect(frontendMetrics?.avgP99).toBeGreaterThan(frontendMetrics?.avgP95 ?? 0)
       expect(frontendMetrics?.totalRequests).toBeGreaterThan(0)
 
       expect(cartMetrics).not.toBeNull()
