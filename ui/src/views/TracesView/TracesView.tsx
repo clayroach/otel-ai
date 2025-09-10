@@ -8,18 +8,7 @@ import {
   PlayCircleOutlined,
   SaveOutlined
 } from '@ant-design/icons'
-import {
-  App,
-  Button,
-  Card,
-  Col,
-  Dropdown,
-  Row,
-  Space,
-  Spin,
-  Tooltip,
-  Typography
-} from 'antd'
+import { App, Button, Card, Col, Dropdown, Row, Space, Spin, Tooltip, Typography } from 'antd'
 import React, { useCallback, useEffect, useState } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { useLocation } from 'react-router-dom'
@@ -165,10 +154,7 @@ export const TracesView: React.FC = () => {
     if (queryResults?.data && Array.isArray(queryResults.data)) {
       console.log('TracesView: Query results:', queryResults.data.length, 'rows')
       if (queryResults.data.length > 0) {
-        console.log(
-          'TracesView: Sample columns:',
-          Object.keys(queryResults.data[0])
-        )
+        console.log('TracesView: Sample columns:', Object.keys(queryResults.data[0]))
       }
     }
   }, [queryResults])
@@ -415,12 +401,12 @@ export const TracesView: React.FC = () => {
               </div>
             ) : queryResults ? (
               // Use the rich TraceResults component with statistics and formatting
-              <TraceResults 
+              <TraceResults
                 data={{
                   data: queryResults.data,
                   rows: queryResults.rows,
                   statistics: queryResults.statistics
-                }} 
+                }}
               />
             ) : (
               <div

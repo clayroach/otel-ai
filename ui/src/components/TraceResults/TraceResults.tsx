@@ -42,7 +42,7 @@ interface TraceResultsProps {
 export const TraceResults: React.FC<TraceResultsProps> = ({ data }) => {
   const [selectedTrace, setSelectedTrace] = useState<UnifiedTrace | null>(null)
   const [detailsVisible, setDetailsVisible] = useState(false)
-  
+
   // Debug: Log the data to see what columns we're receiving
   React.useEffect(() => {
     if (data?.data?.length > 0) {
