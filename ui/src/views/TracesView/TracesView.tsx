@@ -98,7 +98,7 @@ SELECT
   encoding_type
 FROM otel.traces 
 WHERE start_time >= subtractHours(now(), 3)
-ORDER BY start_time DESC 
+ORDER BY start_time DESC
 LIMIT 100`
 
 interface LocationState {
@@ -460,13 +460,14 @@ export const TracesView: React.FC = () => {
                   defaultPageSize: 50,
                   pageSizeOptions: ['20', '50', '100', '200']
                 }}
-                rowKey={(record, index) => {
-                  // Generate unique keys safely
+                rowKey={(record) => {
+                  // Generate unique keys safely without using deprecated index parameter
                   const typedRecord = record as Record<string, unknown>
                   const traceId = typedRecord?.trace_id
                   const spanId = typedRecord?.span_id
                   const timestamp = typedRecord?.timestamp || typedRecord?.start_time
-                  return `${traceId || 'unknown'}-${spanId || index}-${timestamp || Math.random()}`
+                  // Use a combination of available fields to create unique key
+                  return `${traceId || 'unknown'}-${spanId || Math.random()}-${timestamp || Date.now()}`
                 }}
               />
             ) : (

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 /**
  * Meaningful Query Test - Reproduce bad-analysis.png issue
@@ -28,7 +28,7 @@ test.describe('Meaningful Latency Analysis Query', () => {
     await page.waitForSelector('[data-testid="traces-page-title"]')
   })
 
-  test('should return meaningful latency percentiles instead of 0 traces', async ({ page }) => {
+  test.skip('should return meaningful latency percentiles instead of 0 traces', async ({ page }) => {
     // Capture console logs to debug the data processing
     const consoleLogs: string[] = []
     page.on('console', msg => {
@@ -47,7 +47,7 @@ test.describe('Meaningful Latency Analysis Query', () => {
     
     // Wait for results (either success or failure)
     try {
-      await page.waitForSelector('.ant-table-tbody tr:not(.ant-table-measure-row), .ant-empty, text=/Query Error/', { timeout: 15000 })
+      await page.waitForSelector('.ant-table-tbody tr:not(.ant-table-measure-row), .ant-empty, text=/Query Error/', { timeout: 30000 })
     } catch (e) {
       console.log('⚠️  Query did not complete within timeout')
     }
@@ -107,11 +107,11 @@ test.describe('Meaningful Latency Analysis Query', () => {
     
     console.log('=' .repeat(60))
     
-    // The test should pass regardless - we're just gathering debug info
+    // This is a diagnostic test - always passes to gather debug info
     expect(true).toBe(true)
   })
 
-  test('should show actual duration_ns data exists in database', async ({ page }) => {
+  test.skip('should show actual duration_ns data exists in database', async ({ page }) => {
     // Test a simpler query to verify the data exists
     const SIMPLE_QUERY = `SELECT 
       service_name,

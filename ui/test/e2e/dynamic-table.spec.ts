@@ -7,7 +7,8 @@ import { test, expect } from '@playwright/test'
  * including result analysis, intelligent column formatting, and visualization toggles.
  */
 
-test.describe('Dynamic Table Functionality', () => {
+// SKIP: DynamicTable component has been removed from the codebase
+test.describe.skip('Dynamic Table Functionality [DEPRECATED - Component Removed]', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to the Traces view
     await page.goto('http://localhost:5173')
@@ -219,7 +220,7 @@ test.describe('Dynamic Table Functionality', () => {
   })
 })
 
-test.describe('Dynamic Table Edge Cases', () => {
+test.describe.skip('Dynamic Table Edge Cases [DEPRECATED - Component Removed]', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('http://localhost:5173')
     await page.click('[data-testid="nav-traces"]')
