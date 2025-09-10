@@ -1,10 +1,8 @@
 # AI-Native Observability Platform
 
-![Unit Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/YOUR_USERNAME/YOUR_GIST_ID/raw/unit-tests.json)
-![Integration Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/YOUR_USERNAME/YOUR_GIST_ID/raw/integration-tests.json)
-![E2E Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/YOUR_USERNAME/YOUR_GIST_ID/raw/e2e-tests.json)
-![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/YOUR_USERNAME/YOUR_GIST_ID/raw/coverage.json)
-[![CI/CD](https://github.com/clayroach/otel-ai/actions/workflows/test-badges.yml/badge.svg)](https://github.com/clayroach/otel-ai/actions/workflows/test-badges.yml)
+![Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/clayroach/00b1f639e8a5afd37b078e822ad5e629/raw/test-badge.json)
+![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/clayroach/00b1f639e8a5afd37b078e822ad5e629/raw/coverage-badge.json)
+[![CI](https://github.com/clayroach/otel-ai/actions/workflows/test-badges-simple.yml/badge.svg)](https://github.com/clayroach/otel-ai/actions/workflows/test-badges-simple.yml)
 
 > **30-Day Challenge**: Building enterprise-grade observability with AI at the core using Claude Code and documentation-driven development
 

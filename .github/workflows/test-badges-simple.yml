@@ -1,0 +1,122 @@
+name: Test Status Badges
+
+on:
+  push:
+    branches: [main, feat/*, fix/*]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: '8.15.0'
+          
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        
+      - name: Run tests with coverage
+        run: pnpm test:coverage
+        continue-on-error: true
+        
+      - name: Parse test results
+        if: always()
+        id: test-results
+        run: |
+          # Set defaults
+          TOTAL=0
+          PASSED=0
+          FAILED=0
+          COVERAGE=0
+          
+          # Try to read test results
+          if [ -f target/test-results/results.json ]; then
+            TOTAL=$(jq -r '.numTotalTests // 0' target/test-results/results.json)
+            PASSED=$(jq -r '.numPassedTests // 0' target/test-results/results.json)
+            FAILED=$(jq -r '.numFailedTests // 0' target/test-results/results.json)
+          fi
+          
+          # Try to read coverage
+          if [ -f target/coverage/coverage-summary.json ]; then
+            COVERAGE=$(jq -r '.total.lines.pct // 0' target/coverage/coverage-summary.json | cut -d'.' -f1)
+          fi
+          
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          echo "passed=$PASSED" >> $GITHUB_OUTPUT
+          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+          
+          # Print summary
+          echo "📊 Test Results: $PASSED/$TOTAL passed, $FAILED failed, $COVERAGE% coverage"
+        
+      - name: Update test badge
+        if: always() && github.ref == 'refs/heads/main'
+        uses: schneegans/dynamic-badges-action@v1.7.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }}
+          gistID: 00b1f639e8a5afd37b078e822ad5e629
+          filename: test-badge.json
+          label: Tests
+          message: ${{ steps.test-results.outputs.passed }}/${{ steps.test-results.outputs.total }}
+          color: ${{ steps.test-results.outputs.failed == '0' && 'success' || 'critical' }}
+          
+      - name: Update coverage badge
+        if: always() && github.ref == 'refs/heads/main'
+        uses: schneegans/dynamic-badges-action@v1.7.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }}
+          gistID: 00b1f639e8a5afd37b078e822ad5e629
+          filename: coverage-badge.json
+          label: Coverage
+          message: ${{ steps.test-results.outputs.coverage }}%
+          color: ${{ steps.test-results.outputs.coverage >= 80 && 'success' || steps.test-results.outputs.coverage >= 60 && 'yellow' || 'critical' }}
+          
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            target/test-results/
+            target/coverage/
+          retention-days: 7
+          
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const passed = '${{ steps.test-results.outputs.passed }}';
+            const total = '${{ steps.test-results.outputs.total }}';
+            const failed = '${{ steps.test-results.outputs.failed }}';
+            const coverage = '${{ steps.test-results.outputs.coverage }}';
+            
+            const status = failed === '0' ? '✅' : '❌';
+            
+            const comment = `## ${status} Test Results
+            
+            **Tests:** ${passed}/${total} passed
+            **Coverage:** ${coverage}%
+            
+            [View detailed report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
