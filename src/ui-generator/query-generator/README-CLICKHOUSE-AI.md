@@ -17,7 +17,7 @@ Configure model preferences in your `.env` file:
 
 ```env
 # General purpose models (used for query generation)
-LLM_GENERAL_MODEL_1=claude-3-7-sonnet-20250219
+LLM_GENERAL_MODEL_1=claude-3-haiku-20240307
 LLM_GENERAL_MODEL_2=gpt-3.5-turbo
 LLM_GENERAL_MODEL_3=gpt-oss-120b
 

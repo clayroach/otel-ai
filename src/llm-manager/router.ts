@@ -19,9 +19,7 @@ const mapGenericToActualModel = (
 ): string => {
   // For now, return actual model names based on what's available
   if (genericType === 'claude' && clients.claude) {
-    return (
-      process.env.LLM_GENERAL_MODEL_1 || process.env.CLAUDE_MODEL || 'claude-3-7-sonnet-20250219'
-    )
+    return process.env.LLM_GENERAL_MODEL_1 || process.env.CLAUDE_MODEL || 'claude-3-haiku-20240307'
   }
   if (genericType === 'gpt' && clients.gpt) {
     return process.env.LLM_GENERAL_MODEL_2 || process.env.OPENAI_MODEL || 'gpt-3.5-turbo'

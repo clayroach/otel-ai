@@ -22,7 +22,7 @@ describe("Model Registry", () => {
       expect(gptMetadata?.provider).toBe("openai")
       expect(gptMetadata?.capabilities?.json).toBe(true)
 
-      const claudeMetadata = getModelMetadata("claude-3-7-sonnet-20250219")
+      const claudeMetadata = getModelMetadata("claude-3-haiku-20240307")
       expect(claudeMetadata).toBeDefined()
       expect(claudeMetadata?.provider).toBe("anthropic")
 
@@ -40,17 +40,17 @@ describe("Model Registry", () => {
 
   describe("getModelMetadataForEnvironment", () => {
     it("should return metadata map for valid model IDs", () => {
-      const modelIds = ["gpt-3.5-turbo", "claude-3-7-sonnet-20250219", "sqlcoder-7b-2"]
+      const modelIds = ["gpt-3.5-turbo", "claude-3-haiku-20240307", "sqlcoder-7b-2"]
       const metadataMap = getModelMetadataForEnvironment(modelIds)
       
       expect(metadataMap.size).toBe(3)
       expect(metadataMap.get("gpt-3.5-turbo")?.provider).toBe("openai")
-      expect(metadataMap.get("claude-3-7-sonnet-20250219")?.provider).toBe("anthropic")
+      expect(metadataMap.get("claude-3-haiku-20240307")?.provider).toBe("anthropic")
       expect(metadataMap.get("sqlcoder-7b-2")?.provider).toBe("defog")
     })
 
     it("should skip invalid model IDs", () => {
-      const modelIds = ["gpt-3.5-turbo", "invalid-model", "claude-3-7-sonnet-20250219"]
+      const modelIds = ["gpt-3.5-turbo", "invalid-model", "claude-3-haiku-20240307"]
       const metadataMap = getModelMetadataForEnvironment(modelIds)
       
       expect(metadataMap.size).toBe(2) // Only valid models
@@ -91,7 +91,7 @@ describe("Model Registry", () => {
 
   describe("hasThinkingTags", () => {
     it("should return boolean for model thinking tag support", () => {
-      const result = hasThinkingTags("claude-3-7-sonnet-20250219")
+      const result = hasThinkingTags("claude-3-haiku-20240307")
       expect(typeof result).toBe("boolean")
     })
 
@@ -102,7 +102,7 @@ describe("Model Registry", () => {
 
   describe("getThinkingTagPattern", () => {
     it("should return RegExp or undefined", () => {
-      const pattern = getThinkingTagPattern("claude-3-7-sonnet-20250219")
+      const pattern = getThinkingTagPattern("claude-3-haiku-20240307")
       expect(pattern === undefined || pattern instanceof RegExp).toBe(true)
     })
   })

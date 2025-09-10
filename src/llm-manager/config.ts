@@ -77,9 +77,7 @@ const loadConfigFromEnv = (): Effect.Effect<LLMConfig, LLMError, never> =>
       baseConfig.models.claude = {
         apiKey: claudeApiKey,
         model:
-          process.env.LLM_GENERAL_MODEL_1 ||
-          process.env.CLAUDE_MODEL ||
-          'claude-3-7-sonnet-20250219',
+          process.env.LLM_GENERAL_MODEL_1 || process.env.CLAUDE_MODEL || 'claude-3-haiku-20240307',
         maxTokens: parseInt(process.env.CLAUDE_MAX_TOKENS || '4096'),
         temperature: parseFloat(process.env.CLAUDE_TEMPERATURE || '0.7'),
         endpoint: process.env.CLAUDE_ENDPOINT
@@ -249,7 +247,7 @@ export const ENV_DOCS = {
 
   // Claude Configuration
   CLAUDE_API_KEY: 'Anthropic API key for Claude models',
-  CLAUDE_MODEL: 'Claude model name (default: claude-3-7-sonnet-20250219)',
+  CLAUDE_MODEL: 'Claude model name (default: claude-3-haiku-20240307)',
   CLAUDE_MAX_TOKENS: 'Maximum tokens for Claude (default: 4096)',
   CLAUDE_TEMPERATURE: 'Temperature for Claude (default: 0.7)',
   CLAUDE_ENDPOINT: 'Custom Claude endpoint (optional)',

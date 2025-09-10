@@ -15,7 +15,7 @@ import { withLLMError } from './error-utils.js'
  */
 export const ClaudeConfigSchema = Schema.Struct({
   apiKey: Schema.String,
-  model: Schema.String, // "claude-3-opus-20240229", "claude-3-7-sonnet-20250219", etc.
+  model: Schema.String, // "claude-3-opus-20240229", "claude-3-haiku-20240307", etc.
   maxTokens: Schema.Number,
   temperature: Schema.Number,
   timeout: Schema.Number,
@@ -30,7 +30,7 @@ export type ClaudeConfig = Schema.Schema.Type<typeof ClaudeConfigSchema>
  */
 export const defaultClaudeConfig: ClaudeConfig = {
   apiKey: process.env.CLAUDE_API_KEY || '',
-  model: 'claude-3-7-sonnet-20250219',
+  model: 'claude-3-haiku-20240307',
   maxTokens: 4096,
   temperature: 0.7,
   timeout: 30000,
@@ -94,7 +94,7 @@ const calculateCost = (model: string, inputTokens: number, outputTokens: number)
   }
 
   const modelPricing = pricing[model] ||
-    pricing['claude-3-7-sonnet-20250219'] || { input: 3 / 1000000, output: 15 / 1000000 }
+    pricing['claude-3-haiku-20240307'] || { input: 3 / 1000000, output: 15 / 1000000 }
   return inputTokens * modelPricing.input + outputTokens * modelPricing.output
 }
 

@@ -196,7 +196,7 @@ targets:
     strategy: "loadbalance"
     
   - name: "general-models" 
-    models: ["claude-3-7-sonnet-20250219", "gpt-3.5-turbo"]
+    models: ["claude-3-haiku-20240307", "gpt-3.5-turbo"]
     strategy: "fallback"
 
 routes:
@@ -224,7 +224,7 @@ targets:
     strategy: "single"
     
   - name: "api-quality"
-    models: ["claude-3-7-sonnet-20250219"]  # Complex scenarios only
+    models: ["claude-3-haiku-20240307"]  # Complex scenarios only
     strategy: "single"
 
 routes:
