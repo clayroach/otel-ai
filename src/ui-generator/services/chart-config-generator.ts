@@ -1,7 +1,7 @@
 import { Schema } from '@effect/schema'
 import { Effect } from 'effect'
 import type { EChartsOption } from 'echarts'
-import type { ChartAnalysisInput } from './types'
+import type { ChartAnalysisInput } from './types.js'
 
 // Type guard for ECharts formatter parameters
 function isValidFormatterParams(params: unknown): params is { data: unknown[] } {

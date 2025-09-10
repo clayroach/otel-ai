@@ -1,7 +1,7 @@
 import { Effect, Context, Layer } from 'effect'
 import { Schema } from '@effect/schema'
-import { DynamicUIGenerator, type DynamicComponent } from './dynamic-component-generator'
-import { ResultAnalysisService } from './result-analysis-service'
+import { DynamicUIGenerator, type DynamicComponent } from './dynamic-component-generator.js'
+import { ResultAnalysisService } from './result-analysis-service.js'
 
 /**
  * UI Generation Pipeline Service - Phase 3D
@@ -291,6 +291,27 @@ function generateMockSQL(naturalQuery: string): string {
     `.trim()
   }
 
+  // Check for explicit time-series requests
+  if (
+    lowerQuery.includes('per minute') ||
+    lowerQuery.includes('over time') ||
+    lowerQuery.includes('by minute') ||
+    lowerQuery.includes('time') ||
+    lowerQuery.includes('hour')
+  ) {
+    return `
+      SELECT 
+        toStartOfMinute(timestamp) AS time_bucket,
+        service_name,
+        count() AS request_count,
+        avg(duration_ms) AS avg_latency
+      FROM traces
+      WHERE timestamp >= now() - INTERVAL 1 HOUR
+      GROUP BY time_bucket, service_name
+      ORDER BY time_bucket ASC
+    `.trim()
+  }
+
   // Default time-series query
   return `
     SELECT 
@@ -342,6 +363,14 @@ function generateMockData(sql: string): unknown[] {
       p95_ms: 100 + Math.random() * 50,
       p99_ms: 200 + Math.random() * 100,
       request_count: Math.floor(100 + Math.random() * 50)
+    }))
+  } else if (isTimeSeriesQuery) {
+    // Generate simple time-series data without percentiles
+    return Array.from({ length: 10 }, (_, i) => ({
+      time_bucket: new Date(Date.now() - (10 - i) * 60000).toISOString(),
+      service_name: ['frontend', 'checkout', 'payment'][i % 3],
+      request_count: Math.floor(100 + Math.random() * 50),
+      avg_latency: 50 + Math.random() * 100
     }))
   } else if (sql.toLowerCase().includes('error')) {
     // Generate error analysis data

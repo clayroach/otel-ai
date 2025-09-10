@@ -32,3 +32,7 @@ export {
   generateMultipleQueries as generateMultipleQueriesEffect,
   validateQuery as validateQueryEffect
 } from './api-client-layer.js'
+
+// Export UI Generation Pipeline for server usage
+export { UIGenerationPipeline } from './services/ui-generation-pipeline.js'
+export type { DynamicComponent } from './services/dynamic-component-generator.js'

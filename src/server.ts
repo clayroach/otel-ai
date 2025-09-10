@@ -23,7 +23,11 @@ import {
 } from './opentelemetry/index.js'
 import { StorageAPIClientTag, ClickHouseConfigTag, StorageAPIClientLayer } from './storage/index.js'
 import { LLMManagerAPIClientTag, LLMManagerAPIClientLayer } from './llm-manager/index.js'
-import { UIGeneratorAPIClientTag, UIGeneratorAPIClientLayer } from './ui-generator/index.js'
+import {
+  UIGeneratorAPIClientTag,
+  UIGeneratorAPIClientLayer,
+  UIGenerationPipeline
+} from './ui-generator/index.js'
 import {
   cleanAttributes,
   parseOTLPFromRaw,
@@ -1748,6 +1752,54 @@ app.get('/api/ui-generator/models', async (_req, res) => {
     console.error('❌ Error fetching models:', error)
     res.status(500).json({
       error: 'Failed to fetch models',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// UI Generation Pipeline endpoint - Generate component from natural language
+app.post('/api/ui-generator/pipeline', async (req, res) => {
+  try {
+    const { naturalLanguageQuery, context, options } = req.body
+
+    const result = await UIGenerationPipeline.generateFromNaturalLanguage(naturalLanguageQuery, {
+      preferredModel: options?.preferredModel,
+      context
+    })
+
+    res.json(result)
+  } catch (error) {
+    console.error('❌ UI generation pipeline error:', error)
+    res.status(500).json({
+      error: 'Failed to generate UI component',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// UI Generation Diagnostic endpoint - Generate diagnostic UI for critical paths
+app.post('/api/ui-generator/diagnostic', async (req, res) => {
+  try {
+    const { criticalPath, issueType } = req.body
+
+    if (!criticalPath || !issueType) {
+      res.status(400).json({
+        error: 'Missing required fields',
+        message: 'criticalPath and issueType are required'
+      })
+      return
+    }
+
+    const result = await UIGenerationPipeline.generateDiagnosticUI(
+      criticalPath,
+      issueType as 'latency' | 'errors' | 'throughput'
+    )
+
+    res.json(result)
+  } catch (error) {
+    console.error('❌ Diagnostic UI generation error:', error)
+    res.status(500).json({
+      error: 'Failed to generate diagnostic UI',
       message: error instanceof Error ? error.message : 'Unknown error'
     })
   }

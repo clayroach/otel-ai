@@ -1,8 +1,8 @@
 import { Schema } from '@effect/schema'
 import { Effect, Context, Layer } from 'effect'
-import { ResultAnalysisService } from './result-analysis-service'
-import { ChartConfigGenerator } from './chart-config-generator'
-import type { ColumnAnalysis } from './types'
+import { ResultAnalysisService } from './result-analysis-service.js'
+import { ChartConfigGenerator } from './chart-config-generator.js'
+import type { ColumnAnalysis } from './types.js'
 
 /**
  * Dynamic Component Generator Service - Phase 3C

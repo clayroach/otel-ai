@@ -8,6 +8,7 @@ import { MetricsView } from './views/MetricsView/MetricsView'
 import { LogsView } from './views/LogsView/LogsView'
 import ServiceTopologyView from './views/ServiceTopologyView/ServiceTopologyView'
 import { LLMDebugView } from './views/LLMDebugView'
+import { DynamicUIDemo } from './components/DynamicCharts/DynamicUIDemo'
 import { useMenuActions } from './hooks/useMenuActions'
 import { useAppStore } from './store/appStore'
 
@@ -36,6 +37,7 @@ const AppContent: React.FC = () => {
         <Route path="/metrics" element={<MetricsView />} />
         <Route path="/logs" element={<LogsView />} />
         <Route path="/llm-debug" element={<LLMDebugView />} />
+        <Route path="/dynamic-ui" element={<DynamicUIDemo />} />
       </Routes>
     </Layout>
   )
