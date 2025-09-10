@@ -31,5 +31,18 @@
     "ask": [],
     "defaultMode": "acceptEdits",
     "additionalDirectories": []
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$1\" | grep -q 'git commit'; then echo '🔍 Running pre-commit checks...' && pnpm format:check && pnpm typecheck:all && echo '✅ Pre-commit checks passed!'; fi"
+          }
+        ]
+      }
+    ]
   }
 }
