@@ -1,5 +1,11 @@
 # AI-Native Observability Platform
 
+![Unit Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/YOUR_USERNAME/YOUR_GIST_ID/raw/unit-tests.json)
+![Integration Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/YOUR_USERNAME/YOUR_GIST_ID/raw/integration-tests.json)
+![E2E Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/YOUR_USERNAME/YOUR_GIST_ID/raw/e2e-tests.json)
+![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/YOUR_USERNAME/YOUR_GIST_ID/raw/coverage.json)
+[![CI/CD](https://github.com/clayroach/otel-ai/actions/workflows/test-badges.yml/badge.svg)](https://github.com/clayroach/otel-ai/actions/workflows/test-badges.yml)
+
 > **30-Day Challenge**: Building enterprise-grade observability with AI at the core using Claude Code and documentation-driven development
 
 An OpenTelemetry-based observability platform where machine learning is integrated from the ground up - not bolted on as an afterthought. Features real-time anomaly detection, LLM-generated dashboards, and intelligent system insights that adapt to your team's needs.

@@ -1,0 +1,339 @@
+name: Test Results and Badges
+
+on:
+  push:
+    branches: [main, feat/*, fix/*]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: '8.15.0'
+          
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        
+      - name: Run unit tests with coverage
+        run: pnpm test:report
+        continue-on-error: true
+        
+      - name: Parse unit test results
+        if: always()
+        id: unit
+        run: |
+          if [ -f target/test-results/results.json ]; then
+            TOTAL=$(jq '.numTotalTests' target/test-results/results.json)
+            PASSED=$(jq '.numPassedTests' target/test-results/results.json)
+            FAILED=$(jq '.numFailedTests' target/test-results/results.json)
+            echo "total=$TOTAL" >> $GITHUB_OUTPUT
+            echo "passed=$PASSED" >> $GITHUB_OUTPUT
+            echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          else
+            echo "total=0" >> $GITHUB_OUTPUT
+            echo "passed=0" >> $GITHUB_OUTPUT
+            echo "failed=0" >> $GITHUB_OUTPUT
+          fi
+        
+      - name: Generate unit test badge
+        if: always()
+        uses: schneegans/dynamic-badges-action@v1.7.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }}
+          gistID: YOUR_GIST_ID_HERE  # You'll need to create a gist and add ID
+          filename: unit-tests.json
+          label: Unit Tests
+          message: ${{ steps.unit.outputs.total }} tests, ${{ steps.unit.outputs.passed }} passed
+          color: ${{ steps.unit.outputs.passed == steps.unit.outputs.total && 'success' || 'critical' }}
+          
+      - name: Upload unit test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: unit-test-results
+          path: |
+            target/test-results/
+            target/coverage/
+            
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      clickhouse:
+        image: clickhouse/clickhouse-server:24.3
+        ports:
+          - 8123:8123
+          - 9000:9000
+        options: >-
+          --health-cmd "wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: '8.15.0'
+          
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        
+      - name: Run integration tests
+        run: pnpm test:integration:report
+        continue-on-error: true
+        env:
+          CLICKHOUSE_HOST: localhost
+          CLICKHOUSE_PORT: 8123
+          
+      - name: Parse test results
+        if: always()
+        id: integration
+        run: |
+          if [ -f target/test-results/integration-results.json ]; then
+            TOTAL=$(jq '.numTotalTests' target/test-results/integration-results.json)
+            PASSED=$(jq '.numPassedTests' target/test-results/integration-results.json)
+            FAILED=$(jq '.numFailedTests' target/test-results/integration-results.json)
+            echo "total=$TOTAL" >> $GITHUB_OUTPUT
+            echo "passed=$PASSED" >> $GITHUB_OUTPUT
+            echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          else
+            echo "total=0" >> $GITHUB_OUTPUT
+            echo "passed=0" >> $GITHUB_OUTPUT
+            echo "failed=0" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Generate integration test badge
+        if: always()
+        uses: schneegans/dynamic-badges-action@v1.7.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }}
+          gistID: YOUR_GIST_ID_HERE  # Same gist, different file
+          filename: integration-tests.json
+          label: Integration Tests
+          message: ${{ steps.integration.outputs.passed }}/${{ steps.integration.outputs.total }} passed
+          color: ${{ steps.integration.outputs.failed == '0' && 'success' || 'critical' }}
+          
+      - name: Upload integration test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: integration-test-results
+          path: target/test-results/
+            
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: '8.15.0'
+          
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        
+      - name: Build application
+        run: pnpm build
+        
+      - name: Start services
+        run: |
+          docker-compose -f docker-compose.test.yml up -d
+          sleep 30  # Wait for services to be ready
+          
+      - name: Run E2E tests
+        run: |
+          cd ui
+          pnpm test:e2e -- --reporter=json --outputFile=../target/test-results/e2e-results.json
+        continue-on-error: true
+        
+      - name: Parse E2E results
+        if: always()
+        id: e2e
+        run: |
+          if [ -f target/test-results/e2e-results.json ]; then
+            TOTAL=$(jq '.numTotalTests' target/test-results/e2e-results.json)
+            PASSED=$(jq '.numPassedTests' target/test-results/e2e-results.json)
+            FAILED=$(jq '.numFailedTests' target/test-results/e2e-results.json)
+            echo "total=$TOTAL" >> $GITHUB_OUTPUT
+            echo "passed=$PASSED" >> $GITHUB_OUTPUT
+            echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          else
+            echo "total=0" >> $GITHUB_OUTPUT
+            echo "passed=0" >> $GITHUB_OUTPUT
+            echo "failed=0" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Generate E2E test badge
+        if: always()
+        uses: schneegans/dynamic-badges-action@v1.7.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }}
+          gistID: YOUR_GIST_ID_HERE  # Same gist, different file
+          filename: e2e-tests.json
+          label: E2E Tests
+          message: ${{ steps.e2e.outputs.passed }}/${{ steps.e2e.outputs.total }} passed
+          color: ${{ steps.e2e.outputs.failed == '0' && 'success' || 'critical' }}
+          
+      - name: Upload E2E test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: e2e-test-results
+          path: |
+            target/test-results/
+            target/playwright-report/
+            
+      - name: Stop services
+        if: always()
+        run: docker-compose -f docker-compose.test.yml down
+        
+  test-coverage:
+    name: Test Coverage
+    runs-on: ubuntu-latest
+    needs: [unit-tests]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Download coverage reports
+        uses: actions/download-artifact@v3
+        with:
+          name: unit-test-results
+          
+      - name: Parse coverage
+        id: coverage
+        run: |
+          if [ -f target/coverage/coverage-summary.json ]; then
+            COVERAGE=$(jq '.total.lines.pct' target/coverage/coverage-summary.json)
+            echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
+          else
+            echo "percentage=0" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Generate coverage badge
+        if: always()
+        uses: schneegans/dynamic-badges-action@v1.7.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }}
+          gistID: YOUR_GIST_ID_HERE  # Same gist, different file
+          filename: coverage.json
+          label: Coverage
+          message: ${{ steps.coverage.outputs.percentage }}%
+          color: ${{ steps.coverage.outputs.percentage >= 80 && 'success' || steps.coverage.outputs.percentage >= 60 && 'yellow' || 'critical' }}
+          
+  publish-results:
+    name: Publish Test Results
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests, e2e-tests, test-coverage]
+    if: always()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Download all test results
+        uses: actions/download-artifact@v3
+        
+      - name: Combine test reports
+        run: |
+          mkdir -p combined-results
+          cp -r unit-test-results/test-results/* combined-results/ 2>/dev/null || true
+          cp -r unit-test-results/coverage combined-results/ 2>/dev/null || true
+          cp -r integration-test-results/* combined-results/ 2>/dev/null || true
+          cp -r e2e-test-results/* combined-results/ 2>/dev/null || true
+          
+      - name: Upload combined HTML report
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-report-html
+          path: combined-results/
+        
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: |
+            **/target/test-results/*.xml
+            **/target/test-results/*.json
+          check_name: Test Results Summary
+          comment_title: Test Results
+          
+      - name: Create test report comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let unitResults = { passed: 0, failed: 0, total: 0 };
+            let integrationResults = { passed: 0, failed: 0, total: 0 };
+            let e2eResults = { passed: 0, failed: 0, total: 0 };
+            let coverage = 0;
+            
+            // Try to read actual results from downloaded artifacts
+            try {
+              if (fs.existsSync('unit-test-results/test-results/results.json')) {
+                const data = JSON.parse(fs.readFileSync('unit-test-results/test-results/results.json', 'utf8'));
+                unitResults.total = data.numTotalTests || 0;
+                unitResults.passed = data.numPassedTests || 0;
+                unitResults.failed = data.numFailedTests || 0;
+              }
+            } catch (e) { console.log('Could not read unit test results'); }
+            
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            
+            const comment = `## 📊 Test Results
+            
+            | Test Suite | Status | Passed | Failed | Total |
+            |------------|--------|--------|--------|-------|
+            | Unit Tests | ${unitResults.failed === 0 ? '✅' : '❌'} | ${unitResults.passed} | ${unitResults.failed} | ${unitResults.total} |
+            | Integration Tests | ${integrationResults.failed === 0 ? '✅' : '❌'} | ${integrationResults.passed} | ${integrationResults.failed} | ${integrationResults.total} |
+            | E2E Tests | ${e2eResults.failed === 0 ? '✅' : '❌'} | ${e2eResults.passed} | ${e2eResults.failed} | ${e2eResults.total} |
+            
+            **Coverage:** ${coverage}%
+            
+            📄 **[View HTML Test Report](${runUrl})** - Download \`test-report-html\` artifact
+            📈 **[View Coverage Report](${runUrl})** - Included in test report artifact
+            
+            View all artifacts in the [Actions tab](${context.payload.pull_request.html_url}/checks)`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });

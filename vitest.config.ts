@@ -16,6 +16,12 @@ export default defineConfig({
       '**/test/integration/**', // Exclude integration test directories
     ],
     watch: false, // Disable watch mode by default - run once and exit
+    reporters: ['default'], // Default reporter for normal runs
+    outputFile: {
+      json: './target/test-results/results.json',
+      junit: './target/test-results/junit.xml',
+      html: './target/test-results/index.html'
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'json', 'json-summary', 'lcov'],
