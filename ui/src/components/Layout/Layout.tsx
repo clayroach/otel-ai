@@ -9,7 +9,8 @@ import {
   MoonOutlined,
   SunOutlined,
   MenuOutlined,
-  RobotOutlined
+  RobotOutlined,
+  BuildOutlined
 } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAppStore } from '../../store/appStore'
@@ -61,6 +62,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       icon: <RobotOutlined />,
       label: 'LLM Debug',
       'data-testid': 'nav-llm-debug'
+    },
+    {
+      key: '/dynamic-ui',
+      icon: <BuildOutlined />,
+      label: 'Dynamic UI',
+      'data-testid': 'nav-dynamic-ui'
     }
   ]
 

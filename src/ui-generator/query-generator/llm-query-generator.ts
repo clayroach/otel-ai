@@ -199,8 +199,8 @@ export const generateQueryWithLLM = (
           )
         }
 
-        // Convert to GeneratedQuery format
-        const query: GeneratedQuery = {
+        // Convert to GeneratedQuery format with model information
+        const query: GeneratedQuery & { model?: string; reasoning?: string } = {
           id: `${path.id}_${Date.now()}_llm`,
           name: `${analysisGoal.substring(0, 50)} - ${path.name}`,
           description: parsed.description,
@@ -212,7 +212,9 @@ export const generateQueryWithLLM = (
               return acc
             },
             {} as Record<string, string>
-          )
+          ),
+          model: response.model, // Include the actual model that was used
+          reasoning: parsed.reasoning
         }
 
         return query

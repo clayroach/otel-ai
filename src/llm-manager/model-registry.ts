@@ -265,8 +265,8 @@ const MODEL_REGISTRY: Record<string, ModelMetadata> = {
     notes: 'GPT-4 Turbo model with improved capabilities and JSON mode support.'
   },
 
-  'claude-3-7-sonnet-20250219': {
-    id: 'claude-3-7-sonnet-20250219',
+  'claude-3-haiku-20240307': {
+    id: 'claude-3-haiku-20240307',
     displayName: 'Claude 3.7 Sonnet',
     provider: 'anthropic',
     type: 'general',

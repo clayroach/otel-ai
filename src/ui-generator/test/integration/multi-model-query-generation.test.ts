@@ -139,8 +139,10 @@ interface ModelAvailability {
 const modelAvailability: ModelAvailability[] = []
 
 // Note: Tests are individually skipped due to performance concerns with LLM calls
+// Skip entire suite in CI if no API keys available
+const shouldSkipTests = isCI && !hasOpenAIKey && !hasClaudeKey
 
-describe("Multi-Model Query Generation", () => {
+describe.skipIf(shouldSkipTests)("Multi-Model Query Generation", () => {
   
   beforeAll(async () => {
     console.log("\n🔍 Checking model availability across providers...")

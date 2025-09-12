@@ -4,12 +4,6 @@
 
 An OpenTelemetry-based observability platform where machine learning is integrated from the ground up - not bolted on as an afterthought. Features real-time anomaly detection, LLM-generated dashboards, and intelligent system insights that adapt to your team's needs.
 
-## 🏆 **Project Status**
-
-An AI-native observability platform with unified OTLP ingestion and OpenTelemetry Demo integration.
-
-> 📊 **Daily Progress**: Follow the journey in [`notes/daily/`](notes/daily/) | **Blog Series**: [Dev.to Series](blog/platforms/)
-
 ## 🚀 Quick Start
 
 **Prerequisites:** Node.js 18+, pnpm, Docker
@@ -18,349 +12,175 @@ An AI-native observability platform with unified OTLP ingestion and OpenTelemetr
 # 1. Clone and setup
 git clone https://github.com/clayroach/otel-ai.git
 cd otel-ai
-
-# 2. Install dependencies
 pnpm install
 
-# 3. Start developing
+# 2. Start the platform
 pnpm dev:up        # Start platform services (Docker)
-pnpm dev          # Start development server
-
-# 4. Try the OpenTelemetry Demo integration
-pnpm demo:up      # Start demo with your platform as backend
-```
-
-## 📋 **Development Commands**
-
-**IMPORTANT**: Always use pnpm commands - never use direct docker/docker-compose/curl commands.
-
-### Core Development Commands
-
-```bash
-# Development environment
-pnpm dev:up              # Start all services (Docker containers + backend)
-pnpm dev:down            # Stop all services
-pnpm dev:logs            # View service logs
-pnpm dev:reset           # Clean reset (removes volumes and restarts)
-
-# Rebuild services (after code changes)
-pnpm dev:rebuild:backend # Rebuild and restart backend service
-pnpm dev:rebuild:ui      # Rebuild and restart UI service
-pnpm dev:rebuild         # Rebuild all services
-
-# Testing
-pnpm test                # Run all unit tests
-pnpm test:integration    # Run integration tests
-pnpm test:e2e            # Run end-to-end tests
-pnpm test:coverage       # Run tests with coverage report
-
-# Code quality
-pnpm lint                # Run ESLint
-pnpm lint:fix            # Auto-fix linting issues
-pnpm format              # Format code with Prettier
-pnpm typecheck           # Run TypeScript type checking
-
-# Cleanup
-pnpm clean               # Clean build artifacts
-pnpm clean:all           # Full cleanup (containers, volumes, artifacts)
-pnpm clean:containers    # Remove all containers
-pnpm clean:volumes       # Remove all volumes
-pnpm clean:prune         # Docker system prune with volumes
-pnpm db:truncate         # Clear traces table data
-
-# OpenTelemetry Demo integration
-pnpm demo:setup          # Initial demo setup
-pnpm demo:up             # Start demo services
-pnpm demo:down           # Stop demo services
-pnpm demo:logs           # View demo logs
-pnpm demo:clean          # Clean demo containers
-pnpm demo:status         # Check demo status
-
-# Infrastructure validation
-pnpm dev:validate        # Validate environment setup
-pnpm dev:validate:traces # Validate trace ingestion
-```
-
-### Development Workflows
-
-```bash
-# After pulling latest changes
-pnpm install             # Install new dependencies
-pnpm dev:rebuild:backend # Rebuild backend with changes
-pnpm test                # Run tests to verify
-
-# Fresh start (clean everything)
-pnpm clean:all           # Remove all containers and data
-pnpm dev:up              # Start fresh environment
-pnpm demo:setup          # Setup demo if needed
-pnpm demo:up             # Start demo services
-
-# Before committing
-pnpm lint:fix            # Fix linting issues
-pnpm format              # Format code
-pnpm typecheck           # Check types
-pnpm test                # Run all tests
-```
-
-## 🏗️ **Unified OTLP Ingestion** ✅
-
-**Simplified Architecture**: Single path for all telemetry data
-
-- **Single Path**: All Sources → OTel Collector → Backend Service → `traces` table
-- **Simplified Schema**: One optimized table design for all trace data
-- **AI-Ready**: Schema optimized for machine learning and analytics
-- **Professional UI**: Monaco SQL editor with unified data access
-
-**Tech Stack**:
-- **ClickHouse**: Real-time analytics with unified schema
-- **React + Monaco**: Professional SQL interface with syntax highlighting  
-- **Effect-TS**: Type-safe functional programming patterns
-- **TestContainers**: Real database integration testing
-
-## 🗄️ **Schema Migration System** ✅
-
-**Production-Ready Atlas Migration Framework**
-
-Container-native schema management with zero external dependencies:
-
-```bash
-# Automatic migration on startup
-pnpm dev:up              # Runs migrations before services start
-
-# Manual migration commands  
-pnpm db:migrate          # Run migrations explicitly
-pnpm db:migrate:reset    # Clean slate + migrate
-```
-
-**Key Features**:
-- **Container-Native**: Self-contained migration container with HTTP-based ClickHouse client
-- **Multi-Environment**: Docker Compose + Kubernetes init container patterns
-- **Zero Duplication**: Single source of truth eliminates init script redundancy
-- **Production Ready**: Health checks, resource limits, retry policies
-- **Version Controlled**: Atlas HCL schema definitions with migration history
-
-**Architecture**:
-- `migrations/entrypoint.sh`: Multi-mode operation (migrate|init|validate|wait)
-- `migrations/schema/`: Centralized schema definitions and views
-- `migrations/k8s-job.yaml`: Kubernetes Job and Deployment examples
-- HTTP-based connectivity for broad platform compatibility
-
-## 🎯 **OpenTelemetry Demo Integration**
-
-**"Bring Your Own Backend" Implementation**
-
-Run the official OpenTelemetry demo while sending all telemetry to our AI-native platform:
-
-```bash
-# Automated demo management
-pnpm demo:setup    # Clone and configure latest demo
-pnpm demo:up      # Start demo with our backend
-pnpm demo:down    # Stop demo services
-pnpm demo:logs    # View demo logs
-pnpm demo:clean   # Clean up demo containers
-pnpm demo:status  # Check demo service status
-pnpm demo:validate # Validate demo integration
-```
-
-**Key Features**:
-- 🔄 **Automated lifecycle management** with TypeScript script
-- 🐳 **Docker Compose overrides** redirect telemetry without forking
-- 🚀 **Live telemetry flow** from 15+ demo services to ClickHouse
-- 🧹 **Clean integration** - demo source is gitignored
-
-**Demo Services**: Frontend, payment, cart, shipping, product catalog, ad service, and more!
-
-## 📦 Development Workflow
-
-### Package Documentation
-
-Each package includes comprehensive documentation following our **Option C pattern**:
-
-- **README.md**: Quick start, API overview, basic examples
-- **Dendron notes**: Full specifications, architecture, design decisions
-
-| Package | README | Comprehensive Docs |
-|---------|--------|--------------------|
-| [storage](src/storage/) | [📖 README](src/storage/README.md) | [📚 Full Docs](notes/packages/storage/package.md) |
-| [ai-analyzer](src/ai-analyzer/) | [📖 README](src/ai-analyzer/README.md) | [📚 Full Docs](notes/packages/ai-analyzer/package.md) |
-| [llm-manager](src/llm-manager/) | [📖 README](src/llm-manager/README.md) | [📚 Full Docs](notes/packages/llm-manager/package.md) |
-| [ui-generator](src/ui-generator/) | [📖 README](src/ui-generator/README.md) | [📚 Full Docs](notes/packages/ui-generator/package.md) |
-| [config-manager](src/config-manager/) | [📖 README](src/config-manager/README.md) | [📚 Full Docs](notes/packages/config-manager/package.md) |
-| [build](src/build/) | [📖 README](src/build/README.md) | [📚 Full Docs](notes/packages/build/package.md) |
-| [deployment](src/deployment/) | [📖 README](src/deployment/README.md) | [📚 Full Docs](notes/packages/deployment/package.md) |
-
-### Development Commands
-
-```bash
-# Development workflow
-pnpm install        # Install dependencies
-pnpm dev:up        # Start infrastructure (Docker)
 pnpm dev           # Start development server
-pnpm test          # Run unit tests
-pnpm test:integration  # Run integration tests
-pnpm test:e2e      # Run E2E tests with Playwright
-pnpm typecheck     # TypeScript validation
+
+# 3. Try the OpenTelemetry Demo integration
+pnpm demo:up       # Start demo with your platform as backend
+
+# 4. Access the platform
+open http://localhost:5173  # Platform UI
+open http://localhost:8089  # Load generator
 ```
 
-### Infrastructure Management
+That's it! You now have:
+- ✅ **ClickHouse** storing telemetry data  
+- ✅ **OpenTelemetry Collector** ingesting traces
+- ✅ **Demo services** generating realistic telemetry
+- ✅ **AI-ready platform** processing the data
+
+## 🏆 What Makes This Special
+
+### AI-Native Architecture
+Unlike traditional observability tools that bolt on AI features, this platform is **built AI-first**:
+
+- **Real-time anomaly detection** using autoencoders trained on telemetry data
+- **LLM-generated dashboards** that adapt to user roles and usage patterns  
+- **Self-healing configuration management** that fixes issues before they impact applications
+- **Multi-model AI orchestration** (GPT, Claude, local Llama) with intelligent routing
+- **No Grafana required** - platform generates React components dynamically
+
+### 30-Day Development Challenge
+This project demonstrates that AI-assisted development can achieve enterprise-level results with:
+
+- **Team of 10+ developers** → **Solo developer with Claude Code**
+- **12+ months development** → **30 focused days (120 hours)**
+- **Traditional workflows** → **Documentation-driven development with AI automation**
+
+> 📊 **Follow the Journey**: [`notes/daily/`](notes/daily/) | **Blog Series**: [Dev.to](https://dev.to/clayroach)
+
+## ✨ Key Features
+
+### Current Implementation
+- **🔄 Unified OTLP Ingestion** - Single path for all telemetry data
+- **💾 ClickHouse Storage** - Real-time analytics with AI-optimized schema  
+- **🎯 OTel Demo Integration** - "Bring Your Own Backend" approach
+- **🏗️ Professional UI** - Monaco SQL editor with syntax highlighting
+- **🧪 Comprehensive Testing** - 42+ tests with TestContainers integration
+- **📦 Container-Native** - Docker-first with production migrations
+
+### AI Features (In Progress)
+- **🤖 Multi-Model LLM Manager** - GPT-4, Claude, Local Llama orchestration
+- **📊 Dynamic UI Generation** - React components from natural language
+- **🔍 Anomaly Detection** - Autoencoder-based pattern recognition  
+- **📈 Critical Path Analysis** - AI-powered service dependency analysis
+
+## 🎯 Real-World Demo
+
+The platform integrates with the **official OpenTelemetry Demo** to provide realistic telemetry data:
 
 ```bash
-# Infrastructure control
-pnpm dev:up         # Start development services (ClickHouse, MinIO, OTel Collector)
-pnpm dev:down       # Stop development services
-pnpm dev:reset      # Reset with clean volumes
-pnpm dev:logs       # View service logs
-
-# Production infrastructure
-pnpm infra:up       # Start production services
-pnpm infra:down     # Stop production services
-pnpm infra:reset    # Reset production with clean volumes
-pnpm infra:logs     # View production service logs
+pnpm demo:up  # Starts 15+ microservices
 ```
 
-## 🧪 Testing
+**Demo Services**: Frontend, payment, cart, shipping, product catalog, ad service, recommendation engine, and more - all sending telemetry to your AI platform.
 
-```bash
-# Unit and integration tests
-pnpm test              # Unit tests with Vitest
-pnpm test:coverage     # Coverage report
-pnpm test:integration  # Integration tests (requires Docker services)
-
-# End-to-end testing
-pnpm test:e2e          # E2E tests with Playwright
-pnpm test:e2e:ui       # E2E tests with Playwright UI
-pnpm test:e2e:headed   # E2E tests in headed mode
-pnpm test:e2e:debug    # Debug E2E tests
-pnpm test:e2e:quick    # Quick validation tests
-
-# Docker-based integration testing
-pnpm test:integration:docker  # Run integration tests in Docker container
+**Live Data Flow**: 
+```
+OTel Demo Services → OTel Collector → Your Platform → ClickHouse → AI Analysis
 ```
 
-## ✅ **Current Features**
-
-### Core Platform
-- **Dual-ingestion architecture** with unified trace view
-- **Professional Monaco SQL interface** with ClickHouse syntax highlighting
-- **Comprehensive test suite** (42 tests with TestContainers integration)
-- **Production Docker environment** with full observability stack
-- **OpenTelemetry Demo integration** using "Bring Your Own Backend" approach
-
-### Data Processing
-- **ClickHouse storage** with real-time analytics and dual-schema support
-- **Effect-TS patterns** for type-safe functional programming
-- **OTLP native ingestion** through OpenTelemetry Collector
-- **Direct API ingestion** for AI-optimized data processing
-
-### Development Experience
-- **AI-native workflows** with Claude Code integration
-- **Documentation-driven development** with living specifications
-- **TestContainers testing** against real databases
-- **TypeScript automation** for complex workflow management
-
-## 🏛️ Project Structure
+## 🏛️ Architecture
 
 ```
-otel-ai/
-├── src/                    # Source code packages
-│   ├── storage/           # ClickHouse + S3 storage layer [📖 README](src/storage/README.md)
-│   ├── ai-analyzer/       # Anomaly detection with ML models [📖 README](src/ai-analyzer/README.md)
-│   ├── llm-manager/       # Multi-model LLM orchestration [📖 README](src/llm-manager/README.md)
-│   ├── ui-generator/      # Dynamic React components [📖 README](src/ui-generator/README.md)
-│   ├── config-manager/    # Self-healing configuration [📖 README](src/config-manager/README.md)
-│   └── deployment/        # Bazel build + deployment [📖 README](src/deployment/README.md)
-├── migrations/            # Atlas schema migration system
-│   ├── entrypoint.sh     # Container-native migration entrypoint
-│   ├── schema/          # HCL schema definitions and views
-│   ├── clickhouse/      # SQL migration files
-│   └── k8s-job.yaml     # Kubernetes deployment examples
-├── docker/                # Container configurations
-│   ├── clickhouse/       # ClickHouse configuration
-│   ├── otel-collector/   # OpenTelemetry Collector config
-│   └── envoy/           # Load balancer config
-├── notes/                 # Dendron documentation vault
-│   ├── daily/           # Development journal
-│   ├── packages/        # Package specifications
-│   └── design/         # Architecture decisions
-└── scripts/              # Code generation and utilities
+┌─ OpenTelemetry Demo ─────┐    ┌─ AI-Native Platform ──────────────┐
+│                          │    │                                   │
+│  Frontend ────┐          │    │  ┌─ OTel Collector              │
+│  Payment ─────┤          │    │  │                               │
+│  Cart ────────┤ Telemetry├────┼─▶│  Backend API                  │
+│  Shipping ────┤          │    │  │                               │
+│  Catalog ─────┤          │    │  └─ ClickHouse ──┐               │
+│  Ads ─────────┘          │    │                   │               │
+└──────────────────────────┘    │  ┌─ AI Layer ────▼─────────────┐ │
+                                 │  │  Multi-Model LLM Manager   │ │
+                                 │  │  Anomaly Detection Engine  │ │
+                                 │  │  Dynamic UI Generator      │ │
+                                 │  └────────────────────────────┘ │
+                                 └───────────────────────────────────┘
 ```
 
-## 🔧 **AI-Native Development Philosophy**
+## 🚀 Development Philosophy
 
-**Documentation-Driven Development + Claude Code Workflows**
+**Documentation-Driven + AI-Native Workflows**
 
-1. **Specifications First**: Detailed package specs in [`notes/packages/`](notes/packages/)
-2. **AI-Assisted Generation**: Claude Code transforms specs into production code  
-3. **Living Documentation**: Bidirectional sync between docs and implementation
-4. **Prompt-Driven Operations**: Daily workflows use AI instead of complex bash scripts
-5. **Continuous Validation**: 42 tests ensure quality at 2x development pace
+1. **📝 Specifications First** - Detailed package specs guide implementation
+2. **🤖 AI-Assisted Generation** - Claude Code transforms specs into production code  
+3. **📚 Living Documentation** - Bidirectional sync between docs and implementation
+4. **⚡ Prompt-Driven Operations** - AI workflows instead of complex bash scripts
+5. **✅ Continuous Validation** - Comprehensive testing ensures quality
 
 **Key Insight**: When building AI-native systems, make the development process itself AI-native.
 
-> 📖 **Philosophy Deep Dive**: Read the full approach in [`notes/inception.md`](notes/inception.md)
+## 📦 Package Architecture
 
-## 📈 AI Features (Roadmap)
+| Package | Purpose | Status |
+|---------|---------|--------|
+| [storage](src/storage/) | ClickHouse + S3 storage layer | ✅ Complete |
+| [ai-analyzer](src/ai-analyzer/) | Anomaly detection with ML models | 🔄 In Progress |
+| [llm-manager](src/llm-manager/) | Multi-model LLM orchestration | ✅ Complete |
+| [ui-generator](src/ui-generator/) | Dynamic React components | 🔄 In Progress |
+| [config-manager](src/config-manager/) | Self-healing configuration | 📋 Planned |
+| [server](src/server/) | Backend API server | ✅ Complete |
+| [ui](src/ui/) | Frontend React application | 🔄 In Progress |
 
-### Real-time Anomaly Detection
+> 📖 **For Developers**: See [DEVELOPER.md](DEVELOPER.md) for technical details, testing, and contribution guidelines.
 
-- Autoencoder neural networks trained on telemetry patterns
-- Automatic baseline learning and drift detection
-- Multi-dimensional anomaly scoring
+## 📈 Why This Matters
 
-### LLM-Generated Dashboards
+This project proves that **AI-assisted development can compress traditional enterprise software timelines by 10x or more**:
 
-- Dynamic React components based on user queries
-- Role-based dashboard personalization
-- Natural language to visualization
+### Traditional Enterprise Development
+- 👥 **Team**: 10+ developers (frontend, backend, DevOps, QA)
+- ⏰ **Timeline**: 12-18 months for MVP
+- 💰 **Cost**: $2-5M+ in engineering costs
+- 🐛 **Quality**: Often shipped with technical debt
 
-### Multi-Model AI Orchestration
+### AI-Native Development Approach  
+- 👤 **Team**: 1 developer + Claude Code
+- ⏰ **Timeline**: 30 days (120 focused hours)
+- 💰 **Cost**: <$10K (primarily AI API costs)
+- ✨ **Quality**: Comprehensive testing, clean architecture
 
-- GPT-4 for complex reasoning
-- Claude for code generation
-- Local Llama for privacy-sensitive operations
-- Intelligent model routing based on task requirements
+**Success Factors**:
+- **Documentation-driven development** provides clear AI context
+- **Professional UI early** enables faster debugging cycles  
+- **Comprehensive testing** prevents rework and technical debt
+- **AI-native workflows** eliminate traditional development overhead
 
-## 🚢 Deployment
+## 🤝 Getting Involved
 
-```bash
-# Production build
-pnpm release
+### For Users
+1. **Try it out**: `pnpm dev:up && pnpm demo:up`
+2. **Follow the journey**: [Daily notes](notes/daily/) and [blog series](https://dev.to/clayroach)
+3. **Provide feedback**: What observability challenges do you face?
 
-# Container deployment
-pnpm docker:build
-docker-compose -f docker-compose.prod.yaml up -d
-```
+### For Developers  
+1. **Read**: [DEVELOPER.md](DEVELOPER.md) for technical setup
+2. **Explore**: Package documentation in [`notes/packages/`](notes/packages/)
+3. **Contribute**: See [contribution guidelines](DEVELOPER.md#-contributing-guidelines)
+
+### For AI Enthusiasts
+1. **Study the approach**: [AI-native development philosophy](notes/inception.md)
+2. **Examine the results**: Compare traditional vs AI-assisted timelines
+3. **Apply the patterns**: Documentation-driven + AI-assisted workflows
+
+## 📚 Resources
+
+- **📊 Daily Progress**: [`notes/daily/`](notes/daily/) - Detailed development journal
+- **📝 Blog Series**: [Dev.to articles](https://dev.to/clayroach) - Insights and lessons learned
+- **🏗️ Architecture**: [`notes/design/`](notes/design/) - Technical decisions and ADRs
+- **📦 Package Specs**: [`notes/packages/`](notes/packages/) - Detailed specifications
+- **🛠️ Developer Guide**: [DEVELOPER.md](DEVELOPER.md) - Technical documentation
 
 ## 📜 License
 
 MIT License - see [LICENSE](LICENSE) for details.
 
-## 🚀 **Why This Matters**
-
-This project proves that **AI-assisted development can compress traditional enterprise software timelines by 10x or more**. 
-
-- **Traditional approach**: 10+ developers, 12+ months
-- **AI-native approach**: 1 developer + Claude Code, 30 days (potentially 20-25 days at current pace)
-
-**Key Success Factors**:
-- Documentation-driven development provides clear AI context
-- Professional UI early enables faster debugging cycles  
-- Comprehensive testing prevents rework and technical debt
-- AI-native workflows eliminate traditional development overhead
-
-## 📚 **Follow the Journey**
-
-- **📊 Daily Progress**: [`notes/daily/`](notes/daily/) - Detailed development journal
-- **📝 Blog Series**: [`blog/platforms/`](blog/platforms/) - Dev.to articles with insights
-- **🏗️ Architecture**: [`notes/design.md`](notes/design.md) - Technical decisions
-- **📦 Packages**: [`notes/packages/`](notes/packages/) - Detailed specifications
-
-## 🤝 **Contributing**
-
-This is a 30-day challenge project demonstrating AI-assisted development. While the primary goal is timeline compression research, contributions and feedback are welcome!
-
-**Current Focus**: Week 2 advanced UI features - see [`notes/daily/`](notes/daily/) for immediate goals.
-
 ---
 
-**🤖 Built with [Claude Code](https://claude.ai/code) | 📈 Tracking 2x expected development velocity**
+**🤖 Built with [Claude Code](https://claude.ai/code) | 📈 Demonstrating AI-accelerated development**
+
+> **Current Focus**: Phase 3-4 test infrastructure and dynamic UI generation - see [`notes/daily/`](notes/daily/) for latest progress

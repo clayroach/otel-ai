@@ -1,4 +1,5 @@
 import {
+  BarChartOutlined,
   ClearOutlined,
   CopyOutlined,
   DownOutlined,
@@ -6,13 +7,27 @@ import {
   HistoryOutlined,
   InfoCircleOutlined,
   PlayCircleOutlined,
-  SaveOutlined
+  SaveOutlined,
+  TableOutlined
 } from '@ant-design/icons'
-import { App, Button, Card, Col, Dropdown, Row, Space, Spin, Tooltip, Typography } from 'antd'
+import {
+  App,
+  Button,
+  Card,
+  Col,
+  Dropdown,
+  Row,
+  Space,
+  Spin,
+  Switch,
+  Tooltip,
+  Typography
+} from 'antd'
 import React, { useCallback, useEffect, useState } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { useLocation } from 'react-router-dom'
 import { format } from 'sql-formatter'
+import { DynamicChartRenderer } from '../../components/DynamicCharts/DynamicChartRenderer'
 import { MonacoQueryEditor } from '../../components/MonacoEditor/MonacoQueryEditor'
 import { TimeRangeSelector } from '../../components/TimeRangeSelector/TimeRangeSelector'
 import { TraceResults } from '../../components/TraceResults/TraceResults'
@@ -69,6 +84,52 @@ interface LocationState {
   }
 }
 
+// Helper function to infer natural language description from SQL query
+function inferNaturalLanguageFromSQL(sql: string): string {
+  const lowerSQL = sql.toLowerCase()
+
+  // Look for common patterns in the SQL
+  if (lowerSQL.includes('count(') && lowerSQL.includes('group by')) {
+    if (lowerSQL.includes('service_name')) {
+      if (lowerSQL.includes('error') || lowerSQL.includes('status_code')) {
+        return 'Show error count by service'
+      }
+      return 'Show request count by service'
+    }
+    if (lowerSQL.includes('minute') || lowerSQL.includes('tostartofsecond')) {
+      return 'Show request count over time'
+    }
+  }
+
+  if (lowerSQL.includes('quantile') || lowerSQL.includes('p95') || lowerSQL.includes('p99')) {
+    if (lowerSQL.includes('service_name')) {
+      return 'Show latency percentiles by service'
+    }
+    return 'Show latency percentiles over time'
+  }
+
+  if (lowerSQL.includes('duration_ms') || lowerSQL.includes('duration_ns')) {
+    if (lowerSQL.includes('avg(')) {
+      return 'Show average duration by service'
+    }
+    if (lowerSQL.includes('max(')) {
+      return 'Show maximum duration by service'
+    }
+    return 'Show trace durations'
+  }
+
+  if (lowerSQL.includes('is_error') || lowerSQL.includes('status_code')) {
+    return 'Show error analysis'
+  }
+
+  // Default fallback
+  if (lowerSQL.includes('service_name') && lowerSQL.includes('operation_name')) {
+    return 'Show service operations analysis'
+  }
+
+  return 'Analyze trace data'
+}
+
 export const TracesView: React.FC = () => {
   const { message } = App.useApp()
   const location = useLocation()
@@ -77,6 +138,16 @@ export const TracesView: React.FC = () => {
   const [query, setQuery] = useState(activeQuery || DEFAULT_QUERY)
   const [isRunning, setIsRunning] = useState(false)
   const [queryMetadata, setQueryMetadata] = useState<LocationState['metadata'] | null>(null)
+  const [viewMode, setViewMode] = useState<'dynamic' | 'table'>('dynamic')
+  const [dynamicViewError, setDynamicViewError] = useState<string | null>(null)
+  const [dynamicComponent, setDynamicComponent] = useState<{
+    component: string
+    props: {
+      config?: unknown
+      data?: unknown[]
+      height?: string
+    }
+  } | null>(null)
 
   const {
     data: queryResults,
@@ -87,16 +158,60 @@ export const TracesView: React.FC = () => {
     enabled: false // Don't auto-run, only on explicit execution
   })
 
+  // Dynamic UI generation hook - available for future use
+  // const { data: dynamicUIData, loading: dynamicUILoading, error: dynamicUIError, generateUI } = useUIGeneration()
+
   const handleRunQuery = useCallback(async () => {
     setIsRunning(true)
     setActiveQuery(query)
     addToQueryHistory(query)
+    setDynamicViewError(null)
+
     try {
-      await refetch()
+      // Run the query first
+      const result = await refetch()
+
+      // If in dynamic mode and query succeeded, try to generate dynamic UI
+      // We pass the SQL query directly to the backend, which will execute it and generate UI
+      if (viewMode === 'dynamic' && result && result.data) {
+        try {
+          // The backend expects the actual SQL query to analyze the results
+          // Use the proxy to reach the backend
+          const response = await fetch('/api/ui-generator/from-sql', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              sql: query,
+              queryResults: result.data, // Pass the actual results
+              context: {
+                criticalPath: queryMetadata?.criticalPath,
+                description: queryMetadata?.description || inferNaturalLanguageFromSQL(query)
+              }
+            })
+          })
+
+          if (response.ok) {
+            const uiData = await response.json()
+            // Set the dynamic UI data directly
+            if (uiData && uiData.component) {
+              setDynamicComponent(uiData.component)
+              console.log('Generated UI component:', uiData.component)
+            }
+          } else {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+          }
+        } catch (uiError) {
+          console.error('Failed to generate dynamic UI:', uiError)
+          setDynamicViewError('Unable to generate visualization. Showing table view instead.')
+          // Don't throw - fall back to table view
+        }
+      }
     } finally {
       setIsRunning(false)
     }
-  }, [query, setActiveQuery, addToQueryHistory, refetch])
+  }, [query, setActiveQuery, addToQueryHistory, refetch, viewMode, queryMetadata])
 
   const handleFormatQuery = useCallback(() => {
     try {
@@ -183,6 +298,41 @@ export const TracesView: React.FC = () => {
       window.history.replaceState({}, document.title)
     }
   }, [locationState, handleRunQuery])
+
+  // Generate dynamic UI when switching to dynamic mode with existing results
+  useEffect(() => {
+    if (viewMode === 'dynamic' && queryResults && !dynamicComponent) {
+      // Generate the dynamic UI
+      fetch('/api/ui-generator/from-sql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          sql: query,
+          queryResults: queryResults.data,
+          context: {
+            criticalPath: queryMetadata?.criticalPath,
+            description: queryMetadata?.description || inferNaturalLanguageFromSQL(query)
+          }
+        })
+      })
+        .then((response) => {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`)
+          return response.json()
+        })
+        .then((uiData) => {
+          if (uiData && uiData.component) {
+            setDynamicComponent(uiData.component)
+            console.log('Generated UI component on mode switch:', uiData.component)
+          }
+        })
+        .catch((error) => {
+          console.error('Failed to generate dynamic UI on mode switch:', error)
+          setDynamicViewError('Unable to generate visualization. Use table view to see results.')
+        })
+    }
+  }, [viewMode, queryResults, dynamicComponent, query, queryMetadata])
 
   return (
     <div
@@ -364,7 +514,35 @@ export const TracesView: React.FC = () => {
         {/* Results Panel */}
         <Panel defaultSize={70} minSize={40}>
           <Card
-            title="Query Results"
+            title={
+              <Space>
+                <span>Query Results</span>
+                {queryResults && (
+                  <Switch
+                    checkedChildren={
+                      <>
+                        <BarChartOutlined /> Dynamic
+                      </>
+                    }
+                    unCheckedChildren={
+                      <>
+                        <TableOutlined /> Table
+                      </>
+                    }
+                    checked={viewMode === 'dynamic'}
+                    onChange={(checked) => {
+                      setViewMode(checked ? 'dynamic' : 'table')
+                      if (!checked) {
+                        // Reset error when switching to table view
+                        setDynamicViewError(null)
+                      }
+                    }}
+                    style={{ marginLeft: 16 }}
+                    data-testid="view-mode-toggle"
+                  />
+                )}
+              </Space>
+            }
             style={{
               height: '100%',
               display: 'flex',
@@ -400,14 +578,34 @@ export const TracesView: React.FC = () => {
                 Query Error: {error.message}
               </div>
             ) : queryResults ? (
-              // Use the rich TraceResults component with statistics and formatting
-              <TraceResults
-                data={{
-                  data: queryResults.data,
-                  rows: queryResults.rows,
-                  statistics: queryResults.statistics
-                }}
-              />
+              // Render based on view mode
+              viewMode === 'dynamic' && dynamicComponent && !dynamicViewError ? (
+                // Dynamic view with generated charts
+                <div
+                  style={{ padding: '16px', height: '100%', overflow: 'auto' }}
+                  data-testid="dynamic-view-container"
+                >
+                  <DynamicChartRenderer
+                    component={dynamicComponent}
+                    loading={false}
+                    error={dynamicViewError || undefined}
+                  />
+                  {dynamicViewError && (
+                    <div style={{ marginTop: '16px', color: '#ff7875', textAlign: 'center' }}>
+                      {dynamicViewError}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // Table view (fallback or selected)
+                <TraceResults
+                  data={{
+                    data: queryResults.data,
+                    rows: queryResults.rows,
+                    statistics: queryResults.statistics
+                  }}
+                />
+              )
             ) : (
               <div
                 style={{

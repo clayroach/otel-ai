@@ -27,7 +27,7 @@ const MockClaudeConfigLive = Layer.succeed(LLMConfigService, {
     models: {
       claude: {
         apiKey: 'mock-claude-api-key',
-        model: 'claude-3-7-sonnet-20250219',
+        model: 'claude-3-haiku-20240307',
         maxTokens: 4096,
         temperature: 0.7,
         endpoint: 'https://api.anthropic.com'
@@ -153,7 +153,7 @@ describe('Claude Client (Effect-TS)', () => {
       }
       const typedConfig = config as LLMConfig
       expect(typedConfig.models.claude?.apiKey).toBe('mock-claude-api-key')
-      expect(typedConfig.models.claude?.model).toBe('claude-3-7-sonnet-20250219')
+      expect(typedConfig.models.claude?.model).toBe('claude-3-haiku-20240307')
       expect(typedConfig.routing.strategy).toBe('balanced')
     })
   })

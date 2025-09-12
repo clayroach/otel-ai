@@ -27,7 +27,7 @@ describe('Claude Client Integration', () => {
       const client = makeClaudeClient({
         ...defaultClaudeConfig,
         apiKey: process.env.CLAUDE_API_KEY as string,
-        model: 'claude-3-7-sonnet-20250219'
+        model: 'claude-3-haiku-20240307'
       })
 
       const request: LLMRequest = {
@@ -71,7 +71,7 @@ describe('Claude Client Integration', () => {
       const client = makeClaudeClient({
         ...defaultClaudeConfig,
         apiKey: process.env.CLAUDE_API_KEY as string,
-        model: 'claude-3-7-sonnet-20250219'
+        model: 'claude-3-haiku-20240307'
       })
 
       const request: LLMRequest = {
@@ -174,7 +174,7 @@ describe('Claude Client Integration', () => {
       const client = makeClaudeClient({
         ...defaultClaudeConfig,
         apiKey: 'invalid-key',
-        model: 'claude-3-7-sonnet-20250219'
+        model: 'claude-3-haiku-20240307'
       })
 
       const request: LLMRequest = {
@@ -219,7 +219,7 @@ describe('Claude Client Integration', () => {
       const client = makeClaudeClient({
         ...defaultClaudeConfig,
         apiKey: process.env.CLAUDE_API_KEY as string,
-        model: 'claude-3-7-sonnet-20250219'
+        model: 'claude-3-haiku-20240307'
       })
 
       const request: LLMRequest = {

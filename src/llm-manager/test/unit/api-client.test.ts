@@ -209,7 +209,7 @@ describe("LLM Manager API Client", () => {
       process.env.LLM_GENERAL_MODEL_1 = "gpt-3.5-turbo"
       process.env.LLM_SQL_MODEL_1 = "sqlcoder-7b-2"
       process.env.LLM_CODE_MODEL_1 = "codellama-7b-instruct"
-      process.env.LLM_DOC_MODEL_1 = "claude-3-7-sonnet-20250219"
+      process.env.LLM_DOC_MODEL_1 = "claude-3-haiku-20240307"
       
       await client.initialize()
       
@@ -218,7 +218,7 @@ describe("LLM Manager API Client", () => {
       expect(categories.general).toContain("gpt-3.5-turbo")
       expect(categories.sql).toContain("sqlcoder-7b-2")  
       expect(categories.code).toContain("codellama-7b-instruct")
-      expect(categories.doc).toContain("claude-3-7-sonnet-20250219")
+      expect(categories.doc).toContain("claude-3-haiku-20240307")
     })
 
     it("should return empty arrays when no models configured", async () => {

@@ -44,12 +44,12 @@ Generate a query that shows p95 latency for each service in the critical path.`
 
   it.skipIf(!process.env.CLAUDE_API_KEY)('should debug Claude response', async () => {
 
-    console.log('\n🔍 Testing Claude-3-7-sonnet-20250219')
+    console.log('\n🔍 Testing claude-3-haiku-20240307')
     console.log('━'.repeat(60))
     
     const client = makeClaudeClient({
       apiKey: process.env.CLAUDE_API_KEY || '',
-      model: 'claude-3-7-sonnet-20250219',
+      model: 'claude-3-haiku-20240307',
       maxTokens: 1000,
       temperature: 0,
       timeout: 30000,

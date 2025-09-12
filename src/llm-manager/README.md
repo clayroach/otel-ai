@@ -129,7 +129,7 @@ LM_STUDIO_ENDPOINT=http://localhost:1234/v1
 
 # Model Preference Configuration (Primary)
 # These take precedence over legacy individual model configs
-LLM_GENERAL_MODEL_1=claude-3-7-sonnet-20250219  # Primary model for general tasks
+LLM_GENERAL_MODEL_1=claude-3-haiku-20240307  # Primary model for general tasks
 LLM_GENERAL_MODEL_2=gpt-3.5-turbo               # Secondary model for general tasks
 LLM_SQL_MODEL_1=sqlcoder-7b-2                   # Primary model for SQL generation
 LLM_SQL_MODEL_2=codellama-7b-instruct          # Secondary model for SQL generation
@@ -142,7 +142,7 @@ OPENAI_TEMPERATURE=0.7
 
 # Claude (optional)
 CLAUDE_API_KEY=sk-ant-...
-CLAUDE_MODEL=claude-3-7-sonnet-20250219  # Fallback if LLM_GENERAL_MODEL_1 not set
+CLAUDE_MODEL=claude-3-haiku-20240307  # Fallback if LLM_GENERAL_MODEL_1 not set
 
 # Routing
 LLM_ROUTING_STRATEGY=balanced  # cost, performance, or balanced

@@ -155,7 +155,7 @@ function initializeClients(config?: Partial<LLMConfig>) {
   if (process.env.CLAUDE_API_KEY) {
     clients.claude = makeClaudeClient({
       apiKey: process.env.CLAUDE_API_KEY,
-      model: config?.models?.claude?.model || 'claude-3-5-sonnet-20241022',
+      model: config?.models?.claude?.model || 'claude-3-haiku-20240307',
       ...config?.models?.claude
     })
   }

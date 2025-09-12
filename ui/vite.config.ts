@@ -22,6 +22,10 @@ export default defineConfig({
             console.log(`Proxying: ${req.method} ${req.url} -> http://${targetHost}:${targetPort}`)
           })
         }
+      },
+      '/api': {
+        target: 'http://backend:4319',
+        changeOrigin: true
       }
     }
   },

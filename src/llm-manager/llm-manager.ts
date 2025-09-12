@@ -6,12 +6,12 @@
  */
 
 import { Effect, Stream } from 'effect'
-import { LLMRequest, LLMResponse, LLMError, LLMConfig } from './types.js'
-import { makeLocalModelClient, defaultLocalConfig } from './clients/local-client.js'
 import { makeClaudeClient } from './clients/claude-client.js'
+import { defaultLocalConfig, makeLocalModelClient } from './clients/local-client.js'
 import { makeOpenAIClient } from './clients/openai-client.js'
-import { makeModelRouter } from './router.js'
 import type { ManagerStatus } from './llm-manager-service.js'
+import { makeModelRouter } from './router.js'
+import { LLMConfig, LLMError, LLMRequest, LLMResponse } from './types.js'
 
 /**
  * Model client interface that all implementations must follow
@@ -28,12 +28,13 @@ interface ModelClient {
 function initializeClients(config?: Partial<LLMConfig>): Record<string, ModelClient> {
   const clients: Record<string, ModelClient> = {}
 
-  // Always initialize local client
+  // Always initialize local client (for llama/SQL models)
   const localConfig = {
     ...defaultLocalConfig,
     ...config?.models?.llama,
     endpoint: config?.models?.llama?.endpoint || defaultLocalConfig.endpoint
   }
+  // Create local client that will handle all SQL models
   clients.local = makeLocalModelClient(localConfig)
 
   // Initialize Claude if API key present
@@ -41,7 +42,7 @@ function initializeClients(config?: Partial<LLMConfig>): Record<string, ModelCli
     clients.claude = makeClaudeClient({
       ...config?.models?.claude,
       apiKey: process.env.CLAUDE_API_KEY,
-      model: config?.models?.claude?.model || 'claude-3-5-sonnet-20241022',
+      model: config?.models?.claude?.model || 'claude-3-haiku-20240307',
       maxTokens: config?.models?.claude?.maxTokens || 4096,
       temperature: config?.models?.claude?.temperature || 0.7,
       timeout: 30000, // 30 seconds
@@ -229,7 +230,7 @@ const createDefaultLLMManager = () => createLLMManager()
  * Export functions for internal use by layers only
  * These should NOT be re-exported in index.ts
  */
-export { createLLMManager, createDefaultLLMManager }
+export { createDefaultLLMManager, createLLMManager }
 
 /**
  * Export types for external use

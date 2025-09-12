@@ -482,6 +482,89 @@ app.post('/api/ai-analyzer/topology', async (req, res) => {
   }
 })
 
+// UI Generator endpoints
+app.post('/api/ui-generator/from-sql', async (req, res) => {
+  try {
+    const { sql, queryResults, context } = req.body
+
+    // Import the UI generation services
+    const {
+      ResultAnalysisServiceTag,
+      ResultAnalysisServiceLive,
+      ChartConfigGeneratorServiceTag,
+      ChartConfigGeneratorServiceLive
+    } = await import('./ui-generator/services/index.js')
+    const { Effect, Layer } = await import('effect')
+
+    // Create layer composition
+    const ServiceLayers = Layer.mergeAll(ResultAnalysisServiceLive, ChartConfigGeneratorServiceLive)
+
+    // Extract the actual data array from queryResults
+    const dataArray = Array.isArray(queryResults)
+      ? queryResults
+      : queryResults?.data || queryResults
+
+    // Analyze the query results to determine the best visualization
+    const analysis = await Effect.runPromise(
+      Effect.gen(function* () {
+        const service = yield* ResultAnalysisServiceTag
+        return yield* service.analyzeResults(dataArray)
+      }).pipe(Effect.provide(ServiceLayers))
+    )
+
+    // Generate chart configuration based on the analysis
+    // Deep copy the analysis to convert readonly types to mutable
+    const chartConfig = await Effect.runPromise(
+      Effect.gen(function* () {
+        const service = yield* ChartConfigGeneratorServiceTag
+        return yield* service.generateConfig(
+          {
+            ...analysis,
+            columns: analysis.columns.map((col) => ({
+              ...col,
+              sampleValues: [...col.sampleValues],
+              semanticType: col.semanticType || ''
+            })),
+            detectedPatterns: [...analysis.detectedPatterns]
+          },
+          dataArray
+        )
+      }).pipe(Effect.provide(ServiceLayers))
+    )
+
+    // Return the component specification
+    res.json({
+      component: {
+        component:
+          chartConfig.type === 'table'
+            ? 'DynamicDataTable'
+            : chartConfig.type === 'line'
+              ? 'DynamicLineChart'
+              : chartConfig.type === 'bar'
+                ? 'DynamicBarChart'
+                : 'DynamicDataTable',
+        props: {
+          config: chartConfig.config,
+          data: Array.isArray(queryResults) ? queryResults : queryResults?.data || queryResults,
+          height: '400px'
+        }
+      },
+      analysis,
+      metadata: {
+        sql,
+        context,
+        generatedAt: Date.now()
+      }
+    })
+  } catch (error) {
+    console.error('❌ UI Generator error:', error)
+    res.status(500).json({
+      error: 'UI generation failed',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
 // New endpoint for topology visualization with force-directed graph data
 app.post('/api/ai-analyzer/topology-visualization', async (req, res) => {
   try {
@@ -1614,6 +1697,14 @@ app.post('/api/ui-generator/generate-query', async (req, res) => {
   try {
     const { path, timeWindowMinutes = 60, analysisGoal, model } = req.body
 
+    // Validate that path exists
+    if (!path || !path.services || path.services.length === 0) {
+      return res.status(400).json({
+        error: 'Invalid request',
+        message: 'Path with services array is required'
+      })
+    }
+
     // Use the UI Generator API Client via Effect-TS
     const result = await runWithServices(
       Effect.gen(function* () {
@@ -1626,7 +1717,7 @@ app.post('/api/ui-generator/generate-query', async (req, res) => {
             startService: path.startService || path.services?.[0],
             endService: path.endService || path.services?.[path.services.length - 1]
           },
-          analysisGoal: analysisGoal || determineAnalysisGoal(path.metrics),
+          analysisGoal: analysisGoal || determineAnalysisGoal(path?.metrics),
           model: model || process.env.LLM_SQL_MODEL_1 || 'sqlcoder-7b-2'
         })
       })
@@ -1639,7 +1730,7 @@ app.post('/api/ui-generator/generate-query', async (req, res) => {
       sql = sql.replace(/INTERVAL \d+ MINUTE/g, `INTERVAL ${timeWindowMinutes} MINUTE`)
     }
 
-    res.json({
+    return res.json({
       sql,
       model: result.model,
       description: result.description,
@@ -1648,7 +1739,22 @@ app.post('/api/ui-generator/generate-query', async (req, res) => {
     })
   } catch (error) {
     console.error('❌ Query generation error:', error)
-    res.status(500).json({
+
+    // Check if this is a ModelUnavailable error
+    const errorObj = error as { _tag?: string; message?: string }
+    if (
+      errorObj._tag === 'ModelUnavailable' ||
+      (errorObj.message && errorObj.message.includes('ModelUnavailable'))
+    ) {
+      return res.status(503).json({
+        error: 'Model unavailable',
+        message: errorObj.message || 'The requested model is not available',
+        retryAfter: 60 // Suggest retry after 60 seconds
+      })
+    }
+
+    // Generic error handling
+    return res.status(500).json({
       error: 'Failed to generate query',
       message: error instanceof Error ? error.message : 'Unknown error'
     })
@@ -1752,6 +1858,9 @@ app.get('/api/ui-generator/models', async (_req, res) => {
     })
   }
 })
+
+// Removed bogus pipeline endpoints - the real flow is:
+// Service Topology → Critical Paths → /api/ui-generator/generate-query → /api/clickhouse → /api/ui-generator/from-sql
 
 // Clear LLM logs endpoint
 app.delete('/api/llm/interactions', async (_req, res) => {
