@@ -25,6 +25,7 @@ const mapGenericToActualModel = (
     return process.env.LLM_GENERAL_MODEL_2 || process.env.OPENAI_MODEL || 'gpt-3.5-turbo'
   }
   if (genericType === 'llama' && clients.llama) {
+    // Default to the SQL model that's configured
     return process.env.LLM_SQL_MODEL_1 || 'sqlcoder-7b-2'
   }
   return genericType // fallback to original if no mapping found
@@ -116,51 +117,40 @@ export const makeModelRouter = (
             const preferredModel = request.preferences.model
             const isAvailable = yield* _(isModelAvailable(preferredModel, clients))
 
-            if (isAvailable) {
-              return preferredModel
+            if (!isAvailable) {
+              // HARD FAIL - no fallback
+              return yield* _(
+                Effect.fail({
+                  _tag: 'ModelUnavailable' as const,
+                  model: preferredModel,
+                  message: `Requested model '${preferredModel}' is not available`
+                })
+              )
             }
 
-            // Log preference override
-            yield* _(
-              Effect.log(
-                `Preferred model ${preferredModel} unavailable, falling back to routing strategy`
-              )
-            )
+            return preferredModel
           }
 
-          // Use task-based routing
+          // Use task-based routing WITHOUT fallback
           const taskRouting = TASK_ROUTING[request.taskType]
           const preferredModel = taskRouting.preferred
 
           // Map generic model type to actual model name and check availability
           const actualPreferredModel = mapGenericToActualModel(preferredModel, clients)
-          const isPreferredAvailable = yield* _(isModelAvailable(preferredModel, clients))
-          if (isPreferredAvailable) {
-            return actualPreferredModel // Return actual model name, not generic type
+          const isPreferredAvailable = yield* _(isModelAvailable(actualPreferredModel, clients))
+
+          if (!isPreferredAvailable) {
+            // HARD FAIL - no fallback
+            return yield* _(
+              Effect.fail({
+                _tag: 'ModelUnavailable' as const,
+                model: actualPreferredModel,
+                message: `Required model '${actualPreferredModel}' for task '${request.taskType}' is not available`
+              })
+            )
           }
 
-          // Try fallback models in order
-          for (const fallbackModel of taskRouting.fallback) {
-            const actualFallbackModel = mapGenericToActualModel(fallbackModel, clients)
-            const isAvailable = yield* _(isModelAvailable(fallbackModel, clients))
-            if (isAvailable) {
-              yield* _(
-                Effect.log(
-                  `Using fallback model ${actualFallbackModel} (${fallbackModel}) for task ${request.taskType}`
-                )
-              )
-              return actualFallbackModel // Return actual model name, not generic type
-            }
-          }
-
-          // If no models are available, fail
-          return yield* _(
-            Effect.fail({
-              _tag: 'ModelUnavailable' as const,
-              model: 'all',
-              message: 'No available models for request'
-            })
-          )
+          return actualPreferredModel
         }),
 
       routeRequest: (request: LLMRequest) =>
@@ -173,51 +163,40 @@ export const makeModelRouter = (
                 const preferredModel = request.preferences.model
                 const isAvailable = yield* _(isModelAvailable(preferredModel, clients))
 
-                if (isAvailable) {
-                  return preferredModel
+                if (!isAvailable) {
+                  // HARD FAIL - no fallback
+                  return yield* _(
+                    Effect.fail({
+                      _tag: 'ModelUnavailable' as const,
+                      model: preferredModel,
+                      message: `Requested model '${preferredModel}' is not available`
+                    })
+                  )
                 }
 
-                // Log preference override
-                yield* _(
-                  Effect.log(
-                    `Preferred model ${preferredModel} unavailable, falling back to routing strategy`
-                  )
-                )
+                return preferredModel
               }
 
-              // Use task-based routing
+              // Use task-based routing WITHOUT fallback
               const taskRouting = TASK_ROUTING[request.taskType]
               const preferredModel = taskRouting.preferred
 
               // Map generic model type to actual model name and check availability
               const actualPreferredModel = mapGenericToActualModel(preferredModel, clients)
-              const isPreferredAvailable = yield* _(isModelAvailable(preferredModel, clients))
-              if (isPreferredAvailable) {
-                return actualPreferredModel // Return actual model name, not generic type
+              const isPreferredAvailable = yield* _(isModelAvailable(actualPreferredModel, clients))
+
+              if (!isPreferredAvailable) {
+                // HARD FAIL - no fallback
+                return yield* _(
+                  Effect.fail({
+                    _tag: 'ModelUnavailable' as const,
+                    model: actualPreferredModel,
+                    message: `Required model '${actualPreferredModel}' for task '${request.taskType}' is not available`
+                  })
+                )
               }
 
-              // Try fallback models in order
-              for (const fallbackModel of taskRouting.fallback) {
-                const actualFallbackModel = mapGenericToActualModel(fallbackModel, clients)
-                const isAvailable = yield* _(isModelAvailable(fallbackModel, clients))
-                if (isAvailable) {
-                  yield* _(
-                    Effect.log(
-                      `Using fallback model ${actualFallbackModel} (${fallbackModel}) for task ${request.taskType}`
-                    )
-                  )
-                  return actualFallbackModel // Return actual model name, not generic type
-                }
-              }
-
-              // If no models are available, fail
-              return yield* _(
-                Effect.fail({
-                  _tag: 'ModelUnavailable' as const,
-                  model: 'all',
-                  message: 'No available models for request'
-                })
-              )
+              return actualPreferredModel
             })
           )
 
@@ -247,6 +226,15 @@ export const makeModelRouter = (
 
           const response = yield* _(
             modelClient.generate(request).pipe(
+              Effect.map((res) => ({
+                ...res,
+                model: selectedModel, // Ensure the actual selected model is in the response
+                metadata: {
+                  ...res.metadata,
+                  actualModel: selectedModel,
+                  fallbackUsed: selectedModel !== request.preferences?.model
+                }
+              })),
               Effect.tapBoth({
                 onFailure: (error) =>
                   Effect.gen(function* (_) {
@@ -321,7 +309,7 @@ const isModelAvailable = (
     } else if (model.includes('gpt')) {
       client = clients.gpt
     } else {
-      // Local model (sqlcoder, codellama, etc.)
+      // Local model (sqlcoder, codellama, etc.) - always uses llama client
       client = clients.llama
     }
 

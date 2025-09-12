@@ -74,15 +74,32 @@ export class UIGeneratorAPIClient {
           })),
           generationTimeMs: Date.now() - startTime
         })),
-        Effect.catchAll((error) =>
-          Effect.succeed({
+        Effect.catchAll((error: unknown) => {
+          console.error('❌ Query generation error:', error)
+
+          // Check if this is a ModelUnavailable error
+          const isModelUnavailable =
+            (typeof error === 'object' &&
+              error !== null &&
+              '_tag' in error &&
+              error._tag === 'ModelUnavailable') ||
+            (error instanceof Error && error.message.includes('ModelUnavailable'))
+
+          if (isModelUnavailable) {
+            // Re-throw model unavailability errors - don't fall back to SQL generation
+            return Effect.fail(error)
+          }
+
+          // For other errors (network issues, parsing errors, etc.), generate a fallback query
+          const errorMessage = error instanceof Error ? error.message : JSON.stringify(error)
+          return Effect.succeed({
             sql: UIGeneratorAPIClient.generateFallbackQuery(criticalPath),
             model: 'fallback',
-            description: `Fallback query generated due to error: ${error.message}`,
+            description: `Fallback query generated due to error: ${errorMessage}`,
             expectedColumns: UIGeneratorAPIClient.getExpectedColumns(),
             generationTimeMs: Date.now() - startTime
           })
-        ),
+        }),
         // Provide the LLM Manager Layer
         Effect.provide(LLMManagerLive)
       )

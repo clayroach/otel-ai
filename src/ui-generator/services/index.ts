@@ -22,15 +22,8 @@ export {
   type GenerationRequest
 } from './dynamic-component-generator.js'
 
-// UI Generation Pipeline
-export {
-  UIGenerationPipelineServiceTag,
-  UIGenerationPipelineServiceLive,
-  type UIGenerationPipelineService,
-  UIGenerationPipeline,
-  type PipelineRequest,
-  type PipelineResponse
-} from './ui-generation-pipeline.js'
+// Removed bogus UI Generation Pipeline - the real flow is:
+// Service Topology → Critical Paths → generate-query → clickhouse → from-sql
 
 // Types
 export type { ColumnAnalysis, ResultAnalysis, ChartAnalysisInput } from './types.js'

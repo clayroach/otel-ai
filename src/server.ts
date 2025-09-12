@@ -23,11 +23,7 @@ import {
 } from './opentelemetry/index.js'
 import { StorageAPIClientTag, ClickHouseConfigTag, StorageAPIClientLayer } from './storage/index.js'
 import { LLMManagerAPIClientTag, LLMManagerAPIClientLayer } from './llm-manager/index.js'
-import {
-  UIGeneratorAPIClientTag,
-  UIGeneratorAPIClientLayer,
-  UIGenerationPipeline
-} from './ui-generator/index.js'
+import { UIGeneratorAPIClientTag, UIGeneratorAPIClientLayer } from './ui-generator/index.js'
 import {
   cleanAttributes,
   parseOTLPFromRaw,
@@ -1697,9 +1693,17 @@ app.get('/api/llm/live', (req, res) => {
 })
 
 // UI Generator Query Generation Endpoint - REAL (production)
-app.post('/api/ui-generator/generate-query', async (req, res) => {
+app.post('/api/ui-generator/generate-query', async (req, res): Promise<void> => {
   try {
     const { path, timeWindowMinutes = 60, analysisGoal, model } = req.body
+
+    // Validate that path exists
+    if (!path || !path.services || path.services.length === 0) {
+      return res.status(400).json({
+        error: 'Invalid request',
+        message: 'Path with services array is required'
+      })
+    }
 
     // Use the UI Generator API Client via Effect-TS
     const result = await runWithServices(
@@ -1713,7 +1717,7 @@ app.post('/api/ui-generator/generate-query', async (req, res) => {
             startService: path.startService || path.services?.[0],
             endService: path.endService || path.services?.[path.services.length - 1]
           },
-          analysisGoal: analysisGoal || determineAnalysisGoal(path.metrics),
+          analysisGoal: analysisGoal || determineAnalysisGoal(path?.metrics),
           model: model || process.env.LLM_SQL_MODEL_1 || 'sqlcoder-7b-2'
         })
       })
@@ -1735,6 +1739,21 @@ app.post('/api/ui-generator/generate-query', async (req, res) => {
     })
   } catch (error) {
     console.error('❌ Query generation error:', error)
+
+    // Check if this is a ModelUnavailable error
+    const errorObj = error as { _tag?: string; message?: string }
+    if (
+      errorObj._tag === 'ModelUnavailable' ||
+      (errorObj.message && errorObj.message.includes('ModelUnavailable'))
+    ) {
+      return res.status(503).json({
+        error: 'Model unavailable',
+        message: errorObj.message || 'The requested model is not available',
+        retryAfter: 60 // Suggest retry after 60 seconds
+      })
+    }
+
+    // Generic error handling
     res.status(500).json({
       error: 'Failed to generate query',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -1840,53 +1859,8 @@ app.get('/api/ui-generator/models', async (_req, res) => {
   }
 })
 
-// UI Generation Pipeline endpoint - Generate component from natural language
-app.post('/api/ui-generator/pipeline', async (req, res) => {
-  try {
-    const { naturalLanguageQuery, context, options } = req.body
-
-    const result = await UIGenerationPipeline.generateFromNaturalLanguage(naturalLanguageQuery, {
-      preferredModel: options?.preferredModel,
-      context
-    })
-
-    res.json(result)
-  } catch (error) {
-    console.error('❌ UI generation pipeline error:', error)
-    res.status(500).json({
-      error: 'Failed to generate UI component',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    })
-  }
-})
-
-// UI Generation Diagnostic endpoint - Generate diagnostic UI for critical paths
-app.post('/api/ui-generator/diagnostic', async (req, res) => {
-  try {
-    const { criticalPath, issueType } = req.body
-
-    if (!criticalPath || !issueType) {
-      res.status(400).json({
-        error: 'Missing required fields',
-        message: 'criticalPath and issueType are required'
-      })
-      return
-    }
-
-    const result = await UIGenerationPipeline.generateDiagnosticUI(
-      criticalPath,
-      issueType as 'latency' | 'errors' | 'throughput'
-    )
-
-    res.json(result)
-  } catch (error) {
-    console.error('❌ Diagnostic UI generation error:', error)
-    res.status(500).json({
-      error: 'Failed to generate diagnostic UI',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    })
-  }
-})
+// Removed bogus pipeline endpoints - the real flow is:
+// Service Topology → Critical Paths → /api/ui-generator/generate-query → /api/clickhouse → /api/ui-generator/from-sql
 
 // Clear LLM logs endpoint
 app.delete('/api/llm/interactions', async (_req, res) => {

@@ -44,6 +44,13 @@ export class LLMManagerService extends Context.Tag('LLMManagerService')<
     readonly getAvailableModels: () => Effect.Effect<ModelType[], LLMError, never>
     readonly getModelHealth: () => Effect.Effect<ModelHealthStatus[], LLMError, never>
     readonly warmupModels: () => Effect.Effect<void, LLMError, never>
+
+    // Interaction tracking
+    readonly getLastInteraction?: () => Effect.Effect<
+      { model: string; fallbackUsed?: boolean },
+      LLMError,
+      never
+    >
   }
 >() {}
 

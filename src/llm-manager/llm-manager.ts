@@ -28,12 +28,13 @@ interface ModelClient {
 function initializeClients(config?: Partial<LLMConfig>): Record<string, ModelClient> {
   const clients: Record<string, ModelClient> = {}
 
-  // Always initialize local client
+  // Always initialize local client (for llama/SQL models)
   const localConfig = {
     ...defaultLocalConfig,
     ...config?.models?.llama,
     endpoint: config?.models?.llama?.endpoint || defaultLocalConfig.endpoint
   }
+  // Create local client that will handle all SQL models
   clients.local = makeLocalModelClient(localConfig)
 
   // Initialize Claude if API key present

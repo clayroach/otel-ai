@@ -53,14 +53,6 @@ export {
   type DynamicComponent,
   type GenerationRequest,
 
-  // UI Generation Pipeline
-  UIGenerationPipelineServiceTag,
-  UIGenerationPipelineServiceLive,
-  type UIGenerationPipelineService,
-  UIGenerationPipeline,
-  type PipelineRequest,
-  type PipelineResponse,
-
   // Types
   type ColumnAnalysis,
   type ResultAnalysis,

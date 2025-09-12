@@ -19,3 +19,5 @@ TODOs:
 * Stringly-typed dates/timestamps.  Those all need to be normalized to a standard format at the edges.
 * Remove use of unknown's as much as possible
 * Move developer stuff from README.md to DEVELOPER.md
+* TestContainers for unit tests?
+* Fast failures and remove all the fallbacks.  

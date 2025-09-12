@@ -115,6 +115,20 @@ const loadConfigFromEnv = (): Effect.Effect<LLMConfig, LLMError, never> =>
           maxTokens: 2048,
           temperature: 0 // SQL models should be deterministic
         }
+
+        // Ensure llama client is configured for local models
+        if (!baseConfig.models.llama) {
+          baseConfig.models.llama = {
+            modelPath: modelName, // Use first SQL model as default
+            contextLength: 4096,
+            threads: 4,
+            gpuLayers: 0,
+            endpoint:
+              process.env.LM_STUDIO_ENDPOINT ||
+              process.env.LLM_ENDPOINT ||
+              'http://localhost:1234/v1'
+          }
+        }
       }
     }
 

@@ -112,9 +112,36 @@ export const makeLocalModelClient = (
         )
       )
 
-      // Prepare OpenAI-compatible request
+      // First, check what model is actually loaded in LM Studio
+      const actualModel = yield* _(
+        Effect.tryPromise({
+          try: async () => {
+            const modelsResponse = await fetch(`${validatedConfig.endpoint}/models`)
+            if (modelsResponse.ok) {
+              const modelsData = await modelsResponse.json()
+              if (modelsData.data && modelsData.data.length > 0) {
+                const loadedModel = modelsData.data[0].id
+                if (loadedModel !== validatedConfig.model) {
+                  console.log(
+                    `📝 Using loaded model '${loadedModel}' instead of requested '${validatedConfig.model}'`
+                  )
+                }
+                return loadedModel
+              }
+            }
+            return validatedConfig.model
+          },
+          catch: (): LLMError => ({
+            _tag: 'ModelUnavailable',
+            model: validatedConfig.model,
+            message: 'Failed to query available models'
+          })
+        }).pipe(Effect.catchAll(() => Effect.succeed(validatedConfig.model)))
+      )
+
+      // Prepare OpenAI-compatible request with actual loaded model
       const openAIRequest: OpenAIRequest = {
-        model: validatedConfig.model,
+        model: actualModel,
         messages: [{ role: 'user', content: request.prompt }],
         max_tokens: request.preferences?.maxTokens ?? validatedConfig.maxTokens,
         temperature: request.preferences?.temperature ?? validatedConfig.temperature
@@ -160,7 +187,7 @@ export const makeLocalModelClient = (
       // Transform to LLMResponse format
       const llmResponse: LLMResponse = {
         content: response.choices[0]?.message?.content ?? '',
-        model: `llama-${response.model}`,
+        model: actualModel, // Use the actual model that processed the request
         usage: {
           promptTokens: response.usage.prompt_tokens,
           completionTokens: response.usage.completion_tokens,
@@ -333,7 +360,18 @@ export const makeLocalModelClient = (
               method: 'GET',
               signal: AbortSignal.timeout(5000) // 5 second health check timeout
             })
-            return response.ok
+
+            if (!response.ok) return false
+
+            // Check if any model is loaded (we'll use whatever is available)
+            const data = await response.json()
+            const hasModels = data.data && data.data.length > 0
+
+            if (hasModels && process.env.NODE_ENV !== 'production') {
+              console.log(`🤖 LM Studio has model loaded: ${data.data[0].id}`)
+            }
+
+            return hasModels
           },
           catch: (error): LLMError => ({
             _tag: 'ModelUnavailable',
@@ -351,7 +389,8 @@ export const makeLocalModelClient = (
  * Provides sensible defaults for LM Studio setup with openai/gpt-oss-20b or similar models.
  */
 export const defaultLocalConfig: LocalModelConfig = {
-  endpoint: 'http://localhost:1234/v1', // LM Studio default
+  endpoint:
+    process.env.LM_STUDIO_ENDPOINT || process.env.LLM_ENDPOINT || 'http://localhost:1234/v1', // Use env vars first
   model: process.env.LLM_SQL_MODEL_1 || 'sqlcoder-7b-2', // Default to SQL model from environment
   maxTokens: 4096,
   temperature: 0.7,

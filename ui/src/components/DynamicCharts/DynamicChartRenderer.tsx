@@ -3,6 +3,9 @@ import type { EChartsOption } from 'echarts'
 import { DynamicLineChart } from './DynamicLineChart'
 import { DynamicBarChart } from './DynamicBarChart'
 import { DynamicDataTable } from './DynamicDataTable'
+import { DynamicHeatmap } from './DynamicHeatmap'
+import { DynamicPieChart } from './DynamicPieChart'
+import { DynamicScatterPlot } from './DynamicScatterPlot'
 
 interface ChartProps {
   config?: unknown
@@ -26,7 +29,16 @@ export const DynamicChartRenderer: React.FC<DynamicChartRendererProps> = ({
   error
 }) => {
   const renderComponent = () => {
-    const { config, data, height, maxRows } = component.props
+    const { config, data, height = '400px', maxRows } = component.props
+
+    // Debug logging to understand what's being passed
+    console.log('DynamicChartRenderer rendering:', {
+      componentType: component.component,
+      hasConfig: !!config,
+      hasData: !!data,
+      height,
+      propsKeys: Object.keys(component.props)
+    })
 
     switch (component.component) {
       case 'DynamicLineChart':
@@ -47,11 +59,39 @@ export const DynamicChartRenderer: React.FC<DynamicChartRendererProps> = ({
             error={error}
           />
         )
+      case 'DynamicHeatmap':
+        return (
+          <DynamicHeatmap
+            config={config as EChartsOption}
+            height={height}
+            loading={loading}
+            error={error}
+          />
+        )
+      case 'DynamicPieChart':
+        return (
+          <DynamicPieChart
+            config={config as EChartsOption}
+            height={height}
+            loading={loading}
+            error={error}
+          />
+        )
+      case 'DynamicScatterPlot':
+        return (
+          <DynamicScatterPlot
+            config={config as EChartsOption}
+            height={height}
+            loading={loading}
+            error={error}
+          />
+        )
       case 'DynamicDataTable':
         return (
           <DynamicDataTable data={data || []} maxRows={maxRows} loading={loading} error={error} />
         )
       default:
+        console.warn('Unknown component type:', component.component)
         return (
           <div className="p-4 bg-gray-100 rounded">
             <p>Unknown component type: {component.component}</p>
