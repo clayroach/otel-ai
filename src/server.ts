@@ -1693,7 +1693,7 @@ app.get('/api/llm/live', (req, res) => {
 })
 
 // UI Generator Query Generation Endpoint - REAL (production)
-app.post('/api/ui-generator/generate-query', async (req, res): Promise<void> => {
+app.post('/api/ui-generator/generate-query', async (req, res) => {
   try {
     const { path, timeWindowMinutes = 60, analysisGoal, model } = req.body
 
@@ -1730,7 +1730,7 @@ app.post('/api/ui-generator/generate-query', async (req, res): Promise<void> => 
       sql = sql.replace(/INTERVAL \d+ MINUTE/g, `INTERVAL ${timeWindowMinutes} MINUTE`)
     }
 
-    res.json({
+    return res.json({
       sql,
       model: result.model,
       description: result.description,
@@ -1754,7 +1754,7 @@ app.post('/api/ui-generator/generate-query', async (req, res): Promise<void> => 
     }
 
     // Generic error handling
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to generate query',
       message: error instanceof Error ? error.message : 'Unknown error'
     })
