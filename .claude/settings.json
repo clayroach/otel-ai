@@ -25,6 +25,7 @@
       "Bash(gh run watch:*)",
       "Bash(gh pr list:*)",
       "Bash(gh pr view:*)",
+      "Bash(gh pr create:*)",
       "Bash(cat:*)",
       "Bash(rg:*)"
     ],
