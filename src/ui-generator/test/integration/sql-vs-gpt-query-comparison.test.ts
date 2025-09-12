@@ -187,10 +187,11 @@ describe.skipIf(shouldSkipLLMTests)("SQL Model vs GPT Model Query Generation Com
           analysisGoal,
           { model: 'codellama-7b-instruct' } // Force SQL model
         ).pipe(
-          Effect.catchAll((error: any) => {
+          Effect.catchAll((error: unknown) => {
             // If SQL model is unavailable, create a fallback result
-            if (error?._tag === 'ModelUnavailable' || 
-                (error?.message && error.message.includes('ModelUnavailable'))) {
+            const errorObj = error as { _tag?: string; message?: string }
+            if (errorObj?._tag === 'ModelUnavailable' || 
+                (errorObj?.message && errorObj.message.includes('ModelUnavailable'))) {
               console.log(`   ⚠️  SQL model unavailable, using fallback for comparison`)
               return Effect.succeed({
                 id: `${checkoutFlowPath.id}-sql-fallback`,
@@ -342,10 +343,11 @@ describe.skipIf(shouldSkipLLMTests)("SQL Model vs GPT Model Query Generation Com
         testGoal,
         { model: 'codellama-7b-instruct' }
       ).pipe(
-        Effect.catchAll((error: any) => {
+        Effect.catchAll((error: unknown) => {
           // If SQL model is unavailable, create a fallback result
-          if (error?._tag === 'ModelUnavailable' || 
-              (error?.message && error.message.includes('ModelUnavailable'))) {
+          const errorObj = error as { _tag?: string; message?: string }
+          if (errorObj?._tag === 'ModelUnavailable' || 
+              (errorObj?.message && errorObj.message.includes('ModelUnavailable'))) {
             console.log(`   ⚠️  SQL model unavailable, using fallback for execution test`)
             return Effect.succeed({
               id: `${checkoutFlowPath.id}-sql-exec-fallback`,
