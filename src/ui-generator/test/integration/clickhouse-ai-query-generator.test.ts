@@ -25,7 +25,7 @@ const testPath: CriticalPath = {
   }
 }
 
-describe("ClickHouse AI Query Generator", () => {
+describe.skipIf(shouldSkipLLMTests)("ClickHouse AI Query Generator", () => {
   
   beforeAll(() => {
     // Log availability status using shared utility

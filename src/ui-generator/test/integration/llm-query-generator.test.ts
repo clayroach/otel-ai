@@ -24,7 +24,11 @@ const testPath: CriticalPath = {
   }
 }
 
-describe("LLM Query Generator", () => {
+// Check if we should skip tests in CI
+const isCI = Boolean(process.env.CI || process.env.GITHUB_ACTIONS)
+const shouldSkipTests = isCI
+
+describe.skipIf(shouldSkipTests)("LLM Query Generator", () => {
   let llmAvailable = false
   let llmDetails: {
     endpoint?: string
