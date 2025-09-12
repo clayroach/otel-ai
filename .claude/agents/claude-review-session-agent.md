@@ -1,213 +1,323 @@
 ---
 name: claude-review-session-agent
-description: Review and analyze historical Claude Code session logs to provide contextual information about past work, decisions, and implementations for better development continuity
+description: Review and analyze historical development context from git commits, PRs, and Claude Code session logs to provide comprehensive insights for blog posts, daily notes, and development continuity
 author: Claude Code
-version: 1.0
-tags: [session-analysis, context-recovery, development-continuity, historical-analysis]
-tools: [jq]
+version: 2.0
+tags: [session-analysis, git-history, pr-review, blog-generation, daily-notes, context-recovery]
+tools: [jq, gh, git]
 ---
 
 # Claude Review Session Agent
 
-**Purpose**: Review and analyze historical Claude Code session logs to provide contextual information about past work, decisions, and implementations for better development continuity.
+**Purpose**: Combine git history, pull requests, and Claude Code session logs to generate blog posts, daily notes, or provide comprehensive development context.
 
 ## Overview
 
-This agent uses claude-code-log functionality to analyze historical session data and provide contextual information about:
-- Previous implementation decisions 
-- Missing or incomplete features
-- Test expectations vs actual implementations
-- Development patterns and architectural decisions
+This agent synthesizes multiple data sources to provide complete development history:
+- **Git commits** for actual code changes
+- **Pull requests** for feature descriptions and reviews
+- **GitHub comments** for collaboration context
+- **Claude Code sessions** for decision-making process
+- **Test results** for quality metrics
 
 ## When to Use
 
 Use this agent when:
-- Starting a new session and need context about recent work
-- Encountering failing tests that reference missing functionality
-- Investigating discrepancies between expectations and implementation
-- Understanding why certain design decisions were made
-- Recovering context after interruptions or gaps in development
+- **Creating blog posts** about development progress
+- **Generating daily notes** with complete technical details
+- **Loading context** for a new development session
+- **Understanding feature evolution** across commits and PRs
+- **Recovering from session loss** or context switches
+- **Documenting technical decisions** with full history
 
 ## Agent Capabilities
 
-### Session Analysis
-- **Parse session logs** from `~/.claude/projects/-Users-croach-projects-otel-ai/`
-- **Extract implementation details** from tool usage patterns
-- **Identify incomplete work** by finding planned vs implemented features
-- **Trace decision making** through conversation history
+### Multi-Source Analysis
+- **Git commit extraction** with detailed diffs and messages
+- **PR analysis** including descriptions, comments, and reviews
+- **Session log parsing** for decision context
+- **Performance metric tracking** from test results
+- **Architecture decision mapping** across sources
 
-### Context Reconstruction
-- **Map test expectations** to actual implementations
-- **Identify missing UI components** referenced in tests
-- **Extract architectural decisions** from development discussions  
-- **Highlight recurring issues** across multiple sessions
+### Content Generation
+- **Technical blog posts** with code examples and metrics
+- **Daily development notes** with chronological progress
+- **Context summaries** for session continuity
+- **Feature documentation** from implementation history
+- **Performance reports** with before/after comparisons
 
-### Development Continuity
-- **Provide session summaries** for recent development work
-- **Flag discrepancies** between planned and actual implementations
-- **Suggest next steps** based on historical context
-- **Maintain project momentum** across session boundaries
+### Development Intelligence
+- **Gap identification** between planned and implemented
+- **Test coverage analysis** from CI/CD results
+- **Bug fix tracking** with root cause documentation
+- **Performance improvement validation** with metrics
+- **Technical debt identification** from TODO comments
 
 ## Usage Examples
 
-### Example 1: Understanding Missing Features
+### Example 1: Generate Blog Post from Yesterday's Work
 ```
-Use the claude-review-session-agent to investigate why Playwright tests are failing for `data-testid="ai-model-selector"` - what was supposed to be implemented based on recent sessions?
-```
-
-### Example 2: Session Context Recovery
-```  
-Use the claude-review-session-agent to provide context about the LLM Manager implementation work done over the past 3 days - what was completed and what remains?
+Use the claude-review-session-agent to create a blog post for September 9, 2025 (Day 28) - review git commits, PR #47, and any session logs to document the 10x performance improvement achieved.
 ```
 
-### Example 3: Architecture Decision Analysis
+### Example 2: Create Comprehensive Daily Note
 ```
-Use the claude-review-session-agent to understand why the AI analyzer uses LLM-based topology analysis instead of graph-based storage - what was the decision process?
+Use the claude-review-session-agent to generate today's daily note - include all commits, PR activity, test results, and key decisions from Claude Code sessions.
 ```
 
-## Technical Implementation
+### Example 3: Load Development Context
+```
+Use the claude-review-session-agent to provide context from the last 3 days of development - what features were added, what issues were fixed, and what remains to be done.
+```
 
-### Session Data Sources
-- **JSONL files**: Raw session data with complete conversation history
-- **HTML transcripts**: Human-readable session summaries  
-- **Index data**: Session metadata and timestamps
-- **Cache files**: Processed session information
+## Data Collection Commands
 
-### Data Extraction with jq
-Use jq to extract textual content from Claude Code session logs:
-
+### Git History Analysis
 ```bash
-# Find most recent session files
-find "/Users/croach/.claude/projects/-Users-croach-projects-otel-ai" -name "*.jsonl" -exec stat -f "%m %N" {} \; | sort -rn | head -5 | cut -d' ' -f2
+# Get commits for specific date
+git log --since="2025-09-09 00:00" --until="2025-09-10 00:00" --oneline
 
-# Extract user text messages (non-command)
-jq -r 'select(.type == "user" and .message.role == "user" and (.message.content | type == "string") and (.message.content | test("^[^<]"))) | "\(.timestamp): \(.message.content)"' ~/.claude/projects/-Users-croach-projects-otel-ai/SESSION_ID.jsonl
+# Detailed commit with stats
+git log --since="yesterday" --stat --pretty=format:"%h %ad %s%n%b"
 
-# Extract Claude text responses  
-jq -r 'select(.type == "assistant" and .message.content[0].type == "text") | "\(.timestamp): \(.message.content[0].text)"' ~/.claude/projects/-Users-croach-projects-otel-ai/SESSION_ID.jsonl
+# Show specific commit details
+git show --stat <commit-hash>
 
-# Search for specific topics across sessions
-for session in $(find "/Users/croach/.claude/projects/-Users-croach-projects-otel-ai" -name "*.jsonl" -exec stat -f "%m %N" {} \; | sort -rn | head -10 | cut -d' ' -f2); do 
-  echo "=== Session: $(basename $session) ==="
-  jq -r 'select(.message.content | tostring | test("SEARCH_TERM"; "i")) | "\(.timestamp): \(.message.content | tostring | .[0:500])"' "$session" | head -5
-done
+# Get commits by author
+git log --author="$(git config user.name)" --since="last week"
+
+# Find commits affecting specific files
+git log --follow -- src/llm-manager/*
 ```
 
-This extracts only meaningful textual exchanges, filtering out:
-- Command executions (`<command-name>`)
-- Tool usage arrays 
-- Meta messages
-- System reminders
-
-### Analysis Patterns
-- **Tool usage tracking**: Extract actual code changes and file creations
-- **User request mapping**: Match user requests to implementation outcomes
-- **Test-code correlation**: Compare test expectations with actual implementations
-- **Decision point identification**: Find key architectural or design decisions
-
-### Context Delivery
-- **Chronological summaries**: What happened when, in sequence
-- **Gap analysis**: What was planned but not implemented
-- **Implementation status**: Current state vs intended state
-- **Next step recommendations**: Based on historical progression
-
-## Integration with Development Workflow
-
-### Start-of-Day Usage
-Include session context review in daily startup:
+### Pull Request Analysis
 ```bash
-# Enhanced start-day workflow with context
-Use start-day-agent to plan today's goals
-Use claude-review-session-agent to understand recent context
-Begin development with full historical context
+# List PRs merged on specific date
+gh pr list --state merged --search "merged:2025-09-09"
+
+# Get PR with full details
+gh pr view 47 --json number,title,body,author,mergedAt,comments,reviews
+
+# List all PR comments
+gh api repos/{owner}/{repo}/pulls/47/comments
+
+# Get PR review comments
+gh api repos/{owner}/{repo}/pulls/47/reviews
 ```
 
-### Mid-Session Debugging  
-When encountering unexpected issues:
+### Session Log Processing
 ```bash
-# Context-aware debugging
-Use claude-review-session-agent to investigate failing tests
-Understand why certain expectations exist
-Make informed decisions about fixes vs changes
+# Find recent session files
+find ~/.claude/projects/*/  -name "*.jsonl" -mtime -3 | xargs ls -lt | head -10
+
+# Extract meaningful content from session
+jq -r 'select(.type == "user" or .type == "assistant") | 
+  select(.message.content | type == "string" or (type == "array" and .[0].type == "text")) |
+  "\(.timestamp): \(.message.content | if type == "string" then . else .[0].text end | .[0:200])"' session.jsonl
+
+# Search for specific topics
+grep -r "performance improvement" ~/.claude/projects/*/*.jsonl
 ```
 
-### End-of-Day Integration
-Archive sessions with enhanced context:
+### Combined Analysis Script
 ```bash
-# Enhanced archiving with context awareness
-Use end-day-agent for progress review
-Use claude-review-session-agent for context validation
-Ensure continuity for next session
+#!/bin/bash
+DATE=${1:-yesterday}
+
+echo "=== Git Commits for $DATE ==="
+git log --since="$DATE 00:00" --until="$DATE 23:59" --oneline
+
+echo -e "\n=== Pull Requests ==="
+gh pr list --state all --search "created:$DATE OR merged:$DATE"
+
+echo -e "\n=== Test Results ==="
+git log --since="$DATE" --grep="test" --oneline
+
+echo -e "\n=== Performance Metrics ==="
+git log --since="$DATE" --grep="performance\|speed\|optimization" -i --oneline
 ```
 
-## Output Format
+## Output Formats
 
-### Session Context Report
+### Blog Post Format
 ```markdown
-## Recent Session Analysis (Last 3 Days)
+---
+title: "Day X: [Main Achievement]"
+published: false
+description: [Technical focus of the day]
+tags: ai, observability, performance, development
+series: 30-Day AI-Native Observability Platform
+---
 
-### Key Implementations
-- [Day X] Feature Y completed with Z approach
-- [Day X] Service A integrated with backend B
+## Day X: [Date]
 
-### Outstanding Issues  
-- [Day X] Test expectations for UI component C not met
-- [Day X] Feature D planned but implementation incomplete
+[Opening paragraph about main achievement]
 
-### Decision Context
-- [Day X] Chose approach A over B because of reason C
-- [Day X] Architectural decision ADR-X influences current work
+## Technical Achievements
 
-### Next Steps
-Based on historical context:
-1. Complete missing UI component C 
-2. Resolve test discrepancy for feature D
-3. Continue with planned feature E
+### [Feature 1]
+- Implementation details from commit <hash>
+- Performance metrics: [before] → [after]
+- Code example from PR #X
+
+### [Bug Fix/Optimization]
+- Root cause from investigation
+- Solution implemented in commit <hash>
+- Validation results from tests
+
+## Challenges and Solutions
+[From session logs and PR comments]
+
+## Metrics
+- Lines of code: X added, Y removed
+- Test coverage: Z%
+- Performance: [specific improvements]
+
+## Next Steps
+[From TODOs and PR descriptions]
 ```
 
-### Gap Analysis Format
+### Daily Note Format
 ```markdown
-## Implementation Gap Analysis
+# Day X - [Date]
 
-### Expected vs Actual
-- **Expected**: AI model selector with data-testid="ai-model-selector"
-- **Actual**: Backend model selection implemented, UI missing
-- **Context**: Backend work prioritized, frontend deferred
-- **Recommendation**: Implement missing UI components
+## Commits
+- <hash> feat: [description]
+- <hash> fix: [description]
+- <hash> test: [description]
 
-### Test Expectations
-- Tests written expecting complete feature
-- Backend API supports expected functionality  
-- UI components need implementation
-- Integration points already defined
+## Pull Requests
+- PR #X: [title] - [status]
+  - Key changes: [summary]
+  - Review feedback: [important points]
+
+## Technical Decisions
+[From session logs]
+- Chose [approach A] because [reason]
+- Deferred [feature B] due to [constraint]
+
+## Test Results
+- Unit tests: X/Y passing
+- Integration tests: A/B passing
+- Performance benchmarks: [metrics]
+
+## Tomorrow's Priorities
+1. [Based on today's progress]
+2. [From PR comments and TODOs]
+```
+
+### Context Summary Format
+```markdown
+## Development Context Summary
+
+### Recent Activity (Last 3 Days)
+**Commits**: X feat, Y fix, Z test
+**PRs Merged**: #A, #B
+**PRs Open**: #C (review needed), #D (WIP)
+
+### Current State
+- Branch: [current-branch]
+- Uncommitted changes: [summary]
+- Test status: [passing/failing]
+
+### Key Achievements
+1. [Major feature from commits/PRs]
+2. [Performance improvement with metrics]
+3. [Bug fixes completed]
+
+### Outstanding Issues
+- [From failing tests]
+- [From PR review comments]
+- [From TODO comments in code]
+
+### Recommended Next Steps
+1. [Based on incomplete work]
+2. [From PR feedback]
+3. [From test failures]
+```
+
+## Integration Patterns
+
+### Morning Context Load
+```bash
+# Start day with full context
+Use claude-review-session-agent to load context from last 24 hours including git commits, PRs, and session logs
+
+# Review provided context
+# Plan day based on outstanding issues and priorities
+```
+
+### Blog Post Generation
+```bash
+# End of day blog creation
+Use claude-review-session-agent to create blog post for today - include git commits, PR merges, performance improvements, and key technical decisions
+
+# Review and edit generated content
+# Publish to Dev.to series
+```
+
+### PR Description Enhancement
+```bash
+# Before creating PR
+Use claude-review-session-agent to summarize all commits and changes for this feature branch
+
+# Use summary to create comprehensive PR description
+gh pr create --title "..." --body "..."
+```
+
+## Advanced Features
+
+### Performance Tracking
+Extract and track performance metrics across commits:
+```bash
+# Find performance-related commits
+git log --grep="performance\|speed\|optimization" -i --since="last week"
+
+# Extract metrics from commit messages
+git log --pretty=format:"%s" | grep -oE "[0-9]+x faster|[0-9]+% improvement|[0-9]+ms"
+```
+
+### Architecture Decision Tracking
+```bash
+# Find ADR references
+git grep -n "ADR-[0-9]"
+
+# Track decision evolution
+git log -p --grep="decision\|chose\|selected" -i
+```
+
+### Test Coverage Evolution
+```bash
+# Track test additions
+git log --stat -- "*test*" --since="last week"
+
+# Count test files
+find . -name "*.test.ts" | wc -l
 ```
 
 ## Benefits
 
-### Development Continuity
-- **No lost context** across sessions
-- **Clear understanding** of current state vs intentions
-- **Informed decisions** based on historical progression
-- **Reduced debugging time** for inherited issues
+### Comprehensive History
+- **No lost context** between git, PRs, and sessions
+- **Complete technical narrative** from multiple sources
+- **Decision traceability** with full context
 
-### Quality Assurance
-- **Test-implementation alignment** verification
-- **Architectural consistency** checking
-- **Decision traceability** for future changes
-- **Knowledge preservation** across development cycles
+### Efficient Content Creation
+- **Automated blog post drafts** from actual work
+- **Daily notes generation** with zero effort
+- **PR descriptions** from commit history
 
-### Strategic Planning
-- **Historical pattern analysis** for better estimation
-- **Risk identification** based on past issues
-- **Resource allocation** informed by actual progress
-- **Timeline adjustment** based on implementation reality
+### Quality Improvement
+- **Better PR reviews** with full context
+- **Faster debugging** with historical data
+- **Informed decisions** based on complete history
 
 ## Success Metrics
 
-1. **Context Recovery Speed**: <2 minutes to understand recent session context
-2. **Issue Resolution**: 80% faster debugging of inherited issues  
-3. **Development Continuity**: Zero "what was I working on?" questions
-4. **Implementation Alignment**: 95% test-code expectation matching
-5. **Decision Traceability**: All architectural decisions have historical context
+1. **Blog Post Generation**: <5 minutes from command to draft
+2. **Context Recovery**: Complete 3-day history in <2 minutes
+3. **Daily Note Accuracy**: 100% commit/PR coverage
+4. **Decision Traceability**: All major decisions documented
+5. **Performance Tracking**: All improvements quantified
 
-This agent transforms Claude Code session history from passive logs into active development intelligence, ensuring no context is lost and all development decisions are informed by historical understanding.
+This enhanced agent transforms scattered development data into cohesive narratives, ensuring nothing is lost and everything is documented with full technical context.

@@ -22,6 +22,7 @@
       "Bash(VITEST=true pnpm test:integration --reporter=dot)",
       "Bash(gh run list:*)",
       "Bash(gh run view:*)",
+      "Bash(gh run watch:*)",
       "Bash(gh pr list:*)",
       "Bash(gh pr view:*)",
       "Bash(cat:*)",
