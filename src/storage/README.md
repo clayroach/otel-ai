@@ -1,28 +1,45 @@
 # Storage Package
 
-ClickHouse-based storage layer with S3 backend for AI-native observability platform. Provides unified OTLP ingestion, efficient time-series data storage, and optimized queries for machine learning workloads.
+ClickHouse-based storage layer with S3 backend support for the AI-native observability platform. Provides OTLP data storage, efficient time-series analytics, and API client for data access.
+
+## Current Implementation Status
+
+✅ **Implemented**: ClickHouse integration, S3 service, API client, schemas, configuration
+⚠️ **Partial**: Integration with backend service for OTLP ingestion
+📋 **Planned**: Advanced query optimization, data archival policies
 
 ## Quick Start
 
 ```typescript
-import { StorageService } from '@/storage'
+import { makeStorageAPIClient, StorageAPIClientLayer } from '@otel-ai/storage'
+import { Effect, Layer } from 'effect'
 
-// Create storage service with configuration
-const storage = StorageService.fromConfig({
-  clickhouse: {
-    host: 'localhost',
-    port: 8123,
-    database: 'otel'
-  },
-  s3: {
-    bucket: 'otel-backups',
-    region: 'us-east-1'
-  }
+// Create storage API client
+const program = Effect.gen(function* () {
+  const client = yield* makeStorageAPIClient({
+    clickhouse: {
+      host: 'localhost',
+      port: 8123,
+      database: 'otel'
+    },
+    s3: {
+      bucket: 'otel-backups',
+      region: 'us-east-1'
+    }
+  })
+  
+  // Query traces
+  const traces = yield* client.queryTraces({
+    service_name: 'frontend',
+    limit: 100
+  })
+  
+  return traces
 })
 
-// Store trace data
-const result = await Effect.runPromise(
-  storage.writeTracesToSimplifiedSchema(traceData)
+// Run with layer
+const main = program.pipe(
+  Effect.provide(StorageAPIClientLayer)
 )
 ```
 
