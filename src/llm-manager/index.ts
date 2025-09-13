@@ -44,6 +44,12 @@ export type { LLMManagerService, ManagerStatus } from './llm-manager-service.js'
 // Live implementation layers (Layer-only, no factory functions)
 export { LLMManagerLive, LLMManagerDev } from './llm-manager-live.js'
 
+// Portkey Gateway implementation (Alternative to custom routing)
+export { 
+  PortkeyLLMManagerLive, 
+  createPortkeyLLMManagerLive 
+} from './portkey-client.js'
+
 // Mock implementation layers for testing
 export {
   createMockLayer,

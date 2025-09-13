@@ -166,6 +166,32 @@ services:
     profiles:
       - dev
 
+  # Portkey Gateway - LLM routing and management
+  portkey-gateway:
+    image: portkeyai/gateway:latest
+    container_name: otel-ai-portkey
+    ports:
+      - '8787:8787'
+    environment:
+      - PORT=8787
+      - LOG_LEVEL=info
+      - CACHE_ENABLED=true
+      - CACHE_TTL=3600
+      # Pass through API keys
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${CLAUDE_API_KEY}
+    volumes:
+      - ./config/portkey:/config:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8787/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    profiles:
+      - dev
+      - production
+
   # Backend Service - OTLP ingestion and storage layer
   backend:
     build:
@@ -196,6 +222,8 @@ services:
       - LLM_SQL_MODEL_1=${LLM_SQL_MODEL_1:-codellama-7b-instruct}
       - LLM_GENERAL_MODEL_1=${LLM_GENERAL_MODEL_1:-claude-3-haiku-20240307}
       - LLM_GENERAL_MODEL_2=${LLM_GENERAL_MODEL_2:-gpt-3.5-turbo}
+      # Portkey Gateway URL
+      - PORTKEY_GATEWAY_URL=http://portkey-gateway:8787
     depends_on:
       clickhouse:
         condition: service_healthy

@@ -108,7 +108,8 @@
     "@opentelemetry/semantic-conventions": "^1.25.0",
     "cors": "^2.8.5",
     "effect": "^3.8.0",
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "portkey-ai": "^1.10.3"
   },
   "devDependencies": {
     "@bufbuild/buf": "^1.28.1",
