@@ -21,3 +21,10 @@ TODOs:
 * Move developer stuff from README.md to DEVELOPER.md
 * TestContainers for unit tests?
 * Fast failures and remove all the fallbacks.  
+* Align use of .env with .env.docker
+* prune unnecessary .env configuration
+* pnpm commands as built-in tools
+* Consistent use of ANTHROPIC_API_KEY and CLAUDE_API_KEY
+* Version control prompts for better outcomes and tuning
+* portkey to route when using Clickhouse sql, not manually.  Should use similar prompting for Clickhouse and standard models
+* 

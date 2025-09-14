@@ -1878,6 +1878,40 @@ app.delete('/api/llm/interactions', async (_req, res) => {
   }
 })
 
+// LLM Manager Implementation Info - Shows which backend is being used
+app.get('/api/llm-manager/implementation', async (_req, res) => {
+  const usePortkey = process.env.USE_PORTKEY_GATEWAY === 'true'
+
+  res.json({
+    implementation: usePortkey ? 'portkey-gateway' : 'original-llm-manager',
+    usePortkey,
+    details: usePortkey
+      ? {
+          gatewayUrl: process.env.PORTKEY_GATEWAY_URL || 'http://localhost:8787',
+          configPath: '/config/routing.yaml',
+          features: [
+            'Configuration-driven routing',
+            'Automatic failover',
+            'Semantic caching',
+            'Native observability',
+            '1,600+ model support'
+          ],
+          healthCheck: `${process.env.PORTKEY_GATEWAY_URL || 'http://localhost:8787'}/health`
+        }
+      : {
+          models: ['gpt', 'claude', 'llama'],
+          routing: 'Code-based routing',
+          features: [
+            'Multi-model support',
+            'Fallback strategies',
+            'Response caching',
+            'Custom routing logic'
+          ]
+        },
+    timestamp: new Date().toISOString()
+  })
+})
+
 // LLM Manager Status endpoint - Get actual loaded models and health
 app.get('/api/llm-manager/status', async (_req, res) => {
   try {

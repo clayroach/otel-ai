@@ -173,13 +173,13 @@ services:
     ports:
       - '8787:8787'
     environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${CLAUDE_API_KEY}  # Map CLAUDE_API_KEY to ANTHROPIC_API_KEY
       - PORT=8787
-      - LOG_LEVEL=info
+      - LOG_LEVEL=debug  # Changed to debug for more visibility
       - CACHE_ENABLED=true
       - CACHE_TTL=3600
-      # Pass through API keys
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - ANTHROPIC_API_KEY=${CLAUDE_API_KEY}
+      - CONFIG_PATH=/config/routing.yaml
     volumes:
       - ./config/portkey:/config:ro
     healthcheck:
@@ -222,8 +222,9 @@ services:
       - LLM_SQL_MODEL_1=${LLM_SQL_MODEL_1:-codellama-7b-instruct}
       - LLM_GENERAL_MODEL_1=${LLM_GENERAL_MODEL_1:-claude-3-haiku-20240307}
       - LLM_GENERAL_MODEL_2=${LLM_GENERAL_MODEL_2:-gpt-3.5-turbo}
-      # Portkey Gateway URL
+      # Portkey Gateway configuration
       - PORTKEY_GATEWAY_URL=http://portkey-gateway:8787
+      - USE_PORTKEY_GATEWAY=${USE_PORTKEY_GATEWAY:-false}
     depends_on:
       clickhouse:
         condition: service_healthy
