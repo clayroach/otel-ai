@@ -225,6 +225,6 @@ Before completing a blog post, ensure:
 
 ## Output Location
 
-Save blog posts to: `blog/platforms/dev-to-YYYY-MM-DD.md`
+Save blog posts to: `notes/blog/[blog series]/dev-to-YYYY-MM-DD.md`
 
 Remember: You're documenting a technical journey, not selling a product. Be professional, accurate, and helpful.

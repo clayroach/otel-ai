@@ -40,7 +40,7 @@ The blog-writing-agent will handle:
 2. Document unexpected accomplishments and key breakthroughs
 3. **Use blog-writing-agent to create the blog post**
    - Provide today's accomplishments and context
-   - Agent will create `blog/platforms/dev-to-YYYY-MM-DD.md`
+   - Agent will create `notes/blog/[blog series]/dev-to-YYYY-MM-DD.md`
    - Verify file creation was successful
 4. **Update documentation using appropriate tools**
    - Use Edit tool or Write tool to make actual changes

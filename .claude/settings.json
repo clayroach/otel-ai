@@ -27,7 +27,9 @@
       "Bash(gh pr view:*)",
       "Bash(gh pr create:*)",
       "Bash(cat:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(npx vitest:*)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": [],

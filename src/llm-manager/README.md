@@ -1,16 +1,16 @@
 # LLM Manager Package
 
-Multi-model LLM orchestration for the AI-native observability platform. Provides unified API for GPT, Claude, and local Llama models with intelligent routing, caching, and conversation management.
+Multi-model LLM orchestration service powered by Portkey gateway with intelligent routing and observability.
 
 ## Features
 
-- **Multi-Model Support**: Unified interface for GPT, Claude, and local models
-- **Intelligent Routing**: Route requests based on task type, performance, and cost
-- **Local-First**: Zero-cost inference with LM Studio or direct Llama integration
-- **Streaming Support**: Real-time response streaming for long outputs
-- **Conversation Management**: Stateful conversations with context preservation
-- **Response Caching**: Configurable caching with TTL and size limits
-- **Fallback Strategies**: Graceful degradation when models are unavailable
+- **Portkey Gateway Integration**: Unified LLM gateway with automatic routing and load balancing
+- **Multi-model support**: OpenAI GPT, Anthropic Claude, local models via Portkey
+- **Intelligent routing**: Model selection based on query characteristics and performance
+- **Cost optimization**: Automatic fallback to cost-effective models when appropriate
+- **OpenTelemetry integration**: Complete request/response tracing through Portkey
+- **Streaming support**: Real-time response streaming for UI components
+- **Response extraction**: Structured data extraction from LLM responses
 - **Effect-TS Integration**: Type-safe, composable, and testable architecture
 
 ## Quick Start
@@ -121,35 +121,15 @@ const program = Effect.gen(function* (_) {
 
 ### Environment Variables
 
-The LLM Manager supports configuration via environment variables:
+Set these environment variables:
 
 ```bash
-# Local Model (LM Studio)
-LM_STUDIO_ENDPOINT=http://localhost:1234/v1
-
-# Model Preference Configuration (Primary)
-# These take precedence over legacy individual model configs
-LLM_GENERAL_MODEL_1=claude-3-haiku-20240307  # Primary model for general tasks
-LLM_GENERAL_MODEL_2=gpt-3.5-turbo               # Secondary model for general tasks
-LLM_SQL_MODEL_1=sqlcoder-7b-2                   # Primary model for SQL generation
-LLM_SQL_MODEL_2=codellama-7b-instruct          # Secondary model for SQL generation
-
-# OpenAI GPT (optional)
+# Direct Model Access
 OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-3.5-turbo         # Fallback if LLM_GENERAL_MODEL_2 not set
-OPENAI_MAX_TOKENS=4096
-OPENAI_TEMPERATURE=0.7
+ANTHROPIC_API_KEY=sk-ant-...
 
-# Claude (optional)
-CLAUDE_API_KEY=sk-ant-...
-CLAUDE_MODEL=claude-3-haiku-20240307  # Fallback if LLM_GENERAL_MODEL_1 not set
-
-# Routing
-LLM_ROUTING_STRATEGY=balanced  # cost, performance, or balanced
-
-# Caching
-LLM_CACHE_ENABLED=true
-LLM_CACHE_TTL_SECONDS=3600
+# Local Model (LM Studio - optional)
+LM_STUDIO_ENDPOINT=http://localhost:1234/v1
 ```
 
 ### Model Routing Strategy

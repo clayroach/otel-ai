@@ -34,10 +34,7 @@ export function removeThinkingTags(content: string): string {
  * Extract response content based on model characteristics
  * This handles model-specific response formats and cleaning
  */
-export function extractResponseContent(
-  modelName: string,
-  content: string
-): string {
+export function extractResponseContent(modelName: string, content: string): string {
   if (!content) return ''
 
   let processed = content.trim()
@@ -69,15 +66,12 @@ export function extractResponseContent(
 /**
  * Determine if a model's response needs wrapping for a specific type
  */
-export function needsResponseWrapping(
-  modelName: string,
-  responseType: 'sql' | 'json'
-): boolean {
+export function needsResponseWrapping(modelName: string, responseType: 'sql' | 'json'): boolean {
   const modelLower = modelName.toLowerCase()
 
   // SQL-specific models that return raw SQL
   const sqlModels = ['sqlcoder', 'codellama', 'starcoder']
-  const isSQLModel = sqlModels.some(m => modelLower.includes(m))
+  const isSQLModel = sqlModels.some((m) => modelLower.includes(m))
 
   if (responseType === 'sql' && isSQLModel) {
     return true // These models return raw SQL that needs JSON wrapping
@@ -96,7 +90,7 @@ export function needsResponseWrapping(
 export function isSQLSpecificModel(modelName: string): boolean {
   const modelLower = modelName.toLowerCase()
   const sqlModels = ['sqlcoder', 'codellama', 'starcoder']
-  return sqlModels.some(m => modelLower.includes(m))
+  return sqlModels.some((m) => modelLower.includes(m))
 }
 
 /**

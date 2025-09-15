@@ -371,10 +371,9 @@ const result = await Effect.runPromise(
 **CRITICAL: NEVER declare success until ALL validation passes perfectly.**
 
 ### Validation Requirements (ALL must pass):
-1. **TypeScript Compilation**: `pnpm tsc --noEmit` - ZERO errors allowed
-2. **ESLint Validation**: `pnpm eslint <files>` - ZERO errors allowed  
-3. **Test Execution**: `pnpm vitest run <files>` - ALL tests must pass
-4. **Integration Validation**: Run full test suite if changes affect multiple files
+1. **TypeScript and Linting**: `pnpm typecheck:all` - ZERO errors allowed (runs both TypeScript and ESLint)
+2. **Test Execution**: `pnpm test` for unit tests, `pnpm test:integration` for integration - ALL tests must pass
+3. **Integration Validation**: Run full test suite if changes affect multiple files
 
 ### Systematic Process:
 
@@ -420,12 +419,13 @@ const result = await Effect.runPromise(
 4. **Validation Phase**:
    ```bash
    # After each file refactoring
-   pnpm tsc --noEmit
+   pnpm typecheck:all  # Runs TypeScript and ESLint checks
    pnpm test <specific-test-file>
-   
-   # Final validation
-   pnpm typecheck:all
-   pnpm test
+
+   # Final comprehensive validation
+   pnpm typecheck:all  # Ensure zero TypeScript/ESLint errors
+   pnpm test          # All unit tests must pass
+   pnpm test:integration  # All integration tests must pass
    ```
 
 #### For Complex Scenarios (50+ TypeScript errors):

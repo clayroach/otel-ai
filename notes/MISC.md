@@ -27,4 +27,5 @@ TODOs:
 * Consistent use of ANTHROPIC_API_KEY and CLAUDE_API_KEY
 * Version control prompts for better outcomes and tuning
 * portkey to route when using Clickhouse sql, not manually.  Should use similar prompting for Clickhouse and standard models
-* 
+* portkey testcontainer unit tests
+* coverage for integration tests

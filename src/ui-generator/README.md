@@ -1,6 +1,6 @@
 # UI Generator Package
 
-LLM-powered dynamic UI generation with Apache ECharts integration for the AI-native observability platform.
+LLM-powered React component generation with Apache ECharts integration for dynamic dashboard creation and telemetry data visualization.
 
 ## Implementation Status
 
@@ -12,12 +12,13 @@ The UI generator consists of two parts:
 
 ## Features
 
-- **Dynamic Component Generation**: Create React components from telemetry data (implemented in `ui/src/`)
-- **Apache ECharts Integration**: Full chart components for telemetry visualization
-- **Query Generation**: AI-powered ClickHouse SQL generation with 10x performance improvements (PR #49)
-- **Multi-Model Support**: SQLCoder (200ms), CodeLlama (300ms), GPT-4/Claude (1.2-1.8s)
-- **Real-time Updates**: Components update with live telemetry data
-- **Type-safe Generation**: TypeScript interfaces and props validation
+- **LLM-powered generation**: Automatically create React components from natural language descriptions
+- **Apache ECharts integration**: Generate sophisticated charts and visualizations
+- **TypeScript support**: Fully typed component generation with strict type safety
+- **OpenTelemetry queries**: Auto-generate optimized ClickHouse queries from user intent
+- **Dynamic styling**: Adaptive UI based on data characteristics and user preferences
+- **Component templates**: Reusable templates for common observability patterns
+- **Real-time updates**: Components with built-in data refresh capabilities
 - **Effect-TS Integration**: Full composability with other platform services
 
 ## Quick Start
@@ -108,6 +109,16 @@ UI_GENERATOR_CHART_LIBRARY=echarts
 3. **Implementation Phase**: Create React/TypeScript code
 4. **Integration Phase**: Apply ECharts and styling
 5. **Validation Phase**: Type checking and prop validation
+
+## Test Structure
+
+```
+src/ui-generator/
+├── test/
+│   ├── unit/           # Unit tests for generators and builders
+│   ├── integration/    # Integration tests with LLM and ClickHouse
+│   └── fixtures/       # Component templates and test data
+```
 
 ## Testing
 
