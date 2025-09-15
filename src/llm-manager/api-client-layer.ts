@@ -53,88 +53,26 @@ export class LLMManagerAPIClientTag extends Context.Tag('LLMManagerAPIClientTag'
   LLMManagerAPIClientService
 >() {}
 
-// Create API Client Layer
-export const LLMManagerAPIClientLayer = Layer.effect(
+// NOTE: LLMManagerAPIClientLayer is defined below after LLMManagerAPIClientLayerWithoutDeps
+
+// Create the layer that REQUIRES the LLMManagerServiceTag
+export const LLMManagerAPIClientServiceLive = Layer.effect(
   LLMManagerAPIClientTag,
-  Effect.gen(function* () {
-    const manager = yield* LLMManagerServiceTag
-
-    return {
-      getLoadedModels: () =>
-        manager.getAvailableModels().pipe(
-          Effect.map((models) =>
-            models.map((modelId) => ({
-              id: modelId,
-              provider: modelId.includes('claude')
-                ? 'anthropic'
-                : modelId.includes('gpt')
-                  ? 'openai'
-                  : 'local',
-              status: 'available' as const,
-              capabilities: {
-                supportsStreaming: true,
-                supportsJSON: true,
-                supportsSQL: modelId.includes('sql') || modelId.includes('coder'),
-                contextLength: 4096,
-                maxTokens: 2048
-              },
-              metrics: {
-                totalRequests: 0,
-                totalTokens: 0,
-                averageLatency: 0,
-                errorRate: 0
-              }
-            }))
-          ),
-          Effect.catchAll(() => Effect.succeed([]))
-        ),
-
-      getStatus: () =>
-        manager.getStatus().pipe(
-          Effect.map((status) => ({
-            ...status,
-            status: 'operational' as const,
-            loadedModels: status.availableModels.map((id) => ({
-              id,
-              provider: id.includes('claude')
-                ? 'anthropic'
-                : id.includes('gpt')
-                  ? 'openai'
-                  : 'local',
-              status: 'available' as const
-            })),
-            systemMetrics: {
-              totalRequests: 0,
-              avgResponseTime: 0
-            }
-          })),
-          Effect.catchAll(() =>
-            Effect.succeed({
-              availableModels: [],
-              healthStatus: {},
-              config: {},
-              status: 'offline' as const,
-              loadedModels: [],
-              systemMetrics: {}
-            } as ManagerStatus)
-          )
-        ),
-
-      selectBestModel: (taskType: string) =>
-        Effect.succeed(taskType === 'sql_generation' ? 'gpt-3.5-turbo' : 'claude-3-haiku-20240307'),
-
-      selectModel: (
-        taskTypeOrObj: string | { taskType: string; requirements?: Record<string, unknown> }
-      ) => {
-        const taskType = typeof taskTypeOrObj === 'string' ? taskTypeOrObj : taskTypeOrObj.taskType
-        return Effect.succeed({
-          id: taskType === 'sql_generation' ? 'gpt-3.5-turbo' : 'claude-3-haiku-20240307',
-          provider: taskType === 'sql_generation' ? 'openai' : 'anthropic',
+  Effect.map(LLMManagerServiceTag, (manager) => ({
+    getLoadedModels: () =>
+      Effect.map(manager.getAvailableModels(), (models) =>
+        models.map((modelName) => ({
+          id: modelName,
+          provider: modelName.includes('gpt')
+            ? 'openai'
+            : modelName.includes('claude')
+              ? 'anthropic'
+              : 'local',
           status: 'available' as const,
           capabilities: {
             supportsStreaming: true,
-            supportsJSON: true,
-            supportsSQL: taskType === 'sql_generation',
+            supportsJSON: modelName.includes('gpt') || modelName.includes('claude'),
+            supportsSQL: modelName.includes('sql') || modelName.includes('coder'),
             contextLength: 4096,
             maxTokens: 2048
           },
@@ -144,19 +82,115 @@ export const LLMManagerAPIClientLayer = Layer.effect(
             averageLatency: 0,
             errorRate: 0
           }
-        })
-      },
+        }))
+      ).pipe(Effect.catchAll(() => Effect.succeed([]))),
 
-      generateLLMResponse: (request: LLMRequest) => manager.generate(request),
+    getStatus: () =>
+      Effect.map(manager.getStatus(), (status) => ({
+        ...status,
+        status: 'operational' as const,
+        loadedModels: status.availableModels.map((modelName) => ({
+          id: modelName,
+          provider: modelName.includes('gpt')
+            ? 'openai'
+            : modelName.includes('claude')
+              ? 'anthropic'
+              : 'local',
+          status: 'available'
+        })),
+        systemMetrics: {
+          totalRequests: 0,
+          totalTokens: 0,
+          averageLatency: 0,
+          errorRate: 0
+        }
+      })).pipe(
+        Effect.catchAll(() =>
+          Effect.succeed({
+            availableModels: [],
+            healthStatus: {},
+            config: {},
+            status: 'offline' as const,
+            loadedModels: [],
+            systemMetrics: {
+              totalRequests: 0,
+              totalTokens: 0,
+              averageLatency: 0,
+              errorRate: 0
+            }
+          })
+        )
+      ),
 
-      generate: (request: LLMRequest) => manager.generate(request),
+    selectBestModel: (taskType: string) => {
+      // Simple model selection logic
+      if (taskType === 'sql' || taskType === 'sql_generation') {
+        return Effect.succeed('gpt-3.5-turbo')
+      } else if (taskType === 'code') {
+        return Effect.succeed('codellama-7b-instruct')
+      } else if (taskType === 'general') {
+        return Effect.succeed('claude-3-haiku-20240307')
+      }
+      return Effect.succeed('gpt-3.5-turbo')
+    },
 
-      reloadModels: () => Effect.succeed(undefined),
+    selectModel: (
+      taskType: string | { taskType: string; requirements?: Record<string, unknown> }
+    ) => {
+      const task = typeof taskType === 'string' ? taskType : taskType.taskType
+      // Return a ModelInfo object based on the task type
+      let modelId = 'gpt-3.5-turbo'
+      let provider = 'openai'
 
-      getModelCategories: () => Effect.succeed(['general', 'sql', 'code'])
-    }
-  })
-).pipe(Layer.provide(PortkeyGatewayLive))
+      if (task === 'sql' || task === 'sql_generation') {
+        modelId = 'gpt-3.5-turbo'
+        provider = 'openai'
+      } else if (task === 'code' || task === 'code_generation') {
+        modelId = 'claude-3-haiku-20240307'
+        provider = 'anthropic'
+      } else if (task.includes('claude') || task === 'general') {
+        modelId = 'claude-3-haiku-20240307'
+        provider = 'anthropic'
+      }
+
+      return Effect.succeed({
+        id: modelId,
+        provider,
+        status: 'available' as const,
+        capabilities: {
+          supportsStreaming: true,
+          supportsJSON: provider !== 'local',
+          supportsSQL:
+            modelId.includes('sql') || modelId.includes('coder') || modelId === 'gpt-3.5-turbo',
+          contextLength: 4096,
+          maxTokens: 2048
+        },
+        metrics: {
+          totalRequests: 0,
+          totalTokens: 0,
+          averageLatency: 0,
+          errorRate: 0
+        }
+      })
+    },
+
+    generateLLMResponse: (request: LLMRequest) => manager.generate(request),
+
+    generate: (request: LLMRequest) => manager.generate(request),
+
+    reloadModels: () => Effect.succeed(undefined),
+
+    getModelCategories: () => Effect.succeed(['general', 'sql', 'code'])
+  }))
+)
+
+// Export the layer WITHOUT the Portkey dependency for testing
+export const LLMManagerAPIClientLayerWithoutDeps = LLMManagerAPIClientServiceLive
+
+// The main layer with Portkey dependency for production use
+export const LLMManagerAPIClientLayer = LLMManagerAPIClientLayerWithoutDeps.pipe(
+  Layer.provide(PortkeyGatewayLive)
+)
 
 // Convenience functions for direct use
 export const getLoadedModels = Effect.flatMap(LLMManagerAPIClientTag, (client) =>

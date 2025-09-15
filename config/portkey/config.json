@@ -1,0 +1,74 @@
+{
+  "version": "1.0",
+  "providers": [
+    {
+      "id": "openai",
+      "name": "OpenAI",
+      "apiKey": "${OPENAI_API_KEY}",
+      "baseURL": "https://api.openai.com/v1"
+    },
+    {
+      "id": "anthropic",
+      "name": "Anthropic",
+      "apiKey": "${ANTHROPIC_API_KEY}",
+      "baseURL": "https://api.anthropic.com"
+    },
+    {
+      "id": "lm-studio",
+      "name": "LM Studio (Local)",
+      "apiKey": "no-key-needed",
+      "baseURL": "http://host.docker.internal:1234/v1"
+    }
+  ],
+  "routes": [
+    {
+      "name": "local-models",
+      "models": [
+        "codellama-7b-instruct",
+        "sqlcoder-7b-2",
+        "deepseek-coder-v2-lite-instruct",
+        "qwen/qwen3-coder-30b",
+        "llama",
+        "mistral"
+      ],
+      "provider": "lm-studio",
+      "strategy": "single"
+    },
+    {
+      "name": "openai-models",
+      "models": [
+        "gpt-3.5-turbo",
+        "gpt-4",
+        "gpt-4-turbo"
+      ],
+      "provider": "openai",
+      "strategy": "single"
+    },
+    {
+      "name": "anthropic-models",
+      "models": [
+        "claude-3-haiku-20240307",
+        "claude-3-sonnet-20240229",
+        "claude-3-opus"
+      ],
+      "provider": "anthropic",
+      "strategy": "single"
+    }
+  ],
+  "defaultRoute": "openai-models",
+  "cache": {
+    "enabled": true,
+    "ttl": 3600,
+    "maxSize": 1000
+  },
+  "retry": {
+    "attempts": 3,
+    "delay": 1000,
+    "backoff": "exponential"
+  },
+  "observability": {
+    "metrics": true,
+    "tracing": true,
+    "logging": "info"
+  }
+}

@@ -1,39 +1,132 @@
 /**
- * LLM Availability Test Utilities - Stub for backward compatibility
- * All models are now handled through Portkey gateway
+ * Utility functions for checking LLM availability in tests
  */
 
 import { Effect } from 'effect'
 
-export const checkLLMAvailability = () =>
-  Effect.succeed({
-    gpt: true,
-    claude: true,
-    local: true
-  })
+// Check if running in CI environment
+export const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true'
 
-export const skipIfNoLLMs = () => {
-  // No-op, all tests should run with Portkey gateway
+/**
+ * Check if required LLM API keys are available for testing
+ */
+export const checkLLMAvailability = () => {
+  const hasOpenAI = !!process.env.OPENAI_API_KEY
+  const hasAnthropic = !!process.env.ANTHROPIC_API_KEY || !!process.env.CLAUDE_API_KEY
+
+  return {
+    hasOpenAI,
+    hasAnthropic,
+    hasAnyLLM: hasOpenAI || hasAnthropic,
+    missingKeys: [
+      !hasOpenAI && 'OPENAI_API_KEY',
+      !hasAnthropic && 'ANTHROPIC_API_KEY/CLAUDE_API_KEY'
+    ].filter(Boolean) as string[]
+  }
 }
 
-export const skipIfNoGPT = () => {
-  // No-op, Portkey handles GPT models
+/**
+ * Skip test if LLM is not available
+ */
+export const skipIfNoLLM = (testFn: () => void | Promise<void>) => {
+  const availability = checkLLMAvailability()
+
+  if (!availability.hasAnyLLM) {
+    console.log(
+      `⚠️ Skipping test: No LLM API keys found. Set ${availability.missingKeys.join(' or ')} to run this test.`
+    )
+    return
+  }
+
+  return testFn()
 }
 
-export const skipIfNoClaude = () => {
-  // No-op, Portkey handles Claude models
+/**
+ * Skip test if specific LLM provider is not available
+ */
+export const skipIfNoProvider = (
+  provider: 'openai' | 'anthropic',
+  testFn: () => void | Promise<void>
+) => {
+  const availability = checkLLMAvailability()
+
+  if (provider === 'openai' && !availability.hasOpenAI) {
+    console.log('⚠️ Skipping test: OPENAI_API_KEY not found')
+    return
+  }
+
+  if (provider === 'anthropic' && !availability.hasAnthropic) {
+    console.log('⚠️ Skipping test: ANTHROPIC_API_KEY/CLAUDE_API_KEY not found')
+    return
+  }
+
+  return testFn()
 }
 
-export const skipIfNoLocal = () => {
-  // No-op, Portkey handles local models
+/**
+ * Get test API keys (returns dummy keys if not available)
+ */
+export const getTestApiKeys = () => ({
+  openai: process.env.OPENAI_API_KEY || 'test-openai-key',
+  anthropic: process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || 'test-anthropic-key'
+})
+
+/**
+ * Effect-based LLM availability check
+ */
+export const checkLLMAvailabilityEffect = Effect.sync(() => {
+  const availability = checkLLMAvailability()
+
+  if (!availability.hasAnyLLM) {
+    return Effect.fail({
+      _tag: 'NoLLMAvailable' as const,
+      message: `No LLM API keys found. Set ${availability.missingKeys.join(' or ')} to run tests.`,
+      missingKeys: availability.missingKeys
+    })
+  }
+
+  return Effect.succeed(availability)
+})
+
+/**
+ * Check if tests should be skipped due to missing LLM keys
+ */
+export const shouldSkipLLMTests = () => {
+  const availability = checkLLMAvailability()
+  return !availability.hasAnyLLM
 }
 
-export const shouldSkipLLMTests = false
-
+/**
+ * Log availability status for debugging
+ */
 export const logAvailabilityStatus = () => {
-  console.log('✅ All models available through Portkey gateway')
+  const availability = checkLLMAvailability()
+
+  if (!availability.hasAnyLLM) {
+    console.log('⚠️ LLM Tests: No API keys found')
+    console.log(`   Missing: ${availability.missingKeys.join(', ')}`)
+  } else {
+    console.log('✅ LLM Tests: API keys available')
+    if (availability.hasOpenAI) console.log('   - OpenAI: Available')
+    if (availability.hasAnthropic) console.log('   - Anthropic: Available')
+  }
 }
 
-export const hasOpenAIKey = !!process.env.OPENAI_API_KEY
-export const hasClaudeKey = !!process.env.CLAUDE_API_KEY || !!process.env.ANTHROPIC_API_KEY
-export const isCI = process.env.CI === 'true'
+/**
+ * Check for specific provider keys
+ */
+export const hasOpenAIKey = () => !!process.env.OPENAI_API_KEY
+export const hasClaudeKey = () => !!process.env.ANTHROPIC_API_KEY || !!process.env.CLAUDE_API_KEY
+
+export default {
+  checkLLMAvailability,
+  skipIfNoLLM,
+  skipIfNoProvider,
+  getTestApiKeys,
+  checkLLMAvailabilityEffect,
+  shouldSkipLLMTests,
+  logAvailabilityStatus,
+  hasOpenAIKey,
+  hasClaudeKey,
+  isCI
+}

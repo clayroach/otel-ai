@@ -161,7 +161,7 @@ describe.skipIf(shouldSkipTests)("Multi-Model Query Generation", () => {
     console.log(`   General Models: ${[process.env.LLM_GENERAL_MODEL_1, process.env.LLM_GENERAL_MODEL_2, process.env.LLM_GENERAL_MODEL_3].filter(Boolean).join(', ') || 'defaults'}`)
     
     // Check local models via LM Studio (skip in CI without API keys)
-    if (!isCI || hasOpenAIKey || hasClaudeKey) {
+    if (!isCI || hasOpenAIKey() || hasClaudeKey()) {
       try {
         const localEndpoint = process.env.LLM_ENDPOINT || 'http://localhost:1234/v1'
         

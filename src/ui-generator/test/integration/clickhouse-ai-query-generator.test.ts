@@ -32,7 +32,7 @@ describe.skipIf(shouldSkipLLMTests)("ClickHouse AI Query Generator", () => {
     console.log("\n🔧 ClickHouse AI Query Generator Test Configuration")
     logAvailabilityStatus()
     
-    if (shouldSkipLLMTests) {
+    if (shouldSkipLLMTests()) {
       console.log("⏭️  Tests will be skipped - no AI models available")
     } else {
       console.log("✅ Tests will run with available LLM models")

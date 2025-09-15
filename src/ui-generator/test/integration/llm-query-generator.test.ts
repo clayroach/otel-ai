@@ -140,7 +140,7 @@ describe.skipIf(shouldSkipTests)("LLM Query Generator", () => {
         prompt: "OK", // Minimal prompt for fastest possible response
         taskType: "general" as const,
         preferences: {
-          model: "llama" as const,
+          model: selectedModel.id,
           maxTokens: 5,   // Minimal tokens for faster response
           temperature: 0
         }

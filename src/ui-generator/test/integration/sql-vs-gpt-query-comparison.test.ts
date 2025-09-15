@@ -90,7 +90,7 @@ describe.skipIf(shouldSkipLLMTests)("SQL Model vs GPT Model Query Generation Com
     console.log("\n🔧 SQL vs GPT Model Comparison Test Configuration")
     logAvailabilityStatus()
     
-    if (shouldSkipLLMTests) {
+    if (shouldSkipLLMTests()) {
       console.log("⏭️  Tests will be skipped - no AI models available")
     } else {
       console.log("✅ Tests will run with available LLM models")
