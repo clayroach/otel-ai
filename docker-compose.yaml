@@ -16,6 +16,9 @@ services:
       CLICKHOUSE_USER: otel
       CLICKHOUSE_PASSWORD: otel123
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+      # Memory optimization settings
+      CLICKHOUSE_MAX_MEMORY_USAGE: 2000000000  # 2GB max memory per query
+      CLICKHOUSE_MAX_MEMORY_USAGE_FOR_USER: 3000000000  # 3GB max memory per user
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       # init-db.sql removed - now handled by schema-migrator service
@@ -26,6 +29,13 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+    # Resource limits to prevent OOM
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 1G
 
   # MinIO for S3-compatible object storage (DISABLED for now)
   # minio:

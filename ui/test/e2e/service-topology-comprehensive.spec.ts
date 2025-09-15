@@ -73,12 +73,18 @@ test.describe('Service Topology Comprehensive Validation', () => {
   test('should display topology graph with nodes and edges', async ({ page }) => {
     await page.goto('/servicetopology')
     await page.waitForLoadState('networkidle')
-    await page.waitForTimeout(2000)
+
+    // Wait for loading spinner to disappear
+    await page.waitForFunction(
+      () => !document.querySelector('.ant-spin-spinning'),
+      { timeout: 15000 }
+    )
+    await page.waitForTimeout(1000) // Small additional wait for canvas rendering
 
     // Check for canvas element (ECharts renders to canvas)
     const topologyColumn = page.getByTestId('topology-graph-column')
     const canvas = topologyColumn.locator('canvas')
-    
+
     await expect(canvas).toBeVisible()
     console.log('✅ Topology graph canvas is rendered')
 

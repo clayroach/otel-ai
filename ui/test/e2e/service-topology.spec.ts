@@ -38,14 +38,20 @@ test.describe('Service Topology View', () => {
   })
 
   test('should display topology graph in center panel', async ({ page }) => {
+    // Wait for loading to complete first
+    await page.waitForFunction(
+      () => !document.querySelector('.ant-spin-spinning'),
+      { timeout: getTimeout(15000) }
+    )
+
     // Check topology graph column exists
     const topologyColumn = page.getByTestId('topology-graph-column')
     await expect(topologyColumn).toBeVisible()
-    
+
     // Check for canvas element (ECharts renders to canvas)
     const canvas = topologyColumn.locator('canvas')
     await expect(canvas).toBeVisible({ timeout: getTimeout(10000) })
-    
+
     console.log('✅ Topology graph displayed')
   })
 
