@@ -2,12 +2,24 @@ import { Effect, pipe, Duration } from 'effect'
 import { CriticalPath, GeneratedQuery, QueryPattern } from './types.js'
 import { type LLMRequest, LLMManagerServiceTag } from '../../llm-manager/index.js'
 import { Schema } from '@effect/schema'
-import {
-  isSQLSpecificModel as checkSQLModel,
-  extractResponseContent,
-  needsResponseWrapping,
-  getModelConfig
-} from '../../llm-manager/model-registry.js'
+// Simple model utilities for Portkey gateway integration
+const checkSQLModel = (_modelName: string): boolean => {
+  return _modelName.includes('gpt') || _modelName.includes('claude')
+}
+
+const extractResponseContent = (_modelName: string, content: string): string => {
+  return content.trim()
+}
+
+const needsResponseWrapping = (_modelName: string, _outputType: string): boolean => {
+  return false // Portkey gateway handles response formatting
+}
+
+const getModelConfig = (_modelName: string) => ({
+  supportsSystemMessages: true,
+  maxTokens: 4000,
+  temperature: 0.1
+})
 
 // Schema for LLM-generated query response
 const LLMQueryResponseSchema = Schema.Struct({

@@ -1808,9 +1808,9 @@ app.get('/api/ui-generator/models', async (_req, res) => {
             ? 'JSON capable'
             : 'General purpose'
       }`,
-      available: model.status === 'healthy',
+      available: model.status === 'available',
       availabilityReason:
-        model.status === 'healthy' ? 'Model loaded and healthy' : `Model status: ${model.status}`,
+        model.status === 'available' ? 'Model loaded and healthy' : `Model status: ${model.status}`,
       capabilities: {
         json: model.capabilities?.supportsJSON || false,
         sql: model.capabilities?.supportsSQL || false,
@@ -1995,12 +1995,13 @@ app.get('/api/llm-manager/health', async (_req, res) => {
       Effect.flatMap(LLMManagerAPIClientTag, (llmManager) => llmManager.getStatus())
     )
 
-    const httpStatus = status.status === 'healthy' ? 200 : status.status === 'degraded' ? 207 : 503
+    const httpStatus =
+      status.status === 'operational' ? 200 : status.status === 'degraded' ? 207 : 503
 
     res.status(httpStatus).json({
       status: status.status,
-      loadedModels: status.loadedModels.length,
-      healthyModels: status.loadedModels.filter((m) => m.status === 'healthy').length,
+      loadedModels: status.loadedModels?.length || 0,
+      healthyModels: status.loadedModels?.filter((m) => m.status === 'available').length || 0,
       uptime: status.systemMetrics?.uptime,
       timestamp: new Date().toISOString()
     })

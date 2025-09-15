@@ -15,6 +15,9 @@ export interface ManagerStatus {
   readonly availableModels: string[]
   readonly healthStatus: Record<string, 'healthy' | 'unhealthy' | 'unknown'>
   readonly config: Record<string, unknown>
+  readonly status?: 'operational' | 'degraded' | 'offline'
+  readonly loadedModels?: Array<{ id: string; provider: string; status: string }>
+  readonly systemMetrics?: Record<string, unknown>
 }
 
 /**
