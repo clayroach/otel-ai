@@ -54,76 +54,7 @@ export const makePortkeyGatewayManager = (baseURL: string) => {
         model.includes('mistral') ||
         model.includes('starcoder')
 
-      // For local models in test mode, bypass Portkey for performance
-      if (isLocalModel && process.env.NODE_ENV === 'test') {
-        const lmStudioEndpoint = process.env.LM_STUDIO_ENDPOINT || 'http://localhost:1234/v1'
-
-        const requestBody = {
-          model,
-          messages: [
-            {
-              role: 'user',
-              content: request.prompt
-            }
-          ],
-          max_tokens: request.preferences?.maxTokens || 2000,
-          temperature: request.preferences?.temperature || 0.7
-        }
-
-        return Effect.tryPromise({
-          try: async () => {
-            const response = await fetch(`${lmStudioEndpoint}/chat/completions`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(requestBody)
-            })
-
-            if (!response.ok) {
-              const errorText = await response.text()
-              throw new Error(`LM Studio error (${response.status}): ${errorText}`)
-            }
-
-            return response.json()
-          },
-          catch: (error): LLMError => ({
-            _tag: 'ModelUnavailable' as const,
-            model,
-            message: String(error)
-          })
-        }).pipe(
-          Effect.flatMap((rawResponse) =>
-            Schema.decodeUnknown(ChatCompletionSchema)(rawResponse).pipe(
-              Effect.mapError(
-                (error): LLMError => ({
-                  _tag: 'InvalidRequest',
-                  message: `Invalid response format: ${error}`,
-                  request
-                })
-              ),
-              Effect.map(
-                (response): LLMResponse => ({
-                  content: response.choices[0]?.message?.content || '',
-                  model: response.model,
-                  usage: {
-                    promptTokens: response.usage.prompt_tokens,
-                    completionTokens: response.usage.completion_tokens,
-                    totalTokens: response.usage.total_tokens
-                  },
-                  metadata: {
-                    latencyMs: Date.now() - startTime,
-                    retryCount: 0,
-                    cached: false
-                  }
-                })
-              )
-            )
-          )
-        )
-      }
-
-      // For cloud models and production, use Portkey for observability
+      // All requests go through Portkey for observability
       // Determine the provider to tell Portkey
       let provider: string
       let apiKey: string

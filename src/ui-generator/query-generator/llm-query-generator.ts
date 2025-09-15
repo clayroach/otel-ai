@@ -7,7 +7,7 @@ import {
   extractResponseContent,
   needsResponseWrapping,
   getModelConfig
-} from '../../llm-manager/model-registry.js'
+} from '../../llm-manager/response-extractor.js'
 
 // Schema for LLM-generated query response
 const LLMQueryResponseSchema = Schema.Struct({
