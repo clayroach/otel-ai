@@ -16,24 +16,31 @@ describe('UI Generator API Client Layer Integration', () => {
   let isLLMAvailable = false
 
   beforeAll(async () => {
-    // Check if LLM is available
+    // Check if Portkey gateway is available (we use Portkey now, not LM Studio directly)
     try {
-      const response = await fetch('http://localhost:1234/v1/models')
+      const response = await fetch('http://localhost:8787')
       if (response.ok) {
-        const data = await response.json()
-        isLLMAvailable = data.data && data.data.length > 0
+        const text = await response.text()
+        isLLMAvailable = text.includes('Gateway')
       }
     } catch {
       isLLMAvailable = false
     }
 
+    // Also check for API keys
+    const hasOpenAI = !!process.env.OPENAI_API_KEY
+    const hasAnthropic = !!process.env.ANTHROPIC_API_KEY || !!process.env.CLAUDE_API_KEY
+    isLLMAvailable = isLLMAvailable && (hasOpenAI || hasAnthropic)
+
     if (!isLLMAvailable) {
-      console.log('⚠️  LLM not available at localhost:1234, skipping integration tests')
+      console.log('⚠️  Portkey gateway or API keys not available, skipping integration tests')
+    } else {
+      console.log('✅ Portkey gateway and API keys available, running integration tests')
     }
   })
 
   describe('With Real LLM Service', () => {
-    it.skipIf(!isLLMAvailable)('should generate query through the layer', async () => {
+    it('should generate query through the layer', async () => {
       const program = Effect.gen(function* () {
         const service = yield* UIGeneratorAPIClientTag
 
@@ -69,7 +76,7 @@ describe('UI Generator API Client Layer Integration', () => {
       expect(sql).toContain('traces')
     })
 
-    it.skipIf(!isLLMAvailable)(
+    it(
       'should generate multiple queries for different patterns',
       async () => {
         const program = Effect.gen(function* () {
@@ -106,7 +113,7 @@ describe('UI Generator API Client Layer Integration', () => {
       }
     )
 
-    it.skipIf(!isLLMAvailable)('should validate queries correctly', async () => {
+    it('should validate queries correctly', async () => {
       const program = Effect.gen(function* () {
         const service = yield* UIGeneratorAPIClientTag
 

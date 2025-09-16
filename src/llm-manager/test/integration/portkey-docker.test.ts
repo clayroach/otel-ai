@@ -6,7 +6,10 @@
 import { describe, it, expect } from 'vitest'
 import { execSync } from 'child_process'
 
-describe('Portkey Docker Integration', () => {
+// Skip in CI since docker exec won't work in GitHub Actions
+const isCI = Boolean(process.env.CI || process.env.GITHUB_ACTIONS)
+
+describe.skipIf(isCI)('Portkey Docker Integration', () => {
   it('should successfully route OpenAI requests through Portkey gateway in Docker', () => {
     try {
       // Test from backend container to Portkey gateway

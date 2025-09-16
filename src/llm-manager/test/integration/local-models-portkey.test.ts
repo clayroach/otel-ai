@@ -7,7 +7,10 @@ import { Effect } from 'effect'
 import { makePortkeyGatewayManager } from '../../portkey-gateway-client.js'
 import type { LLMRequest } from '../../types.js'
 
-describe('Local Models via Portkey Gateway', () => {
+// Skip in CI since LM Studio won't be available
+const isCI = Boolean(process.env.CI || process.env.GITHUB_ACTIONS)
+
+describe.skipIf(isCI)('Local Models via Portkey Gateway', () => {
   const portkeyUrl = process.env.PORTKEY_GATEWAY_URL || 'http://localhost:8787'
   const manager = makePortkeyGatewayManager(portkeyUrl)
 

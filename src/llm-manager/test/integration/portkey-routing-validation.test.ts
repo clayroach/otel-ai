@@ -8,6 +8,9 @@ import { Effect } from 'effect'
 import { makePortkeyGatewayManager } from '../../portkey-gateway-client.js'
 import type { LLMRequest } from '../../types.js'
 
+// Check if we're in CI environment
+const isCI = Boolean(process.env.CI || process.env.GITHUB_ACTIONS)
+
 describe('Portkey Routing Validation', () => {
   const portkeyUrl = process.env.PORTKEY_GATEWAY_URL || 'http://localhost:8787'
   const manager = makePortkeyGatewayManager(portkeyUrl)
@@ -29,7 +32,7 @@ describe('Portkey Routing Validation', () => {
     }
   })
 
-  describe('Local Model Routing (via Portkey customHost → LM Studio)', () => {
+  describe.skipIf(isCI)('Local Model Routing (via Portkey customHost → LM Studio)', () => {
     it('should route codellama-7b-instruct through Portkey to LM Studio', async () => {
       const request: LLMRequest = {
         prompt: 'Generate a simple SQL SELECT statement to get all users',
