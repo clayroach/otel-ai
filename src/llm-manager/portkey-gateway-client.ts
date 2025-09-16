@@ -9,6 +9,7 @@ import { Effect, Layer, Stream } from 'effect'
 import * as Schema from '@effect/schema/Schema'
 import type { LLMRequest, LLMResponse, LLMError } from './types.js'
 import { LLMManagerServiceTag } from './llm-manager-service.js'
+import { interactionLogger } from './interaction-logger.js'
 
 // OpenAI-compatible response schema
 const ChatCompletionSchema = Schema.Struct({
@@ -79,6 +80,15 @@ export const makePortkeyGatewayManager = (baseURL: string) => {
           message: `No API key found for ${provider}`
         })
       }
+
+      // Start logging the interaction
+      const interactionId = interactionLogger.startInteraction(
+        model,
+        provider,
+        request.prompt,
+        'generation', // Default task type since it's not in LLMRequest.preferences
+        request.preferences
+      )
 
       // Build request body
       const requestBody = {
@@ -181,11 +191,16 @@ export const makePortkeyGatewayManager = (baseURL: string) => {
             throw fetchError
           }
         },
-        catch: (error): LLMError => ({
-          _tag: 'ModelUnavailable' as const,
-          model: provider,
-          message: String(error)
-        })
+        catch: (error): LLMError => {
+          const errorObj = {
+            _tag: 'ModelUnavailable' as const,
+            model: provider,
+            message: String(error)
+          }
+          // Log the failed interaction
+          interactionLogger.failInteraction(interactionId, errorObj, Date.now() - startTime)
+          return errorObj
+        }
       }).pipe(
         Effect.flatMap((rawResponse) =>
           Schema.decodeUnknown(ChatCompletionSchema)(rawResponse).pipe(
@@ -196,8 +211,8 @@ export const makePortkeyGatewayManager = (baseURL: string) => {
                 request
               })
             ),
-            Effect.map(
-              (response): LLMResponse => ({
+            Effect.map((response): LLMResponse => {
+              const llmResponse = {
                 content: response.choices[0]?.message?.content || '',
                 model: response.model,
                 usage: {
@@ -210,8 +225,26 @@ export const makePortkeyGatewayManager = (baseURL: string) => {
                   retryCount: 0,
                   cached: false
                 }
-              })
-            )
+              }
+
+              // Log the successful interaction
+              interactionLogger.completeInteraction(
+                interactionId,
+                {
+                  content: llmResponse.content,
+                  model: llmResponse.model,
+                  usage: {
+                    promptTokens: llmResponse.usage.promptTokens,
+                    completionTokens: llmResponse.usage.completionTokens,
+                    totalTokens: llmResponse.usage.totalTokens
+                  },
+                  metadata: llmResponse.metadata
+                },
+                Date.now() - startTime
+              )
+
+              return llmResponse
+            })
           )
         )
       )

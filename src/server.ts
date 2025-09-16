@@ -24,6 +24,7 @@ import {
 import { StorageAPIClientTag, ClickHouseConfigTag, StorageAPIClientLayer } from './storage/index.js'
 import { LLMManagerAPIClientTag, LLMManagerAPIClientLayer } from './llm-manager/index.js'
 import { UIGeneratorAPIClientTag, UIGeneratorAPIClientLayer } from './ui-generator/index.js'
+import { interactionLogger, type LLMInteraction } from './llm-manager/interaction-logger.js'
 import {
   cleanAttributes,
   parseOTLPFromRaw,
@@ -1425,101 +1426,19 @@ app.get('/api/llm/interactions', async (req, res) => {
     const limit = parseInt(req.query.limit as string) || 50
     const model = req.query.model as string | undefined
 
-    // Get actual model metrics from LLM Manager using Effect-TS
-    const loadedModels = await runWithServices(
-      Effect.flatMap(LLMManagerAPIClientTag, (llmManager) => llmManager.getLoadedModels())
-    )
+    // Only return real interactions from the logger - NO MOCK DATA
+    const realInteractions = interactionLogger.getInteractions(limit, model)
 
-    // Generate interactions based on actual model metrics
-    const interactions = []
-    let interactionId = 0
+    console.log(`📊 Serving ${realInteractions.length} real Portkey interactions`)
 
-    // If no models are loaded (e.g., in CI), provide mock data to keep UI functional
-    if (loadedModels.length === 0) {
-      console.log('ℹ️ No LLM models loaded - generating mock interactions for UI')
-
-      // Generate some mock interactions to keep the UI functional
-      for (let i = 0; i < Math.min(5, limit); i++) {
-        interactions.push({
-          id: `mock_int_${Date.now()}_${i}`,
-          timestamp: Date.now() - i * 60000,
-          model: 'mock-model',
-          request: {
-            prompt: `Mock analysis request ${i}`,
-            taskType: 'analysis'
-          },
-          response: {
-            content: `Mock analysis response ${i}`,
-            model: 'mock-model',
-            usage: {
-              promptTokens: 50,
-              completionTokens: 100,
-              totalTokens: 150,
-              cost: 0.0001
-            }
-          },
-          latencyMs: 100,
-          status: 'success'
-        })
-      }
-
-      res.json({
-        interactions,
-        total: interactions.length,
-        modelsUsed: ['mock-model']
-      })
-      return
-    }
-
-    for (const loadedModel of loadedModels) {
-      if (model && loadedModel.id !== model) continue
-
-      const modelMetrics = loadedModel.metrics || {
-        totalRequests: 0,
-        totalTokens: 0,
-        averageLatency: 0,
-        errorRate: 0
-      }
-
-      // Generate mock interactions based on model's actual request count
-      const modelInteractionCount = Math.min(
-        Math.floor(modelMetrics.totalRequests || Math.random() * 5),
-        limit - interactions.length
-      )
-
-      for (let i = 0; i < modelInteractionCount && interactions.length < limit; i++) {
-        interactions.push({
-          id: `int_${Date.now()}_${interactionId++}`,
-          timestamp: Date.now() - i * 60000,
-          model: loadedModel.id,
-          request: {
-            prompt: `Analyze telemetry data for ${loadedModel.id} task ${i}`,
-            taskType: 'analysis'
-          },
-          response: {
-            content: `Analysis complete for ${loadedModel.id}`,
-            model: loadedModel.id,
-            usage: {
-              promptTokens: 50 + i * 5,
-              completionTokens: 100 + i * 10,
-              totalTokens: 150 + i * 15,
-              cost: loadedModel.id.includes('gpt')
-                ? 0.002
-                : loadedModel.id.includes('claude')
-                  ? 0.003
-                  : 0.0001
-            }
-          },
-          latencyMs: modelMetrics.averageLatency || 500,
-          status: Math.random() > (modelMetrics.errorRate || 0.05) ? 'success' : 'error'
-        })
-      }
-    }
+    // Get unique models from real interactions
+    const modelsUsed = Array.from(new Set(realInteractions.map((i) => i.model)))
 
     res.json({
-      interactions,
-      total: interactions.length,
-      modelsUsed: loadedModels.map((m) => m.id)
+      interactions: realInteractions,
+      total: realInteractions.length,
+      modelsUsed,
+      source: 'portkey'
     })
   } catch (error) {
     res.status(500).json({
@@ -1535,70 +1454,15 @@ app.get('/api/llm/comparison', async (req, res) => {
     const taskType = req.query.taskType as string | undefined
     const timeWindowMs = parseInt(req.query.timeWindow as string) || 24 * 60 * 60 * 1000
 
-    // Get actual model data from LLM Manager using Effect-TS
-    const loadedModels = await runWithServices(
-      Effect.flatMap(LLMManagerAPIClientTag, (llmManager) => llmManager.getLoadedModels())
-    )
+    // Only return real comparison data from the logger - NO MOCK DATA
+    const realComparison = interactionLogger.getModelComparison(timeWindowMs)
 
-    // If no models are loaded (e.g., in CI), provide mock data
-    if (loadedModels.length === 0) {
-      console.log('ℹ️ No LLM models loaded - generating mock comparison data for UI')
-
-      res.json({
-        comparison: [
-          {
-            model: 'mock-model',
-            provider: 'mock',
-            status: 'healthy',
-            interactions: [],
-            avgLatency: 100,
-            successRate: 0.95,
-            avgCost: 0.0001,
-            totalRequests: 10,
-            totalTokens: 1000,
-            capabilities: {
-              maxTokens: 2048,
-              contextLength: 8192,
-              supportsStreaming: false,
-              supportsJSON: true,
-              supportsSQL: false
-            }
-          }
-        ],
-        taskType: taskType || 'all',
-        timeWindowMs,
-        loadedModelsCount: 0
-      })
-      return
-    }
-
-    // Build comparison data from actual loaded models
-    const comparison = loadedModels.map((model) => ({
-      model: model.id,
-      provider: model.provider,
-      status: model.status,
-      interactions: [], // Could be populated from actual interaction history
-      avgLatency: model.metrics?.averageLatency || 0,
-      successRate: model.metrics ? 1 - (model.metrics.errorRate || 0) : 0,
-      avgCost: model.id.includes('gpt-4')
-        ? 0.06
-        : model.id.includes('gpt-3')
-          ? 0.002
-          : model.id.includes('claude')
-            ? 0.003
-            : model.provider === 'local'
-              ? 0.0001
-              : 0.001,
-      totalRequests: model.metrics?.totalRequests || 0,
-      totalTokens: model.metrics?.totalTokens || 0,
-      capabilities: model.capabilities
-    }))
-
+    console.log(`📊 Serving real model comparison for ${realComparison.length} models`)
     res.json({
-      comparison,
+      comparison: realComparison,
+      source: 'portkey',
       taskType: taskType || 'all',
-      timeWindowMs,
-      loadedModelsCount: loadedModels.length
+      timeWindowMs
     })
   } catch (error) {
     res.status(500).json({
@@ -1623,72 +1487,52 @@ app.get('/api/llm/live', (req, res) => {
     `data: ${JSON.stringify({
       type: 'connected',
       timestamp: Date.now(),
-      message: 'Connected to LLM interaction live feed'
+      message: 'Connected to LLM interaction live feed (with real Portkey data)'
     })}\n\n`
   )
 
-  // Send live events based on actual loaded models
-  const sendLiveEvent = async () => {
-    try {
-      // Get fresh data from LLM Manager using Effect-TS
-      const loadedModels = await runWithServices(
-        Effect.flatMap(LLMManagerAPIClientTag, (llmManager) => llmManager.getLoadedModels())
-      )
-
-      // Pick a random loaded model for the event
-      const randomModel = loadedModels[Math.floor(Math.random() * loadedModels.length)]
-
-      if (!randomModel) return
-
-      const events = [
-        {
-          type: 'request_start',
-          entry: {
-            id: `int_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
-            timestamp: Date.now(),
-            model: randomModel.id,
-            provider: randomModel.provider,
-            request: {
-              prompt: 'Analyzing service dependencies...',
-              taskType: 'analysis'
-            },
-            status: 'pending'
-          }
-        },
-        {
-          type: 'request_complete',
-          entry: {
-            id: `int_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
-            timestamp: Date.now(),
-            model: randomModel.id,
-            provider: randomModel.provider,
-            request: {
-              prompt: 'Generate dashboard for service X',
-              taskType: 'ui-generation'
-            },
-            response: {
-              content: 'Generated React component with visualization',
-              usage: { totalTokens: 250, cost: randomModel.provider === 'openai' ? 0.002 : 0.001 }
-            },
-            status: 'success',
-            latencyMs: Math.floor(Math.random() * 1000) + 300
-          }
-        }
-      ]
-
-      const event = events[Math.floor(Math.random() * events.length)]
-      res.write(`data: ${JSON.stringify(event)}\n\n`)
-    } catch (error) {
-      console.error('Error sending live event:', error)
-    }
+  // Set up listeners for real interaction events
+  const handleInteractionStart = (interaction: LLMInteraction) => {
+    res.write(
+      `data: ${JSON.stringify({
+        type: 'request_start',
+        entry: interaction,
+        timestamp: Date.now()
+      })}\n\n`
+    )
   }
 
-  // Send live events every 5-15 seconds
-  const interval = setInterval(sendLiveEvent, Math.random() * 10000 + 5000)
+  const handleInteractionComplete = (interaction: LLMInteraction) => {
+    res.write(
+      `data: ${JSON.stringify({
+        type: 'request_complete',
+        entry: interaction,
+        timestamp: Date.now()
+      })}\n\n`
+    )
+  }
+
+  const handleInteractionError = (interaction: LLMInteraction) => {
+    res.write(
+      `data: ${JSON.stringify({
+        type: 'request_error',
+        entry: interaction,
+        timestamp: Date.now()
+      })}\n\n`
+    )
+  }
+
+  // Register event listeners - ONLY REAL EVENTS, NO MOCK DATA
+  interactionLogger.on('interaction:start', handleInteractionStart)
+  interactionLogger.on('interaction:complete', handleInteractionComplete)
+  interactionLogger.on('interaction:error', handleInteractionError)
 
   // Clean up on client disconnect
   req.on('close', () => {
-    clearInterval(interval)
+    // Remove real event listeners
+    interactionLogger.off('interaction:start', handleInteractionStart)
+    interactionLogger.off('interaction:complete', handleInteractionComplete)
+    interactionLogger.off('interaction:error', handleInteractionError)
   })
 })
 
@@ -1865,10 +1709,15 @@ app.get('/api/ui-generator/models', async (_req, res) => {
 // Clear LLM logs endpoint
 app.delete('/api/llm/interactions', async (_req, res) => {
   try {
-    // Mock clearing logs
+    // Clear real interaction logs
+    interactionLogger.clearInteractions()
+
+    console.log('🧹 Cleared all LLM interaction logs')
+
     res.json({
       message: 'LLM interaction logs cleared',
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      source: 'portkey'
     })
   } catch (error) {
     res.status(500).json({
