@@ -1888,7 +1888,7 @@ app.get('/api/llm-manager/implementation', async (_req, res) => {
     details: usePortkey
       ? {
           gatewayUrl: process.env.PORTKEY_GATEWAY_URL || 'http://localhost:8787',
-          configPath: '/config/routing.yaml',
+          configPath: '/config/config.json',
           features: [
             'Configuration-driven routing',
             'Automatic failover',
