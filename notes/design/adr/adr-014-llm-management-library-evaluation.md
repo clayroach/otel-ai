@@ -1,7 +1,7 @@
 # ADR-014: LLM Management Library Evaluation and Hardcoded Model Reference Refactoring
 
 ## Status
-Proposed
+✅ Implemented (September 15, 2025)
 
 ## Context
 

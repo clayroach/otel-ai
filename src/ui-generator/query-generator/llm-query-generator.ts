@@ -356,13 +356,34 @@ The SQL must analyze: ${analysisGoal}`
           )
         }
 
+        // Add comprehensive metadata comments for debugging
+        const metadata = [
+          `-- Model: ${response.model || modelName}`,
+          `-- Generated: ${new Date().toISOString()}`,
+          `-- Analysis Goal: ${analysisGoal}`,
+          `-- Services: ${path.services.join(', ')}`,
+          response.usage
+            ? `-- Tokens: ${response.usage.totalTokens} (prompt: ${response.usage.promptTokens}, completion: ${response.usage.completionTokens})`
+            : null,
+          response.metadata?.latencyMs
+            ? `-- Generation Time: ${response.metadata.latencyMs}ms`
+            : null,
+          response.metadata?.cached ? `-- Cached: true` : null,
+          parsed.reasoning ? `-- Reasoning: ${parsed.reasoning.substring(0, 200)}` : null,
+          '-- ========================================='
+        ]
+          .filter(Boolean)
+          .join('\n')
+
+        const sqlWithComment = metadata + '\n' + parsed.sql.trim()
+
         // Convert to GeneratedQuery format with model information
         const query: GeneratedQuery & { model?: string; reasoning?: string } = {
           id: `${path.id}_${Date.now()}_llm`,
           name: `${analysisGoal.substring(0, 50)} - ${path.name}`,
           description: parsed.description,
           pattern: QueryPattern.SERVICE_LATENCY, // Default pattern, but LLM decides actual query structure
-          sql: parsed.sql.trim(),
+          sql: sqlWithComment,
           expectedSchema: parsed.expectedColumns.reduce(
             (acc, col) => {
               acc[col.name] = col.type
@@ -370,7 +391,7 @@ The SQL must analyze: ${analysisGoal}`
             },
             {} as Record<string, string>
           ),
-          model: response.model, // Include the actual model that was used
+          model: response.model || modelName, // Include the actual model that was used
           reasoning: parsed.reasoning
         }
 

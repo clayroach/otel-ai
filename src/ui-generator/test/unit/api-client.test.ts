@@ -102,8 +102,10 @@ describe('UIGeneratorAPIClient', () => {
       const result = await UIGeneratorAPIClient.generateQuery(mockRequest)
 
       expect(result).toBeDefined()
-      // The SQL should be sanitized (semicolon removed, otel. prefix added)
-      expect(result.sql).toBe('SELECT service_name, COUNT(*) FROM otel.traces GROUP BY service_name')
+      // The SQL should be sanitized (semicolon removed, otel. prefix added) and include metadata
+      expect(result.sql).toContain('SELECT service_name, COUNT(*) FROM otel.traces GROUP BY service_name')
+      expect(result.sql).toContain('-- Model: sqlcoder-7b-2')
+      expect(result.sql).toContain('-- Services: frontend, api, database')
       expect(result.model).toBe('sqlcoder-7b-2')
       // For SQL-specific models, description is auto-generated
       expect(result.description).toContain('Query generated for')
@@ -145,8 +147,10 @@ describe('UIGeneratorAPIClient', () => {
       const result = await UIGeneratorAPIClient.generateQuery(mockRequest)
 
       expect(result).toBeDefined()
-      // The SQL should be sanitized (semicolon removed, otel. prefix added)
-      expect(result.sql).toBe('SELECT * FROM otel.traces WHERE service_name IN (\'service-a\', \'service-b\')')
+      // The SQL should be sanitized (semicolon removed, otel. prefix added) and include metadata
+      expect(result.sql).toContain('SELECT * FROM otel.traces WHERE service_name IN (\'service-a\', \'service-b\')')
+      expect(result.sql).toContain('-- Model: gpt-3.5-turbo')
+      expect(result.sql).toContain('-- Services: service-a, service-b')
       expect(result.model).toBe('gpt-3.5-turbo')
       expect(result.description).toBe('Analyze path performance')
       // Non-SQL models return proper expectedColumns
@@ -270,8 +274,13 @@ describe('UIGeneratorAPIClient', () => {
       const results = await UIGeneratorAPIClient.generateMultipleQueries(mockRequest)
 
       expect(results).toHaveLength(2)
-      expect(results[0]?.sql).toBe('SELECT latency FROM otel.traces')
-      expect(results[1]?.sql).toBe('SELECT errors FROM otel.traces')
+      // Check that SQL content is present (with metadata comments)
+      expect(results[0]?.sql).toContain('SELECT latency FROM otel.traces')
+      expect(results[0]?.sql).toContain('-- Model: sqlcoder-7b-2')
+      expect(results[0]?.sql).toContain('-- Analysis Goal: latency')
+      expect(results[1]?.sql).toContain('SELECT errors FROM otel.traces')
+      expect(results[1]?.sql).toContain('-- Model: sqlcoder-7b-2')
+      expect(results[1]?.sql).toContain('-- Analysis Goal: errors')
     })
   })
 
