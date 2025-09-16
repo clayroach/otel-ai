@@ -193,13 +193,38 @@ export class UIGeneratorAPIClient {
    * Sanitize SQL to be compatible with ClickHouse JSON format
    */
   private static sanitizeSQL(sql: string): string {
+    // Preserve all metadata comments at the beginning
+    const lines = sql.split('\n')
+    const metadataLines: string[] = []
+    let sqlStartIndex = 0
+
+    // Collect all comment lines at the beginning
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      if (line && line.startsWith('--')) {
+        metadataLines.push(line)
+        sqlStartIndex = i + 1
+      } else if (line?.trim() === '') {
+        // Skip empty lines between comments
+        sqlStartIndex = i + 1
+      } else {
+        // Found first non-comment line
+        break
+      }
+    }
+
+    // Get the actual SQL without metadata
+    const sqlWithoutMetadata = lines.slice(sqlStartIndex).join('\n')
+
     // Remove trailing semicolons that cause ClickHouse multi-statement errors
-    let sanitized = sql.replace(/;\s*$/, '').trim()
+    let sanitized = sqlWithoutMetadata.replace(/;\s*$/, '').trim()
 
     // Fix table name - ensure we use otel.traces instead of just traces
     sanitized = sanitized.replace(/FROM\s+traces\b/gi, 'FROM otel.traces')
 
-    return sanitized
+    // Re-add metadata comments if present
+    const metadata = metadataLines.length > 0 ? metadataLines.join('\n') + '\n' : ''
+    return metadata + sanitized
   }
 
   /**
