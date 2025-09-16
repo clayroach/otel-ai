@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest'
 import { Effect, pipe } from 'effect'
-import { generateQueryWithLLM } from '../../query-generator/llm-query-generator.js'
+import { describe, expect, it } from 'vitest'
 import { LLMManagerLive } from '../../../llm-manager/index.js'
+import { generateQueryWithLLM } from '../../query-generator/llm-query-generator.js'
 import type { CriticalPath } from '../../query-generator/types.js'
 
 describe('Metadata Comments in Generated SQL', () => {
@@ -18,7 +18,10 @@ describe('Metadata Comments in Generated SQL', () => {
 
     const result = await Effect.runPromise(
       pipe(
-        generateQueryWithLLM(testPath, analysisGoal),
+        generateQueryWithLLM(testPath, analysisGoal, {
+          // Force Claude model for this test to ensure cloud model is used
+          model: 'claude-3-haiku-20240307'
+        }),
         Effect.provide(LLMManagerLive)
       )
     )
@@ -37,12 +40,20 @@ describe('Metadata Comments in Generated SQL', () => {
     expect(commentLines.some(line => line.includes('Analysis Goal:'))).toBe(true)
     expect(commentLines.some(line => line.includes('Services:'))).toBe(true)
 
+    // CRITICAL: Verify that Claude model was actually used (not a local model)
+    const modelLine = commentLines.find(line => line.includes('Model:'))
+    expect(modelLine).toBeDefined()
+    expect(modelLine).toContain('claude')
+    expect(modelLine).not.toContain('codellama')
+    expect(modelLine).not.toContain('sqlcoder')
+    console.log('✅ Verified Claude model was used:', modelLine)
+
     // These might not always be present depending on the model response
     const hasTokenInfo = commentLines.some(line => line.includes('Tokens:'))
     const hasGenerationTime = commentLines.some(line => line.includes('Generation Time:'))
 
     console.log('Metadata includes:')
-    console.log('- Model: ✓')
+    console.log('- Model: ✓ (claude-3-haiku-20240307)')
     console.log('- Generated timestamp: ✓')
     console.log('- Analysis goal: ✓')
     console.log('- Services: ✓')
