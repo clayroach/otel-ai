@@ -11,7 +11,7 @@ import { describe, it, expect, beforeAll } from "vitest"
 import { Effect, pipe } from "effect"
 import { generateQueryWithLLM, ANALYSIS_GOALS, validateGeneratedSQL } from "../../query-generator/llm-query-generator"
 import { CriticalPath } from "../../query-generator/types"
-import { getModelMetadata } from "../../../llm-manager/model-registry"
+// Model metadata no longer needed - removed model-registry
 import { LLMManagerLive } from "../../../llm-manager/llm-manager-live"
 import { 
   hasOpenAIKey,
@@ -132,7 +132,7 @@ interface ModelAvailability {
   available: boolean
   endpoint?: string | undefined
   error?: string | undefined
-  metadata?: ReturnType<typeof getModelMetadata> | undefined
+  // metadata no longer available
 }
 
 // Initialize model availability array that will be populated in beforeAll
@@ -161,7 +161,7 @@ describe.skipIf(shouldSkipTests)("Multi-Model Query Generation", () => {
     console.log(`   General Models: ${[process.env.LLM_GENERAL_MODEL_1, process.env.LLM_GENERAL_MODEL_2, process.env.LLM_GENERAL_MODEL_3].filter(Boolean).join(', ') || 'defaults'}`)
     
     // Check local models via LM Studio (skip in CI without API keys)
-    if (!isCI || hasOpenAIKey || hasClaudeKey) {
+    if (!isCI || hasOpenAIKey() || hasClaudeKey()) {
       try {
         const localEndpoint = process.env.LLM_ENDPOINT || 'http://localhost:1234/v1'
         
@@ -186,7 +186,7 @@ describe.skipIf(shouldSkipTests)("Multi-Model Query Generation", () => {
             modelId: config.modelId,
             available: isAvailable && config.enabled,
             endpoint: config.endpoint,
-            metadata: getModelMetadata(config.modelId),
+            // metadata no longer available
             error: isAvailable ? undefined : 'Model not loaded in LM Studio'
           })
           
@@ -235,7 +235,7 @@ describe.skipIf(shouldSkipTests)("Multi-Model Query Generation", () => {
           modelId: config.modelId,
           available: config.enabled,
           endpoint: config.endpoint,
-          metadata: getModelMetadata(config.modelId),
+          // metadata no longer available
           error: config.enabled ? undefined : config.skipReason
         })
       })
@@ -259,7 +259,7 @@ describe.skipIf(shouldSkipTests)("Multi-Model Query Generation", () => {
           modelId: config.modelId,
           available: config.enabled,
           endpoint: config.endpoint,
-          metadata: getModelMetadata(config.modelId),
+          // metadata no longer available
           error: config.enabled ? undefined : config.skipReason
         })
       })
@@ -287,7 +287,7 @@ describe.skipIf(shouldSkipTests)("Multi-Model Query Generation", () => {
       
       const byProvider: Record<string, ModelAvailability[]> = {}
       modelAvailability.forEach(model => {
-        const provider = model.metadata?.provider || 'unknown'
+        const provider = 'unknown' // metadata no longer available
         if (!byProvider[provider]) byProvider[provider] = []
         byProvider[provider].push(model)
       })
@@ -296,11 +296,8 @@ describe.skipIf(shouldSkipTests)("Multi-Model Query Generation", () => {
         console.log(`\n   ${provider.toUpperCase()}:`)
         models.forEach(model => {
           const status = model.available ? '✅' : '❌'
-          const type = model.metadata?.type || 'unknown'
-          const capabilities = model.metadata?.capabilities
-          const caps = capabilities ? 
-            `[${capabilities.sql ? 'SQL' : ''}${capabilities.json ? ' JSON' : ''}${capabilities.reasoning ? ' Reasoning' : ''}]`.replace(/\s+/g, ' ').trim() : 
-            '[]'
+          const type = 'unknown' // metadata no longer available
+          const caps = '[]' // capabilities no longer available
           
           console.log(`     ${status} ${model.modelId} (${type}) ${caps}`)
           if (!model.available && model.error) {
@@ -395,8 +392,7 @@ describe.skipIf(shouldSkipTests)("Multi-Model Query Generation", () => {
       
       const samplesByType: Record<string, typeof results[0]> = {}
       results.filter(r => r.success).forEach(result => {
-        const metadata = getModelMetadata(result.modelId)
-        const type = metadata?.type || 'unknown'
+        const type = 'unknown' // metadata no longer available
         if (!samplesByType[type]) {
           samplesByType[type] = result
         }

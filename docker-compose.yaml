@@ -16,6 +16,9 @@ services:
       CLICKHOUSE_USER: otel
       CLICKHOUSE_PASSWORD: otel123
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+      # Memory optimization settings
+      CLICKHOUSE_MAX_MEMORY_USAGE: 2000000000  # 2GB max memory per query
+      CLICKHOUSE_MAX_MEMORY_USAGE_FOR_USER: 3000000000  # 3GB max memory per user
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       # init-db.sql removed - now handled by schema-migrator service
@@ -26,6 +29,13 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+    # Resource limits to prevent OOM
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 1G
 
   # MinIO for S3-compatible object storage (DISABLED for now)
   # minio:
@@ -166,6 +176,32 @@ services:
     profiles:
       - dev
 
+  # Portkey Gateway - LLM routing and management
+  portkey-gateway:
+    image: portkeyai/gateway:latest
+    container_name: otel-ai-portkey
+    ports:
+      - '8787:8787'
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${CLAUDE_API_KEY}  # Map CLAUDE_API_KEY to ANTHROPIC_API_KEY
+      - PORT=8787
+      - LOG_LEVEL=debug  # Changed to debug for more visibility
+      - CACHE_ENABLED=true
+      - CACHE_TTL=3600
+      - CONFIG_PATH=/config/config.json
+    volumes:
+      - ./config/portkey:/config:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8787/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    profiles:
+      - dev
+      - production
+
   # Backend Service - OTLP ingestion and storage layer
   backend:
     build:
@@ -196,6 +232,9 @@ services:
       - LLM_SQL_MODEL_1=${LLM_SQL_MODEL_1:-codellama-7b-instruct}
       - LLM_GENERAL_MODEL_1=${LLM_GENERAL_MODEL_1:-claude-3-haiku-20240307}
       - LLM_GENERAL_MODEL_2=${LLM_GENERAL_MODEL_2:-gpt-3.5-turbo}
+      # Portkey Gateway configuration
+      - PORTKEY_GATEWAY_URL=http://portkey-gateway:8787
+      - USE_PORTKEY_GATEWAY=${USE_PORTKEY_GATEWAY:-false}
     depends_on:
       clickhouse:
         condition: service_healthy

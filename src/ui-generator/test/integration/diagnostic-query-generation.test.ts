@@ -6,8 +6,7 @@ import {
   CriticalPathQueryGeneratorClickHouseAILive
 } from "../../query-generator/service-clickhouse-ai"
 import { StorageAPIClientTag } from "../../../storage/api-client"
-import { 
-  shouldSkipLLMTests, 
+import {
   logAvailabilityStatus
 } from "../../../llm-manager/test/utils/llm-availability.js"
 import { LLMManagerLive, LLMManagerEssentials } from "../../../llm-manager"
@@ -38,12 +37,7 @@ describe("Diagnostic Query Generation", () => {
   beforeAll(() => {
     console.log("\n🔧 Diagnostic Query Generation Test Configuration")
     logAvailabilityStatus()
-    
-    if (shouldSkipLLMTests) {
-      console.log("⏭️  Tests will be skipped - no AI models available")
-    } else {
-      console.log("✅ Tests will run with available LLM models")
-    }
+    console.log("✅ Tests will run with available LLM models")
   })
   
   describe("Improved Diagnostic Query Generation", () => {
@@ -103,7 +97,7 @@ describe("Diagnostic Query Generation", () => {
       Layer.merge(mockStorageAPIClient, Layer.provide(LLMManagerLive, LLMManagerEssentials))
     )
     
-    it.skipIf(shouldSkipLLMTests)("should generate diagnostic queries with improved requirements", { timeout: 120000 }, async () => {
+    it("should generate diagnostic queries with improved requirements", { timeout: 120000 }, async () => {
       
       const program = Effect.gen(function* () {
         const queryGenerator = yield* CriticalPathQueryGeneratorClickHouseAI
@@ -166,7 +160,7 @@ describe("Diagnostic Query Generation", () => {
       }
     })
     
-    it.skipIf(shouldSkipLLMTests)("should execute diagnostic queries and return actionable results", { timeout: 60000 }, async () => {
+    it("should execute diagnostic queries and return actionable results", { timeout: 60000 }, async () => {
       
       const program = Effect.gen(function* () {
         const queryGenerator = yield* CriticalPathQueryGeneratorClickHouseAI

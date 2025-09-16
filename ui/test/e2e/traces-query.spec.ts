@@ -36,7 +36,13 @@ test.describe('Traces Query Functionality', () => {
   test('should maintain table state during loading', async ({ page }) => {
     // Run initial query to get some data
     await page.click('[data-testid="traces-run-query-button"]')
-    
+
+    // Wait for loading to complete
+    await page.waitForFunction(
+      () => !document.querySelector('.ant-spin-spinning'),
+      { timeout: 15000 }
+    )
+
     // Wait for query to complete - check for either dynamic or table view
     await page.waitForSelector('[data-testid="dynamic-view-container"], [data-testid="table-view-container"]', { timeout: 10000 })
     
@@ -105,13 +111,19 @@ test.describe('Traces Query Functionality', () => {
     // Fresh page load should have the default query
     await page.reload()
     await page.waitForSelector('[data-testid="traces-page-title"]')
-    
+
     // Wait for Monaco editor to load
     await page.waitForSelector('.monaco-editor')
-    
+
     // Run the default query
     await page.click('[data-testid="traces-run-query-button"]')
-    
+
+    // Wait for loading to complete
+    await page.waitForFunction(
+      () => !document.querySelector('.ant-spin-spinning'),
+      { timeout: 15000 }
+    )
+
     // Wait for query to complete - check for either dynamic or table view
     await page.waitForSelector('[data-testid="dynamic-view-container"], [data-testid="table-view-container"]', { timeout: 10000 })
     

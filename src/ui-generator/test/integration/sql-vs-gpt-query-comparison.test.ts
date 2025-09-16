@@ -8,8 +8,7 @@ import {
 import { generateQueryWithLLM } from "../../query-generator/llm-query-generator"
 import { LLMManagerLive, LLMManagerEssentials } from "../../../llm-manager"
 import { StorageAPIClientTag } from "../../../storage/api-client"
-import { 
-  shouldSkipLLMTests, 
+import {
   logAvailabilityStatus
 } from "../../../llm-manager/test/utils/llm-availability.js"
 import { 
@@ -84,17 +83,12 @@ interface QueryComparison {
   }
 }
 
-describe.skipIf(shouldSkipLLMTests)("SQL Model vs GPT Model Query Generation Comparison", () => {
-  
+describe("SQL Model vs GPT Model Query Generation Comparison", () => {
+
   beforeAll(() => {
     console.log("\n🔧 SQL vs GPT Model Comparison Test Configuration")
     logAvailabilityStatus()
-    
-    if (shouldSkipLLMTests) {
-      console.log("⏭️  Tests will be skipped - no AI models available")
-    } else {
-      console.log("✅ Tests will run with available LLM models")
-    }
+    console.log("✅ Tests will run with available LLM models")
   })
   
   // Mock storage for testing

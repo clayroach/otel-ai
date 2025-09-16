@@ -1,23 +1,23 @@
 # Config Manager Package
 
-AI-powered self-healing configuration management that automatically fixes issues before they impact applications.
+⚠️ **NOT IMPLEMENTED** - This package is currently a specification-only placeholder.
 
-## Quick Start
+AI-powered self-healing configuration management that will automatically detect and fix configuration issues before they impact applications.
 
-```bash
-# Install dependencies
-pnpm install
+## Current Status
 
-# Run tests
-pnpm test:config-manager
-```
+📋 **Specification Only** - No implementation code exists yet. This package contains only this README file.
 
-## Key Features
+## Planned Features
+
+When implemented, this package will provide:
 
 - **Self-Healing Configuration**: AI automatically detects and fixes config issues
 - **Drift Detection**: Monitors configuration changes and compliance violations
 - **Policy Enforcement**: Ensures configurations follow organizational policies
 - **Impact Analysis**: Predicts configuration change impacts before deployment
+- **Integration with LLM Manager**: Uses AI to understand and fix configuration problems
+- **Effect-TS Architecture**: Type-safe configuration management with rollback support
 - **Effect-TS Integration**: Type-safe config operations with structured error handling
 
 ## Installation

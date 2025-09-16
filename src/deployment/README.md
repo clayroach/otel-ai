@@ -1,26 +1,35 @@
 # Deployment Package
 
-Container orchestration and deployment automation for the AI-native observability platform using Docker Compose and Kubernetes.
+⚠️ **NOT IMPLEMENTED** - This package is currently a specification-only placeholder.
 
-## Quick Start
+Container orchestration and deployment automation for the AI-native observability platform. Will provide Docker Compose and Kubernetes deployment configurations when implemented.
+
+## Current Status
+
+📋 **Specification Only** - No implementation code exists yet. This package contains only this README file.
+
+Note: The actual deployment is currently handled by Docker Compose files in the project root and npm scripts in package.json.
+
+## Current Deployment (Handled Outside This Package)
 
 ```bash
-# Deploy to local development
-pnpm dev:up
-
-# Deploy to production infrastructure
-pnpm infra:up
-
-# Deploy with specific profiles
-pnpm dev:up:json    # JSON encoding variant
+# These commands work but are defined in root package.json, not this package
+pnpm dev:up         # Start development environment
+pnpm dev:down       # Stop development environment
+pnpm demo:up        # Start OpenTelemetry demo
+pnpm demo:down      # Stop demo
 ```
 
-## Key Features
+## Planned Features
 
+When implemented, this package will provide:
+
+- **Bazel Build System**: Reproducible builds with dependency management
 - **Docker Compose Orchestration**: Multi-service container deployment
-- **Environment Profiles**: Dev, staging, production configurations  
-- **Kubernetes Ready**: Production-ready container definitions
-- **Health Monitoring**: Automated service health validation
+- **Kubernetes Manifests**: Production-ready K8s deployment configs
+- **Helm Charts**: Templated Kubernetes deployments
+- **CI/CD Pipelines**: GitHub Actions and GitLab CI configurations
+- **Infrastructure as Code**: Terraform/Pulumi definitions
 - **Effect-TS Integration**: Type-safe deployment pipelines with structured error handling
 
 ## Installation

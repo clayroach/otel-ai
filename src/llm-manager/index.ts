@@ -1,81 +1,36 @@
 /**
- * LLM Manager Package
+ * LLM Manager Package - Portkey Gateway Integration
  *
- * Multi-model LLM orchestration for AI-native observability platform.
- * Provides unified API for GPT, Claude, and local Llama models with
- * intelligent routing, caching, and conversation management.
+ * Uses Portkey gateway for multi-model LLM orchestration.
+ * Provides unified API for GPT, Claude, and local models through
+ * configuration-driven routing with automatic failover and caching.
  */
 
 // Core types and schemas
 export * from './types.js'
 
-// Service definitions
-export * from './services.js'
-
-// Removed old manager exports - using new unified manager instead
-
-// Model router
-export { makeModelRouter, ModelRouterLayer, getPerformanceMetrics } from './router.js'
-
-// Configuration
-export {
-  makeLLMConfigService,
-  LLMConfigLayer,
-  defaultLLMConfig,
-  printConfigStatus,
-  ENV_DOCS
-} from './config.js'
-
-// Local model client
-export {
-  makeLocalModelClient,
-  createDefaultLocalClient,
-  checkLocalModelHealth,
-  defaultLocalConfig
-} from './clients/local-client.js'
-
-// Core unified manager (only types, no direct constructors)
-export type { LLMManager, ModelClient } from './llm-manager.js'
-
-// Service interface and tag
+// Service interface
 export { LLMManagerServiceTag } from './llm-manager-service.js'
 export type { LLMManagerService, ManagerStatus } from './llm-manager-service.js'
 
-// Live implementation layers (Layer-only, no factory functions)
-export { LLMManagerLive, LLMManagerDev } from './llm-manager-live.js'
+// Portkey Gateway implementation
+export { makePortkeyGatewayManager, PortkeyGatewayLive } from './portkey-gateway-client.js'
 
-// Mock implementation layers for testing
-export {
-  createMockLayer,
-  LLMManagerMock,
-  LLMManagerMockWithError,
-  LLMManagerMockWithTimeout,
-  LLMManagerMockWithLatency,
-  LLMManagerMockWithCustomResponses,
-  LLMManagerMockMultiModel,
-  LLMManagerMockRateLimit,
-  LLMManagerMockAuthError,
-  DynamicMock
-} from './llm-manager-mock.js'
-export type { MockConfig } from './llm-manager-mock.js'
-
-// Service layers
-export { LLMManagerContext, LLMManagerEssentials } from './layers.js'
-export { CacheLayer } from './cache.js'
-export { ConversationStorageLayer } from './conversation-storage.js'
-export { MetricsLayer } from './metrics.js'
-export { ModelClientLayer } from './model-clients.js'
+// Backward compatibility exports for refactored code
+export { LLMManagerAPIClientLayer as LLMManagerEssentials } from './api-client-layer.js'
+export { PortkeyGatewayLive as LLMManagerLive } from './portkey-gateway-client.js'
 
 // API Client Layer for server integration
 export {
-  LLMManagerAPIClientTag,
+  generateLLMResponse,
+  getLLMManagerStatus,
+  getLoadedModels,
   LLMManagerAPIClientLayer,
+  LLMManagerAPIClientTag,
+  selectBestModel,
   type LLMManagerAPIClientService,
-  getLoadedModels as getLoadedModelsEffect,
-  getLLMManagerStatus as getLLMManagerStatusEffect,
-  selectBestModel as selectBestModelEffect,
-  generateLLMResponse
+  type ModelInfo
 } from './api-client-layer.js'
 
 // Re-export Effect types for convenience
-export { Effect, Stream, Layer } from 'effect'
+export { Effect, Layer, Stream } from 'effect'

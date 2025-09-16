@@ -59,9 +59,10 @@ export interface TraceFlowRaw {
 export const ArchitectureQueries = {
   /**
    * Discover service dependencies by analyzing parent-child span relationships
+   * Optimized: Added trace_id join condition and better filtering
    */
   getServiceDependencies: (timeRangeHours: number = 24) => `
-    SELECT 
+    SELECT
       parent.service_name as service_name,
       parent.operation_name as operation_name,
       child.service_name as dependent_service,
@@ -71,17 +72,20 @@ export const ArchitectureQueries = {
       countIf(child.status_code = 'ERROR') as error_count,
       count(*) as total_count
     FROM traces parent
-    INNER JOIN traces child ON child.parent_span_id = parent.span_id
+    INNER JOIN traces child ON
+      child.trace_id = parent.trace_id  -- Added trace_id join for better performance
+      AND child.parent_span_id = parent.span_id
+      AND child.service_name != parent.service_name
     WHERE parent.start_time >= now() - INTERVAL ${timeRangeHours} HOUR
       AND child.start_time >= now() - INTERVAL ${timeRangeHours} HOUR
-      AND parent.service_name != child.service_name
-    GROUP BY 
-      parent.service_name, 
+    GROUP BY
+      parent.service_name,
       parent.operation_name,
       child.service_name,
       child.operation_name
+    HAVING call_count >= 10  -- Filter out low-volume dependencies
     ORDER BY call_count DESC
-    LIMIT 1000
+    LIMIT 500  -- Reduced limit
   `,
 
   /**
@@ -121,56 +125,53 @@ export const ArchitectureQueries = {
 
   /**
    * Analyze trace flows to understand request paths through the system
+   * Optimized version: Avoids recursive CTE to reduce memory usage
    */
   getTraceFlows: (limit: number = 100, timeRangeHours: number = 24) => `
-    WITH RECURSIVE trace_hierarchy AS (
-      -- Root spans (entry points)
-      SELECT 
-        trace_id,
-        span_id,
-        service_name,
-        operation_name,
-        CAST(NULL AS Nullable(String)) as parent_service,
-        CAST(NULL AS Nullable(String)) as parent_operation,
-        start_time,
-        duration_ns / 1000000 as duration_ms,
-        span_kind,
-        status_code,
-        0 as level
+    WITH sampled_traces AS (
+      -- First, select a sample of traces to analyze
+      SELECT trace_id
       FROM traces
-      WHERE parent_span_id = ''
-        AND start_time >= now() - INTERVAL ${timeRangeHours} HOUR
-      
-      UNION ALL
-      
-      -- Child spans
-      SELECT 
-        child.trace_id,
-        child.span_id,
-        child.service_name,
-        child.operation_name,
-        parent.service_name as parent_service,
-        parent.operation_name as parent_operation,
-        child.start_time,
-        child.duration_ns / 1000000 as duration_ms,
-        child.span_kind,
-        child.status_code,
-        parent.level + 1 as level
-      FROM traces child
-      INNER JOIN trace_hierarchy parent ON child.parent_span_id = parent.span_id
-      WHERE child.start_time >= now() - INTERVAL ${timeRangeHours} HOUR
-        AND parent.level < 10  -- Prevent infinite recursion
-    )
-    SELECT * FROM trace_hierarchy
-    WHERE trace_id IN (
-      SELECT trace_id 
-      FROM trace_hierarchy 
-      GROUP BY trace_id 
+      WHERE start_time >= now() - INTERVAL ${timeRangeHours} HOUR
+      GROUP BY trace_id
       HAVING count(*) BETWEEN 3 AND 50  -- Focus on meaningful traces
-      ORDER BY max(duration_ms) DESC
+      ORDER BY max(duration_ns) DESC
       LIMIT ${limit}
+    ),
+    trace_spans AS (
+      -- Get all spans for sampled traces
+      SELECT
+        t.trace_id,
+        t.span_id,
+        t.service_name,
+        t.operation_name,
+        t.parent_span_id,
+        t.start_time,
+        t.duration_ns / 1000000 as duration_ms,
+        t.span_kind,
+        t.status_code
+      FROM traces t
+      INNER JOIN sampled_traces st ON t.trace_id = st.trace_id
+      WHERE t.start_time >= now() - INTERVAL ${timeRangeHours} HOUR
     )
-    ORDER BY trace_id, level, start_time
+    SELECT
+      ts.trace_id,
+      ts.service_name,
+      ts.operation_name,
+      ps.service_name as parent_service,
+      ps.operation_name as parent_operation,
+      ts.start_time,
+      ts.duration_ms,
+      ts.span_kind,
+      ts.status_code,
+      CASE
+        WHEN ts.parent_span_id = '' THEN 0
+        WHEN ps.parent_span_id = '' THEN 1
+        ELSE 2
+      END as level
+    FROM trace_spans ts
+    LEFT JOIN trace_spans ps ON ts.parent_span_id = ps.span_id AND ts.trace_id = ps.trace_id
+    ORDER BY ts.trace_id, ts.start_time
   `,
 
   /**

@@ -1808,9 +1808,9 @@ app.get('/api/ui-generator/models', async (_req, res) => {
             ? 'JSON capable'
             : 'General purpose'
       }`,
-      available: model.status === 'healthy',
+      available: model.status === 'available',
       availabilityReason:
-        model.status === 'healthy' ? 'Model loaded and healthy' : `Model status: ${model.status}`,
+        model.status === 'available' ? 'Model loaded and healthy' : `Model status: ${model.status}`,
       capabilities: {
         json: model.capabilities?.supportsJSON || false,
         sql: model.capabilities?.supportsSQL || false,
@@ -1876,6 +1876,40 @@ app.delete('/api/llm/interactions', async (_req, res) => {
       message: error instanceof Error ? error.message : 'Unknown error'
     })
   }
+})
+
+// LLM Manager Implementation Info - Shows which backend is being used
+app.get('/api/llm-manager/implementation', async (_req, res) => {
+  const usePortkey = process.env.USE_PORTKEY_GATEWAY === 'true'
+
+  res.json({
+    implementation: usePortkey ? 'portkey-gateway' : 'original-llm-manager',
+    usePortkey,
+    details: usePortkey
+      ? {
+          gatewayUrl: process.env.PORTKEY_GATEWAY_URL || 'http://localhost:8787',
+          configPath: '/config/config.json',
+          features: [
+            'Configuration-driven routing',
+            'Automatic failover',
+            'Semantic caching',
+            'Native observability',
+            '1,600+ model support'
+          ],
+          healthCheck: `${process.env.PORTKEY_GATEWAY_URL || 'http://localhost:8787'}/health`
+        }
+      : {
+          models: ['gpt', 'claude', 'llama'],
+          routing: 'Code-based routing',
+          features: [
+            'Multi-model support',
+            'Fallback strategies',
+            'Response caching',
+            'Custom routing logic'
+          ]
+        },
+    timestamp: new Date().toISOString()
+  })
 })
 
 // LLM Manager Status endpoint - Get actual loaded models and health
@@ -1961,12 +1995,13 @@ app.get('/api/llm-manager/health', async (_req, res) => {
       Effect.flatMap(LLMManagerAPIClientTag, (llmManager) => llmManager.getStatus())
     )
 
-    const httpStatus = status.status === 'healthy' ? 200 : status.status === 'degraded' ? 207 : 503
+    const httpStatus =
+      status.status === 'operational' ? 200 : status.status === 'degraded' ? 207 : 503
 
     res.status(httpStatus).json({
       status: status.status,
-      loadedModels: status.loadedModels.length,
-      healthyModels: status.loadedModels.filter((m) => m.status === 'healthy').length,
+      loadedModels: status.loadedModels?.length || 0,
+      healthyModels: status.loadedModels?.filter((m) => m.status === 'available').length || 0,
       uptime: status.systemMetrics?.uptime,
       timestamp: new Date().toISOString()
     })

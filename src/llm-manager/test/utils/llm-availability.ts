@@ -1,93 +1,132 @@
 /**
- * Shared utility for checking LLM availability in integration tests
- * Handles API key detection and CI environment detection
+ * Utility functions for checking LLM availability in tests
  */
+
+import { Effect } from 'effect'
+
+// Check if running in CI environment
+export const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true'
 
 /**
- * Check if OpenAI API key is available
+ * Check if required LLM API keys are available for testing
  */
-export const hasOpenAIKey = Boolean(process.env.OPENAI_API_KEY)
+export const checkLLMAvailability = () => {
+  const hasOpenAI = !!process.env.OPENAI_API_KEY
+  const hasAnthropic = !!process.env.ANTHROPIC_API_KEY || !!process.env.CLAUDE_API_KEY
 
-/**
- * Check if Claude API key is available
- */
-export const hasClaudeKey = Boolean(process.env.CLAUDE_API_KEY)
-
-/**
- * Check if running in CI environment
- * Checks for common CI environment variables
- */
-export const isCI = Boolean(
-  process.env.CI ||
-    process.env.GITHUB_ACTIONS ||
-    process.env.CIRCLECI ||
-    process.env.GITLAB_CI ||
-    process.env.TRAVIS ||
-    process.env.JENKINS_URL ||
-    process.env.BUILDKITE
-)
-
-/**
- * Determine if LLM tests should be skipped
- * Tests are skipped when:
- * - Running in CI environment (to avoid API costs and rate limits)
- * - No API keys are available in any environment
- *
- * Note: We always skip in CI to avoid costs, even if keys are present
- */
-export const shouldSkipLLMTests = isCI || (!hasOpenAIKey && !hasClaudeKey)
-
-/**
- * Get a descriptive reason for why tests are being skipped
- */
-export const getSkipReason = (): string => {
-  if (isCI) {
-    return 'Skipping LLM tests in CI environment'
-  }
-  if (!hasOpenAIKey && !hasClaudeKey) {
-    return 'Skipping LLM tests: No API keys available (OPENAI_API_KEY or CLAUDE_API_KEY)'
-  }
-  return ''
-}
-
-/**
- * Log the current LLM availability status
- * Useful for beforeAll hooks to provide visibility into test configuration
- */
-export const logAvailabilityStatus = (): void => {
-  console.log('LLM Test Configuration:')
-  console.log(`  Environment: ${isCI ? 'CI' : 'Local'}`)
-  console.log(`  OpenAI API Key: ${hasOpenAIKey ? '✓ Available' : '✗ Not found'}`)
-  console.log(`  Claude API Key: ${hasClaudeKey ? '✓ Available' : '✗ Not found'}`)
-  console.log(`  Skip LLM Tests: ${shouldSkipLLMTests ? 'Yes' : 'No'}`)
-
-  if (shouldSkipLLMTests) {
-    console.log(`  Skip Reason: ${getSkipReason()}`)
+  return {
+    hasOpenAI,
+    hasAnthropic,
+    hasAnyLLM: hasOpenAI || hasAnthropic,
+    missingKeys: [
+      !hasOpenAI && 'OPENAI_API_KEY',
+      !hasAnthropic && 'ANTHROPIC_API_KEY/CLAUDE_API_KEY'
+    ].filter(Boolean) as string[]
   }
 }
 
 /**
- * Helper to create a consistent skip message for test descriptions
- * Usage: describe.skipIf(shouldSkipLLMTests)(`${getTestDescription("My Test Suite")}`, ...)
+ * Skip test if LLM is not available
  */
-export const getTestDescription = (baseDescription: string): string => {
-  if (shouldSkipLLMTests) {
-    return `${baseDescription} (${getSkipReason()})`
+export const skipIfNoLLM = (testFn: () => void | Promise<void>) => {
+  const availability = checkLLMAvailability()
+
+  if (!availability.hasAnyLLM) {
+    console.log(
+      `⚠️ Skipping test: No LLM API keys found. Set ${availability.missingKeys.join(' or ')} to run this test.`
+    )
+    return
   }
-  return baseDescription
+
+  return testFn()
 }
 
 /**
- * Check if at least one LLM API key is available
+ * Skip test if specific LLM provider is not available
  */
-export const hasAnyLLMKey = hasOpenAIKey || hasClaudeKey
+export const skipIfNoProvider = (
+  provider: 'openai' | 'anthropic',
+  testFn: () => void | Promise<void>
+) => {
+  const availability = checkLLMAvailability()
+
+  if (provider === 'openai' && !availability.hasOpenAI) {
+    console.log('⚠️ Skipping test: OPENAI_API_KEY not found')
+    return
+  }
+
+  if (provider === 'anthropic' && !availability.hasAnthropic) {
+    console.log('⚠️ Skipping test: ANTHROPIC_API_KEY/CLAUDE_API_KEY not found')
+    return
+  }
+
+  return testFn()
+}
 
 /**
- * Get list of available LLM providers
+ * Get test API keys (returns dummy keys if not available)
  */
-export const getAvailableProviders = (): string[] => {
-  const providers: string[] = []
-  if (hasOpenAIKey) providers.push('OpenAI')
-  if (hasClaudeKey) providers.push('Claude')
-  return providers
+export const getTestApiKeys = () => ({
+  openai: process.env.OPENAI_API_KEY || 'test-openai-key',
+  anthropic: process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || 'test-anthropic-key'
+})
+
+/**
+ * Effect-based LLM availability check
+ */
+export const checkLLMAvailabilityEffect = Effect.sync(() => {
+  const availability = checkLLMAvailability()
+
+  if (!availability.hasAnyLLM) {
+    return Effect.fail({
+      _tag: 'NoLLMAvailable' as const,
+      message: `No LLM API keys found. Set ${availability.missingKeys.join(' or ')} to run tests.`,
+      missingKeys: availability.missingKeys
+    })
+  }
+
+  return Effect.succeed(availability)
+})
+
+/**
+ * Check if tests should be skipped due to missing LLM keys
+ */
+export const shouldSkipLLMTests = () => {
+  const availability = checkLLMAvailability()
+  return !availability.hasAnyLLM
+}
+
+/**
+ * Log availability status for debugging
+ */
+export const logAvailabilityStatus = () => {
+  const availability = checkLLMAvailability()
+
+  if (!availability.hasAnyLLM) {
+    console.log('⚠️ LLM Tests: No API keys found')
+    console.log(`   Missing: ${availability.missingKeys.join(', ')}`)
+  } else {
+    console.log('✅ LLM Tests: API keys available')
+    if (availability.hasOpenAI) console.log('   - OpenAI: Available')
+    if (availability.hasAnthropic) console.log('   - Anthropic: Available')
+  }
+}
+
+/**
+ * Check for specific provider keys
+ */
+export const hasOpenAIKey = () => !!process.env.OPENAI_API_KEY
+export const hasClaudeKey = () => !!process.env.ANTHROPIC_API_KEY || !!process.env.CLAUDE_API_KEY
+
+export default {
+  checkLLMAvailability,
+  skipIfNoLLM,
+  skipIfNoProvider,
+  getTestApiKeys,
+  checkLLMAvailabilityEffect,
+  shouldSkipLLMTests,
+  logAvailabilityStatus,
+  hasOpenAIKey,
+  hasClaudeKey,
+  isCI
 }

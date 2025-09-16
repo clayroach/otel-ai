@@ -1,7 +1,7 @@
 import { Effect, pipe } from 'effect'
 import type { CriticalPath, GeneratedQuery } from './query-generator/types.js'
 import { generateQueryWithLLM, ANALYSIS_GOALS } from './query-generator/llm-query-generator.js'
-import { LLMManagerLive } from '../llm-manager/llm-manager-live.js'
+import { LLMManagerLive } from '../llm-manager/index.js'
 
 export interface QueryGenerationAPIRequest {
   path: {

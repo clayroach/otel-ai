@@ -18,7 +18,7 @@ import type {
 } from './types.js'
 import { discoverApplicationTopology } from './topology.js'
 import { PromptTemplates, PromptUtils } from './prompts.js'
-import { LLMManagerService } from '../llm-manager/services.js'
+import { LLMManagerServiceTag } from '../llm-manager/llm-manager-service.js'
 import { StorageServiceTag } from '../storage/services.js'
 
 /**
@@ -72,7 +72,7 @@ export const defaultAnalyzerConfig: AnalyzerConfig = {
  */
 export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
   Effect.gen(function* (_) {
-    const llmManagerService = yield* _(LLMManagerService)
+    const llmManagerService = yield* _(LLMManagerServiceTag)
     const storageService = yield* _(StorageServiceTag)
 
     // Use the injected LLM manager service for advanced insights
@@ -734,7 +734,7 @@ export const generateInsights = (
 
 const generateDocumentation = (
   architecture: ApplicationArchitecture,
-  llmManager: Context.Tag.Service<typeof LLMManagerService>,
+  llmManager: Context.Tag.Service<typeof LLMManagerServiceTag>,
   config: AnalyzerConfig
 ): Effect.Effect<{ markdown: string }, AnalysisError, never> =>
   Effect.gen(function* (_) {
@@ -801,7 +801,7 @@ export const AIAnalyzerLayer = (config: AnalyzerConfig = defaultAnalyzerConfig) 
 const generateEnhancedInsights = (
   analysisType: AnalysisRequest['type'],
   architecture: ApplicationArchitecture,
-  llmManager: Context.Tag.Service<typeof LLMManagerService>,
+  llmManager: Context.Tag.Service<typeof LLMManagerServiceTag>,
   config: AnalyzerConfig
 ): Effect.Effect<{ content: string }, AnalysisError, never> =>
   Effect.gen(function* (_) {

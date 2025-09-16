@@ -706,6 +706,36 @@ pnpm dev:up:test # Run dev environment with test-data generator
 pnpm dev:rebuild # rebuild and reboot containers - needed anytime a code change is made
 ```
 
+### **CRITICAL: Test Execution Standards**
+
+**ALWAYS use pnpm test commands for running tests:**
+
+```bash
+# Unit tests - run specific test files or patterns
+pnpm test [pattern]                    # Run unit tests matching pattern
+pnpm test storage                      # Run all storage unit tests
+pnpm test llm-manager/simple           # Run specific test file pattern
+
+# Integration tests - ALWAYS use this for integration testing
+pnpm test:integration [pattern]        # Run integration tests matching pattern
+pnpm test:integration clickhouse       # Run ClickHouse integration tests
+pnpm test:integration storage          # Run storage integration tests
+
+# NEVER use these approaches:
+❌ npx vitest run                      # Wrong - use pnpm test
+❌ npm test                            # Wrong - use pnpm test
+❌ node test.js                        # Wrong - use pnpm test
+❌ vitest                              # Wrong - use pnpm test
+❌ yarn test                           # Wrong - use pnpm test
+```
+
+**Test Command Rules:**
+- ✅ **ALWAYS** use `pnpm test` for unit tests
+- ✅ **ALWAYS** use `pnpm test:integration` for integration tests
+- ✅ **ALWAYS** check available test scripts with `pnpm run | grep test`
+- ❌ **NEVER** use direct vitest, npm, npx, or yarn commands
+- ❌ **NEVER** create custom test runners when pnpm scripts exist
+
 ### Screenshot Workflow
 
 **Organization Strategy**: Date-based organization with purpose-specific naming for flexible reuse across PRs, blog posts, and documentation.
