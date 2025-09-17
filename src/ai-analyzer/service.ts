@@ -790,10 +790,242 @@ const calculateConfidenceScore = (
 }
 
 /**
- * AI Analyzer Service Layer
+ * AI Analyzer Service Layer - Production Implementation
  */
 export const AIAnalyzerLayer = (config: AnalyzerConfig = defaultAnalyzerConfig) =>
   Layer.effect(AIAnalyzerService, makeAIAnalyzerService(config))
+
+/**
+ * Mock AI Analyzer Service Implementation for Testing and Development
+ *
+ * Provides a working implementation that doesn't require external LLM services
+ * but still follows proper Effect-TS patterns and service boundaries.
+ */
+export const makeAIAnalyzerMockService = (_config: AnalyzerConfig = defaultAnalyzerConfig) =>
+  Effect.gen(function* (_) {
+    // Mock implementation that works without external dependencies
+    yield* _(Effect.succeed(void 0)) // Satisfy generator requirement
+    const analyzeArchitecture = (
+      request: AnalysisRequest
+    ): Effect.Effect<AnalysisResult, AnalysisError, never> =>
+      Effect.gen(function* (_) {
+        yield* _(Effect.logInfo(`🚀 MOCK AI ANALYZER - Architecture analysis for: ${request.type}`))
+        yield* _(
+          Effect.logInfo(`🚀 MOCK - Request config: ${JSON.stringify(request.config, null, 2)}`)
+        )
+
+        // Extract model selection from request config
+        const selectedModel = request.config?.llm?.model || 'local-statistical-analyzer'
+        yield* _(Effect.logInfo(`🧠 MOCK - Using model: ${selectedModel}`))
+
+        // Simple mock data that follows the expected schema
+        const mockArchitecture: ApplicationArchitecture = {
+          applicationName: 'Mock Application',
+          description: 'Mock architecture discovered from telemetry data',
+          services: [
+            {
+              service: 'mock-frontend',
+              type: 'frontend' as const,
+              operations: ['GET /api/data', 'POST /api/submit'],
+              dependencies: [
+                {
+                  service: 'mock-backend',
+                  operation: 'GET /api/data',
+                  callCount: 150,
+                  avgLatencyMs: 45,
+                  errorRate: 0.02
+                }
+              ],
+              metadata: {
+                avgLatencyMs: 45,
+                errorRate: 0.02,
+                totalSpans: 1500
+              }
+            },
+            {
+              service: 'mock-backend',
+              type: 'backend' as const,
+              operations: ['GET /api/data', 'POST /api/process'],
+              dependencies: [
+                {
+                  service: 'mock-database',
+                  operation: 'SELECT',
+                  callCount: 300,
+                  avgLatencyMs: 12,
+                  errorRate: 0.001
+                }
+              ],
+              metadata: {
+                avgLatencyMs: 75,
+                errorRate: 0.05,
+                totalSpans: 2300
+              }
+            },
+            {
+              service: 'mock-database',
+              type: 'database' as const,
+              operations: ['SELECT', 'INSERT', 'UPDATE'],
+              dependencies: [],
+              metadata: {
+                avgLatencyMs: 12,
+                errorRate: 0.001,
+                totalSpans: 5000
+              }
+            }
+          ],
+          dataFlows: [
+            {
+              from: 'mock-frontend',
+              to: 'mock-backend',
+              operation: 'GET /api/data',
+              volume: 150,
+              latency: { p50: 40, p95: 85, p99: 120 }
+            },
+            {
+              from: 'mock-backend',
+              to: 'mock-database',
+              operation: 'SELECT',
+              volume: 300,
+              latency: { p50: 10, p95: 25, p99: 45 }
+            }
+          ],
+          criticalPaths: [
+            {
+              name: 'User Data Request',
+              services: ['mock-frontend', 'mock-backend', 'mock-database'],
+              avgLatencyMs: 132,
+              errorRate: 0.023
+            }
+          ],
+          generatedAt: new Date()
+        }
+
+        // Generate insights using the real logic with model selection
+        const insights = generateInsights(mockArchitecture, request.type, selectedModel)
+        const modelUsed =
+          selectedModel === 'local-statistical-analyzer'
+            ? 'local-statistical-analyzer'
+            : `${selectedModel}-via-llm-manager-mock`
+
+        const result: AnalysisResult = {
+          requestId: generateRequestId(),
+          type: request.type,
+          summary: `Mock analysis completed for ${mockArchitecture.services.length} services using ${modelUsed}.`,
+          architecture: request.type === 'architecture' ? mockArchitecture : undefined,
+          insights,
+          metadata: {
+            analyzedSpans: mockArchitecture.services.reduce(
+              (sum, s) => sum + (s.metadata.totalSpans as number),
+              0
+            ),
+            analysisTimeMs: 150,
+            llmTokensUsed: selectedModel === 'local-statistical-analyzer' ? 0 : 1500,
+            llmModel: modelUsed,
+            selectedModel: selectedModel,
+            confidence: 0.7
+          }
+        }
+
+        return result
+      })
+
+    const getServiceTopology = (_timeRange: {
+      startTime: Date
+      endTime: Date
+    }): Effect.Effect<readonly ServiceTopology[], AnalysisError, never> =>
+      Effect.gen(function* (_) {
+        yield* _(Effect.logInfo('🚀 MOCK - Service topology request'))
+
+        return [
+          {
+            service: 'mock-frontend',
+            type: 'frontend' as const,
+            operations: ['GET /api/data', 'POST /api/submit'],
+            dependencies: [
+              {
+                service: 'mock-backend',
+                operation: 'GET /api/data',
+                callCount: 150,
+                avgLatencyMs: 45,
+                errorRate: 0.02
+              }
+            ],
+            metadata: {
+              avgLatencyMs: 45,
+              errorRate: 0.02,
+              totalSpans: 1500
+            }
+          },
+          {
+            service: 'mock-backend',
+            type: 'backend' as const,
+            operations: ['GET /api/data', 'POST /api/process'],
+            dependencies: [
+              {
+                service: 'mock-database',
+                operation: 'SELECT',
+                callCount: 300,
+                avgLatencyMs: 12,
+                errorRate: 0.001
+              }
+            ],
+            metadata: {
+              avgLatencyMs: 75,
+              errorRate: 0.05,
+              totalSpans: 2300
+            }
+          },
+          {
+            service: 'mock-database',
+            type: 'database' as const,
+            operations: ['SELECT', 'INSERT', 'UPDATE'],
+            dependencies: [],
+            metadata: {
+              avgLatencyMs: 12,
+              errorRate: 0.001,
+              totalSpans: 5000
+            }
+          }
+        ] as const
+      })
+
+    const streamAnalysis = (
+      _request: AnalysisRequest
+    ): Stream.Stream<string, AnalysisError, never> => {
+      const words = [
+        'Mock',
+        'analyzing',
+        'telemetry',
+        'data...',
+        'Discovered',
+        'services',
+        'from',
+        'mock',
+        'traces.'
+      ]
+      return Stream.fromIterable(words).pipe(Stream.map((word) => word + ' '))
+    }
+
+    const generateDocumentationMethod = (
+      architecture: ApplicationArchitecture
+    ): Effect.Effect<string, AnalysisError, never> =>
+      Effect.succeed(
+        `# ${architecture.applicationName}\n\n${architecture.description}\n\nMock analysis discovered ${architecture.services.length} services.`
+      )
+
+    return {
+      analyzeArchitecture,
+      streamAnalysis,
+      getServiceTopology,
+      generateDocumentation: generateDocumentationMethod
+    }
+  })
+
+/**
+ * Mock AI Analyzer Service Layer for Testing and Development
+ */
+export const AIAnalyzerMockLayer = (config: AnalyzerConfig = defaultAnalyzerConfig) =>
+  Layer.effect(AIAnalyzerService, makeAIAnalyzerMockService(config))
 
 /**
  * Generate Enhanced Insights using LLM Manager Service

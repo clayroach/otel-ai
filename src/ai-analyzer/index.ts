@@ -12,7 +12,7 @@ export * from './queries.js'
 export * from './prompts.js'
 
 // Main exports for easy consumption
-export { AIAnalyzerLayer, defaultAnalyzerConfig } from './service.js'
+export { AIAnalyzerLayer, AIAnalyzerMockLayer, defaultAnalyzerConfig } from './service.js'
 
 export { AIAnalyzerService } from './types.js'
 
