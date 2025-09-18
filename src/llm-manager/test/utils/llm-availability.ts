@@ -18,10 +18,9 @@ export const checkLLMAvailability = () => {
     hasOpenAI,
     hasAnthropic,
     hasAnyLLM: hasOpenAI || hasAnthropic,
-    missingKeys: [
-      !hasOpenAI && 'OPENAI_API_KEY',
-      !hasAnthropic && 'ANTHROPIC_API_KEY'
-    ].filter(Boolean) as string[]
+    missingKeys: [!hasOpenAI && 'OPENAI_API_KEY', !hasAnthropic && 'ANTHROPIC_API_KEY'].filter(
+      Boolean
+    ) as string[]
   }
 }
 
