@@ -1321,24 +1321,24 @@ app.get('/api/ui-generator/models', async (_req, res) => {
       name: model.id,
       provider: model.provider,
       description: `${model.provider.charAt(0).toUpperCase() + model.provider.slice(1)} - ${
-        model.capabilities?.supportsSQL
+        model.capabilities?.includes('sql')
           ? 'SQL optimized'
-          : model.capabilities?.supportsJSON
-            ? 'JSON capable'
-            : 'General purpose'
+          : model.capabilities?.includes('general')
+            ? 'General purpose'
+            : 'Specialized model'
       }`,
       available: model.status === 'available',
       availabilityReason:
         model.status === 'available' ? 'Model loaded and healthy' : `Model status: ${model.status}`,
       capabilities: {
-        json: model.capabilities?.supportsJSON || false,
-        sql: model.capabilities?.supportsSQL || false,
+        json: model.capabilities?.includes('general') || false,
+        sql: model.capabilities?.includes('sql') || false,
         reasoning: ['anthropic', 'openai'].includes(model.provider),
         functions: model.provider === 'openai',
-        streaming: model.capabilities?.supportsStreaming || false
+        streaming: true // Most modern models support streaming
       },
-      contextLength: model.capabilities?.contextLength || 0,
-      maxTokens: model.capabilities?.maxTokens || 0,
+      contextLength: model.metadata?.contextLength || 0,
+      maxTokens: model.metadata?.maxTokens || 0,
       temperature: model.config?.temperature || 0.7,
       metrics: model.metrics
     }))

@@ -7,7 +7,7 @@
 export interface ModelInfo {
   id: string
   name: string
-  provider: 'openai' | 'anthropic' | 'lm-studio' | 'ollama' | 'custom'
+  provider: 'openai' | 'anthropic' | 'lm-studio' | 'ollama' | 'custom' | 'local'
   capabilities: ('general' | 'sql' | 'code' | 'embedding')[]
   metadata: {
     contextLength: number
@@ -16,7 +16,7 @@ export interface ModelInfo {
     responseFormat?: 'json' | 'markdown' | 'text'
     requiresWrapping?: boolean
   }
-  status?: 'available' | 'loading' | 'unavailable'
+  status?: 'available' | 'loading' | 'unavailable' | 'error'
   lastChecked?: Date
 }
 

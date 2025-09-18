@@ -60,7 +60,34 @@ const createMockLLMManagerLayer = (mockResponse?: Partial<LLMResponse>, shouldFa
       healthStatus: { 'mock-model': 'healthy' },
       config: {}
     } as ManagerStatus),
-    getAvailableModels: () => Effect.succeed(['mock-model'])
+    getAvailableModels: () => Effect.succeed(['mock-model']),
+    getDefaultModel: (_taskType?: 'sql' | 'general' | 'code') => Effect.succeed('mock-model'),
+    getModelInfo: (_modelId: string) => Effect.succeed({
+      id: 'mock-model',
+      name: 'Mock Model',
+      provider: 'openai' as const,
+      capabilities: ['general'] as ('general' | 'sql' | 'code' | 'embedding')[],
+      metadata: {
+        contextLength: 4096,
+        maxTokens: 2048,
+        temperature: 0.7
+      },
+      status: 'available' as const
+    }),
+    getModelsByCapability: (_capability: string) => Effect.succeed([]),
+    getModelsByProvider: (_provider: string) => Effect.succeed([]),
+    getAllModels: () => Effect.succeed([{
+      id: 'mock-model',
+      name: 'Mock Model',
+      provider: 'openai' as const,
+      capabilities: ['general'] as ('general' | 'sql' | 'code' | 'embedding')[],
+      metadata: {
+        contextLength: 4096,
+        maxTokens: 2048,
+        temperature: 0.7
+      },
+      status: 'available' as const
+    }])
   })
 }
 
@@ -265,7 +292,23 @@ describe('UIGeneratorAPIClient', () => {
           healthStatus: {},
           config: {}
         } as ManagerStatus),
-        getAvailableModels: () => Effect.succeed(['mock-model'])
+        getAvailableModels: () => Effect.succeed(['mock-model']),
+        getDefaultModel: (_taskType?: 'sql' | 'general' | 'code') => Effect.succeed('mock-model'),
+        getModelInfo: (_modelId: string) => Effect.succeed({
+          id: 'mock-model',
+          name: 'Mock Model',
+          provider: 'openai' as const,
+          capabilities: ['general'] as ('general' | 'sql' | 'code' | 'embedding')[],
+          metadata: {
+            contextLength: 4096,
+            maxTokens: 2048,
+            temperature: 0.7
+          },
+          status: 'available' as const
+        }),
+        getModelsByCapability: (_capability: string) => Effect.succeed([]),
+        getModelsByProvider: (_provider: string) => Effect.succeed([]),
+        getAllModels: () => Effect.succeed([])
       })
 
       const originalModule = await import('../../../llm-manager/index.js')

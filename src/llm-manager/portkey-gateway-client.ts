@@ -445,10 +445,9 @@ export const makePortkeyGatewayManager = (baseURL: string) => {
       }),
 
     getAvailableModels: () =>
-      Effect.gen(function* () {
-        const config = yield* loadPortkeyConfig()
-        return config.routes.flatMap((route) => route.models)
-      }),
+      loadPortkeyConfig().pipe(
+        Effect.map((config) => config.routes.flatMap((route) => route.models))
+      ),
 
     getDefaultModel: (taskType?: 'sql' | 'general' | 'code') =>
       Effect.gen(function* () {
@@ -457,31 +456,37 @@ export const makePortkeyGatewayManager = (baseURL: string) => {
         // Use configured defaults if available
         if (taskType && config.defaults) {
           const defaultModel = config.defaults[taskType]
-          if (defaultModel) return defaultModel
+          if (defaultModel && typeof defaultModel === 'string') return defaultModel
         }
 
         // Check native Portkey override_params for general tasks
         if (!taskType || taskType === 'general') {
           const overrideModel = config.override_params?.model
-          if (overrideModel) return overrideModel
+          if (overrideModel && typeof overrideModel === 'string') return overrideModel
         }
 
         // Fallback to first model with matching capability
         if (taskType) {
           for (const route of config.routes) {
             if (route.capabilities?.includes(taskType) && route.models.length > 0) {
-              return route.models[0]
+              const firstModel = route.models[0]
+              if (firstModel && typeof firstModel === 'string') return firstModel
             }
           }
         }
 
         // Check native Portkey override_params as another fallback
         const overrideModel = config.override_params?.model
-        if (overrideModel) return overrideModel
+        if (overrideModel && typeof overrideModel === 'string') return overrideModel
 
         // Final fallback to first available model
         const allModels = config.routes.flatMap((route) => route.models)
-        return allModels[0] || 'gpt-3.5-turbo'
+        const firstAvailableModel = allModels[0]
+        if (firstAvailableModel && typeof firstAvailableModel === 'string')
+          return firstAvailableModel
+
+        // Ultimate fallback
+        return 'gpt-3.5-turbo'
       }),
 
     // New model discovery APIs

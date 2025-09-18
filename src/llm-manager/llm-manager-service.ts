@@ -7,6 +7,7 @@
 
 import { Context, Effect, Stream } from 'effect'
 import type { LLMRequest, LLMResponse, LLMError } from './types.js'
+import type { ModelInfo } from './model-types.js'
 
 /**
  * Manager Status type with available models and health status
@@ -16,7 +17,7 @@ export interface ManagerStatus {
   readonly healthStatus: Record<string, 'healthy' | 'unhealthy' | 'unknown'>
   readonly config: Record<string, unknown>
   readonly status?: 'operational' | 'degraded' | 'offline'
-  readonly loadedModels?: Array<{ id: string; provider: string; status: string }>
+  readonly loadedModels?: ModelInfo[]
   readonly systemMetrics?: Record<string, unknown>
 }
 
@@ -49,6 +50,35 @@ export interface LLMManagerService {
    * Get list of available models
    */
   readonly getAvailableModels: () => Effect.Effect<string[], LLMError, never>
+
+  /**
+   * Get default model for a specific task type
+   */
+  readonly getDefaultModel: (
+    taskType?: 'sql' | 'general' | 'code'
+  ) => Effect.Effect<string, LLMError, never>
+
+  /**
+   * Get detailed information about a specific model
+   */
+  readonly getModelInfo: (modelId: string) => Effect.Effect<ModelInfo, LLMError, never>
+
+  /**
+   * Get models filtered by capability
+   */
+  readonly getModelsByCapability: (
+    capability: string
+  ) => Effect.Effect<ModelInfo[], LLMError, never>
+
+  /**
+   * Get models filtered by provider
+   */
+  readonly getModelsByProvider: (provider: string) => Effect.Effect<ModelInfo[], LLMError, never>
+
+  /**
+   * Get all available models with detailed information
+   */
+  readonly getAllModels: () => Effect.Effect<ModelInfo[], LLMError, never>
 }
 
 /**
