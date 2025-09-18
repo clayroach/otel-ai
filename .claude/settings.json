@@ -34,7 +34,7 @@
     ],
     "deny": [],
     "ask": [],
-    "defaultMode": "acceptEdits",
+    "defaultMode": "plan",
     "additionalDirectories": []
   },
   "hooks": {

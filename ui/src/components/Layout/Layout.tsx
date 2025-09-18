@@ -14,11 +14,11 @@ import {
 } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAppStore } from '../../store/appStore'
-import { AnalysisConfiguration } from '../AnalysisConfiguration'
 import { TimeRangeSelector } from '../GlobalControls/TimeRangeSelector'
 import { AutoRefreshSelector } from '../GlobalControls/AutoRefreshSelector'
 import { AnalyzeButton } from '../GlobalControls/AnalyzeButton'
 import { DataSourceToggle } from '../GlobalControls/DataSourceToggle'
+import { ModelSelector, ModelSelectorSQL } from '../ModelSelector'
 
 const { Header, Sider, Content } = AntLayout
 const { Title } = Typography
@@ -129,7 +129,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         </Space>
 
         <Space>
-          <AnalysisConfiguration darkMode={darkMode} />
+          <ModelSelector
+            taskType="general"
+            label="General"
+            className={darkMode ? 'dark-mode' : ''}
+          />
+          <ModelSelectorSQL className={darkMode ? 'dark-mode' : ''} />
           <TimeRangeSelector darkMode={darkMode} />
           <AutoRefreshSelector darkMode={darkMode} />
           <AnalyzeButton darkMode={darkMode} />
