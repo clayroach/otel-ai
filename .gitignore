@@ -45,10 +45,6 @@ demo/**/
 # Environment files with sensitive data
 .env
 
-# Processed configs with sensitive data
-config/portkey/config.processed.json
-*.processed.json
-
 # UI build artifacts
 ui/dist/
 ui/release/

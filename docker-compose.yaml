@@ -193,7 +193,7 @@ services:
       - CACHE_TTL=3600
       - CONFIG_PATH=/config/config.json
     volumes:
-      - ./target/config/portkey:/config:ro
+      - ./config/portkey:/config:ro
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8787/ || exit 1"]
       interval: 10s
@@ -230,7 +230,7 @@ services:
       - PORTKEY_API_KEY=${PORTKEY_API_KEY:-portkey-virtual-key}
       - PORTKEY_GATEWAY_URL=http://portkey-gateway:8787
     volumes:
-      - ./target/config/portkey:/app/config/portkey:ro
+      - ./config/portkey:/app/config/portkey:ro
     depends_on:
       clickhouse:
         condition: service_healthy
