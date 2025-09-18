@@ -69,10 +69,10 @@ describe.skipIf(shouldSkipTests)("LLM Query Generator", () => {
       )
 
       if (sqlModels.length > 0) {
-        selectedModel = sqlModels[0]!
+        selectedModel = sqlModels[0] || ''
         console.log(`   Using SQL-optimized model: ${selectedModel}`)
       } else if (availableModels.length > 0) {
-        selectedModel = availableModels[0]!
+        selectedModel = availableModels[0] || ''
         console.log(`   Using general model for SQL generation: ${selectedModel}`)
       } else {
         throw new Error("No models available")
@@ -189,7 +189,7 @@ describe.skipIf(shouldSkipTests)("LLM Query Generator", () => {
       expect(sqlLower).toContain("service")
       
       // Must have WHERE clause with service filter
-      expect(sqlLower).toMatch(/where.*service.*in/)
+      expect(sqlLower).toMatch(/where[\s\S]*service[\s\S]*in/)
     })
     
     it("should generate valid SQL for error analysis", async () => {

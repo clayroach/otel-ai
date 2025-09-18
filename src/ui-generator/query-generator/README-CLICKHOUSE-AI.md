@@ -13,16 +13,17 @@ The ClickHouse AI Query Generator provides programmatic access to AI-powered SQL
 
 ## Configuration
 
-Configure model preferences in your `.env` file:
+All model routing is now handled by Portkey Gateway. Configure API keys in your `.env` file:
 
 ```env
-# General purpose models (used for query generation)
-LLM_GENERAL_MODEL_1=claude-3-haiku-20240307
-LLM_GENERAL_MODEL_2=gpt-3.5-turbo
-LLM_GENERAL_MODEL_3=gpt-oss-120b
+# API Keys for Portkey Gateway routing
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
 
-# Local LLM endpoint
-LLM_ENDPOINT=http://localhost:1234/v1
+# Portkey configuration (handled automatically)
+# - SQL queries: Use codellama-7b-instruct, sqlcoder-7b-2, or other SQL-optimized models
+# - General queries: Use claude-3-haiku-20240307, gpt-3.5-turbo, or other general models
+# - All routing configured in config/portkey/config.json
 
 # Skip tests in CI
 SKIP_LLM_TESTS=false

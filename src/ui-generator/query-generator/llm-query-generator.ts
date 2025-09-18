@@ -450,13 +450,12 @@ export const generateStandardQueries = (
 // Helper to generate query with SQL-specific model for performance
 export const generateQueryWithSQLModel = (
   path: CriticalPath,
-  analysisGoal: string,
-  endpoint?: string
+  analysisGoal: string
 ): Effect.Effect<GeneratedQuery, Error, LLMManagerServiceTag> => {
-  // Use Portkey's task routing to select appropriate SQL model
-  const config: { endpoint?: string; task?: string } = {
-    endpoint: endpoint || 'http://localhost:1234/v1',
-    task: 'sql' // Let Portkey config handle model selection
+  // Use Portkey's default SQL model (codellama-7b-instruct) via routing
+  // No endpoint needed - all requests go through Portkey Gateway
+  const config = {
+    model: 'codellama-7b-instruct' // Portkey will route this appropriately
   }
   return generateQueryWithLLM(path, analysisGoal, config)
 }

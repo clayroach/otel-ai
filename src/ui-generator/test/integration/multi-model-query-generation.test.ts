@@ -13,105 +13,18 @@ import { ANALYSIS_GOALS, generateQueryWithLLM, validateGeneratedSQL } from "../.
 import { CriticalPath } from "../../query-generator/types"
 // Model metadata no longer needed - removed model-registry
 import { LLMManagerLive } from "../../../llm-manager/llm-manager-live"
+import { LLMManagerServiceTag } from "../../../llm-manager"
 import {
   hasClaudeKey,
   hasOpenAIKey,
   isCI
 } from "../../../llm-manager/test/utils/llm-availability.js"
 
-// Test configuration for different model providers
-interface ModelTestConfig {
-  modelId: string
-  endpoint?: string | undefined
-  apiKey?: string | undefined
-  enabled: boolean
-  skipReason?: string
-}
 
-// Configuration for multi-model testing
-// Use environment-configured models with priority
-const getModelConfigs = (): ModelTestConfig[] => {
-  const configs: ModelTestConfig[] = []
-  
-  // SQL-specific models - now handled by Portkey config
-  // These are just examples; actual model selection happens via Portkey
-  const sqlModels = [
-    'sqlcoder-7b-2',
-    'codellama-7b-instruct'
-  ].filter(Boolean)
-  
-  sqlModels.forEach(modelId => {
-    if (modelId) {
-      configs.push({
-        modelId,
-        endpoint: process.env.LLM_ENDPOINT || 'http://localhost:1234/v1',
-        enabled: true
-      })
-    }
-  })
-  
-  // General models - now handled by Portkey config
-  // These are just examples for testing different model types
-  const generalModels = [
-    "gpt-3.5-turbo",
-    "claude-3-haiku-20240307"
-  ].filter(Boolean)
-  
-  generalModels.forEach(modelId => {
-    if (modelId) {
-      if (modelId.includes('claude')) {
-        const config: ModelTestConfig = {
-          modelId,
-          endpoint: 'https://api.anthropic.com/v1',
-          apiKey: process.env.ANTHROPIC_API_KEY,
-          enabled: !!process.env.ANTHROPIC_API_KEY
-        }
-        if (!process.env.ANTHROPIC_API_KEY) {
-          config.skipReason = 'Anthropic API key not configured'
-        }
-        configs.push(config)
-      } else if (modelId.includes('gpt')) {
-        const config: ModelTestConfig = {
-          modelId,
-          endpoint: 'https://api.openai.com/v1',
-          apiKey: process.env.OPENAI_API_KEY,
-          enabled: !!process.env.OPENAI_API_KEY
-        }
-        if (!process.env.OPENAI_API_KEY) {
-          config.skipReason = 'OpenAI API key not configured'
-        }
-        configs.push(config)
-      } else {
-        // Local model
-        configs.push({
-          modelId,
-          endpoint: process.env.LLM_ENDPOINT || 'http://localhost:1234/v1',
-          enabled: true
-        })
-      }
-    }
-  })
-  
-  // If no models configured, use defaults
-  if (configs.length === 0) {
-    configs.push(
-      {
-        modelId: 'sqlcoder-7b-2',
-        endpoint: process.env.LLM_ENDPOINT || 'http://localhost:1234/v1',
-        enabled: true
-      },
-      {
-        modelId: 'codellama-7b-instruct',
-        endpoint: process.env.LLM_ENDPOINT || 'http://localhost:1234/v1',
-        enabled: true
-      }
-    )
-  }
-  
-  return configs
-}
+// Model configuration now handled by Portkey Gateway
+// Available models are retrieved dynamically via LLM Manager
 
-const MODEL_CONFIGS = getModelConfigs()
+// MODEL_CONFIGS removed - now using LLM Manager's getAvailableModels() via Portkey
 
 // Test data
 const testPath: CriticalPath = {
@@ -140,140 +53,79 @@ const modelAvailability: ModelAvailability[] = []
 
 // Note: Tests are individually skipped due to performance concerns with LLM calls
 // Skip entire suite in CI if no API keys available
-const shouldSkipTests = isCI && !hasOpenAIKey && !hasClaudeKey
+const shouldSkipTests = isCI && !hasOpenAIKey() && !hasClaudeKey()
 
 describe.skipIf(shouldSkipTests)("Multi-Model Query Generation", () => {
   
   beforeAll(async () => {
     console.log("\n🔍 Checking model availability across providers...")
-    
+
     // Log CI environment detection
     if (isCI) {
       console.log("⚠️  CI environment detected")
-      if (!hasOpenAIKey && !hasClaudeKey) {
+      if (!hasOpenAIKey() && !hasClaudeKey()) {
         console.log("   No API keys configured - tests will be skipped")
         return
       }
     }
-    
+
     console.log("   Using model preferences from environment:")
-    console.log(`   SQL Models: Handled by Portkey configuration`)
-    console.log(`   General Models: Handled by Portkey configuration`)
-    
-    // Check local models via LM Studio (skip in CI without API keys)
-    if (!isCI || hasOpenAIKey() || hasClaudeKey()) {
-      try {
-        const localEndpoint = process.env.LLM_ENDPOINT || 'http://localhost:1234/v1'
-        
-        // Add timeout for the fetch to avoid hanging
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 3000) // 3 second timeout
-        
-        const response = await fetch(`${localEndpoint}/models`, {
-          signal: controller.signal
-        }).catch(() => null)
-        
-        clearTimeout(timeoutId)
-      
-        if (response?.ok) {
-        const data = await response.json()
-        const availableModels = (data.data || []).map((m: { id: string }) => m.id)
-        console.log(`   ✅ Local models (LM Studio): ${availableModels.length} models available`)
-        
-        MODEL_CONFIGS.filter(c => c.endpoint?.includes('localhost')).forEach(config => {
-          const isAvailable = availableModels.includes(config.modelId)
-          modelAvailability.push({
-            modelId: config.modelId,
-            available: isAvailable && config.enabled,
-            endpoint: config.endpoint,
-            // metadata no longer available
-            error: isAvailable ? undefined : 'Model not loaded in LM Studio'
-          })
-          
-          if (isAvailable) {
-            console.log(`      - ${config.modelId}: ✓ Available`)
-          }
+    console.log(`   All models: Handled by Portkey Gateway configuration`)
+
+    // Get available models via Portkey Gateway instead of direct endpoints
+    try {
+      const availableModels = await Effect.runPromise(
+        Effect.gen(function* () {
+          const service = yield* LLMManagerServiceTag
+          return yield* service.getAvailableModels()
+        }).pipe(Effect.provide(LLMManagerLive))
+      ) as string[]
+
+      console.log(`   ✅ Portkey Gateway: ${availableModels.length} models available`)
+      console.log(`   Models: ${availableModels.join(', ')}`)
+
+      // Populate modelAvailability with Portkey models
+      availableModels.forEach(modelId => {
+        modelAvailability.push({
+          modelId,
+          available: true,
+          // No endpoint needed - all go through Portkey
+          error: undefined
         })
-      } else {
-        console.log(`   ❌ Local models: LM Studio not responding`)
-        MODEL_CONFIGS.filter(c => c.endpoint?.includes('localhost')).forEach(config => {
-          modelAvailability.push({
-            modelId: config.modelId,
-            available: false,
-            error: 'LM Studio not available'
-          })
+      })
+
+    } catch (error) {
+      console.log(`   ❌ Portkey Gateway error: ${error}`)
+
+      // If Portkey fails, check individual API keys and add placeholder models
+      if (hasOpenAIKey()) {
+        console.log(`   ✅ OpenAI API key available - adding GPT models`)
+        modelAvailability.push({
+          modelId: 'gpt-3.5-turbo',
+          available: true,
+          error: undefined
         })
       }
-      } catch (error) {
-        console.log(`   ❌ Local models: ${error}`)
-        MODEL_CONFIGS.filter(c => c.endpoint?.includes('localhost')).forEach(config => {
-          modelAvailability.push({
-            modelId: config.modelId,
-            available: false,
-            error: 'LM Studio connection failed'
-          })
+
+      if (hasClaudeKey()) {
+        console.log(`   ✅ Anthropic API key available - adding Claude models`)
+        modelAvailability.push({
+          modelId: 'claude-3-haiku-20240307',
+          available: true,
+          error: undefined
         })
       }
-    } else {
-      // In CI without API keys, mark local models as unavailable
-      console.log("   ⏭️  Skipping local model check in CI without API keys")
-      MODEL_CONFIGS.filter(c => c.endpoint?.includes('localhost')).forEach(config => {
+
+      if (!hasOpenAIKey() && !hasClaudeKey()) {
+        console.log(`   ❌ No API keys available`)
         modelAvailability.push({
-          modelId: config.modelId,
+          modelId: 'no-models-available',
           available: false,
-          error: 'CI environment - local models not available'
+          error: 'No API keys configured'
         })
-      })
+      }
     }
-    
-    // Check Claude models
-    const claudeConfigs = MODEL_CONFIGS.filter(c => c.modelId.includes('claude'))
-    if (claudeConfigs.some(c => c.enabled)) {
-      console.log(`   ✅ Claude models: API key configured`)
-      claudeConfigs.forEach(config => {
-        modelAvailability.push({
-          modelId: config.modelId,
-          available: config.enabled,
-          endpoint: config.endpoint,
-          // metadata no longer available
-          error: config.enabled ? undefined : config.skipReason
-        })
-      })
-    } else {
-      console.log(`   ⏭️  Claude models: ${claudeConfigs[0]?.skipReason}`)
-      claudeConfigs.forEach(config => {
-        modelAvailability.push({
-          modelId: config.modelId,
-          available: false,
-          error: config.skipReason
-        })
-      })
-    }
-    
-    // Check GPT models
-    const gptConfigs = MODEL_CONFIGS.filter(c => c.modelId.includes('gpt'))
-    if (gptConfigs.some(c => c.enabled)) {
-      console.log(`   ✅ GPT models: API key configured`)
-      gptConfigs.forEach(config => {
-        modelAvailability.push({
-          modelId: config.modelId,
-          available: config.enabled,
-          endpoint: config.endpoint,
-          // metadata no longer available
-          error: config.enabled ? undefined : config.skipReason
-        })
-      })
-    } else {
-      console.log(`   ⏭️  GPT models: ${gptConfigs[0]?.skipReason}`)
-      gptConfigs.forEach(config => {
-        modelAvailability.push({
-          modelId: config.modelId,
-          available: false,
-          error: config.skipReason
-        })
-      })
-    }
-    
+
     // Summary
     const availableCount = modelAvailability.filter(m => m.available).length
     const totalCount = modelAvailability.length
@@ -334,17 +186,12 @@ describe.skipIf(shouldSkipTests)("Multi-Model Query Generation", () => {
         models.map(async model => {
           const startTime = Date.now()
           try {
-            const config = MODEL_CONFIGS.find(c => c.modelId === model.modelId)
+            // Use only model ID - no endpoint to ensure routing through Portkey
             const query = await Effect.runPromise(
               pipe(
-                generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency, 
-                  config?.endpoint ? {
-                    endpoint: config.endpoint,
-                    model: model.modelId
-                  } : {
-                    model: model.modelId
-                  }
-                ),
+                generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency, {
+                  model: model.modelId
+                }),
                 Effect.provide(LLMManagerLive)
               )
             )
@@ -460,16 +307,10 @@ describe.skipIf(shouldSkipTests)("Multi-Model Query Generation", () => {
       
       // Use Effect-TS parallel execution for better performance and error handling
       const testEffects = testCombinations.map(({ model, goal }) => {
-        const config = MODEL_CONFIGS.find(c => c.modelId === model.modelId)
         return pipe(
-          generateQueryWithLLM(testPath, goal, 
-            config?.endpoint ? {
-              endpoint: config.endpoint,
-              model: model.modelId
-            } : {
-              model: model.modelId
-            }
-          ),
+          generateQueryWithLLM(testPath, goal, {
+            model: model.modelId
+          }),
           Effect.map((query): GoalTestResult => ({
             modelId: model.modelId,
             goal,
@@ -550,20 +391,14 @@ describe.skipIf(shouldSkipTests)("Multi-Model Query Generation", () => {
         performanceData[model.modelId] = []
         
         for (let i = 0; i < runs; i++) {
-          const config = MODEL_CONFIGS.find(c => c.modelId === model.modelId)
           const startTime = Date.now()
-          
+
           try {
             await Effect.runPromise(
               pipe(
-                generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency, 
-                  config?.endpoint ? {
-                    endpoint: config.endpoint,
-                    model: model.modelId
-                  } : {
-                    model: model.modelId
-                  }
-                ),
+                generateQueryWithLLM(testPath, ANALYSIS_GOALS.latency, {
+                  model: model.modelId
+                }),
                 Effect.provide(LLMManagerLive)
               )
             )
