@@ -288,15 +288,9 @@ describe('Portkey Gateway Integration with Testcontainer', () => {
         // Log the actual error structure for debugging
         console.log(`   Error structure:`, JSON.stringify(error, null, 2))
 
-        // Type guard for error object
-        const isErrorObject = (err: unknown): err is Record<string, unknown> => {
-          return typeof err === 'object' && err !== null
-        }
-
         // Since the error handling is working (we see the error is thrown),
         // let's focus on verifying the error message content rather than the exact structure
         const errorStr = JSON.stringify(error)
-        const errorMessage = String(error)
 
         // Check that the error contains the expected model name and message
         expect(errorStr).toContain('ModelUnavailable')
