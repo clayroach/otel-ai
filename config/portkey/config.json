@@ -1,23 +1,41 @@
 {
   "version": "1.0",
+  "_comment": "This config combines native Portkey features with custom extensions",
+  "_description": {
+    "defaults": "Custom section for task-specific default models (general, sql, code)",
+    "override_params": "Native Portkey section for default request parameters",
+    "strategy": "Native Portkey fallback/loadbalancing configuration"
+  },
+  "defaults": {
+    "general": "claude-3-haiku-20240307",
+    "sql": "codellama-7b-instruct",
+    "code": "deepseek-coder-v2-lite-instruct"
+  },
+  "override_params": {
+    "model": "claude-3-haiku-20240307",
+    "temperature": 0.7,
+    "max_tokens": 2048
+  },
   "providers": [
     {
       "id": "openai",
       "name": "OpenAI",
-      "apiKey": "${OPENAI_API_KEY}",
       "baseURL": "https://api.openai.com/v1"
     },
     {
       "id": "anthropic",
       "name": "Anthropic",
-      "apiKey": "${ANTHROPIC_API_KEY}",
       "baseURL": "https://api.anthropic.com"
     },
     {
       "id": "lm-studio",
       "name": "LM Studio (Local)",
-      "apiKey": "no-key-needed",
-      "baseURL": "http://host.docker.internal:1234/v1"
+      "baseURL": "__LM_STUDIO_ENDPOINT__"
+    },
+    {
+      "id": "ollama",
+      "name": "Ollama (Local)",
+      "baseURL": "__OLLAMA_ENDPOINT__"
     }
   ],
   "routes": [
@@ -32,7 +50,15 @@
         "mistral"
       ],
       "provider": "lm-studio",
-      "strategy": "single"
+      "strategy": "single",
+      "capabilities": ["sql", "code"],
+      "metadata": {
+        "contextLength": 8192,
+        "maxTokens": 4096,
+        "temperature": 0.7,
+        "responseFormat": "markdown",
+        "requiresWrapping": true
+      }
     },
     {
       "name": "openai-models",
@@ -42,20 +68,84 @@
         "gpt-4-turbo"
       ],
       "provider": "openai",
-      "strategy": "single"
+      "strategy": "single",
+      "capabilities": ["general", "code", "sql"],
+      "metadata": {
+        "contextLength": 16384,
+        "maxTokens": 4096,
+        "temperature": 0.7,
+        "responseFormat": "json"
+      }
     },
     {
       "name": "anthropic-models",
       "models": [
         "claude-3-haiku-20240307",
+        "claude-3-5-haiku-20241022",
+        "claude-3-5-sonnet-20241022",
         "claude-3-sonnet-20240229",
-        "claude-3-opus"
+        "claude-3-opus-20240229"
       ],
       "provider": "anthropic",
-      "strategy": "single"
+      "strategy": "single",
+      "capabilities": ["general", "code", "sql"],
+      "metadata": {
+        "contextLength": 200000,
+        "maxTokens": 4096,
+        "temperature": 0.7,
+        "responseFormat": "json"
+      }
     }
   ],
   "defaultRoute": "openai-models",
+  "strategy": {
+    "mode": "fallback",
+    "on_status_codes": [429, 500, 502, 503, 529],
+    "targets": [
+      {
+        "provider": "anthropic",
+        "override_params": {
+          "model": "claude-3-haiku-20240307"
+        }
+      },
+      {
+        "provider": "anthropic",
+        "override_params": {
+          "model": "claude-3-5-haiku-20241022"
+        }
+      },
+      {
+        "provider": "anthropic",
+        "override_params": {
+          "model": "claude-3-5-sonnet-20241022"
+        }
+      },
+      {
+        "provider": "anthropic",
+        "override_params": {
+          "model": "claude-3-sonnet-20240229"
+        }
+      },
+      {
+        "provider": "openai",
+        "override_params": {
+          "model": "gpt-3.5-turbo"
+        }
+      },
+      {
+        "provider": "openai",
+        "override_params": {
+          "model": "gpt-4"
+        }
+      },
+      {
+        "provider": "openai",
+        "override_params": {
+          "model": "gpt-4-turbo"
+        }
+      }
+    ]
+  },
   "cache": {
     "enabled": true,
     "ttl": 3600,
@@ -64,7 +154,8 @@
   "retry": {
     "attempts": 3,
     "delay": 1000,
-    "backoff": "exponential"
+    "backoff": "exponential",
+    "on_status_codes": [429, 502, 503, 504, 529]
   },
   "observability": {
     "metrics": true,

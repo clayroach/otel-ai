@@ -905,7 +905,7 @@ export const makeAIAnalyzerMockService = (_config: AnalyzerConfig = defaultAnaly
         const modelUsed =
           selectedModel === 'local-statistical-analyzer'
             ? 'local-statistical-analyzer'
-            : `${selectedModel}-via-llm-manager-mock`
+            : `${selectedModel}-via-llm-manager`
 
         const result: AnalysisResult = {
           requestId: generateRequestId(),

@@ -98,8 +98,8 @@ describe('UI Generator API Client Layer Integration', () => {
               startService: 'frontend',
               endService: 'database'
             },
-            analysisGoal: 'Analyze service latency patterns showing p50, p95, p99 percentiles',
-            model: process.env.LLM_SQL_MODEL_1 || 'sqlcoder-7b-2'
+            analysisGoal: 'Analyze service latency patterns showing p50, p95, p99 percentiles'
+            // Model selection handled by Portkey configuration
           }
 
           return yield* service.generateQuery(request)

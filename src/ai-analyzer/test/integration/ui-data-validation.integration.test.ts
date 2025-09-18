@@ -195,7 +195,8 @@ describe('UI Data Validation Integration', () => {
   describe('UI Topology Data', () => {
     it('should return clean topology data for service list display', async () => {
       const endTime = new Date()
-      const startTime = new Date(endTime.getTime() - 60 * 60 * 1000)
+      // Use only 5 minutes of data to avoid memory issues
+      const startTime = new Date(endTime.getTime() - 5 * 60 * 1000)
       
       const topology = await apiClient.getTopology({
         startTime: startTime.toISOString(),

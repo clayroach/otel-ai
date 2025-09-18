@@ -2,12 +2,7 @@ import { Effect, pipe, Duration } from 'effect'
 import { CriticalPath, GeneratedQuery, QueryPattern } from './types.js'
 import { type LLMRequest, LLMManagerServiceTag } from '../../llm-manager/index.js'
 import { Schema } from '@effect/schema'
-import {
-  isSQLSpecificModel as checkSQLModel,
-  extractResponseContent,
-  needsResponseWrapping,
-  getModelConfig
-} from '../../llm-manager/response-extractor.js'
+import { extractResponseContent, getModelConfig } from '../../llm-manager/response-extractor.js'
 
 // Schema for LLM-generated query response
 const LLMQueryResponseSchema = Schema.Struct({
@@ -25,9 +20,8 @@ const LLMQueryResponseSchema = Schema.Struct({
 
 type LLMQueryResponse = Schema.Schema.Type<typeof LLMQueryResponseSchema>
 
-// Get default SQL model from environment or fallback
-export const DEFAULT_MODEL =
-  process.env.LLM_SQL_MODEL_1 || process.env.LLM_GENERAL_MODEL_1 || 'codellama-7b-instruct' // Fallback if nothing configured
+// Default model will be determined by Portkey configuration
+export const DEFAULT_MODEL = undefined // Let Portkey config handle defaults
 
 import {
   generateSQLModelPrompt,
@@ -42,7 +36,12 @@ const createDynamicQueryPrompt = (
   modelName?: string
 ): string => {
   // For SQL-specific models, use the unified diagnostic instructions
-  if (modelName && checkSQLModel(modelName)) {
+  // Check if model is SQL-specific based on known model names
+  const isSQLModel = modelName
+    ? ['sqlcoder', 'codellama', 'starcoder'].some((m) => modelName.toLowerCase().includes(m))
+    : false
+
+  if (isSQLModel) {
     return generateSQLModelPrompt(path, analysisGoal, CORE_DIAGNOSTIC_REQUIREMENTS)
   }
 
@@ -87,10 +86,11 @@ export const generateQueryWithLLM = (
   analysisGoal: string,
   llmConfig?: { endpoint?: string; model?: string }
 ): Effect.Effect<GeneratedQuery, Error, LLMManagerServiceTag> => {
-  const modelName = llmConfig?.model || DEFAULT_MODEL
-  const modelConfig = getModelConfig(modelName)
+  const modelName = llmConfig?.model
+  // For now, use null for model config when model is undefined - this will use defaults
+  const modelConfig = getModelConfig(null)
 
-  const prompt = createDynamicQueryPrompt(path, analysisGoal, modelName)
+  const prompt = createDynamicQueryPrompt(path, analysisGoal, modelName || 'general-model')
 
   // Log prompt size for debugging performance issues
   if (process.env.DEBUG_PORTKEY_TIMING) {
@@ -101,12 +101,14 @@ export const generateQueryWithLLM = (
   const maxTokens = modelConfig.maxTokens || 4000
 
   const request: LLMRequest = {
-    prompt: checkSQLModel(modelName)
-      ? prompt
-      : `You are a ClickHouse SQL expert. Always return valid JSON responses. Generate consistent, optimal queries based on the examples provided.\n\n${prompt}`,
+    prompt:
+      modelName &&
+      ['sqlcoder', 'codellama', 'starcoder'].some((m) => modelName.toLowerCase().includes(m))
+        ? prompt
+        : `You are a ClickHouse SQL expert. Always return valid JSON responses. Generate consistent, optimal queries based on the examples provided.\n\n${prompt}`,
     taskType: 'analysis',
     preferences: {
-      model: modelName, // Use actual model name, not generic types
+      model: modelName || undefined, // Use actual model name, let Portkey handle defaults
       maxTokens,
       temperature: modelName === llmConfig?.model ? 0 : (modelConfig.temperature ?? 0), // Use 0 for explicit model selection
       requireStructuredOutput: true
@@ -123,7 +125,8 @@ export const generateQueryWithLLM = (
     // Quick check if response has valid SQL
     try {
       const content = firstResponse.content.trim()
-      const extracted = extractResponseContent(modelName, content)
+      // For now, use null modelInfo since we don't have ModelInfo objects here
+      const extracted = extractResponseContent(content, null)
 
       // If it's JSON, check if SQL field is empty
       if (extracted.startsWith('{')) {
@@ -193,7 +196,8 @@ The SQL must analyze: ${analysisGoal}`
         }
 
         // Use model registry to extract content
-        const extractedContent = extractResponseContent(modelName, content)
+        // For now, use null modelInfo since we don't have ModelInfo objects here
+        const extractedContent = extractResponseContent(content, null)
 
         console.log(`📝 [LLM Query Generator] Processing response from model: ${modelName}`)
         console.log(`📝 [LLM Query Generator] Raw content length: ${content.length} chars`)
@@ -206,11 +210,18 @@ The SQL must analyze: ${analysisGoal}`
         )
 
         // Check if this is a SQL-specific model that needs wrapping
-        const needsWrapping = needsResponseWrapping(modelName, 'sql')
+        // For now, check model name directly since we don't have ModelInfo objects
+        const needsWrapping = modelName
+          ? ['sqlcoder', 'codellama', 'starcoder'].some((m) => modelName.toLowerCase().includes(m))
+          : false
 
         let parsed: (LLMQueryResponse & { insights?: string }) | undefined
 
-        if (needsWrapping && checkSQLModel(modelName)) {
+        if (
+          needsWrapping &&
+          modelName &&
+          ['sqlcoder', 'codellama', 'starcoder'].some((m) => modelName.toLowerCase().includes(m))
+        ) {
           // SQL-specific models return raw SQL that needs wrapping
           console.log('   INFO: SQL-specific model returned raw SQL, wrapping in JSON structure')
           if (process.env.NODE_ENV === 'test') {
@@ -391,8 +402,10 @@ The SQL must analyze: ${analysisGoal}`
             },
             {} as Record<string, string>
           ),
-          model: response.model || modelName, // Include the actual model that was used
-          reasoning: parsed.reasoning
+          ...(response.model || modelName
+            ? { model: (response.model || modelName) as string }
+            : {}), // Include the actual model that was used
+          ...(parsed.reasoning ? { reasoning: parsed.reasoning } : {})
         }
 
         return query
@@ -440,10 +453,12 @@ export const generateQueryWithSQLModel = (
   analysisGoal: string,
   endpoint?: string
 ): Effect.Effect<GeneratedQuery, Error, LLMManagerServiceTag> => {
-  return generateQueryWithLLM(path, analysisGoal, {
+  // Use Portkey's task routing to select appropriate SQL model
+  const config: { endpoint?: string; task?: string } = {
     endpoint: endpoint || 'http://localhost:1234/v1',
-    model: process.env.LLM_SQL_MODEL_1 || DEFAULT_MODEL // Use environment SQL model
-  })
+    task: 'sql' // Let Portkey config handle model selection
+  }
+  return generateQueryWithLLM(path, analysisGoal, config)
 }
 
 // Validate generated SQL (basic validation)

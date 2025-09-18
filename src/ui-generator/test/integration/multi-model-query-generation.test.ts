@@ -7,15 +7,15 @@
  * - GPT (via OpenAI API)
  */
 
-import { describe, it, expect, beforeAll } from "vitest"
 import { Effect, pipe } from "effect"
-import { generateQueryWithLLM, ANALYSIS_GOALS, validateGeneratedSQL } from "../../query-generator/llm-query-generator"
+import { beforeAll, describe, expect, it } from "vitest"
+import { ANALYSIS_GOALS, generateQueryWithLLM, validateGeneratedSQL } from "../../query-generator/llm-query-generator"
 import { CriticalPath } from "../../query-generator/types"
 // Model metadata no longer needed - removed model-registry
 import { LLMManagerLive } from "../../../llm-manager/llm-manager-live"
-import { 
-  hasOpenAIKey,
+import {
   hasClaudeKey,
+  hasOpenAIKey,
   isCI
 } from "../../../llm-manager/test/utils/llm-availability.js"
 
@@ -33,11 +33,11 @@ interface ModelTestConfig {
 const getModelConfigs = (): ModelTestConfig[] => {
   const configs: ModelTestConfig[] = []
   
-  // SQL-specific models from environment (for SQL generation)
+  // SQL-specific models - now handled by Portkey config
+  // These are just examples; actual model selection happens via Portkey
   const sqlModels = [
-    process.env.LLM_SQL_MODEL_1,
-    process.env.LLM_SQL_MODEL_2,
-    process.env.LLM_SQL_MODEL_3
+    'sqlcoder-7b-2',
+    'codellama-7b-instruct'
   ].filter(Boolean)
   
   sqlModels.forEach(modelId => {
@@ -50,11 +50,11 @@ const getModelConfigs = (): ModelTestConfig[] => {
     }
   })
   
-  // General models from environment (for general queries)
+  // General models - now handled by Portkey config
+  // These are just examples for testing different model types
   const generalModels = [
-    process.env.LLM_GENERAL_MODEL_1,
-    process.env.LLM_GENERAL_MODEL_2,
-    process.env.LLM_GENERAL_MODEL_3
+    "gpt-3.5-turbo",
+    "claude-3-haiku-20240307"
   ].filter(Boolean)
   
   generalModels.forEach(modelId => {
@@ -157,8 +157,8 @@ describe.skipIf(shouldSkipTests)("Multi-Model Query Generation", () => {
     }
     
     console.log("   Using model preferences from environment:")
-    console.log(`   SQL Models: ${[process.env.LLM_SQL_MODEL_1, process.env.LLM_SQL_MODEL_2, process.env.LLM_SQL_MODEL_3].filter(Boolean).join(', ') || 'defaults'}`)
-    console.log(`   General Models: ${[process.env.LLM_GENERAL_MODEL_1, process.env.LLM_GENERAL_MODEL_2, process.env.LLM_GENERAL_MODEL_3].filter(Boolean).join(', ') || 'defaults'}`)
+    console.log(`   SQL Models: Handled by Portkey configuration`)
+    console.log(`   General Models: Handled by Portkey configuration`)
     
     // Check local models via LM Studio (skip in CI without API keys)
     if (!isCI || hasOpenAIKey() || hasClaudeKey()) {
@@ -322,7 +322,7 @@ describe.skipIf(shouldSkipTests)("Multi-Model Query Generation", () => {
   describe("Comparative Query Generation", () => {
     const availableModels = () => modelAvailability.filter(m => m.available)
     
-    it("should generate valid SQL across all available models", { timeout: 300000 }, async () => {
+    it("should generate valid SQL across all available models", { timeout: 30000 }, async () => {
       // Limit models in test/CI environments for faster feedback
       const allModels = availableModels()
       const maxModels = process.env.NODE_ENV === 'test' || process.env.CI ? 2 : allModels.length
@@ -424,7 +424,7 @@ describe.skipIf(shouldSkipTests)("Multi-Model Query Generation", () => {
       expect(results.every(r => r.success && r.valid)).toBe(true)
     })
     
-    it("should handle different analysis goals consistently", { timeout: 180000 }, async () => {
+    it("should handle different analysis goals consistently", { timeout: 30000 }, async () => {
       // Reduce scope for faster test feedback in test/CI environments
       const allModels = availableModels()
       const maxModels = process.env.NODE_ENV === 'test' || process.env.CI ? 1 : 2
@@ -530,7 +530,7 @@ describe.skipIf(shouldSkipTests)("Multi-Model Query Generation", () => {
       }
     })
     
-    it("should measure performance characteristics", { timeout: 300000 }, async () => {
+    it("should measure performance characteristics", { timeout: 30000 }, async () => {
       const models = availableModels()
       
       // Additional safety check

@@ -91,11 +91,12 @@ const StorageLayer = StorageAPIClientLayer.pipe(
 )
 
 // Create the composed application layer with all services
+// Use AIAnalyzerMockLayer() for now to avoid S3 connection issues
 const ApplicationLayer = Layer.mergeAll(
   StorageLayer,
   LLMManagerAPIClientLayer,
   UIGeneratorAPIClientLayer,
-  AIAnalyzerMockLayer()
+  AIAnalyzerMockLayer() // Using mock for now
 )
 
 // Helper function to run effects with all application services

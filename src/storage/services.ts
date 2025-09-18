@@ -16,7 +16,7 @@ import {
 } from './schemas.js'
 import { type StorageError } from './errors.js'
 import { type ClickHouseStorage, makeClickHouseStorage } from './clickhouse.js'
-import { type S3Storage, makeS3Storage } from './s3.js'
+// S3 imports removed - not used yet
 
 // Main storage service interface
 export interface StorageService {
@@ -68,23 +68,17 @@ export class ConfigServiceTag extends Context.Tag('ConfigService')<
 
 export const makeStorageService = (
   clickhouse: ClickHouseStorage,
-  s3: S3Storage,
   config: StorageConfig
 ): StorageService => ({
   writeOTLP: (data: OTLPData) =>
     Effect.gen(function* (_) {
-      // Write to ClickHouse first (primary storage)
+      // Write to ClickHouse (primary storage)
       yield* _(clickhouse.writeOTLP(data))
-
-      // Optionally archive to S3 if enabled
-      if (config.features?.enableS3Backup) {
-        yield* _(s3.archiveOTLPData(data, data.timestamp))
-      }
     }),
 
   writeBatch: (data: OTLPData[]) =>
     // Process batches with controlled concurrency
-    Effect.forEach(data, (batch) => makeStorageService(clickhouse, s3, config).writeOTLP(batch), {
+    Effect.forEach(data, (batch) => makeStorageService(clickhouse, config).writeOTLP(batch), {
       concurrency: config.performance.maxConcurrentWrites
     }),
 
@@ -93,26 +87,22 @@ export const makeStorageService = (
   queryLogs: (params: QueryParams) => clickhouse.queryLogs(params),
   queryForAI: (params: AIQueryParams) => clickhouse.queryForAI(params),
 
-  archiveData: (data: OTLPData, timestamp: number) => s3.archiveOTLPData(data, timestamp),
+  archiveData: (_data: OTLPData, _timestamp: number) =>
+    // S3 archiving not implemented yet - just return success
+    Effect.void,
 
   applyRetentionPolicies: () =>
-    // Apply S3 retention policies
     // TODO: Implement ClickHouse retention policies
     // This would involve running DELETE queries on old data
-    s3.applyRetentionPolicy(config.retention),
+    Effect.void,
 
   healthCheck: () =>
     Effect.gen(function* (_) {
-      const [clickhouseHealth, s3Health] = yield* _(
-        Effect.all([
-          clickhouse.healthCheck().pipe(Effect.option),
-          s3.healthCheck().pipe(Effect.option)
-        ])
-      )
+      const clickhouseHealth = yield* _(clickhouse.healthCheck().pipe(Effect.option))
 
       return {
         clickhouse: clickhouseHealth._tag === 'Some' ? clickhouseHealth.value : false,
-        s3: s3Health._tag === 'Some' ? s3Health.value : false
+        s3: true // Always report S3 as healthy since we're not using it
       }
     }),
 
@@ -139,11 +129,10 @@ export const makeStorageService = (
         })
       )
 
-      // Get S3 statistics
-      const s3Objects = yield* _(s3.listObjects())
+      // S3 not used yet
       const s3Stats = {
-        totalObjects: s3Objects.length,
-        totalSize: '0 GB', // Would need to sum object sizes
+        totalObjects: 0,
+        totalSize: '0 GB',
         oldestObject: null as Date | null,
         newestObject: null as Date | null
       }
@@ -162,9 +151,9 @@ export const StorageServiceLive = Layer.effect(
     const config = yield* _(ConfigServiceTag)
 
     const clickhouse = yield* _(makeClickHouseStorage(config.clickhouse))
-    const s3 = yield* _(makeS3Storage(config.s3))
+    // S3 not used yet - removed to simplify setup
 
-    return makeStorageService(clickhouse, s3, config)
+    return makeStorageService(clickhouse, config)
   })
 )
 

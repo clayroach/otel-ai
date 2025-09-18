@@ -50,4 +50,10 @@ export * from './clickhouse.js'
 export * from './s3.js'
 export * from './services.js'
 export type { StorageService } from './services.js'
-export { StorageServiceLive, makeStorageService } from './services.js'
+export {
+  StorageServiceLive,
+  makeStorageService,
+  StorageServiceTag,
+  ConfigServiceTag,
+  ConfigServiceLive
+} from './services.js'

@@ -1,7 +1,9 @@
 /**
  * Response Extractor - Handles extraction and cleaning of LLM responses
- * Separated from model registry for cleaner architecture
+ * Uses model metadata from Portkey configuration for intelligent response processing
  */
+
+import type { ModelInfo } from './model-types.js'
 
 /**
  * Extract content from markdown code blocks
@@ -21,6 +23,7 @@ export function extractFromMarkdownBlock(
 
 /**
  * Remove thinking tags from content
+ * Some models (like deepseek) use thinking tags that should be removed
  */
 export function removeThinkingTags(content: string): string {
   // Remove <think>...</think> or <thinking>...</thinking> tags
@@ -31,117 +34,78 @@ export function removeThinkingTags(content: string): string {
 }
 
 /**
- * Extract response content based on model characteristics
- * This handles model-specific response formats and cleaning
+ * Extract response content based on model metadata
+ * Uses model metadata to determine how to process the response
  */
-export function extractResponseContent(modelName: string, content: string): string {
+export function extractResponseContent(content: string, modelInfo?: ModelInfo | null): string {
   if (!content) return ''
 
   let processed = content.trim()
 
-  // Handle models that use thinking tags (deepseek models)
-  if (modelName.toLowerCase().includes('deepseek')) {
-    processed = removeThinkingTags(processed)
+  // Remove thinking tags if present (some models use these)
+  // This is a safe operation for all models
+  processed = removeThinkingTags(processed)
+
+  // If we have model metadata, use it to guide extraction
+  if (modelInfo?.metadata?.responseFormat === 'markdown') {
+    // Try to extract from markdown blocks based on model capabilities
+    if (modelInfo.capabilities.includes('sql')) {
+      const extracted = extractFromMarkdownBlock(processed, 'sql')
+      if (extracted) return extracted
+    }
   }
 
-  // Handle SQL-specific models that return SQL in markdown blocks
-  const isSQLModel =
-    modelName.toLowerCase().includes('sqlcoder') ||
-    modelName.toLowerCase().includes('codellama') ||
-    modelName.toLowerCase().includes('starcoder')
+  // Try to extract JSON content if present
+  const jsonExtracted = extractFromMarkdownBlock(processed, 'json')
+  if (jsonExtracted) return jsonExtracted
 
-  if (isSQLModel) {
-    const extracted = extractFromMarkdownBlock(processed, 'sql')
-    if (extracted) return extracted
-  }
-
-  // Handle models that return JSON in markdown blocks
-  const extracted = extractFromMarkdownBlock(processed, 'json')
-  if (extracted) return extracted
+  // Try to extract SQL content if present
+  const sqlExtracted = extractFromMarkdownBlock(processed, 'sql')
+  if (sqlExtracted) return sqlExtracted
 
   // Return cleaned content as-is
   return processed
 }
 
 /**
- * Determine if a model's response needs wrapping for a specific type
+ * Determine if a model's response needs wrapping based on metadata
  */
-export function needsResponseWrapping(modelName: string, responseType: 'sql' | 'json'): boolean {
-  const modelLower = modelName.toLowerCase()
+export function needsResponseWrapping(
+  responseType: 'sql' | 'json',
+  modelInfo?: ModelInfo | null
+): boolean {
+  if (!modelInfo) return false
 
-  // SQL-specific models that return raw SQL
-  const sqlModels = ['sqlcoder', 'codellama', 'starcoder']
-  const isSQLModel = sqlModels.some((m) => modelLower.includes(m))
-
-  if (responseType === 'sql' && isSQLModel) {
-    return true // These models return raw SQL that needs JSON wrapping
-  }
-
-  if (responseType === 'json' && isSQLModel) {
-    return true // These models can't generate JSON directly
+  // Check if model requires wrapping based on metadata
+  if (modelInfo.metadata?.requiresWrapping) {
+    // Models that require wrapping usually can't generate structured output directly
+    if (responseType === 'json') return true
+    if (responseType === 'sql' && modelInfo.capabilities.includes('sql')) return true
   }
 
   return false
 }
 
 /**
- * Check if a model is SQL-specific
+ * Check if a model has a specific capability
  */
-export function isSQLSpecificModel(modelName: string): boolean {
-  const modelLower = modelName.toLowerCase()
-  const sqlModels = ['sqlcoder', 'codellama', 'starcoder']
-  return sqlModels.some((m) => modelLower.includes(m))
+export function hasCapability(capability: string, modelInfo?: ModelInfo | null): boolean {
+  if (!modelInfo) return false
+  return modelInfo.capabilities.includes(capability as 'general' | 'sql' | 'code' | 'embedding')
 }
 
 /**
- * Get model configuration defaults
+ * Get model configuration defaults from metadata
  */
-export function getModelConfig(modelName: string): {
-  contextLength?: number
-  maxTokens?: number
-  temperature?: number
+export function getModelConfig(modelInfo?: ModelInfo | null): {
+  contextLength: number
+  maxTokens: number
+  temperature: number
 } {
-  const modelLower = modelName.toLowerCase()
-
-  // GPT models
-  if (modelLower.includes('gpt-4')) {
-    return {
-      contextLength: 128000,
-      maxTokens: 4096,
-      temperature: 0.7
-    }
-  }
-
-  if (modelLower.includes('gpt-3.5')) {
-    return {
-      contextLength: 16384,
-      maxTokens: 4096,
-      temperature: 0.7
-    }
-  }
-
-  // Claude models
-  if (modelLower.includes('claude')) {
-    return {
-      contextLength: 200000,
-      maxTokens: 4096,
-      temperature: 0.7
-    }
-  }
-
-  // Local models (generally smaller context)
-  if (isSQLSpecificModel(modelName)) {
-    return {
-      contextLength: 8192,
-      maxTokens: 2048,
-      temperature: 0.3 // Lower temperature for SQL generation
-    }
-  }
-
-  // Default for unknown models
+  // Return defaults from model metadata or fallback to sensible defaults
   return {
-    contextLength: 4096,
-    maxTokens: 2048,
-    temperature: 0.7
+    contextLength: modelInfo?.metadata?.contextLength || 4096,
+    maxTokens: modelInfo?.metadata?.maxTokens || 2048,
+    temperature: modelInfo?.metadata?.temperature || 0.7
   }
 }

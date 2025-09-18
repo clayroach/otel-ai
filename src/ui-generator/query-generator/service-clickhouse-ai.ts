@@ -93,7 +93,8 @@ export const CriticalPathQueryGeneratorClickHouseAILive = Layer.effect(
             prompt,
             taskType: 'general',
             preferences: {
-              // Let the router decide which model to use based on availability
+              // Let Portkey config determine the default model
+              // model will be selected based on 'general' task type in config.defaults
               maxTokens: 1000,
               temperature: 0
             }

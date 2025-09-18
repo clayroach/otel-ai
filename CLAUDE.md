@@ -710,31 +710,109 @@ pnpm dev:rebuild # rebuild and reboot containers - needed anytime a code change 
 
 **ALWAYS use pnpm test commands for running tests:**
 
+#### 1. Unit Tests
 ```bash
-# Unit tests - run specific test files or patterns
-pnpm test [pattern]                    # Run unit tests matching pattern
-pnpm test storage                      # Run all storage unit tests
-pnpm test llm-manager/simple           # Run specific test file pattern
+# Run all unit tests
+pnpm test                               # Runs all unit tests with vitest
 
-# Integration tests - ALWAYS use this for integration testing
-pnpm test:integration [pattern]        # Run integration tests matching pattern
-pnpm test:integration clickhouse       # Run ClickHouse integration tests
-pnpm test:integration storage          # Run storage integration tests
+# Run specific test files or patterns
+pnpm test [pattern]                     # Pattern matching for test files
+pnpm test storage                       # Run all storage unit tests
+pnpm test llm-manager                   # Run all llm-manager unit tests
+pnpm test response-extractor            # Run specific test file pattern
 
-# NEVER use these approaches:
-❌ npx vitest run                      # Wrong - use pnpm test
-❌ npm test                            # Wrong - use pnpm test
-❌ node test.js                        # Wrong - use pnpm test
-❌ vitest                              # Wrong - use pnpm test
-❌ yarn test                           # Wrong - use pnpm test
+# Run with coverage
+pnpm test:coverage                      # Generate coverage report
+pnpm test:coverage:ui                   # Interactive coverage UI
+```
+
+#### 2. Integration Tests
+```bash
+# Run all integration tests
+pnpm test:integration                   # All integration tests
+
+# Run specific integration test patterns
+pnpm test:integration [pattern]         # Pattern matching
+pnpm test:integration portkey           # Portkey integration tests
+pnpm test:integration clickhouse        # ClickHouse integration tests
+pnpm test:integration multi-model       # Multi-model query tests
+
+# Package-specific integration tests
+pnpm test:integration:storage           # Storage package only
+pnpm test:integration:ai-analyzer       # AI Analyzer package only
+
+# Docker-based integration tests
+pnpm test:integration:docker            # Full Docker environment tests
+```
+
+#### 3. End-to-End (E2E) Tests
+```bash
+# Run E2E tests
+pnpm test:e2e                          # All E2E tests (headless Chromium)
+pnpm test:e2e:all                      # All browsers
+pnpm test:e2e:ui                       # Interactive Playwright UI
+pnpm test:e2e:headed                   # Run in headed mode (visible browser)
+pnpm test:e2e:debug                    # Debug mode with inspector
+pnpm test:e2e:quick                    # Quick validation tests only
+```
+
+#### Common Test Patterns and Examples
+```bash
+# Specific test file patterns
+pnpm test api-client                   # Matches *api-client*.test.ts
+pnpm test:integration llm-query        # Matches integration tests with "llm-query"
+
+# Debug failing tests
+DEBUG_PORTKEY_TIMING=1 pnpm test:integration  # Enable timing debug logs
+NODE_ENV=test pnpm test:integration    # Force test environment
+
+# Run tests with specific timeouts (for slow CI/CD)
+pnpm test:integration --timeout=30000  # 30 second timeout
+```
+
+#### Test Infrastructure Requirements
+```bash
+# Before running integration tests, ensure services are running:
+pnpm dev:up                            # Start all services
+pnpm dev:up:test                       # Start with test data generator
+
+# Check service health
+docker ps                              # Verify containers are running
+pnpm logs                              # Check service logs
+
+# Rebuild after code changes
+pnpm dev:rebuild                       # Rebuild and restart services
+```
+
+#### Troubleshooting Test Failures
+
+**Integration Test Issues:**
+- **Model Unavailable**: Check LM Studio is running (`http://localhost:1234`)
+- **Portkey Gateway Errors**: Verify Portkey container is healthy (`docker ps`)
+- **Database Connection**: Ensure ClickHouse is accessible (`docker logs otel-ai-clickhouse`)
+
+**Common Fixes:**
+```bash
+# Reset test environment
+pnpm clean:all                         # Remove all containers and volumes
+pnpm dev:up                           # Fresh start
+
+# Check API keys (if using cloud models)
+echo $OPENAI_API_KEY                  # Verify OpenAI key is set
+echo $ANTHROPIC_API_KEY               # Verify Anthropic key is set
+
+# Debug specific test
+pnpm test:integration -- --reporter=verbose multi-model  # Verbose output
 ```
 
 **Test Command Rules:**
 - ✅ **ALWAYS** use `pnpm test` for unit tests
 - ✅ **ALWAYS** use `pnpm test:integration` for integration tests
+- ✅ **ALWAYS** use `pnpm test:e2e` for end-to-end tests
 - ✅ **ALWAYS** check available test scripts with `pnpm run | grep test`
 - ❌ **NEVER** use direct vitest, npm, npx, or yarn commands
 - ❌ **NEVER** create custom test runners when pnpm scripts exist
+- ❌ **NEVER** use curl for API testing - use integration tests instead
 
 ### Screenshot Workflow
 
