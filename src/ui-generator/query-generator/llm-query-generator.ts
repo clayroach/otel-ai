@@ -106,7 +106,7 @@ export const generateQueryWithLLM = (
       ['sqlcoder', 'codellama', 'starcoder'].some((m) => modelName.toLowerCase().includes(m))
         ? prompt
         : `You are a ClickHouse SQL expert. Always return valid JSON responses. Generate consistent, optimal queries based on the examples provided.\n\n${prompt}`,
-    taskType: 'analysis',
+    taskType: 'analysis', // SQL analysis task type
     preferences: {
       model: modelName || undefined, // Use actual model name, let Portkey handle defaults
       maxTokens,

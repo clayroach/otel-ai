@@ -127,7 +127,7 @@ The following agents are available in `.claude/agents/`:
 - **code-to-docs-sync-agent** - Bidirectional documentation synchronization
 - **pr-creation-agent** - PR creation with screenshot organization
 - **claude-review-session-agent** - Historical context recovery and development continuity
-- **code-implementation-agent** - Transform design documents into Effect-TS code with strong typing and tests
+- **code-implementation-planning-agent** - Transform design documents into Effect-TS code with strong typing and tests
 
 ### Agent Usage Examples
 
@@ -175,7 +175,7 @@ Use the claude-review-session-agent to understand recent development context and
 
 #### Implement Features from Design Documents
 ```
-Use the code-implementation-agent when you have a design document or specification and need to implement production-ready code with Effect-TS patterns, strong typing, and comprehensive tests.
+Use the code-implementation-planning-agent when you have a design document or specification and need to implement production-ready code with Effect-TS patterns, strong typing, and comprehensive tests.
 ```
 
 ### Orchestration Patterns
@@ -183,7 +183,7 @@ Use the code-implementation-agent when you have a design document or specificati
 **Daily Development Workflow**:
 1. Start day → `start-day-agent` sets goals
 2. Context recovery → `claude-review-session-agent` provides historical understanding
-3. Feature implementation → `code-implementation-agent` for design-to-code transformation
+3. Feature implementation → `code-implementation-planning-agent` for design-to-code transformation
 4. Development work with periodic `testing-agent` validation
 5. Before commits → `code-review-agent` quality check
 6. After major changes → `code-to-docs-sync-agent` alignment
@@ -196,7 +196,7 @@ Use the code-implementation-agent when you have a design document or specificati
 4. Ready for commit/PR
 
 **Feature Implementation Workflow**:
-1. `code-implementation-agent` → transform design doc to Effect-TS code
+1. `code-implementation-planning-agent` → transform design doc to Effect-TS code
 2. Agent creates interfaces, schemas, and error types first
 3. Implements services with Effect patterns and strong typing
 4. Creates unit and integration tests at each phase
