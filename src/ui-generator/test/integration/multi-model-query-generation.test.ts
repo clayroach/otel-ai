@@ -63,11 +63,11 @@ const getModelConfigs = (): ModelTestConfig[] => {
         const config: ModelTestConfig = {
           modelId,
           endpoint: 'https://api.anthropic.com/v1',
-          apiKey: process.env.CLAUDE_API_KEY,
-          enabled: !!process.env.CLAUDE_API_KEY
+          apiKey: process.env.ANTHROPIC_API_KEY,
+          enabled: !!process.env.ANTHROPIC_API_KEY
         }
-        if (!process.env.CLAUDE_API_KEY) {
-          config.skipReason = 'Claude API key not configured'
+        if (!process.env.ANTHROPIC_API_KEY) {
+          config.skipReason = 'Anthropic API key not configured'
         }
         configs.push(config)
       } else if (modelId.includes('gpt')) {

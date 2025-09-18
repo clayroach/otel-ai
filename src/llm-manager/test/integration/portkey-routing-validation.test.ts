@@ -177,16 +177,10 @@ describe('Portkey Routing Validation', () => {
       }
     })
 
-    it('should route claude-3-haiku through Portkey to Anthropic', async () => {
+    it.skipIf(!process.env.ANTHROPIC_API_KEY)('should route claude-3-haiku through Portkey to Anthropic', async () => {
       // Check for API key and provide informative message
-      const hasApiKey = !!(process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY)
-      console.log(`🔑 Claude API key available: ${hasApiKey}`)
-
-      if (!hasApiKey) {
-        console.log('⏭️ Skipping Claude test - no API key provided')
-        console.log('💡 To test cloud models, set CLAUDE_API_KEY or ANTHROPIC_API_KEY in environment')
-        return
-      }
+      const hasApiKey = !!process.env.ANTHROPIC_API_KEY
+      console.log(`🔑 Anthropic API key available: ${hasApiKey}`)
 
       const request: LLMRequest = {
         prompt: 'Say "Hello from Claude via Portkey" in exactly 6 words',

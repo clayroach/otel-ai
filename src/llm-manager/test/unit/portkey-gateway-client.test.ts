@@ -19,8 +19,6 @@ describe('PortkeyGatewayClient', () => {
     // Set up environment variables for tests
     process.env.OPENAI_API_KEY = 'test-openai-key'
     process.env.ANTHROPIC_API_KEY = 'test-anthropic-key'
-    // Clear CLAUDE_API_KEY to ensure test uses ANTHROPIC_API_KEY
-    delete process.env.CLAUDE_API_KEY
   })
 
   afterAll(() => {

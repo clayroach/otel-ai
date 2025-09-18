@@ -50,9 +50,9 @@ describe('UI Generator API Client Layer Integration', () => {
       }
     }
 
-    // Check for API keys - CI uses CLAUDE_API_KEY, local uses ANTHROPIC_API_KEY
+    // Check for API keys
     const hasOpenAI = !!process.env.OPENAI_API_KEY
-    const hasAnthropic = !!process.env.ANTHROPIC_API_KEY || !!process.env.CLAUDE_API_KEY
+    const hasAnthropic = !!process.env.ANTHROPIC_API_KEY
     const hasApiKeys = hasOpenAI || hasAnthropic
 
     // LLM is available if we have both gateway and API keys
@@ -67,7 +67,7 @@ describe('UI Generator API Client Layer Integration', () => {
         skipReasons.push('Portkey gateway not available at localhost:8787')
       }
       if (!hasApiKeys) {
-        skipReasons.push('No API keys configured (OPENAI_API_KEY or CLAUDE_API_KEY)')
+        skipReasons.push('No API keys configured (OPENAI_API_KEY or ANTHROPIC_API_KEY)')
       }
 
       skipReason = skipReasons.join(', ')
@@ -75,8 +75,7 @@ describe('UI Generator API Client Layer Integration', () => {
       console.log('   Gateway available:', gatewayAvailable)
       console.log('   API keys:', {
         OPENAI_API_KEY: !!process.env.OPENAI_API_KEY,
-        ANTHROPIC_API_KEY: !!process.env.ANTHROPIC_API_KEY,
-        CLAUDE_API_KEY: !!process.env.CLAUDE_API_KEY
+        ANTHROPIC_API_KEY: !!process.env.ANTHROPIC_API_KEY
       })
     } else {
       console.log('✅ Portkey gateway and API keys available, running integration tests')

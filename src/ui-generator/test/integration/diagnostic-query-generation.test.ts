@@ -7,7 +7,8 @@ import {
 } from "../../query-generator/service-clickhouse-ai"
 import { StorageAPIClientTag } from "../../../storage/api-client"
 import {
-  logAvailabilityStatus
+  logAvailabilityStatus,
+  shouldSkipLLMTests
 } from "../../../llm-manager/test/utils/llm-availability.js"
 import { LLMManagerLive, LLMManagerEssentials } from "../../../llm-manager"
 
@@ -32,7 +33,7 @@ const checkoutFlowPath: CriticalPath = {
   }
 }
 
-describe("Diagnostic Query Generation", () => {
+describe.skipIf(shouldSkipLLMTests())("Diagnostic Query Generation", () => {
   
   beforeAll(() => {
     console.log("\n🔧 Diagnostic Query Generation Test Configuration")

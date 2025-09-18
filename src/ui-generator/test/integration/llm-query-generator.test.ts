@@ -32,174 +32,107 @@ describe.skipIf(shouldSkipTests)("LLM Query Generator", () => {
     model?: string
     status?: string
     error?: string
+    availableModels?: string[]
+    testResponsePreview?: string
   } = {}
   let llmConfig: { endpoint: string; model: string } | undefined
   
   beforeAll(async () => {
-    // Removed SKIP_LLM_TESTS check - dynamically determine availability based on actual configuration
-    
-    console.log("🔍 Checking LLM availability...")
-    
-    const endpoint = process.env.LLM_ENDPOINT || "http://localhost:1234/v1"
-    
+    console.log("🔍 Checking LLM availability via Portkey...")
+
     try {
-      // First, fetch available models from the /models endpoint
-      console.log(`   Fetching models from: ${endpoint}/models`)
-      
-      const modelsResponse = await fetch(`${endpoint}/models`)
-      if (!modelsResponse.ok) {
-        throw new Error(`Failed to fetch models: ${modelsResponse.status} ${modelsResponse.statusText}`)
-      }
-      
-      const modelsData = await modelsResponse.json()
-      const availableModels = modelsData.data || []
-      
+      // Get available models through the LLM Manager (which routes through Portkey)
+      const availableModels = await Effect.runPromise(
+        Effect.gen(function* () {
+          const service = yield* LLMManagerServiceTag
+          return yield* service.getAvailableModels()
+        }).pipe(Effect.provide(LLMManagerLive))
+      ) as string[]
+
       if (availableModels.length === 0) {
-        throw new Error("No models available at endpoint")
+        throw new Error("No models available via Portkey")
       }
-      
-      console.log(`   Found ${availableModels.length} available models:`)
-      availableModels.forEach((model: { id: string; object: string }) => {
-        console.log(`     - ${model.id}`)
+
+      console.log(`   Found ${availableModels.length} available models via Portkey:`)
+      availableModels.forEach((model: string) => {
+        console.log(`     - ${model}`)
       })
-      
+
       // Prioritize models for SQL generation based on Portkey config
-      let selectedModel = null
+      let selectedModel = ''
 
-      // SQL model selection is now handled by Portkey config
       // Look for SQL-optimized models in available models
-      const sqlModelPreferences = [
-        'sqlcoder',
-        'codellama',
-        'deepseek-coder'
-      ]
-      
-      // Try to find a model from the preference list
-      for (const preferredModel of sqlModelPreferences) {
-        const found = availableModels.find((m: { id: string }) => 
-          m.id === preferredModel || 
-          m.id.toLowerCase().includes(preferredModel?.toLowerCase() || '')
-        )
-        if (found) {
-          console.log(`     Found preferred SQL model: ${found.id}`)
-          selectedModel = found
-          break
-        }
-      }
-      
-      // Fallback to hardcoded priority if no preferred model found
-      if (!selectedModel) {
-        selectedModel = availableModels.find((m: { id: string }) => {
-          const modelIdLower = m.id.toLowerCase()
-          // Metadata no longer available
-          
-          // First priority: sqlcoder models (actually good at SQL)
-          if (modelIdLower.includes('sqlcoder')) {
-            console.log(`     Found SQLCoder model: ${m.id}`)
-            return true
-          }
-          // Second priority: codellama models  
-          if (m.id === 'codellama-7b-instruct') {
-            console.log(`     Found CodeLlama model: ${m.id}`)
-            return true
-          }
-          // Third priority: qwen coder models
-          if (modelIdLower.includes('qwen') && modelIdLower.includes('coder')) {
-            console.log(`     Found Qwen Coder model: ${m.id}`)
-            return true
-          }
-          // Fourth priority: deepseek-coder models
-          if (modelIdLower.includes('deepseek-coder')) {
-            console.log(`     Found DeepSeek-Coder model: ${m.id}`)
-            return true
-          }
-          // Skip starcoder for now as it's generating incorrect responses
-          return false
-        }) || availableModels[0]
-      }
-      
-      console.log(`   Selected model for testing: ${selectedModel.id}`)
-      
-      // Set environment variables for the test
-      const originalEndpoint = process.env.LM_STUDIO_ENDPOINT
+      const sqlModels = availableModels.filter(model =>
+        model.includes('sqlcoder') ||
+        model.includes('codellama') ||
+        model.includes('deepseek-coder')
+      )
 
-      process.env.LM_STUDIO_ENDPOINT = endpoint
-      // Model selection now handled by Portkey config, no need to set model env var
-      
-      // Use the standard LLMManagerLive layer which loads from environment
-      
-      // Try a real generation request with a minimal prompt for faster health check
+      if (sqlModels.length > 0) {
+        selectedModel = sqlModels[0]!
+        console.log(`   Using SQL-optimized model: ${selectedModel}`)
+      } else if (availableModels.length > 0) {
+        selectedModel = availableModels[0]!
+        console.log(`   Using general model for SQL generation: ${selectedModel}`)
+      } else {
+        throw new Error("No models available")
+      }
+
+      // Test LLM connectivity with a minimal request via Portkey
       const testRequest = {
         prompt: "OK", // Minimal prompt for fastest possible response
         taskType: "general" as const,
         preferences: {
-          model: selectedModel.id,
-          maxTokens: 5,   // Minimal tokens for faster response
+          model: selectedModel,
+          maxTokens: 5,
           temperature: 0
         }
       }
-      
-      console.log(`   Sending test request to model ${selectedModel.id}...`)
-      
-      let testResponse
-      try {
-        testResponse = await Effect.runPromise(
-          Effect.gen(function* () {
-            const service = yield* LLMManagerServiceTag
-            return yield* service.generate(testRequest)
-          }).pipe(
-            Effect.provide(LLMManagerLive),
-            Effect.timeout(Duration.seconds(process.env.NODE_ENV === 'test' || process.env.CI ? 30 : 60)),
-            Effect.catchAll((error) => {
-              console.log(`   Request failed:`, error)
-              return Effect.succeed({ content: '', model: 'error', usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 } })
-            })
-          )
+
+      console.log(`   Testing LLM connectivity via Portkey with model: ${selectedModel}`)
+
+      const testResponse = await Effect.runPromise(
+        Effect.gen(function* () {
+          const service = yield* LLMManagerServiceTag
+          return yield* service.generate(testRequest)
+        }).pipe(
+          Effect.provide(LLMManagerLive),
+          Effect.timeout(Duration.seconds(20))
         )
-        
-        console.log(`   Response received:`, JSON.stringify(testResponse, null, 2))
-      } finally {
-        // Restore original environment variables
-        if (originalEndpoint) {
-          process.env.LM_STUDIO_ENDPOINT = originalEndpoint
-        } else {
-          delete process.env.LM_STUDIO_ENDPOINT
-        }
-        // Model cleanup not needed as we're not modifying model env vars
-      }
-      
+      )
+
       if (testResponse && testResponse.content) {
         llmAvailable = true
-        
         llmDetails = {
-          endpoint,
-          model: selectedModel.id,
-          status: "healthy"
+          endpoint: "via-portkey-gateway",
+          model: selectedModel,
+          status: "available",
+          availableModels: availableModels,
+          testResponsePreview: testResponse.content.substring(0, 100)
         }
-        
-        // Set the llmConfig for use in tests
+
+        // Set the llmConfig for use in tests (endpoint is symbolic since we use Portkey)
         llmConfig = {
-          endpoint,
-          model: selectedModel.id
+          endpoint: "via-portkey-gateway",
+          model: selectedModel
         }
-        
-        console.log("✅ LLM is available and responding:")
-        console.log(`   Endpoint: ${llmDetails.endpoint}`)
-        console.log(`   Active Model: ${llmDetails.model}`)
-        console.log(`   Available Models: ${availableModels.map((m: { id: string }) => m.id).join(", ")}`)
+
+        console.log("✅ LLM is available via Portkey:")
+        console.log(`   Active Model: ${selectedModel}`)
+        console.log(`   Available Models: ${availableModels.join(", ")}`)
         console.log(`   Test response: ${testResponse.content.substring(0, 50)}`)
       } else {
-        throw new Error("LLM returned empty response")
+        throw new Error("LLM returned empty response via Portkey")
       }
+
     } catch (error) {
       llmAvailable = false
       llmDetails = {
-        endpoint,
+        endpoint: "via-portkey-gateway",
         status: "unavailable",
         error: error instanceof Error ? error.message : String(error)
       }
-      console.log("❌ LLM is not available:")
-      console.log(`   Endpoint: ${endpoint}`)
+      console.log("❌ LLM is not available via Portkey:")
       console.log(`   Error: ${llmDetails.error}`)
       console.log("   Tests requiring LLM will be skipped")
     }

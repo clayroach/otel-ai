@@ -9,7 +9,8 @@ import { generateQueryWithLLM } from "../../query-generator/llm-query-generator"
 import { LLMManagerLive, LLMManagerEssentials } from "../../../llm-manager"
 import { StorageAPIClientTag } from "../../../storage/api-client"
 import {
-  logAvailabilityStatus
+  logAvailabilityStatus,
+  shouldSkipLLMTests
 } from "../../../llm-manager/test/utils/llm-availability.js"
 import { 
   validateDiagnosticQuery, 
@@ -89,7 +90,7 @@ interface QueryComparison {
 
 // This test compares SQL models vs Claude/GPT models
 // Now enabled with proper authentication fix for Anthropic
-describe("SQL Model vs GPT Model Query Generation Comparison", () => {
+describe.skipIf(shouldSkipLLMTests())("SQL Model vs GPT Model Query Generation Comparison", () => {
 
   beforeAll(() => {
     console.log("\n🔧 SQL vs GPT Model Comparison Test Configuration")
