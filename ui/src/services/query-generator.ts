@@ -5,13 +5,42 @@
  * Follows the same pattern as the AI Analyzer service.
  */
 
-import axios from 'axios'
+import axios, { AxiosError } from 'axios'
 import type { CriticalPath } from '../components/ServiceTopology/types'
+
+// Helper to determine timeout based on model type
+const getTimeoutForModel = (modelId?: string): number => {
+  if (!modelId) return 30000 // Default 30 seconds
+
+  const modelLower = modelId.toLowerCase()
+
+  // Local models need more time
+  if (
+    modelLower.includes('codellama') ||
+    modelLower.includes('llama') ||
+    modelLower.includes('mistral') ||
+    modelLower.includes('starcoder') ||
+    modelLower.includes('sqlcoder')
+  ) {
+    return 60000 // 60 seconds for local models
+  }
+
+  // Cloud models are generally faster
+  if (
+    modelLower.includes('gpt') ||
+    modelLower.includes('claude') ||
+    modelLower.includes('anthropic')
+  ) {
+    return 30000 // 30 seconds for cloud models
+  }
+
+  return 45000 // 45 seconds default for unknown models
+}
 
 // API client configuration
 const apiClient = axios.create({
   baseURL: process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:4319/api',
-  timeout: 15000, // 15 second timeout for query generation
+  timeout: 45000, // Default timeout, will be overridden per request
   headers: {
     'Content-Type': 'application/json'
   }
@@ -77,20 +106,29 @@ export class QueryGeneratorService {
   static async generateQuery(request: QueryGenerationRequest): Promise<QueryGenerationResult> {
     const startTime = Date.now()
 
+    // Set timeout based on the model being used
+    const timeout = getTimeoutForModel(request.preferredModel)
+
     try {
-      const response = await apiClient.post('/ui-generator/generate-query', {
-        path: {
-          id: request.path.id,
-          name: request.path.name,
-          services: request.path.services,
-          startService: request.path.services[0],
-          endService: request.path.services[request.path.services.length - 1]
+      const response = await apiClient.post(
+        '/ui-generator/generate-query',
+        {
+          path: {
+            id: request.path.id,
+            name: request.path.name,
+            services: request.path.services,
+            startService: request.path.services[0],
+            endService: request.path.services[request.path.services.length - 1]
+          },
+          analysisGoal:
+            request.analysisGoal || QueryGeneratorService.determineAnalysisGoal(request.path),
+          model: request.preferredModel,
+          timeWindowMinutes: request.timeWindowMinutes
         },
-        analysisGoal:
-          request.analysisGoal || QueryGeneratorService.determineAnalysisGoal(request.path),
-        model: request.preferredModel,
-        timeWindowMinutes: request.timeWindowMinutes
-      })
+        {
+          timeout // Use model-specific timeout
+        }
+      )
 
       return {
         sql: response.data.sql,
@@ -102,6 +140,18 @@ export class QueryGeneratorService {
       }
     } catch (error) {
       console.error('Query generation failed:', error)
+
+      // Log specific timeout information
+      const axiosError = error as AxiosError
+      if (axiosError?.code === 'ECONNABORTED' || axiosError?.message?.includes('timeout')) {
+        const elapsedTime = Date.now() - startTime
+        console.warn(`⏱️ Query generation timed out after ${elapsedTime}ms`)
+        console.warn('💡 Suggestions:')
+        console.warn('  • Enable ClickHouse AI for faster SQL generation')
+        console.warn('  • Select a cloud model (Claude, GPT) instead of local models')
+        console.warn('  • Current timeout:', getTimeoutForModel(request.preferredModel), 'ms')
+      }
+
       // Return a fallback query if API fails
       return QueryGeneratorService.generateFallbackQuery(request.path, Date.now() - startTime)
     }
@@ -179,20 +229,6 @@ export class QueryGeneratorService {
   }
 
   /**
-   * Get the currently selected model from local storage
-   */
-  static getSelectedModel(): string {
-    return localStorage.getItem('preferred-llm-model') || 'claude-3-haiku-20240307'
-  }
-
-  /**
-   * Set the preferred model in local storage
-   */
-  static setSelectedModel(model: string): void {
-    localStorage.setItem('preferred-llm-model', model)
-  }
-
-  /**
    * Private: Determine analysis goal based on path metrics
    */
   private static determineAnalysisGoal(path: CriticalPath): string {
@@ -250,7 +286,10 @@ LIMIT 1000`
       sql,
       model: 'fallback',
       generationTime,
-      description: 'Fallback query - API unavailable',
+      description:
+        generationTime > 40000
+          ? 'Fallback query - Request timed out (consider using a faster model)'
+          : 'Fallback query - API unavailable',
       criticalPath: path.name,
       analysisType
     }
@@ -264,9 +303,7 @@ export const useQueryGenerator = () => {
   return {
     generateQuery: QueryGeneratorService.generateQuery,
     getAvailableModels: QueryGeneratorService.getAvailableModels,
-    validateQuery: QueryGeneratorService.validateQuery,
-    getSelectedModel: QueryGeneratorService.getSelectedModel,
-    setSelectedModel: QueryGeneratorService.setSelectedModel
+    validateQuery: QueryGeneratorService.validateQuery
   }
 }
 

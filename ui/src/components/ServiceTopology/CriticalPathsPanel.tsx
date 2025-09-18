@@ -25,6 +25,7 @@ import {
 } from '@ant-design/icons'
 import type { CriticalPath, PanelProps } from './types'
 import { useQueryGenerator } from '../../services/query-generator'
+import { useModelSelectionContext } from '../../contexts/ModelSelectionContext'
 
 const { Text } = Typography
 const { Search } = Input
@@ -45,9 +46,11 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
 }) => {
   const navigate = useNavigate()
   const queryGenerator = useQueryGenerator()
+  const { selectedModels, useClickHouseAI } = useModelSelectionContext()
   const [searchTerm, setSearchTerm] = useState('')
   const [filterBy, setFilterBy] = useState<'all' | 'critical' | 'errors' | 'slow'>('all')
   const [generatingQuery, setGeneratingQuery] = useState<string | null>(null)
+  const [generatingModel, setGeneratingModel] = useState<string | null>(null)
 
   // Filter paths based on search and filter criteria
   const filteredPaths = paths.filter((path) => {
@@ -103,16 +106,28 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
 
     setGeneratingQuery(path.id)
 
+    // Determine which model to use based on ClickHouse AI setting
+    const modelToUse = useClickHouseAI
+      ? selectedModels.general // Use general model when ClickHouse AI is enabled
+      : selectedModels.sql // Use SQL model otherwise
+
+    setGeneratingModel(modelToUse || 'default')
+
     try {
-      // Generate the query using the service
-      const result = await queryGenerator.generateQuery({ path })
+      // Generate the query using the service with the selected model
+      const result = await queryGenerator.generateQuery({
+        path,
+        preferredModel: modelToUse || undefined
+      })
 
       // Navigate to Traces view with the generated query
       navigate('/traces', {
         state: {
           query: result.sql,
           metadata: {
-            model: result.model,
+            model: result.model || modelToUse || 'unknown',
+            modelUsed: modelToUse || 'default', // Track which model was requested
+            isClickHouseAI: useClickHouseAI, // Track if ClickHouse AI was used
             generatedAt: Date.now(),
             generationTime: result.generationTime,
             criticalPath: path.name,
@@ -125,6 +140,7 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
       // Could show a notification here
     } finally {
       setGeneratingQuery(null)
+      setGeneratingModel(null)
     }
   }
 
@@ -289,19 +305,36 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
                     </Text>
                   )}
 
-                  <Button
-                    size="small"
-                    type="primary"
-                    data-testid={`diagnostic-query-button-${path.id}`}
-                    icon={generatingQuery === path.id ? <LoadingOutlined /> : <CodeOutlined />}
-                    onClick={(e) => handleGenerateQuery(path, e)}
-                    loading={generatingQuery === path.id}
-                    style={{ marginTop: '8px', width: '100%' }}
+                  <Tooltip
+                    title={
+                      generatingQuery === path.id
+                        ? `Generating query with ${generatingModel || 'selected model'}...`
+                        : `Will use ${useClickHouseAI ? 'ClickHouse AI with ' + (selectedModels.general || 'general model') : selectedModels.sql || 'SQL model'}`
+                    }
                   >
-                    {generatingQuery === path.id
-                      ? 'Generating Diagnostic Query...'
-                      : 'Generate Diagnostic Query'}
-                  </Button>
+                    <Button
+                      size="small"
+                      type="primary"
+                      data-testid={`diagnostic-query-button-${path.id}`}
+                      icon={
+                        generatingQuery === path.id ? <LoadingOutlined spin /> : <CodeOutlined />
+                      }
+                      onClick={(e) => handleGenerateQuery(path, e)}
+                      loading={generatingQuery === path.id}
+                      style={{ marginTop: '8px', width: '100%' }}
+                    >
+                      {generatingQuery === path.id ? (
+                        <Space size={4}>
+                          <span>Generating with</span>
+                          <Tag color="processing" style={{ margin: 0, fontSize: '11px' }}>
+                            {generatingModel?.split('-')[0]?.toUpperCase() || 'MODEL'}
+                          </Tag>
+                        </Space>
+                      ) : (
+                        'Generate Diagnostic Query'
+                      )}
+                    </Button>
+                  </Tooltip>
                 </Space>
               </List.Item>
             )}

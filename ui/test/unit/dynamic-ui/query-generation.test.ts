@@ -401,27 +401,7 @@ describe('QueryGeneratorService', () => {
     })
   })
 
-  describe('model selection persistence', () => {
-    it('should get default model when not set', () => {
-      const model = QueryGeneratorService.getSelectedModel()
-      expect(model).toBe('claude-3-haiku-20240307')
-    })
-
-    it('should persist selected model to localStorage', () => {
-      QueryGeneratorService.setSelectedModel('gpt-4o')
-      
-      const model = QueryGeneratorService.getSelectedModel()
-      expect(model).toBe('gpt-4o')
-      expect(localStorage.getItem('preferred-llm-model')).toBe('gpt-4o')
-    })
-
-    it('should retrieve persisted model from localStorage', () => {
-      localStorage.setItem('preferred-llm-model', 'codellama')
-      
-      const model = QueryGeneratorService.getSelectedModel()
-      expect(model).toBe('codellama')
-    })
-  })
+  // Model selection persistence tests removed - now handled by ModelSelectionContext
 
   describe('analysis goal determination', () => {
     it('should detect error analysis needed for high error rates', async () => {

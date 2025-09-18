@@ -65,7 +65,8 @@ export class UIGeneratorAPIClient {
         ),
         Effect.map((query: GeneratedQuery) => ({
           sql: UIGeneratorAPIClient.sanitizeSQL(query.sql), // Remove semicolons for ClickHouse compatibility
-          model: targetModel || 'default', // Model info from actual generation
+          model: targetModel || 'default', // The model that was requested
+          actualModel: targetModel || 'portkey-default', // Track actual model used
           description: query.description,
           expectedColumns: Object.entries(query.expectedSchema || {}).map(([name, type]) => ({
             name,
