@@ -12,16 +12,15 @@ export const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 
  */
 export const checkLLMAvailability = () => {
   const hasOpenAI = !!process.env.OPENAI_API_KEY
-  const hasAnthropic = !!process.env.ANTHROPIC_API_KEY || !!process.env.CLAUDE_API_KEY
+  const hasAnthropic = !!process.env.ANTHROPIC_API_KEY
 
   return {
     hasOpenAI,
     hasAnthropic,
     hasAnyLLM: hasOpenAI || hasAnthropic,
-    missingKeys: [
-      !hasOpenAI && 'OPENAI_API_KEY',
-      !hasAnthropic && 'ANTHROPIC_API_KEY/CLAUDE_API_KEY'
-    ].filter(Boolean) as string[]
+    missingKeys: [!hasOpenAI && 'OPENAI_API_KEY', !hasAnthropic && 'ANTHROPIC_API_KEY'].filter(
+      Boolean
+    ) as string[]
   }
 }
 
@@ -56,7 +55,7 @@ export const skipIfNoProvider = (
   }
 
   if (provider === 'anthropic' && !availability.hasAnthropic) {
-    console.log('⚠️ Skipping test: ANTHROPIC_API_KEY/CLAUDE_API_KEY not found')
+    console.log('⚠️ Skipping test: ANTHROPIC_API_KEY not found')
     return
   }
 
@@ -68,7 +67,7 @@ export const skipIfNoProvider = (
  */
 export const getTestApiKeys = () => ({
   openai: process.env.OPENAI_API_KEY || 'test-openai-key',
-  anthropic: process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || 'test-anthropic-key'
+  anthropic: process.env.ANTHROPIC_API_KEY || 'test-anthropic-key'
 })
 
 /**
@@ -116,7 +115,7 @@ export const logAvailabilityStatus = () => {
  * Check for specific provider keys
  */
 export const hasOpenAIKey = () => !!process.env.OPENAI_API_KEY
-export const hasClaudeKey = () => !!process.env.ANTHROPIC_API_KEY || !!process.env.CLAUDE_API_KEY
+export const hasClaudeKey = () => !!process.env.ANTHROPIC_API_KEY
 
 export default {
   checkLLMAvailability,

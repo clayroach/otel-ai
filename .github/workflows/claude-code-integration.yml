@@ -81,8 +81,8 @@ jobs:
             sed -i "s/OPENAI_API_KEY=placeholder_will_be_replaced_by_github_secret/OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}/g" .env
           fi
           
-          if [ -n "${{ secrets.CLAUDE_API_KEY }}" ]; then
-            sed -i "s/CLAUDE_API_KEY=placeholder_will_be_replaced_by_github_secret/CLAUDE_API_KEY=${{ secrets.CLAUDE_API_KEY }}/g" .env
+          if [ -n "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
+            sed -i "s/ANTHROPIC_API_KEY=placeholder_will_be_replaced_by_github_secret/ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}/g" .env
           fi
           
       - name: Install dependencies
@@ -115,7 +115,7 @@ jobs:
       - name: Integration tests
         run: pnpm test:integration
         env:
-          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         
       - name: Install Playwright browsers

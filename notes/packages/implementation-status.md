@@ -53,10 +53,10 @@ This document tracks the implementation status of all packages in the otel-ai pl
 
 ### LLM Manager Package ✅
 - **Location**: `src/llm-manager/`
-- **Implementation**: Complete multi-model LLM orchestration with GPT, Claude, and local Llama support
-- **Features**: Intelligent routing, streaming support, conversation management, comprehensive error handling
+- **Implementation**: Complete Portkey-based LLM orchestration with GPT, Claude, and local model support
+- **Features**: Portkey gateway routing, streaming support, conversation management, comprehensive error handling
 - **Testing**: 55/55 tests passing with real API integration and mocked responses
-- **API**: Full Effect-TS service definitions with createDefaultLLMManager() and createSimpleLLMManager()
+- **API**: Full Effect-TS service definitions with LLMManagerService using Portkey integration
 - **Documentation**: Comprehensive README with setup and usage examples
 
 ### UI Generator Package ✅

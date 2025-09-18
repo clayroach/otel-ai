@@ -52,8 +52,8 @@ export class UIGeneratorAPIClient {
     // Use default analysis goal if not provided
     const analysisGoal = request.analysisGoal || ANALYSIS_GOALS.latency
 
-    // Default to SQLCoder-7b-2 if no model specified
-    const targetModel = request.model || process.env.LLM_SQL_MODEL_1 || 'sqlcoder-7b-2'
+    // Model will be determined by Portkey config defaults if not specified
+    const targetModel = request.model
 
     // Run the Effect-based query generation with LLM Manager Layer
     const result = await Effect.runPromise(
@@ -61,11 +61,11 @@ export class UIGeneratorAPIClient {
         generateQueryWithLLM(
           criticalPath,
           analysisGoal,
-          { model: targetModel } // Use SQLCoder-7b-2 by default
+          targetModel ? { model: targetModel } : {} // Will use Portkey config defaults if not specified
         ),
         Effect.map((query: GeneratedQuery) => ({
           sql: UIGeneratorAPIClient.sanitizeSQL(query.sql), // Remove semicolons for ClickHouse compatibility
-          model: targetModel,
+          model: targetModel || 'default', // Model info from actual generation
           description: query.description,
           expectedColumns: Object.entries(query.expectedSchema || {}).map(([name, type]) => ({
             name,

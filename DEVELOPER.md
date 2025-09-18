@@ -283,7 +283,7 @@ All data processing layers use Effect-TS for:
 The project uses specialized Claude Code agents for streamlined development workflow:
 
 **Core Development Agents:**
-- **code-implementation-agent** - Transform design documents into Effect-TS code with strong typing and tests
+- **code-implementation-planning-agent** - Transform design documents into Effect-TS code with strong typing and tests
 - **effect-ts-optimization-agent** - Systematically analyze and optimize Effect-TS patterns, eliminate "as any" usage
 - **testing-agent** - Comprehensive test execution and validation
 - **code-review-agent** - Quality assurance and best practices validation
@@ -296,7 +296,7 @@ The project uses specialized Claude Code agents for streamlined development work
 
 **Feature Development Workflow**:
 1. Start day → `start-day-agent` sets goals
-2. Feature implementation → `code-implementation-agent` transforms design docs to code
+2. Feature implementation → `code-implementation-planning-agent` transforms design docs to code
 3. Effect-TS optimization → `effect-ts-optimization-agent` ensures clean patterns
 4. Testing validation → `testing-agent` comprehensive test execution
 5. Code quality review → `code-review-agent` before commits
@@ -355,7 +355,7 @@ The project uses specialized Claude Code agents for streamlined development work
 
 ### Available Agents
 
-- **code-implementation-agent** - Transform design documents into Effect-TS code with strong typing and tests
+- **code-implementation-planning-agent** - Transform design documents into Effect-TS code with strong typing and tests
 - **effect-ts-optimization-agent** - Systematically analyze and optimize Effect-TS patterns, eliminate "as any" usage
 - **testing-agent** - Comprehensive test execution and validation
 - **code-review-agent** - Quality assurance and best practices validation
@@ -366,7 +366,7 @@ The project uses specialized Claude Code agents for streamlined development work
 
 #### Feature Implementation from Design
 ```
-Use the code-implementation-agent when you have a design document or specification and need to implement production-ready code with Effect-TS patterns, strong typing, and comprehensive tests.
+Use the code-implementation-planning-agent when you have a design document or specification and need to implement production-ready code with Effect-TS patterns, strong typing, and comprehensive tests.
 ```
 
 #### Effect-TS Optimization

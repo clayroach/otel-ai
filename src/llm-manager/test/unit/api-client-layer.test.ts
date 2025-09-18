@@ -12,6 +12,7 @@ import {
   selectBestModel,
   generateLLMResponse
 } from '../../api-client-layer.js'
+import type { ModelInfo } from '../../model-types.js'
 import { LLMManagerServiceTag } from '../../llm-manager-service.js'
 import type { LLMRequest, LLMResponse } from '../../types.js'
 
@@ -54,6 +55,54 @@ const createMockManager = (overrides = {}) => {
       getAvailableModels: vi.fn(() =>
         Effect.succeed(['gpt-3.5-turbo', 'gpt-4', 'claude-3-haiku-20240307'])
       ),
+      getDefaultModel: vi.fn((taskType?: 'sql' | 'general' | 'code') => {
+        if (taskType === 'sql') return Effect.succeed('gpt-3.5-turbo')
+        if (taskType === 'general') return Effect.succeed('claude-3-haiku-20240307')
+        if (taskType === 'code') return Effect.succeed('codellama-7b-instruct')
+        return Effect.succeed('gpt-3.5-turbo')
+      }),
+      getModelInfo: vi.fn((modelId: string) =>
+        Effect.succeed<ModelInfo>({
+          id: modelId,
+          name: modelId,
+          provider: modelId.includes('gpt') ? 'openai' :
+                    modelId.includes('claude') ? 'anthropic' :
+                    modelId.includes('codellama') ? 'lm-studio' : 'openai',
+          capabilities: modelId.includes('sql') || modelId.includes('codellama') ? ['sql', 'code'] : ['general'],
+          metadata: {
+            contextLength: modelId.includes('claude') ? 200000 : 4096,
+            maxTokens: modelId.includes('gpt-4') ? 4096 : 2048,
+            temperature: 0.7
+          }
+        })
+      ),
+      getModelsByCapability: vi.fn(() => Effect.succeed([])),
+      getModelsByProvider: vi.fn(() => Effect.succeed([])),
+      getAllModels: vi.fn(() =>
+        Effect.succeed([
+          {
+            id: 'gpt-3.5-turbo',
+            name: 'gpt-3.5-turbo',
+            provider: 'openai',
+            capabilities: ['general'],
+            metadata: { contextLength: 4096, maxTokens: 2048, temperature: 0.7 }
+          },
+          {
+            id: 'gpt-4',
+            name: 'gpt-4',
+            provider: 'openai',
+            capabilities: ['general'],
+            metadata: { contextLength: 8192, maxTokens: 4096, temperature: 0.7 }
+          },
+          {
+            id: 'claude-3-haiku-20240307',
+            name: 'claude-3-haiku-20240307',
+            provider: 'anthropic',
+            capabilities: ['general'],
+            metadata: { contextLength: 200000, maxTokens: 4096, temperature: 0.7 }
+          }
+        ] as ModelInfo[])
+      ),
       ...overrides
     }
   )
@@ -72,25 +121,34 @@ describe('LLMManagerAPIClientLayer', () => {
       expect(result).toHaveLength(3)
       expect(result[0]).toMatchObject({
         id: 'gpt-3.5-turbo',
+        name: 'gpt-3.5-turbo',
         provider: 'openai',
-        status: 'available',
-        capabilities: {
-          supportsStreaming: true,
-          supportsJSON: true,
+        capabilities: ['general'],
+        metadata: {
           contextLength: 4096,
-          maxTokens: 2048
+          maxTokens: 2048,
+          temperature: 0.7
+        },
+        status: 'available',
+        metrics: {
+          totalRequests: 0,
+          totalTokens: 0,
+          averageLatency: 0,
+          errorRate: 0
         }
       })
       expect(result[2]).toMatchObject({
         id: 'claude-3-haiku-20240307',
+        name: 'claude-3-haiku-20240307',
         provider: 'anthropic',
+        capabilities: ['general'],
         status: 'available'
       })
     })
 
     it('should handle errors gracefully', async () => {
       const mockLayer = createMockManager({
-        getAvailableModels: vi.fn(() => Effect.fail(new Error('Failed to get models')))
+        getAllModels: vi.fn(() => Effect.fail(new Error('Failed to get models')))
       })
       const layer = LLMManagerAPIClientLayerWithoutDeps.pipe(Layer.provide(mockLayer))
 
@@ -103,8 +161,23 @@ describe('LLMManagerAPIClientLayer', () => {
 
     it('should identify local models correctly', async () => {
       const mockLayer = createMockManager({
-        getAvailableModels: vi.fn(() =>
-          Effect.succeed(['codellama-7b-instruct', 'llama2-13b'])
+        getAllModels: vi.fn(() =>
+          Effect.succeed([
+            {
+              id: 'codellama-7b-instruct',
+              name: 'codellama-7b-instruct',
+              provider: 'lm-studio',
+              capabilities: ['code'],
+              metadata: { contextLength: 4096, maxTokens: 2048, temperature: 0.7 }
+            },
+            {
+              id: 'llama2-13b',
+              name: 'llama2-13b',
+              provider: 'ollama',
+              capabilities: ['general'],
+              metadata: { contextLength: 4096, maxTokens: 2048, temperature: 0.7 }
+            }
+          ] as ModelInfo[])
         )
       })
       const layer = LLMManagerAPIClientLayerWithoutDeps.pipe(Layer.provide(mockLayer))
@@ -114,8 +187,8 @@ describe('LLMManagerAPIClientLayer', () => {
       )
 
       expect(result).toHaveLength(2)
-      expect(result[0]?.provider).toBe('local')
-      expect(result[1]?.provider).toBe('local')
+      expect(result[0]?.provider).toBe('lm-studio')
+      expect(result[1]?.provider).toBe('ollama')
     })
   })
 
@@ -133,8 +206,14 @@ describe('LLMManagerAPIClientLayer', () => {
       expect(result.systemMetrics).toBeDefined()
       expect(result.loadedModels?.[0]).toMatchObject({
         id: 'gpt-3.5-turbo',
+        name: 'gpt-3.5-turbo',
         provider: 'openai',
-        status: 'available'
+        capabilities: ['general'],
+        metadata: {
+          contextLength: 4096,
+          maxTokens: 2048,
+          temperature: 0.7
+        }
       })
     })
 
@@ -193,10 +272,20 @@ describe('LLMManagerAPIClientLayer', () => {
 
       expect(result).toMatchObject({
         id: 'gpt-3.5-turbo',
+        name: 'gpt-3.5-turbo',
         provider: 'openai',
         status: 'available',
-        capabilities: {
-          supportsSQL: true
+        capabilities: ['general'],
+        metadata: {
+          contextLength: 4096,
+          maxTokens: 2048,
+          temperature: 0.7
+        },
+        metrics: {
+          totalRequests: 0,
+          totalTokens: 0,
+          averageLatency: 0,
+          errorRate: 0
         }
       })
     })
@@ -217,9 +306,17 @@ describe('LLMManagerAPIClientLayer', () => {
       )
 
       expect(result).toMatchObject({
-        id: 'claude-3-haiku-20240307',
-        provider: 'anthropic',
-        status: 'available'
+        id: 'codellama-7b-instruct',
+        name: 'codellama-7b-instruct',
+        provider: 'lm-studio',
+        capabilities: ['sql', 'code'],
+        status: 'available',
+        metrics: {
+          totalRequests: 0,
+          totalTokens: 0,
+          averageLatency: 0,
+          errorRate: 0
+        }
       })
     })
   })

@@ -29,8 +29,20 @@ export {
   LLMManagerAPIClientTag,
   selectBestModel,
   type LLMManagerAPIClientService,
-  type ModelInfo
+  type ServerModelInfo
 } from './api-client-layer.js'
+
+// New rich model discovery APIs
+export {
+  getAllModels,
+  getDefaultModel,
+  getModelInfo,
+  getModelsByCapability,
+  getModelsByProvider
+} from './api-client-layer.js'
+
+// Model types from unified source
+export type { ModelInfo, PortkeyConfig } from './model-types.js'
 
 // Re-export Effect types for convenience
 export { Effect, Layer, Stream } from 'effect'

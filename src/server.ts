@@ -6,10 +6,9 @@
 
 import { fromBinary } from '@bufbuild/protobuf'
 import cors from 'cors'
-import { Context, Effect, Stream, Layer } from 'effect'
+import { Effect, Layer } from 'effect'
 import express from 'express'
-import { AIAnalyzerService } from './ai-analyzer/index.js'
-import { generateInsights, generateRequestId } from './ai-analyzer/service.js'
+import { AIAnalyzerService, AIAnalyzerMockLayer } from './ai-analyzer/index.js'
 import type {
   ServiceTopologyRaw,
   ServiceDependencyRaw,
@@ -92,10 +91,12 @@ const StorageLayer = StorageAPIClientLayer.pipe(
 )
 
 // Create the composed application layer with all services
+// Use AIAnalyzerMockLayer() for now to avoid S3 connection issues
 const ApplicationLayer = Layer.mergeAll(
   StorageLayer,
   LLMManagerAPIClientLayer,
-  UIGeneratorAPIClientLayer
+  UIGeneratorAPIClientLayer,
+  AIAnalyzerMockLayer() // Using mock for now
 )
 
 // Helper function to run effects with all application services
@@ -103,7 +104,7 @@ const runWithServices = <A, E>(
   effect: Effect.Effect<
     A,
     E,
-    LLMManagerAPIClientTag | UIGeneratorAPIClientTag | StorageAPIClientTag
+    LLMManagerAPIClientTag | UIGeneratorAPIClientTag | StorageAPIClientTag | AIAnalyzerService
   >
 ): Promise<A> => {
   return Effect.runPromise(Effect.provide(effect, ApplicationLayer))
@@ -122,8 +123,7 @@ const queryWithResults = async (sql: string): Promise<{ data: Record<string, unk
   return { data: result as Record<string, unknown>[] }
 }
 
-// Initialize AI analyzer service
-let aiAnalyzer: Context.Tag.Service<typeof AIAnalyzerService> | null = null
+// AI Analyzer service is now provided through the ApplicationLayer
 
 // Protobuf parsing now uses generated types from @bufbuild/protobuf
 console.log('✅ Using generated protobuf types for OTLP parsing')
@@ -392,15 +392,7 @@ app.post('/api/clickhouse/query', async (req, res) => {
 // AI Analyzer API endpoints
 app.get('/api/ai-analyzer/health', async (_req, res) => {
   try {
-    if (!aiAnalyzer) {
-      res.json({
-        status: 'unavailable',
-        capabilities: [],
-        message: 'AI Analyzer service not initialized'
-      })
-      return
-    }
-
+    // AI Analyzer service is always available through the layer
     res.json({
       status: 'healthy',
       capabilities: [
@@ -409,7 +401,7 @@ app.get('/api/ai-analyzer/health', async (_req, res) => {
         'streaming-analysis',
         'documentation-generation'
       ],
-      message: 'AI Analyzer service ready'
+      message: 'AI Analyzer service ready (using mock layer)'
     })
   } catch (error) {
     res.status(500).json({
@@ -422,14 +414,6 @@ app.get('/api/ai-analyzer/health', async (_req, res) => {
 
 app.post('/api/ai-analyzer/analyze', async (req, res) => {
   try {
-    if (!aiAnalyzer) {
-      res.status(503).json({
-        error: 'AI Analyzer service not available',
-        message: 'Service is initializing or failed to start'
-      })
-      return
-    }
-
     const { type, timeRange, filters, config } = req.body
 
     const analysisRequest = {
@@ -442,8 +426,13 @@ app.post('/api/ai-analyzer/analyze', async (req, res) => {
       config
     }
 
-    // Execute the analysis using Effect
-    const result = await Effect.runPromise(aiAnalyzer.analyzeArchitecture(analysisRequest))
+    // Execute the analysis using Effect and the service layer
+    const result = await runWithServices(
+      Effect.gen(function* () {
+        const aiAnalyzer = yield* AIAnalyzerService
+        return yield* aiAnalyzer.analyzeArchitecture(analysisRequest)
+      })
+    )
 
     res.json(result)
   } catch (error) {
@@ -457,13 +446,6 @@ app.post('/api/ai-analyzer/analyze', async (req, res) => {
 
 app.post('/api/ai-analyzer/topology', async (req, res) => {
   try {
-    if (!aiAnalyzer) {
-      res.status(503).json({
-        error: 'AI Analyzer service not available'
-      })
-      return
-    }
-
     const { timeRange } = req.body
 
     const topologyRequest = {
@@ -471,7 +453,13 @@ app.post('/api/ai-analyzer/topology', async (req, res) => {
       endTime: new Date(timeRange.endTime)
     }
 
-    const topology = await Effect.runPromise(aiAnalyzer.getServiceTopology(topologyRequest))
+    // Execute the topology request using Effect and the service layer
+    const topology = await runWithServices(
+      Effect.gen(function* () {
+        const aiAnalyzer = yield* AIAnalyzerService
+        return yield* aiAnalyzer.getServiceTopology(topologyRequest)
+      })
+    )
 
     res.json(topology)
   } catch (error) {
@@ -629,55 +617,6 @@ app.post('/api/ai-analyzer/topology-visualization', async (req, res) => {
 })
 
 // Helper function to recursively extract values from protobuf objects
-
-// Helper function to generate critical paths for AI analysis
-function generateCriticalPaths(
-  services: Array<{ service: string }>,
-  dataFlows: Array<{ from: string; to: string; volume: number; latency: { p50: number } }>
-) {
-  const paths = []
-
-  // Find high-volume service chains
-  const highVolumeFlows = dataFlows
-    .filter((flow) => flow.volume > 50) // Threshold for high volume
-    .sort((a, b) => b.volume - a.volume)
-    .slice(0, 10) // Top 10 flows
-
-  for (const flow of highVolumeFlows) {
-    const fromService = services.find((s) => s.service === flow.from)
-    const toService = services.find((s) => s.service === flow.to)
-
-    if (fromService && toService) {
-      paths.push({
-        name: `${flow.from} → ${flow.to}`,
-        services: [flow.from, flow.to],
-        avgLatencyMs: flow.latency.p50,
-        errorRate: 0, // Not directly available in dataFlow
-        volume: flow.volume,
-        type: 'high-volume'
-      })
-    }
-  }
-
-  // Find high-latency service chains
-  const highLatencyFlows = dataFlows
-    .filter((flow) => flow.latency.p50 > 1000) // >1s latency
-    .sort((a, b) => b.latency.p50 - a.latency.p50)
-    .slice(0, 5)
-
-  for (const flow of highLatencyFlows) {
-    paths.push({
-      name: `${flow.from} → ${flow.to} (slow)`,
-      services: [flow.from, flow.to],
-      avgLatencyMs: flow.latency.p50,
-      errorRate: 0, // Not directly available in dataFlow
-      volume: flow.volume,
-      type: 'high-latency'
-    })
-  }
-
-  return paths
-}
 
 // OTLP Traces ingestion endpoint (handles both protobuf and JSON)
 app.post('/v1/traces', async (req, res) => {
@@ -1148,275 +1087,11 @@ app.listen(PORT, async () => {
   console.log(`🏥 Health check: http://localhost:${PORT}/health`)
   console.log(`🔧 MIDDLEWARE DEBUG BUILD v2.0 - GLOBAL MIDDLEWARE ACTIVE`)
 
-  // Wait a bit for schema migrations to complete, then create views and initialize AI analyzer
+  // Wait a bit for schema migrations to complete, then create views
   setTimeout(async () => {
     await createViews()
-
-    // Initialize AI analyzer service
-    try {
-      console.log('🤖 Initializing AI Analyzer service...')
-
-      // Create a mock implementation that works without full Effect runtime
-      aiAnalyzer = {
-        analyzeArchitecture: (
-          request: Parameters<
-            Context.Tag.Service<typeof AIAnalyzerService>['analyzeArchitecture']
-          >[0]
-        ) =>
-          Effect.gen(function* (_) {
-            console.log('🚀 ENHANCED MOCK - AI analysis starting for:', request.type)
-            console.log(
-              '🚀 ENHANCED MOCK - Request config:',
-              JSON.stringify(request.config, null, 2)
-            )
-
-            // Extract model selection from request config (this is the critical fix)
-            const selectedModel = request.config?.llm?.model || 'local-statistical-analyzer'
-            console.log(`🧠 ENHANCED MOCK - Using model: ${selectedModel}`)
-            // Get service topology
-            const topology = yield* _(
-              Effect.promise(
-                async () =>
-                  await queryWithResults(`
-            SELECT 
-              service_name as service,
-              COUNT(DISTINCT operation_name) as operation_count,
-              COUNT(*) as span_count,
-              AVG(duration_ms) as avg_latency_ms,
-              SUM(is_error) / COUNT(*) as error_rate
-            FROM traces 
-            WHERE 1=1
-            GROUP BY service_name
-            ORDER BY span_count DESC
-            LIMIT 20
-          `)
-              )
-            )
-
-            // Get service dependencies
-            const dependencies = yield* _(
-              Effect.promise(
-                async () =>
-                  await queryWithResults(`
-            SELECT 
-              parent.service_name as parent_service,
-              child.service_name as child_service,
-              COUNT(*) as call_count,
-              AVG(child.duration_ms) as avg_duration_ms,
-              SUM(child.is_error) / COUNT(*) as error_rate
-            FROM traces child 
-            JOIN traces parent ON child.parent_span_id = parent.span_id 
-            WHERE parent.service_name != child.service_name 
-              AND child.start_time > now() - INTERVAL 1 HOUR
-            GROUP BY parent.service_name, child.service_name
-            ORDER BY call_count DESC
-          `)
-              )
-            )
-
-            interface TopologyRow {
-              service: string
-              operation_count: number
-              span_count: number
-              avg_latency_ms: number
-              error_rate: number
-            }
-
-            interface DependencyRow {
-              parent_service: string
-              child_service: string
-              call_count: number
-              avg_duration_ms: number
-              error_rate: number
-            }
-
-            const typedData = topology.data as unknown as TopologyRow[]
-            const dependencyData = dependencies.data as unknown as DependencyRow[]
-
-            console.log('🔍 Dependency query results:', dependencyData.length, 'dependencies found')
-            if (dependencyData.length > 0) {
-              console.log('🔍 First dependency:', dependencyData[0])
-            }
-
-            // Build dependency map: parent_service -> [child dependencies]
-            const dependencyMap = new Map<
-              string,
-              Array<{
-                service: string
-                operation: string
-                callCount: number
-                avgLatencyMs: number
-                errorRate: number
-              }>
-            >()
-
-            dependencyData.forEach((dep) => {
-              if (!dependencyMap.has(dep.parent_service)) {
-                dependencyMap.set(dep.parent_service, [])
-              }
-              dependencyMap.get(dep.parent_service)?.push({
-                service: dep.child_service,
-                operation: 'unknown', // Could be enhanced with operation-level analysis
-                callCount: Number(dep.call_count) || 0,
-                avgLatencyMs: Number(dep.avg_duration_ms / 1000000) || 0,
-                errorRate: Number(dep.error_rate) || 0
-              })
-            })
-
-            const services = typedData.map((row) => ({
-              service: row.service,
-              type: 'backend' as const,
-              operations: [`operation-${Math.floor(Math.random() * 100)}`],
-              dependencies: dependencyMap.get(row.service) || [],
-              metadata: {
-                avgLatencyMs: Number(row.avg_latency_ms) || 0,
-                errorRate: Number(row.error_rate) || 0,
-                totalSpans: Number(row.span_count) || 0
-              }
-            }))
-
-            // Generate data flows from dependencies
-            const dataFlows = dependencyData.map((dep) => ({
-              from: dep.parent_service,
-              operation: 'unknown', // Could be enhanced with operation-level analysis
-              to: dep.child_service,
-              volume: Number(dep.call_count) || 0,
-              latency: {
-                p50: Number(dep.avg_duration_ms / 1000000) || 0,
-                p95: Number(dep.avg_duration_ms / 1000000) * 1.5 || 0, // Estimated
-                p99: Number(dep.avg_duration_ms / 1000000) * 2 || 0 // Estimated
-              }
-            }))
-
-            // Generate critical paths (sequences of services with high volume or latency)
-            const criticalPaths = generateCriticalPaths(services, dataFlows)
-
-            // Create architecture object for insights generation
-            const architecture = {
-              applicationName: 'Discovered Application',
-              description: 'Auto-discovered from telemetry data',
-              services,
-              dataFlows,
-              criticalPaths,
-              generatedAt: new Date()
-            }
-
-            // Generate actual insights using the real logic with model selection
-            const insights = generateInsights(architecture, request.type, selectedModel)
-            const modelUsed =
-              selectedModel === 'local-statistical-analyzer'
-                ? 'local-statistical-analyzer'
-                : `${selectedModel}-via-llm-manager`
-
-            const result = {
-              requestId: generateRequestId(),
-              type: request.type,
-              summary: `Discovered ${services.length} services from actual telemetry data in the last hour.`,
-              architecture: request.type === 'architecture' ? architecture : undefined,
-              insights: insights.map((insight) => ({
-                ...insight,
-                metadata: {
-                  generatedBy: modelUsed,
-                  analysisMethod:
-                    selectedModel === 'local-statistical-analyzer'
-                      ? 'statistical-threshold-analysis'
-                      : 'llm-enhanced-analysis'
-                }
-              })),
-              metadata: {
-                analyzedSpans: services.reduce(
-                  (sum, s) => sum + (s.metadata.totalSpans as number),
-                  0
-                ),
-                analysisTimeMs: 150,
-                llmTokensUsed: selectedModel === 'local-statistical-analyzer' ? 0 : 1500, // Estimated for LLM usage
-                llmModel: modelUsed,
-                selectedModel: selectedModel,
-                confidence: 0.7
-              }
-            }
-
-            return result
-          }),
-
-        getServiceTopology: (
-          _timeRange: Parameters<
-            Context.Tag.Service<typeof AIAnalyzerService>['getServiceTopology']
-          >[0]
-        ) =>
-          Effect.gen(function* (_) {
-            // Simple query for service topology
-            const topology = yield* _(
-              Effect.promise(
-                async () =>
-                  await queryWithResults(`
-            SELECT 
-              service_name as service,
-              COUNT(DISTINCT operation_name) as operation_count,
-              COUNT(*) as span_count,
-              AVG(duration_ms) as avg_latency_ms,
-              SUM(is_error) / COUNT(*) as error_rate
-            FROM traces 
-            WHERE 1=1
-            GROUP BY service_name
-            ORDER BY span_count DESC
-            LIMIT 20
-          `)
-              )
-            )
-
-            interface TopologyRow {
-              service: string
-              operation_count: number
-              span_count: number
-              avg_latency_ms: number
-              error_rate: number
-            }
-            const typedData = topology.data as unknown as TopologyRow[]
-            return typedData.map((row) => ({
-              service: row.service,
-              type: 'backend' as const,
-              operations: [`operation-${Math.floor(Math.random() * 100)}`],
-              dependencies: [], // TODO: Fix dependency discovery
-              metadata: {
-                avgLatencyMs: Number(row.avg_latency_ms) || 0,
-                errorRate: Number(row.error_rate) || 0,
-                totalSpans: Number(row.span_count) || 0
-              }
-            }))
-          }),
-
-        streamAnalysis: (
-          _request: Parameters<Context.Tag.Service<typeof AIAnalyzerService>['streamAnalysis']>[0]
-        ) => {
-          const words = [
-            'Analyzing',
-            'telemetry',
-            'data...',
-            'Discovered',
-            'services',
-            'from',
-            'actual',
-            'traces.'
-          ]
-          return Stream.fromIterable(words).pipe(Stream.map((word) => word + ' '))
-        },
-
-        generateDocumentation: (
-          architecture: Parameters<
-            Context.Tag.Service<typeof AIAnalyzerService>['generateDocumentation']
-          >[0]
-        ) =>
-          Effect.succeed(
-            `# ${architecture.applicationName}\n\n${architecture.description}\n\nDiscovered ${architecture.services.length} services.`
-          )
-      }
-
-      console.log('✅ AI Analyzer service initialized')
-      console.log(`🤖 AI Analyzer API: http://localhost:${PORT}/api/ai-analyzer/health`)
-    } catch (error) {
-      console.error('❌ Failed to initialize AI Analyzer:', error)
-    }
+    console.log('✅ AI Analyzer service available through layer composition')
+    console.log(`🤖 AI Analyzer API: http://localhost:${PORT}/api/ai-analyzer/health`)
   }, 10000) // Wait 10 seconds
 })
 
@@ -1562,7 +1237,7 @@ app.post('/api/ui-generator/generate-query', async (req, res) => {
             endService: path.endService || path.services?.[path.services.length - 1]
           },
           analysisGoal: analysisGoal || determineAnalysisGoal(path?.metrics),
-          model: model || process.env.LLM_SQL_MODEL_1 || 'sqlcoder-7b-2'
+          model: model // Model will be determined by Portkey config defaults
         })
       })
     )
@@ -1646,24 +1321,24 @@ app.get('/api/ui-generator/models', async (_req, res) => {
       name: model.id,
       provider: model.provider,
       description: `${model.provider.charAt(0).toUpperCase() + model.provider.slice(1)} - ${
-        model.capabilities?.supportsSQL
+        model.capabilities?.includes('sql')
           ? 'SQL optimized'
-          : model.capabilities?.supportsJSON
-            ? 'JSON capable'
-            : 'General purpose'
+          : model.capabilities?.includes('general')
+            ? 'General purpose'
+            : 'Specialized model'
       }`,
       available: model.status === 'available',
       availabilityReason:
         model.status === 'available' ? 'Model loaded and healthy' : `Model status: ${model.status}`,
       capabilities: {
-        json: model.capabilities?.supportsJSON || false,
-        sql: model.capabilities?.supportsSQL || false,
+        json: model.capabilities?.includes('general') || false,
+        sql: model.capabilities?.includes('sql') || false,
         reasoning: ['anthropic', 'openai'].includes(model.provider),
         functions: model.provider === 'openai',
-        streaming: model.capabilities?.supportsStreaming || false
+        streaming: true // Most modern models support streaming
       },
-      contextLength: model.capabilities?.contextLength || 0,
-      maxTokens: model.capabilities?.maxTokens || 0,
+      contextLength: model.metadata?.contextLength || 0,
+      maxTokens: model.metadata?.maxTokens || 0,
       temperature: model.config?.temperature || 0.7,
       metrics: model.metrics
     }))

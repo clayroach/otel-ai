@@ -29,6 +29,7 @@
       "Bash(cat:*)",
       "Bash(rg:*)",
       "Bash(npx vitest:*)",
+      "Bash(timeout:*)",
       "WebSearch"
     ],
     "deny": [],

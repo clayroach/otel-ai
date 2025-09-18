@@ -5,6 +5,7 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, Layer, Stream, Cause, Chunk } from 'effect'
 import { LLMManagerServiceTag, type LLMManagerService, type ManagerStatus } from '../../llm-manager-service.js'
+import type { ModelInfo } from '../../model-types.js'
 import { LLMManagerLive, LLMManagerDev } from '../../llm-manager-live.js'
 import { PortkeyGatewayLive } from '../../portkey-gateway-client.js'
 import type { LLMRequest, LLMResponse, LLMError } from '../../types.js'
@@ -38,7 +39,22 @@ describe('LLMManagerService', () => {
             healthStatus: {},
             config: {}
           }),
-        getAvailableModels: () => Effect.succeed([])
+        getAvailableModels: () => Effect.succeed([]),
+        getDefaultModel: () => Effect.succeed('gpt-3.5-turbo'),
+        getModelInfo: () => Effect.succeed<ModelInfo>({
+          id: 'test-model',
+          name: 'test-model',
+          provider: 'openai',
+          capabilities: ['general'],
+          metadata: {
+            contextLength: 4096,
+            maxTokens: 2048,
+            temperature: 0.7
+          }
+        }),
+        getModelsByCapability: () => Effect.succeed([]),
+        getModelsByProvider: () => Effect.succeed([]),
+        getAllModels: () => Effect.succeed([])
       }
 
       // Verify all methods exist
@@ -47,6 +63,11 @@ describe('LLMManagerService', () => {
       expect(mockService.isHealthy).toBeDefined()
       expect(mockService.getStatus).toBeDefined()
       expect(mockService.getAvailableModels).toBeDefined()
+      expect(mockService.getDefaultModel).toBeDefined()
+      expect(mockService.getModelInfo).toBeDefined()
+      expect(mockService.getModelsByCapability).toBeDefined()
+      expect(mockService.getModelsByProvider).toBeDefined()
+      expect(mockService.getAllModels).toBeDefined()
     })
 
     it('should be usable with Effect Layer', async () => {
@@ -74,7 +95,22 @@ describe('LLMManagerService', () => {
             healthStatus: { 'mock-model': 'healthy' },
             config: { test: true }
           }),
-        getAvailableModels: () => Effect.succeed(['mock-model'])
+        getAvailableModels: () => Effect.succeed(['mock-model']),
+        getDefaultModel: () => Effect.succeed('mock-model'),
+        getModelInfo: () => Effect.succeed<ModelInfo>({
+          id: 'mock-model',
+          name: 'mock-model',
+          provider: 'openai',
+          capabilities: ['general'],
+          metadata: {
+            contextLength: 4096,
+            maxTokens: 2048,
+            temperature: 0.7
+          }
+        }),
+        getModelsByCapability: () => Effect.succeed([]),
+        getModelsByProvider: () => Effect.succeed([]),
+        getAllModels: () => Effect.succeed([])
       }
 
       const layer = Layer.succeed(LLMManagerServiceTag, mockService)
@@ -122,6 +158,36 @@ describe('LLMManagerService', () => {
             _tag: 'ModelUnavailable',
             model: 'test-model',
             message: 'Models error'
+          }),
+        getDefaultModel: () =>
+          Effect.fail({
+            _tag: 'ModelUnavailable',
+            model: 'test-model',
+            message: 'Default model error'
+          }),
+        getModelInfo: () =>
+          Effect.fail({
+            _tag: 'ModelUnavailable',
+            model: 'test-model',
+            message: 'Model info error'
+          }),
+        getModelsByCapability: () =>
+          Effect.fail({
+            _tag: 'ModelUnavailable',
+            model: 'test-model',
+            message: 'Models by capability error'
+          }),
+        getModelsByProvider: () =>
+          Effect.fail({
+            _tag: 'ModelUnavailable',
+            model: 'test-model',
+            message: 'Models by provider error'
+          }),
+        getAllModels: () =>
+          Effect.fail({
+            _tag: 'ModelUnavailable',
+            model: 'test-model',
+            message: 'All models error'
           })
       }
 
@@ -171,9 +237,17 @@ describe('LLMManagerService', () => {
         healthStatus: {},
         config: {},
         status: 'operational',
-        loadedModels: [
-          { id: 'model1', provider: 'openai', status: 'ready' }
-        ],
+        loadedModels: [{
+          id: 'model1',
+          name: 'model1',
+          provider: 'openai',
+          capabilities: ['general'],
+          metadata: {
+            contextLength: 4096,
+            maxTokens: 2048,
+            temperature: 0.7
+          }
+        }],
         systemMetrics: {
           totalRequests: 100,
           avgResponseTime: 250
@@ -221,7 +295,22 @@ describe('LLMManagerService', () => {
           healthStatus: {},
           config: {}
         }),
-        getAvailableModels: () => Effect.succeed([])
+        getAvailableModels: () => Effect.succeed([]),
+        getDefaultModel: () => Effect.succeed('tagged-model'),
+        getModelInfo: () => Effect.succeed<ModelInfo>({
+          id: 'tagged-model',
+          name: 'tagged-model',
+          provider: 'openai',
+          capabilities: ['general'],
+          metadata: {
+            contextLength: 4096,
+            maxTokens: 2048,
+            temperature: 0.7
+          }
+        }),
+        getModelsByCapability: () => Effect.succeed([]),
+        getModelsByProvider: () => Effect.succeed([]),
+        getAllModels: () => Effect.succeed([])
       }
 
       const layer = Layer.succeed(LLMManagerServiceTag, mockService)

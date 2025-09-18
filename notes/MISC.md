@@ -29,3 +29,7 @@ TODOs:
 * portkey to route when using Clickhouse sql, not manually.  Should use similar prompting for Clickhouse and standard models
 * portkey testcontainer unit tests
 * coverage for integration tests
+* Use github issues for feature and design docs
+* Demo SITE!
+* DRY-NESS agent daily scan to look for optimizations
+* 

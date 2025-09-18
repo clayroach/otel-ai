@@ -168,12 +168,12 @@ jobs:
           echo "⏳ Waiting for telemetry data generation..."
           sleep 90  # Extended wait time for CI environments where services start slower
           
-      - name: Integration tests  
+      - name: Integration tests
         run: |
           echo "🔗 Running integration tests with established pnpm commands..."
           pnpm test:integration
         env:
-          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           
       - name: E2E tests with Playwright (Chromium only for speed)

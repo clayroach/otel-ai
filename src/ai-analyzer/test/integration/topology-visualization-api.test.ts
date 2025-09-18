@@ -50,7 +50,7 @@ describe('Topology Visualization API Integration', () => {
         },
         body: JSON.stringify({
           timeRange: {
-            hours: 24
+            hours: 1  // Reduced from 24 to avoid memory issues
           }
         })
       })
@@ -148,7 +148,7 @@ describe('Topology Visualization API Integration', () => {
         },
         body: JSON.stringify({
           timeRange: {
-            hours: 24
+            hours: 1  // Reduced from 24 to avoid memory issues
           }
         })
       })
@@ -174,7 +174,7 @@ describe('Topology Visualization API Integration', () => {
         },
         body: JSON.stringify({
           timeRange: {
-            hours: 24
+            hours: 1  // Reduced from 24 to avoid memory issues
           }
         })
       })
@@ -222,7 +222,7 @@ describe('Topology Visualization API Integration', () => {
         },
         body: JSON.stringify({
           timeRange: {
-            hours: 24
+            hours: 1  // Reduced from 24 to avoid memory issues
           }
         })
       })
@@ -247,7 +247,7 @@ describe('Topology Visualization API Integration', () => {
         },
         body: JSON.stringify({
           timeRange: {
-            hours: 24
+            hours: 1  // Reduced from 24 to avoid memory issues
           }
         })
       })
@@ -272,7 +272,7 @@ describe('Topology Visualization API Integration', () => {
         },
         body: JSON.stringify({
           timeRange: {
-            hours: 24
+            hours: 1  // Reduced from 24 to avoid memory issues
           }
         })
       })

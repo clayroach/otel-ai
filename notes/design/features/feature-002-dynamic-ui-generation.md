@@ -913,7 +913,7 @@ interface QueryToComponentPipeline {
 ```
 
 **Current Implementation Plan (Phase 3A):**
-- [x] Plan implementation approach with code-implementation-agent
+- [x] Plan implementation approach with code-implementation-planning-agent
 - [ ] **Modify TraceView panel** to accept dynamic queries
 - [ ] **Implement result analysis service** for column type detection and semantic understanding
 - [ ] **Create component selection logic** starting with dynamic table columns

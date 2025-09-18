@@ -60,15 +60,41 @@ const createMockLLMManagerLayer = (mockResponse?: Partial<LLMResponse>, shouldFa
       healthStatus: { 'mock-model': 'healthy' },
       config: {}
     } as ManagerStatus),
-    getAvailableModels: () => Effect.succeed(['mock-model'])
+    getAvailableModels: () => Effect.succeed(['mock-model']),
+    getDefaultModel: (_taskType?: 'sql' | 'general' | 'code') => Effect.succeed('mock-model'),
+    getModelInfo: (_modelId: string) => Effect.succeed({
+      id: 'mock-model',
+      name: 'Mock Model',
+      provider: 'openai' as const,
+      capabilities: ['general'] as ('general' | 'sql' | 'code' | 'embedding')[],
+      metadata: {
+        contextLength: 4096,
+        maxTokens: 2048,
+        temperature: 0.7
+      },
+      status: 'available' as const
+    }),
+    getModelsByCapability: (_capability: string) => Effect.succeed([]),
+    getModelsByProvider: (_provider: string) => Effect.succeed([]),
+    getAllModels: () => Effect.succeed([{
+      id: 'mock-model',
+      name: 'Mock Model',
+      provider: 'openai' as const,
+      capabilities: ['general'] as ('general' | 'sql' | 'code' | 'embedding')[],
+      metadata: {
+        contextLength: 4096,
+        maxTokens: 2048,
+        temperature: 0.7
+      },
+      status: 'available' as const
+    }])
   })
 }
 
 describe('UIGeneratorAPIClient', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    // Reset env vars
-    process.env.LLM_SQL_MODEL_1 = 'sqlcoder-7b-2'
+    // Model selection now handled by Portkey configuration
   })
 
   afterEach(() => {
@@ -84,7 +110,8 @@ describe('UIGeneratorAPIClient', () => {
           services: ['frontend', 'api', 'database'],
           startService: 'frontend',
           endService: 'database'
-        }
+        },
+        model: 'sqlcoder-7b-2'  // Specify the model to match expectations
       }
 
       // For sqlcoder models, the LLM returns raw SQL which gets wrapped by llm-query-generator
@@ -229,6 +256,7 @@ describe('UIGeneratorAPIClient', () => {
           startService: 'svc-a',
           endService: 'svc-b'
         },
+        model: 'sqlcoder-7b-2',  // Specify the model to match expectations
         patterns: ['latency', 'errors']
       }
 
@@ -243,7 +271,7 @@ describe('UIGeneratorAPIClient', () => {
         generate: (request: LLMRequest): Effect.Effect<LLMResponse, LLMError, never> => {
           const response: LLMResponse = {
             content: responses[callCount] || '',
-            model: request.preferences?.model || 'mock-model',
+            model: request.preferences?.model || 'sqlcoder-7b-2',
             usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30, cost: 0 },
             metadata: { latencyMs: 100, retryCount: 0, cached: false }
           }
@@ -264,7 +292,23 @@ describe('UIGeneratorAPIClient', () => {
           healthStatus: {},
           config: {}
         } as ManagerStatus),
-        getAvailableModels: () => Effect.succeed(['mock-model'])
+        getAvailableModels: () => Effect.succeed(['mock-model']),
+        getDefaultModel: (_taskType?: 'sql' | 'general' | 'code') => Effect.succeed('mock-model'),
+        getModelInfo: (_modelId: string) => Effect.succeed({
+          id: 'mock-model',
+          name: 'Mock Model',
+          provider: 'openai' as const,
+          capabilities: ['general'] as ('general' | 'sql' | 'code' | 'embedding')[],
+          metadata: {
+            contextLength: 4096,
+            maxTokens: 2048,
+            temperature: 0.7
+          },
+          status: 'available' as const
+        }),
+        getModelsByCapability: (_capability: string) => Effect.succeed([]),
+        getModelsByProvider: (_provider: string) => Effect.succeed([]),
+        getAllModels: () => Effect.succeed([])
       })
 
       const originalModule = await import('../../../llm-manager/index.js')

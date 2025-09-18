@@ -109,8 +109,8 @@ export LLM_MODEL=llama-3.1-8b
 export OPENAI_API_KEY=sk-...
 export OPENAI_MODEL=gpt-3.5-turbo
 
-# Claude
-export CLAUDE_API_KEY=sk-ant-...
+# Anthropic (Claude)
+export ANTHROPIC_API_KEY=sk-ant-...
 export CLAUDE_MODEL=claude-3-haiku-20240307
 ```
 
