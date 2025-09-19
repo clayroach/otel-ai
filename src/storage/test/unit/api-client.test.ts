@@ -30,6 +30,9 @@ const MockStorageServiceLive = Layer.succeed(StorageServiceTag, {
   writeBatch: (_data: OTLPData[]): Effect.Effect<void, never> =>
     Effect.void,
 
+  queryRaw: (_sql: string): Effect.Effect<unknown[], never> =>
+    Effect.succeed([]),
+
   queryTraces: (_params: QueryParams): Effect.Effect<TraceData[], never> =>
     Effect.succeed([
       {
@@ -620,6 +623,7 @@ describe('Storage Service with API Client (Effect-TS)', () => {
           timeRange: { start: 0, end: 0 },
           sampleCount: 0
         } as AIDataset),
+        queryRaw: (_sql: string) => Effect.succeed([]),
         archiveData: (_data: OTLPData, _timestamp: number) => Effect.succeed(undefined),
         applyRetentionPolicies: () => Effect.succeed(undefined),
         healthCheck: () => Effect.succeed({ clickhouse: true, s3: true }),

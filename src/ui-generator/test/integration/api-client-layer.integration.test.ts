@@ -8,9 +8,28 @@ import { describe, it, expect, beforeAll } from 'vitest'
 import { Effect, Context, Layer } from 'effect'
 import {
   UIGeneratorAPIClientLayer,
-  UIGeneratorAPIClientTag
+  UIGeneratorAPIClientTag,
+  generateQuery,
+  generateMultipleQueries,
+  validateQuery
 } from '../../api-client-layer.js'
 import type { QueryGenerationAPIRequest } from '../../api-client.js'
+import { LLMManagerLive } from '../../../llm-manager/index.js'
+import { StorageLayer } from '../../../storage/index.js'
+
+// Test helpers that properly resolve dependencies
+const testLayer = Layer.mergeAll(
+  UIGeneratorAPIClientLayer,
+  LLMManagerLive,
+  StorageLayer
+)
+
+// Helper to run effects with all required layers provided
+// This helper properly resolves all dependencies by providing the complete layer
+const runTest = <A, E>(effect: Effect.Effect<A, E, unknown>): Promise<A> => {
+  // TypeScript can't infer that all dependencies are resolved, but they are at runtime
+  return Effect.runPromise(Effect.provide(effect, testLayer) as unknown as Effect.Effect<A, E, never>)
+}
 
 describe('UI Generator API Client Layer Integration', () => {
   let isLLMAvailable = false
@@ -86,27 +105,20 @@ describe('UI Generator API Client Layer Integration', () => {
     it('should generate query through the layer', async () => {
 
       try {
-        const program = Effect.gen(function* () {
-          const service = yield* UIGeneratorAPIClientTag
+        const request: QueryGenerationAPIRequest = {
+          path: {
+            id: 'integration-test-path',
+            name: 'Integration Test Path',
+            services: ['frontend', 'api-gateway', 'user-service', 'database'],
+            startService: 'frontend',
+            endService: 'database'
+          },
+          analysisGoal: 'Analyze service latency patterns showing p50, p95, p99 percentiles'
+          // Model selection handled by Portkey configuration
+        }
 
-          const request: QueryGenerationAPIRequest = {
-            path: {
-              id: 'integration-test-path',
-              name: 'Integration Test Path',
-              services: ['frontend', 'api-gateway', 'user-service', 'database'],
-              startService: 'frontend',
-              endService: 'database'
-            },
-            analysisGoal: 'Analyze service latency patterns showing p50, p95, p99 percentiles'
-            // Model selection handled by Portkey configuration
-          }
-
-          return yield* service.generateQuery(request)
-        })
-
-        const result = await Effect.runPromise(
-          Effect.provide(program, UIGeneratorAPIClientLayer)
-        )
+        // Use the convenience function with proper layer provision
+        const result = await runTest(generateQuery(request))
 
         expect(result).toBeDefined()
         expect(result.sql).toBeTruthy()
@@ -135,26 +147,16 @@ describe('UI Generator API Client Layer Integration', () => {
       async () => {
 
         try {
-          const program = Effect.gen(function* () {
-            const service = yield* UIGeneratorAPIClientTag
-
-            const request = {
-              path: {
-                id: 'multi-query-test',
-                name: 'Multi Query Test',
-                services: ['service-a', 'service-b', 'service-c'],
-                startService: 'service-a',
-                endService: 'service-c'
-              },
-              patterns: ['latency', 'errors']
-            }
-
-            return yield* service.generateMultipleQueries(request)
-          })
-
-          const results = await Effect.runPromise(
-            Effect.provide(program, UIGeneratorAPIClientLayer)
-          )
+          const results = await runTest(generateMultipleQueries({
+            path: {
+              id: 'multi-query-test',
+              name: 'Multi Query Test',
+              services: ['service-a', 'service-b', 'service-c'],
+              startService: 'service-a',
+              endService: 'service-c'
+            },
+            patterns: ['latency', 'errors']
+          }))
 
           expect(results).toBeDefined()
           expect(Array.isArray(results)).toBe(true)
@@ -179,21 +181,8 @@ describe('UI Generator API Client Layer Integration', () => {
     )
 
     it('should validate queries correctly', async () => {
-      const program = Effect.gen(function* () {
-        const service = yield* UIGeneratorAPIClientTag
-
-        const validSQL = 'SELECT service_name, COUNT(*) FROM traces GROUP BY service_name'
-        const invalidSQL = 'INVALID SQL STATEMENT'
-
-        const validResult = yield* service.validateQuery(validSQL)
-        const invalidResult = yield* service.validateQuery(invalidSQL)
-
-        return { validResult, invalidResult }
-      })
-
-      const { validResult, invalidResult } = await Effect.runPromise(
-        Effect.provide(program, UIGeneratorAPIClientLayer)
-      )
+      const validResult = await runTest(validateQuery('SELECT service_name, COUNT(*) FROM traces GROUP BY service_name'))
+      const invalidResult = await runTest(validateQuery('INVALID SQL STATEMENT'))
 
       expect(validResult.valid).toBe(true)
       expect(validResult.errors).toHaveLength(0)
@@ -205,11 +194,9 @@ describe('UI Generator API Client Layer Integration', () => {
 
   describe('Error Handling', () => {
     it('should handle network errors gracefully', async () => {
-      const program = Effect.gen(function* () {
-        const service = yield* UIGeneratorAPIClientTag
-
-        // Use an invalid model to trigger an error
-        const request: QueryGenerationAPIRequest = {
+      // This should either succeed with a fallback or fail with a proper error
+      try {
+        const result = await runTest(generateQuery({
           path: {
             id: 'error-test',
             name: 'Error Test',
@@ -218,16 +205,7 @@ describe('UI Generator API Client Layer Integration', () => {
             endService: 'service-x'
           },
           model: 'non-existent-model-xyz-123'
-        }
-
-        return yield* service.generateQuery(request)
-      })
-
-      // This should either succeed with a fallback or fail with a proper error
-      try {
-        const result = await Effect.runPromise(
-          Effect.provide(program, UIGeneratorAPIClientLayer)
-        )
+        }))
 
         // If it succeeds, it should be a fallback
         if (result.model === 'fallback') {
@@ -263,16 +241,18 @@ describe('UI Generator API Client Layer Integration', () => {
         })
       )
 
-      // Compose layers
-      const AppLayer = Layer.provide(TestServiceLayer, UIGeneratorAPIClientLayer)
-
-      const program = Effect.gen(function* () {
-        const testService = yield* TestService
-        return yield* testService.testMethod()
-      })
+      // Compose layers - include all required dependencies
+      const AppLayer = Layer.mergeAll(
+        UIGeneratorAPIClientLayer,
+        LLMManagerLive,
+        StorageLayer
+      ).pipe(Layer.provide(TestServiceLayer))
 
       const result = await Effect.runPromise(
-        Effect.provide(program, AppLayer)
+        Effect.gen(function* () {
+          const testService = yield* TestService
+          return yield* testService.testMethod()
+        }).pipe(Effect.provide(AppLayer)) as Effect.Effect<{ valid: boolean; errors: string[] }, never, never>
       )
 
       expect(result).toBeDefined()
@@ -298,13 +278,8 @@ describe('UI Generator API Client Layer Integration', () => {
       // Test validateQuery convenience function
       const validateProgram = validateQuery('SELECT 1')
 
-      // Both should work with the layer
-      const layer = UIGeneratorAPIClientLayer
-
       try {
-        const queryResult = await Effect.runPromise(
-          Effect.provide(queryProgram, layer)
-        )
+        const queryResult = await runTest(queryProgram)
         expect(queryResult).toBeDefined()
         expect(queryResult.sql).toBeTruthy()
       } catch (error) {
@@ -312,9 +287,7 @@ describe('UI Generator API Client Layer Integration', () => {
         expect(error).toBeDefined()
       }
 
-      const validateResult = await Effect.runPromise(
-        Effect.provide(validateProgram, layer)
-      )
+      const validateResult = await runTest(validateProgram)
       expect(validateResult).toBeDefined()
       // 'SELECT 1' is missing FROM clause, so it should be invalid
       expect(validateResult.valid).toBe(false)

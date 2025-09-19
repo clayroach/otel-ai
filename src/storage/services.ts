@@ -29,6 +29,7 @@ export interface StorageService {
   readonly queryMetrics: (params: QueryParams) => Effect.Effect<MetricData[], StorageError>
   readonly queryLogs: (params: QueryParams) => Effect.Effect<LogData[], StorageError>
   readonly queryForAI: (params: AIQueryParams) => Effect.Effect<AIDataset, StorageError>
+  readonly queryRaw: (sql: string) => Effect.Effect<unknown[], StorageError>
 
   // Archive and retention
   readonly archiveData: (data: OTLPData, timestamp: number) => Effect.Effect<void, StorageError>
@@ -71,10 +72,8 @@ export const makeStorageService = (
   config: StorageConfig
 ): StorageService => ({
   writeOTLP: (data: OTLPData) =>
-    Effect.gen(function* (_) {
-      // Write to ClickHouse (primary storage)
-      yield* _(clickhouse.writeOTLP(data))
-    }),
+    // Write to ClickHouse (primary storage)
+    clickhouse.writeOTLP(data),
 
   writeBatch: (data: OTLPData[]) =>
     // Process batches with controlled concurrency
@@ -86,6 +85,7 @@ export const makeStorageService = (
   queryMetrics: (params: QueryParams) => clickhouse.queryMetrics(params),
   queryLogs: (params: QueryParams) => clickhouse.queryLogs(params),
   queryForAI: (params: AIQueryParams) => clickhouse.queryForAI(params),
+  queryRaw: (sql: string) => clickhouse.queryRaw(sql),
 
   archiveData: (_data: OTLPData, _timestamp: number) =>
     // S3 archiving not implemented yet - just return success

@@ -11,6 +11,8 @@ import {
   type QueryGenerationAPIRequest,
   type QueryGenerationAPIResponse
 } from './api-client.js'
+import { LLMManagerServiceTag } from '../llm-manager/llm-manager-service.js'
+import { StorageServiceTag } from '../storage/services.js'
 
 /**
  * UI Generator API Client Service Interface
@@ -19,10 +21,14 @@ import {
 export interface UIGeneratorAPIClientService {
   readonly generateQuery: (
     request: QueryGenerationAPIRequest
-  ) => Effect.Effect<QueryGenerationAPIResponse, Error, never>
+  ) => Effect.Effect<QueryGenerationAPIResponse, unknown, LLMManagerServiceTag | StorageServiceTag>
   readonly generateMultipleQueries: (
     request: QueryGenerationAPIRequest & { patterns?: string[] }
-  ) => Effect.Effect<QueryGenerationAPIResponse[], Error, never>
+  ) => Effect.Effect<
+    QueryGenerationAPIResponse[],
+    unknown,
+    LLMManagerServiceTag | StorageServiceTag
+  >
   readonly validateQuery: (
     sql: string
   ) => Effect.Effect<{ valid: boolean; errors: string[] }, never, never>
@@ -48,14 +54,12 @@ export const makeUIGeneratorAPIClientService: Effect.Effect<
 
   return {
     generateQuery: (request: QueryGenerationAPIRequest) =>
-      Effect.promise(() => UIGeneratorAPIClient.generateQuery(request)).pipe(
-        Effect.mapError((error) => new Error(`Failed to generate query: ${error}`))
-      ),
+      // Return the raw Effect - layers will be provided at server level
+      UIGeneratorAPIClient.generateQuery(request),
 
     generateMultipleQueries: (request: QueryGenerationAPIRequest & { patterns?: string[] }) =>
-      Effect.promise(() => UIGeneratorAPIClient.generateMultipleQueries(request)).pipe(
-        Effect.mapError((error) => new Error(`Failed to generate multiple queries: ${error}`))
-      ),
+      // Return the raw Effect - layers will be provided at server level
+      UIGeneratorAPIClient.generateMultipleQueries(request),
 
     validateQuery: (sql: string) => Effect.succeed(UIGeneratorAPIClient.validateQuery(sql))
   }

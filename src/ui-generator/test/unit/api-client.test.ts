@@ -11,6 +11,32 @@ import type { QueryGenerationAPIRequest } from '../../api-client.js'
 import { LLMManagerServiceTag } from '../../../llm-manager/index.js'
 import type { ManagerStatus } from '../../../llm-manager/index.js'
 import type { LLMRequest, LLMResponse, LLMError } from '../../../llm-manager/types.js'
+import { ConfigServiceLive, StorageServiceTag } from '../../../storage/index.js'
+
+// Create a mock Storage Layer for testing
+const createMockStorageLayer = () => {
+  return Layer.succeed(StorageServiceTag, {
+    writeOTLP: () => Effect.succeed(undefined),
+    writeBatch: () => Effect.succeed(undefined),
+    queryTraces: () => Effect.succeed([]),
+    queryMetrics: () => Effect.succeed([]),
+    queryLogs: () => Effect.succeed([]),
+    queryForAI: () => Effect.succeed({
+      features: [],
+      metadata: {},
+      timeRange: { start: 0, end: 0 },
+      sampleCount: 0
+    }),
+    queryRaw: () => Effect.succeed([]),
+    archiveData: () => Effect.succeed(undefined),
+    applyRetentionPolicies: () => Effect.succeed(undefined),
+    healthCheck: () => Effect.succeed({ clickhouse: true, s3: true }),
+    getStorageStats: () => Effect.succeed({
+      clickhouse: { totalTraces: 0, totalMetrics: 0, totalLogs: 0, diskUsage: "0B" },
+      s3: { totalSize: "0B", totalObjects: 0, oldestObject: null, newestObject: null }
+    })
+  })
+}
 
 // Create a mock LLM Manager Layer for testing
 const createMockLLMManagerLayer = (mockResponse?: Partial<LLMResponse>, shouldFail?: boolean, error?: LLMError) => {
@@ -121,12 +147,18 @@ describe('UIGeneratorAPIClient', () => {
         model: 'sqlcoder-7b-2'
       })
 
-      // Temporarily replace the LLMManagerLive import
-      const originalModule = await import('../../../llm-manager/index.js')
-      type LLMManagerLiveType = typeof originalModule.LLMManagerLive
-      vi.spyOn(originalModule, 'LLMManagerLive', 'get').mockReturnValue(mockLayer as LLMManagerLiveType)
+      // Create the layer with all required dependencies
+      const testLayer = Layer.mergeAll(
+        mockLayer,
+        createMockStorageLayer(),
+        ConfigServiceLive
+      )
 
-      const result = await UIGeneratorAPIClient.generateQuery(mockRequest)
+      const result = await Effect.runPromise(
+        UIGeneratorAPIClient.generateQuery(mockRequest).pipe(
+          Effect.provide(testLayer)
+        )
+      )
 
       expect(result).toBeDefined()
       // The SQL should be sanitized (semicolon removed, otel. prefix added) and include metadata
@@ -167,11 +199,18 @@ describe('UIGeneratorAPIClient', () => {
         model: 'gpt-3.5-turbo'
       })
 
-      const originalModule = await import('../../../llm-manager/index.js')
-      type LLMManagerLiveType = typeof originalModule.LLMManagerLive
-      vi.spyOn(originalModule, 'LLMManagerLive', 'get').mockReturnValue(mockLayer as LLMManagerLiveType)
+      // Create the layer with all required dependencies
+      const testLayer = Layer.mergeAll(
+        mockLayer,
+        createMockStorageLayer(),
+        ConfigServiceLive
+      )
 
-      const result = await UIGeneratorAPIClient.generateQuery(mockRequest)
+      const result = await Effect.runPromise(
+        UIGeneratorAPIClient.generateQuery(mockRequest).pipe(
+          Effect.provide(testLayer)
+        )
+      )
 
       expect(result).toBeDefined()
       // The SQL should be sanitized (semicolon removed, otel. prefix added) and include metadata
@@ -208,12 +247,20 @@ describe('UIGeneratorAPIClient', () => {
       }
 
       const mockLayer = createMockLLMManagerLayer(undefined, true, modelUnavailableError)
-      const originalModule = await import('../../../llm-manager/index.js')
-      type LLMManagerLiveType = typeof originalModule.LLMManagerLive
-      vi.spyOn(originalModule, 'LLMManagerLive', 'get').mockReturnValue(mockLayer as LLMManagerLiveType)
+
+      // Create the layer with all required dependencies
+      const testLayer = Layer.mergeAll(
+        mockLayer,
+        createMockStorageLayer(),
+        ConfigServiceLive
+      )
 
       // The error gets wrapped by llm-query-generator, so we check the message contains the error
-      await expect(UIGeneratorAPIClient.generateQuery(mockRequest)).rejects.toThrow(
+      await expect(Effect.runPromise(
+        UIGeneratorAPIClient.generateQuery(mockRequest).pipe(
+          Effect.provide(testLayer)
+        )
+      )).rejects.toThrow(
         'LLM query generation failed'
       )
     })
@@ -230,11 +277,19 @@ describe('UIGeneratorAPIClient', () => {
       }
 
       const mockLayer = createMockLLMManagerLayer(undefined, true)
-      const originalModule = await import('../../../llm-manager/index.js')
-      type LLMManagerLiveType = typeof originalModule.LLMManagerLive
-      vi.spyOn(originalModule, 'LLMManagerLive', 'get').mockReturnValue(mockLayer as LLMManagerLiveType)
 
-      const result = await UIGeneratorAPIClient.generateQuery(mockRequest)
+      // Create the layer with all required dependencies
+      const testLayer = Layer.mergeAll(
+        mockLayer,
+        createMockStorageLayer(),
+        ConfigServiceLive
+      )
+
+      const result = await Effect.runPromise(
+        UIGeneratorAPIClient.generateQuery(mockRequest).pipe(
+          Effect.provide(testLayer)
+        )
+      )
 
       expect(result.sql).toContain('SELECT')
       expect(result.sql).toContain('svc-1')
@@ -311,11 +366,18 @@ describe('UIGeneratorAPIClient', () => {
         getAllModels: () => Effect.succeed([])
       })
 
-      const originalModule = await import('../../../llm-manager/index.js')
-      type LLMManagerLiveType = typeof originalModule.LLMManagerLive
-      vi.spyOn(originalModule, 'LLMManagerLive', 'get').mockReturnValue(mockLayer as LLMManagerLiveType)
+      // Create the layer with all required dependencies
+      const testLayer = Layer.mergeAll(
+        mockLayer,
+        createMockStorageLayer(),
+        ConfigServiceLive
+      )
 
-      const results = await UIGeneratorAPIClient.generateMultipleQueries(mockRequest)
+      const results = await Effect.runPromise(
+        UIGeneratorAPIClient.generateMultipleQueries(mockRequest).pipe(
+          Effect.provide(testLayer)
+        )
+      )
 
       expect(results).toHaveLength(2)
       // Check that SQL content is present (with metadata comments)

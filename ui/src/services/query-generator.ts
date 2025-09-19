@@ -84,6 +84,7 @@ export interface QueryGenerationRequest {
   analysisGoal?: string
   preferredModel?: string
   timeWindowMinutes?: number
+  isClickHouseAI?: boolean
 }
 
 /**
@@ -108,6 +109,9 @@ export class QueryGeneratorService {
 
     // Set timeout based on the model being used
     const timeout = getTimeoutForModel(request.preferredModel)
+    console.log(`[QueryGenerator] Starting query generation with model: ${request.preferredModel}`)
+    console.log(`[QueryGenerator] Timeout set to: ${timeout}ms`)
+    console.log(`[QueryGenerator] ClickHouse AI mode: ${request.isClickHouseAI}`)
 
     try {
       const response = await apiClient.post(
@@ -123,7 +127,8 @@ export class QueryGeneratorService {
           analysisGoal:
             request.analysisGoal || QueryGeneratorService.determineAnalysisGoal(request.path),
           model: request.preferredModel,
-          timeWindowMinutes: request.timeWindowMinutes
+          timeWindowMinutes: request.timeWindowMinutes,
+          isClickHouseAI: request.isClickHouseAI
         },
         {
           timeout // Use model-specific timeout
@@ -139,7 +144,12 @@ export class QueryGeneratorService {
         analysisType: response.data.analysisType
       }
     } catch (error) {
-      console.error('Query generation failed:', error)
+      console.error('[QueryGenerator] Query generation failed:', error)
+      console.error('[QueryGenerator] Error details:', {
+        message: (error as Error)?.message,
+        code: (error as AxiosError)?.code,
+        response: (error as AxiosError)?.response?.data
+      })
 
       // Log specific timeout information
       const axiosError = error as AxiosError

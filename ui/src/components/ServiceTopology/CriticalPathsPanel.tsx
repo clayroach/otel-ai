@@ -117,7 +117,8 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
       // Generate the query using the service with the selected model
       const result = await queryGenerator.generateQuery({
         path,
-        preferredModel: modelToUse || undefined
+        preferredModel: modelToUse || undefined,
+        isClickHouseAI: useClickHouseAI
       })
 
       // Navigate to Traces view with the generated query

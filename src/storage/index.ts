@@ -55,5 +55,7 @@ export {
   makeStorageService,
   StorageServiceTag,
   ConfigServiceTag,
-  ConfigServiceLive
+  ConfigServiceLive,
+  StorageLayer,
+  StorageOperations
 } from './services.js'

@@ -433,20 +433,30 @@ Each feature flag should be tested individually with this process:
    - Verify expected anomalies are detected
    - Document false positives/negatives
 
-4. **Critical Path Analysis**
+4. **Root Cause Investigation**
+   - Allow LLM to investigate autonomously
+   - Track number of investigation queries
+   - Note data sources accessed (traces/logs/metrics)
+   - Count human guidance prompts needed
+   - Validate hypothesis generation and elimination
+
+5. **Critical Path Analysis**
    - Generate critical paths for affected services
    - Validate paths include expected service dependencies
    - Verify path metrics align with injected issues
+   - Check for cascade effect identification
 
-5. **Diagnostic Query Validation**
+6. **Diagnostic Query Validation**
    - Generate diagnostic query for detected issues
    - Execute query and validate results match expected data
    - Verify query efficiency and accuracy
+   - Confirm root cause vs. symptom distinction
 
-6. **Cleanup and Documentation**
+7. **Cleanup and Documentation**
    - Disable feature flag
    - Verify system returns to baseline
    - Document results in session history
+   - Calculate validation metrics
 
 ### Test Scenarios by Flag Category
 
@@ -458,13 +468,23 @@ const SERVICE_FAILURE_TESTS = [
     flag: 'paymentServiceFailure',
     expectedAnomalies: ['payment_error_spike', 'transaction_failure_rate'],
     expectedPaths: ['frontend -> payment-service'],
-    expectedQuery: 'error rate analysis on paymentservice'
+    expectedQuery: 'error rate analysis on paymentservice',
+    rootCauseValidation: {
+      expectedRootCause: 'Payment service charge method failure',
+      humanGuidanceTarget: 2,
+      correlationSources: ['traces', 'logs', 'error_metrics']
+    }
   },
   {
-    flag: 'cartServiceFailure', 
+    flag: 'cartServiceFailure',
     expectedAnomalies: ['cart_operation_failures', 'empty_cart_errors'],
     expectedPaths: ['frontend -> cart-service'],
-    expectedQuery: 'cart service error pattern analysis'
+    expectedQuery: 'cart service error pattern analysis',
+    rootCauseValidation: {
+      expectedRootCause: 'EmptyCart operation failure in cart service',
+      humanGuidanceTarget: 2,
+      correlationSources: ['traces', 'logs']
+    }
   }
 ]
 ```
@@ -477,13 +497,57 @@ const PERFORMANCE_TESTS = [
     flag: 'adServiceHighCpu',
     expectedAnomalies: ['cpu_utilization_spike', 'response_time_increase'],
     expectedPaths: ['ad-service latency bottleneck'],
-    expectedQuery: 'CPU impact on response times'
+    expectedQuery: 'CPU impact on response times',
+    rootCauseValidation: {
+      expectedRootCause: 'Ad service CPU exhaustion causing timeouts',
+      humanGuidanceTarget: 3,
+      correlationSources: ['traces', 'metrics', 'cpu_utilization']
+    }
   },
   {
     flag: 'imageSlowLoad',
     expectedAnomalies: ['image_load_latency', 'frontend_performance_degradation'],
     expectedPaths: ['frontend -> envoy -> image-service'],
-    expectedQuery: 'image loading performance analysis'
+    expectedQuery: 'image loading performance analysis',
+    rootCauseValidation: {
+      expectedRootCause: 'Envoy fault injection causing image delays',
+      humanGuidanceTarget: 3,
+      correlationSources: ['traces', 'envoy_logs', 'latency_metrics']
+    }
+  }
+]
+```
+
+#### Multi-Factor and Complex Scenarios
+
+```typescript
+const COMPLEX_SCENARIOS = [
+  {
+    name: 'Cascade Failure',
+    flags: ['paymentServiceUnreachable', 'cartServiceFailure'],
+    description: 'Payment service down causes cart service to fail on checkout',
+    expectedRootCause: 'Payment service unavailability cascading to cart operations',
+    humanGuidanceTarget: 4,
+    investigationPath: ['identify cart errors', 'trace to payment calls', 'discover unreachable service'],
+    correlationSources: ['traces', 'service_dependencies', 'error_logs']
+  },
+  {
+    name: 'Hidden Root Cause',
+    flags: ['kafkaQueueProblems'],
+    description: 'Queue backup appears as general service slowness',
+    expectedRootCause: 'Kafka consumer lag causing async processing delays',
+    humanGuidanceTarget: 5,
+    investigationPath: ['observe service latency', 'check async operations', 'identify queue metrics'],
+    correlationSources: ['traces', 'kafka_metrics', 'consumer_lag']
+  },
+  {
+    name: 'Red Herring Scenario',
+    flags: ['adServiceManualGc', 'imageSlowLoad'],
+    description: 'GC pauses look like root cause but image delays are the real issue',
+    expectedRootCause: 'Image loading delays, not GC pauses',
+    humanGuidanceTarget: 3,
+    investigationPath: ['notice GC metrics', 'validate impact', 'discover actual image delays'],
+    correlationSources: ['traces', 'gc_metrics', 'network_latency']
   }
 ]
 ```
@@ -564,6 +628,8 @@ export const DIAGNOSTICS_UI_CONFIG = {
 2. **Query Relevance**: Generated diagnostic queries return actionable insights
 3. **Path Accuracy**: Critical paths include actual affected service chains
 4. **Response Time**: Full analysis cycle completes within 5 minutes
+5. **Root Cause Identification Rate**: Correctly identify root cause in 75%+ of test scenarios
+6. **Autonomous Investigation Success**: >60% of scenarios resolved with <3 human prompts
 
 ### Quality Metrics
 
@@ -571,6 +637,38 @@ export const DIAGNOSTICS_UI_CONFIG = {
 - False negative rate < 5%
 - Query execution time < 30 seconds
 - UI responsiveness during analysis
+- **Human Guidance Requirements**: Track prompts needed per diagnostic session
+- **Investigation Path Efficiency**: <5 irrelevant queries per successful root cause
+- **Cross-Data Source Correlation**: 80%+ of investigations use traces + logs + metrics
+- **Hypothesis Accuracy**: Track initial vs. final hypothesis accuracy rates
+
+### Validation Criteria
+
+#### Root Cause Analysis Validation
+
+```typescript
+interface RootCauseValidation {
+  scenarioId: string
+  expectedRootCause: string
+  identifiedRootCause: string
+  humanPromptsRequired: number
+  investigationQueries: Query[]
+  dataSoucesUsed: Set<'traces' | 'logs' | 'metrics' | 'dependencies'>
+  timeToIdentification: number // seconds
+  hypothesesGenerated: string[]
+  falseHypothesesEliminated: string[]
+  validationResult: 'correct' | 'partial' | 'incorrect'
+}
+
+// Success thresholds
+const SUCCESS_THRESHOLDS = {
+  rootCauseAccuracy: 0.75,        // 75% correct identification
+  maxHumanPrompts: 3,              // Maximum 3 prompts needed
+  multiSourceUsage: 0.80,          // 80% use multiple data sources
+  timeToRootCause: 600,            // 10 minutes maximum
+  irrelevantQueryRatio: 0.2        // <20% of queries are irrelevant
+}
+```
 
 ## Implementation Timeline
 

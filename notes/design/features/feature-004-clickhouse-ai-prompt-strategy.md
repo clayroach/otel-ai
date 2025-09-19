@@ -142,6 +142,43 @@ Generate diagnostic SQL query:
 - ClickHouse AI compliance validated
 - Maintains diagnostic enhancement capabilities
 
+### FR-004-005: Root Cause Analysis Patterns
+**Priority**: High
+
+Implement progressive investigation patterns based on ClickHouse's LLM observability challenge findings:
+
+**Investigation Flow Pattern**:
+```typescript
+const rootCausePattern = `
+Phase 1: Broad Analysis
+- Identify all anomalies in the time window
+- List affected services and operations
+- Note error patterns and failure types
+
+Phase 2: Multi-Source Correlation
+- Correlate traces with error logs
+- Match metrics spikes with trace anomalies
+- Identify cascade effects between services
+
+Phase 3: Hypothesis Validation
+- Generate 3 potential root causes
+- Validate each with specific queries
+- Eliminate false hypotheses with data
+
+Phase 4: Root Cause Confirmation
+- Focus on validated hypothesis
+- Trace back to originating service
+- Identify trigger conditions
+`
+```
+
+**Acceptance Criteria**:
+- Progressive investigation from broad to specific
+- Multi-data-source exploration (traces + logs + metrics)
+- Hypothesis validation to prevent tunnel vision
+- Trace ID and timestamp correlation guidance
+- Clear distinction between symptoms and root causes
+
 ## Technical Implementation
 
 ### Architecture Changes
@@ -249,12 +286,18 @@ src/ui-generator/test/integration/sql-vs-general-optimization.test.ts
 - **Response Quality**: Maintain or improve query validation scores
 - **Generation Speed**: 20%+ improvement in SQL model response times
 - **Pattern Compliance**: 100% ClickHouse AI pattern adherence
+- **Root Cause Analysis Effectiveness**: LLM correctly identifies root causes in 75%+ of cases
+- **Investigation Autonomy**: Reduce human guidance prompts from 5+ to <3 per investigation
+- **Multi-Source Correlation**: Successfully correlate traces, logs, and metrics in 80%+ of queries
+- **Time to Root Cause**: Achieve <10 minutes from anomaly detection to root cause identification
 
 ### Qualitative Metrics
 - **SQL Model Usability**: Clearer, more direct prompts for SQL-specific models
 - **General Model Richness**: Enhanced context for complex diagnostic scenarios
 - **Maintainability**: Reduced code duplication and clearer separation of concerns
 - **Diagnostic Capability**: Preserved trace-level analysis and health scoring
+- **False Hypothesis Avoidance**: Reduce "stuck on wrong hypothesis" incidents by 50%
+- **Investigation Path Quality**: Clear progression from symptoms to root causes
 
 ## Implementation Timeline
 
@@ -306,6 +349,8 @@ src/ui-generator/test/integration/sql-vs-general-optimization.test.ts
 ## References
 
 - [ClickHouse AI Documentation](https://clickhouse.com/docs/use-cases/AI/ai-powered-sql-generation)
+- [ClickHouse LLM Observability Challenge](https://clickhouse.com/blog/llm-observability-challenge)
 - [Feature 002: Dynamic UI Generation](./feature-002-dynamic-ui-generation.md)
+- [Feature 005: Diagnostics UI Fine-Tuning](./feature-005-diagnostics-ui-fine-tuning.md)
 - [ADR-014: LLM Management Library Evaluation](../adr/adr-014-llm-library-evaluation.md)
 - Analysis Document: [Feature 004 Analysis](./feature-004-analysis.md)
