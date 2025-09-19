@@ -102,16 +102,27 @@ const StorageAPIClientLayerWithConfig = StorageAPIClientLayer.pipe(
   Layer.provide(Layer.succeed(ClickHouseConfigTag, clickhouseConfig))
 )
 
-// Create the composed application layer with all services
-// We need to explicitly provide ConfigServiceLive first, then build up the dependencies
-const ApplicationLayer = Layer.mergeAll(
-  ConfigServiceLive, // Config service (required by StorageService)
-  StorageServiceLayer, // Storage Service (includes ConfigService dependency)
+// Create config layer first - shared by all services
+const ConfigLayer = ConfigServiceLive
+
+// Create storage layers with config
+const StorageWithConfig = StorageServiceLayer.pipe(Layer.provide(ConfigLayer))
+
+// Create the base dependencies
+const BaseDependencies = Layer.mergeAll(
+  ConfigLayer, // Shared config service
+  StorageWithConfig, // Storage Service with Config
   StorageAPIClientLayerWithConfig, // Storage API client with ClickHouse config
   LLMManagerLive, // LLM Manager service
   LLMManagerAPIClientLayer, // LLM Manager API client
-  UIGeneratorAPIClientLayer, // UI Generator API client
   AIAnalyzerMockLayer() // AI Analyzer (mock)
+)
+
+// Create the composed application layer with all services
+// UIGenerator needs access to all base dependencies
+const ApplicationLayer = Layer.mergeAll(
+  BaseDependencies,
+  UIGeneratorAPIClientLayer.pipe(Layer.provide(BaseDependencies))
 )
 
 // Helper function to run effects with all application services
@@ -126,6 +137,7 @@ type AppServices =
   | StorageServiceTag
 
 const runWithServices = <A, E>(effect: Effect.Effect<A, E, AppServices>): Promise<A> => {
+  // TEMPORARY: Add type assertion back to enable compilation while debugging
   return Effect.runPromise(Effect.provide(effect, ApplicationLayer) as Effect.Effect<A, E, never>)
 }
 

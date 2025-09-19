@@ -17,6 +17,8 @@ import {
 } from '../../api-client-layer.js'
 import { UIGeneratorAPIClient } from '../../api-client.js'
 import type { QueryGenerationAPIRequest, QueryGenerationAPIResponse } from '../../api-client.js'
+import { UIGeneratorService, UIGeneratorServiceTag } from '../../service.js'
+import { ConfigServiceTag } from '../../../storage/services.js'
 import { LLMManagerServiceTag, type LLMManagerService } from '../../../llm-manager/llm-manager-service.js'
 import { StorageServiceTag, type StorageService } from '../../../storage/services.js'
 
@@ -44,7 +46,24 @@ describe('UI Generator API Client Layer', () => {
 
   describe('makeUIGeneratorAPIClientService', () => {
     it('should create a service with all required methods', async () => {
-      const service = await Effect.runPromise(makeUIGeneratorAPIClientService)
+      // Create a mock UIGeneratorService
+      const mockUIGeneratorService: UIGeneratorService = {
+        generateQuery: () => Effect.succeed({
+          sql: 'SELECT * FROM traces',
+          model: 'mock',
+          description: 'Mock query',
+          expectedColumns: [],
+          generationTimeMs: 100
+        }),
+        generateMultipleQueries: () => Effect.succeed([]),
+        validateQuery: () => Effect.succeed({ valid: true, errors: [] })
+      }
+
+      const mockLayer = Layer.succeed(UIGeneratorServiceTag, mockUIGeneratorService)
+
+      const service = await Effect.runPromise(
+        Effect.provide(makeUIGeneratorAPIClientService, mockLayer)
+      )
 
       expect(service).toBeDefined()
       expect(service.generateQuery).toBeInstanceOf(Function)
@@ -118,8 +137,42 @@ describe('UI Generator API Client Layer', () => {
         })
       })
 
+      // Also need ConfigService for complete dependency chain
+      const mockConfigLayer = Layer.succeed(ConfigServiceTag, {
+        clickhouse: {
+          host: 'localhost',
+          port: 8123,
+          database: 'otel',
+          username: 'otel',
+          password: 'otel123'
+        },
+        s3: {
+          accessKeyId: 'minioadmin',
+          secretAccessKey: 'minioadmin',
+          endpoint: 'http://minio:9000',
+          region: 'us-east-1',
+          bucket: 'otel-archive'
+        },
+        retention: {
+          traces: { clickhouse: '30d', s3: '1y' },
+          metrics: { clickhouse: '90d', s3: '2y' },
+          logs: { clickhouse: '7d', s3: '30d' }
+        },
+        performance: {
+          batchSize: 1000,
+          flushInterval: 5000,
+          maxConcurrentWrites: 5
+        }
+      })
+
+      // Provide dependencies to the layer, then use it in the program
+      const completeLayer = Layer.provide(
+        UIGeneratorAPIClientLayer,
+        Layer.mergeAll(mockLLMLayer, mockStorageLayer, mockConfigLayer)
+      )
+
       const service = await Effect.runPromise(
-        Effect.provide(program, Layer.mergeAll(UIGeneratorAPIClientLayer, mockLLMLayer, mockStorageLayer))
+        Effect.provide(program, completeLayer)
       )
 
       expect(service).toBeDefined()
@@ -193,7 +246,24 @@ describe('UI Generator API Client Layer', () => {
         })
       }
 
-      service = await Effect.runPromise(makeUIGeneratorAPIClientService)
+      // Create mock UIGeneratorService for testing
+      const mockUIGeneratorService: UIGeneratorService = {
+        generateQuery: () => Effect.succeed({
+          sql: 'SELECT * FROM traces',
+          model: 'mock',
+          description: 'Mock query',
+          expectedColumns: [],
+          generationTimeMs: 100
+        }),
+        generateMultipleQueries: () => Effect.succeed([]),
+        validateQuery: () => Effect.succeed({ valid: true, errors: [] })
+      }
+
+      const mockLayer = Layer.succeed(UIGeneratorServiceTag, mockUIGeneratorService)
+
+      service = await Effect.runPromise(
+        Effect.provide(makeUIGeneratorAPIClientService, mockLayer)
+      )
     })
 
     describe('generateQuery', () => {

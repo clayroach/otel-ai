@@ -14,6 +14,8 @@ import {
   validateQuery
 } from '../../api-client-layer.js'
 import type { QueryGenerationAPIRequest } from '../../api-client.js'
+import type { ValidationResult } from '../../service.js'
+import type { UIGeneratorError } from '../../errors.js'
 import { LLMManagerLive } from '../../../llm-manager/index.js'
 import { StorageLayer } from '../../../storage/index.js'
 
@@ -227,7 +229,7 @@ describe('UI Generator API Client Layer Integration', () => {
       // Create a test tag properly
       class TestService extends Context.Tag('TestService')<
         TestService,
-        { testMethod: () => Effect.Effect<{ valid: boolean; errors: string[] }, never, never> }
+        { testMethod: () => Effect.Effect<ValidationResult, UIGeneratorError, never> }
       >() {}
 
       const TestServiceLayer = Layer.effect(

@@ -163,8 +163,8 @@ export const ConfigServiceLive = Layer.succeed(ConfigServiceTag, {
   ...loadConfigFromEnv()
 })
 
-// Combined layer for easy setup
-export const StorageLayer = ConfigServiceLive.pipe(Layer.provide(StorageServiceLive))
+// Storage layer that requires ConfigServiceTag to be provided externally
+export const StorageLayer = StorageServiceLive
 
 // Convenience functions for common operations
 export namespace StorageOperations {
