@@ -40,6 +40,48 @@ Systematically analyze and optimize Effect-TS patterns across the codebase, appl
 - Prefer explicit null checks over TypeScript suppressions
 - Document safety assumptions in comments and use Typescript supression comments judiciously
 
+### 4.5. Type Assertions Bypassing Effect Dependencies
+**CRITICAL: Type assertions that hide Effect-TS dependency requirements:**
+- **Problem**: Type assertions like `as Effect<A, E, never>` and `as unknown as Effect<...>` bypass compile-time dependency checking
+- **Impact**: Runtime "Service not found" errors that should be caught at compile time
+- **Detection Commands**:
+  ```bash
+  # Find Effect type assertions that hide dependencies
+  rg "as\s+(unknown\s+as\s+)?Effect<[^>]+,\s*[^>]+,\s*never>" --type ts
+
+  # Find double assertions (most dangerous)
+  rg "as\s+unknown\s+as\s+Effect" --type ts
+
+  # Find Effect.provide with type assertions
+  rg "Effect\.provide.*as\s+(unknown\s+as\s+)?Effect" --type ts -A 2
+
+  # Find service layer declarations with incorrect typing
+  rg "Effect<.*,\s*never,\s*never>.*=.*Effect\.(sync|gen)" --type ts
+  ```
+- **Remediation Strategy**:
+  1. Remove ALL type assertions on Effect types
+  2. Properly declare dependencies in layer signatures
+  3. Let TypeScript enforce dependency requirements
+  4. Use Layer.effect for service construction with explicit deps
+- **Example Fix**:
+  ```typescript
+  // BAD: Hides dependencies
+  const ServiceLayer = Layer.effect(
+    ServiceTag,
+    Effect.sync(() => implementation) as Effect<Service, never, never>
+  )
+
+  // GOOD: Declares dependencies
+  const ServiceLayer = Layer.effect(
+    ServiceTag,
+    Effect.gen(function* (_) {
+      const dep1 = yield* _(Dependency1Tag)
+      const dep2 = yield* _(Dependency2Tag)
+      return implementation(dep1, dep2)
+    })
+  )
+  ```
+
 ### 5. "as any" Elimination Strategy
 **Context-aware approach with pragmatic phases:**
 
@@ -233,9 +275,14 @@ Effect.gen(function* (_) {
 - **Unused parameters in mocks without `_` prefix** (causes noUnusedParameters warnings)
 - **Effect.Adaptor usage** (anti-pattern that circumvents type safety)
 - **Tests without proper layer composition** (direct mocking instead of mock layers)
+- **Type assertions bypassing Effect dependencies** (`as Effect<A, E, never>`, `as unknown as Effect<...>`)
+- **Service layers declaring no dependencies but returning methods with dependencies**
 
 ### Refactoring Priorities
-1. **Critical**: Effect.Adaptor elimination (type safety circumvention)
+1. **Critical**:
+   - Effect.Adaptor elimination (type safety circumvention)
+   - Type assertions bypassing Effect dependencies (`as Effect<A, E, never>`)
+   - Service layers with hidden dependencies causing runtime errors
 2. **High**: Type safety issues, "as any" usage, tests without proper layers
 3. **Medium**: Overly complex Effect patterns, helper abstractions
 4. **Low**: Style consistency, minor optimizations
