@@ -32,4 +32,4 @@ TODOs:
 * Use github issues for feature and design docs
 * Demo SITE!
 * DRY-NESS agent daily scan to look for optimizations
-* 
+* ai-analyzer is really just the static analyzer?

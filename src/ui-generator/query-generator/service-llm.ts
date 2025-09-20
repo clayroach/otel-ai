@@ -7,14 +7,9 @@ import {
   QueryThunk,
   QueryResult
 } from './types.js'
-
-// Error types for UI Generator service
-export type UIGeneratorError =
-  | { readonly _tag: 'UnknownPattern'; readonly pattern: string }
-  | { readonly _tag: 'GenerationFailed'; readonly message: string; readonly cause?: unknown }
-
 import { StorageAPIClientTag } from '../../storage/api-client'
 import { StorageError } from '../../storage/errors'
+import { UIGeneratorErrors } from '../errors.js'
 import {
   generateQueryWithLLM,
   generateStandardQueries,
@@ -87,7 +82,13 @@ export const makeLLMBased = Effect.gen(function* () {
 
     const analysisGoal = patternToGoal[pattern]
     if (!analysisGoal) {
-      return Effect.fail(new Error(`Unknown query pattern: ${pattern}`))
+      return Effect.fail(
+        UIGeneratorErrors.invalidRequest(
+          `Unknown query pattern: ${pattern}`,
+          [`Invalid pattern: ${pattern}`],
+          'pattern'
+        )
+      )
     }
 
     return pipe(

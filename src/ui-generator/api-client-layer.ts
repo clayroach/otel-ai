@@ -1,31 +1,33 @@
 /**
  * UI Generator API Client Layer for Effect-TS dependency injection
  *
- * Provides a Layer interface for server.ts to access UI Generator
- * functionality without manual imports.
+ * Provides a properly typed Layer interface with explicit dependency declarations.
+ * Replaces the old implementation that bypassed Effect-TS dependency checking.
  */
 
 import { Context, Effect, Layer } from 'effect'
-import {
-  UIGeneratorAPIClient,
-  type QueryGenerationAPIRequest,
-  type QueryGenerationAPIResponse
-} from './api-client.js'
+import { UIGeneratorServiceTag, type ValidationResult } from './service.js'
+import { UIGeneratorServiceLive } from './service-live.js'
+import type { QueryGenerationAPIRequest, QueryGenerationAPIResponse } from './api-client.js'
+import type { UIGeneratorError } from './errors.js'
 
 /**
  * UI Generator API Client Service Interface
  * Simplified interface for server usage with proper Effect-TS patterns
+ *
+ * NOTE: This interface returns Effects with no dependencies because
+ * all dependencies are resolved at the layer level during service construction.
  */
 export interface UIGeneratorAPIClientService {
   readonly generateQuery: (
     request: QueryGenerationAPIRequest
-  ) => Effect.Effect<QueryGenerationAPIResponse, Error, never>
+  ) => Effect.Effect<QueryGenerationAPIResponse, UIGeneratorError, never>
+
   readonly generateMultipleQueries: (
     request: QueryGenerationAPIRequest & { patterns?: string[] }
-  ) => Effect.Effect<QueryGenerationAPIResponse[], Error, never>
-  readonly validateQuery: (
-    sql: string
-  ) => Effect.Effect<{ valid: boolean; errors: string[] }, never, never>
+  ) => Effect.Effect<QueryGenerationAPIResponse[], UIGeneratorError, never>
+
+  readonly validateQuery: (sql: string) => Effect.Effect<ValidationResult, UIGeneratorError, never>
 }
 
 /**
@@ -38,35 +40,47 @@ export class UIGeneratorAPIClientTag extends Context.Tag('UIGeneratorAPIClient')
 
 /**
  * Implementation factory for UI Generator API Client Service
+ *
+ * CRITICAL: Now properly declares ALL dependencies that the service requires.
+ * This ensures TypeScript catches missing dependencies at compile time.
  */
 export const makeUIGeneratorAPIClientService: Effect.Effect<
   UIGeneratorAPIClientService,
   never,
-  never
-> = Effect.sync(() => {
-  console.log('🔧 Initializing UI Generator API Client Service...')
+  UIGeneratorServiceTag
+> = Effect.gen(function* () {
+  console.log('🔧 [UIGeneratorAPIClient] Initializing with resolved dependencies...')
 
+  // Explicitly resolve the UI Generator Service dependency
+  const uiGeneratorService = yield* UIGeneratorServiceTag
+
+  // Return service interface that delegates to the resolved service
   return {
     generateQuery: (request: QueryGenerationAPIRequest) =>
-      Effect.promise(() => UIGeneratorAPIClient.generateQuery(request)).pipe(
-        Effect.mapError((error) => new Error(`Failed to generate query: ${error}`))
-      ),
+      uiGeneratorService.generateQuery(request),
 
     generateMultipleQueries: (request: QueryGenerationAPIRequest & { patterns?: string[] }) =>
-      Effect.promise(() => UIGeneratorAPIClient.generateMultipleQueries(request)).pipe(
-        Effect.mapError((error) => new Error(`Failed to generate multiple queries: ${error}`))
-      ),
+      uiGeneratorService.generateMultipleQueries(request),
 
-    validateQuery: (sql: string) => Effect.succeed(UIGeneratorAPIClient.validateQuery(sql))
+    validateQuery: (sql: string) => uiGeneratorService.validateQuery(sql)
   }
 })
 
 /**
  * Effect Layer for UI Generator API Client Service
+ *
+ * This layer composition properly declares the dependency chain:
+ * UIGeneratorAPIClient -> UIGeneratorService -> (LLMManager + Storage + Config)
+ *
+ * The dependencies are provided externally when this layer is used.
  */
 export const UIGeneratorAPIClientLayer = Layer.effect(
   UIGeneratorAPIClientTag,
   makeUIGeneratorAPIClientService
+).pipe(
+  // Provide the UI Generator Service layer
+  // Dependencies (LLM + Storage + Config) must be provided externally
+  Layer.provide(UIGeneratorServiceLive)
 )
 
 // Export convenience functions for common operations

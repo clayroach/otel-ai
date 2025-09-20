@@ -33,6 +33,7 @@ The project consists of three main components:
 
 - **Dendron Documentation Vault** (`notes/`) - Living specifications and design decisions
 - **Instrumented Packages** (`src/`) - Generated OpenTelemetry implementations
+- **User Interface** (`ui/`) - Electron-based UI
 - **Backend Storage** - Clickhouse for telemetry data
 
 Core packages:
@@ -50,7 +51,7 @@ This project uses **documentation-driven development** with **AI subagent orches
 
 1. **Write specifications first** in `notes/packages/[package]/package.md`
 2. **Use specialized subagents** for daily workflow management
-3. **Generate code** using AI assistance and Copilot integration
+3. **Generate code** using AI assistance and Claude code integration
 4. **Keep documentation in sync** with implementation changes
 
 ### ⚠️ CRITICAL: Development Memory - NEVER Declare Early Success
@@ -103,14 +104,6 @@ gh pr create --title "Feature: Description" --body "..."
 - Commit directly to `main` branch
 - Push unfinished/broken code
 - Skip PR review process
-
-**If you accidentally commit to main:**
-```bash
-# Immediately move the commit to a feature branch
-git reset --soft HEAD~1  # Undo commit, keep changes staged
-git checkout -b feat/proper-branch-name
-git commit -m "proper commit message"
-```
 
 ## AI Subagent Workflow Patterns
 

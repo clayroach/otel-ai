@@ -11,6 +11,7 @@ import { LLMDebugView } from './views/LLMDebugView'
 import { DynamicUIDemo } from './components/DynamicCharts/DynamicUIDemo'
 import { useMenuActions } from './hooks/useMenuActions'
 import { useAppStore } from './store/appStore'
+import { ModelSelectionProvider } from './contexts/ModelSelectionContext'
 
 // Create a client for React Query
 const queryClient = new QueryClient({
@@ -58,14 +59,16 @@ const App: React.FC = () => {
         }}
       >
         <AntdApp>
-          <Router
-            future={{
-              v7_startTransition: true,
-              v7_relativeSplatPath: true
-            }}
-          >
-            <AppContent />
-          </Router>
+          <ModelSelectionProvider>
+            <Router
+              future={{
+                v7_startTransition: true,
+                v7_relativeSplatPath: true
+              }}
+            >
+              <AppContent />
+            </Router>
+          </ModelSelectionProvider>
         </AntdApp>
       </ConfigProvider>
     </QueryClientProvider>

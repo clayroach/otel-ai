@@ -15,13 +15,42 @@ export {
   ANALYSIS_GOALS
 } from './query-generator/llm-query-generator.js'
 
-// Export types
-export type {
-  CriticalPath,
-  GeneratedQuery,
-  QueryResult,
-  QueryPattern
-} from './query-generator/types.js'
+// Export types from query generator
+export type { GeneratedQuery, QueryResult, QueryPattern } from './query-generator/types.js'
+
+// Service Interface and Implementation
+export type { UIGeneratorService, ValidationResult } from './service.js'
+export { UIGeneratorServiceTag } from './service.js'
+
+export { UIGeneratorServiceLive, makeUIGeneratorService } from './service-live.js'
+
+// Error Types
+export {
+  type UIGeneratorError,
+  InvalidRequestError,
+  QueryGenerationError,
+  ValidationError,
+  ServiceDependencyError,
+  ModelUnavailableError,
+  UIGeneratorErrors
+} from './errors.js'
+
+// Schema Types and Validation
+export {
+  type CriticalPath,
+  type QueryGenerationAPIRequest as SchemaQueryGenerationAPIRequest,
+  type QueryGenerationAPIResponse as SchemaQueryGenerationAPIResponse,
+  type MultipleQueryGenerationRequest,
+  type ValidationResult as SchemaValidationResult,
+  type ExpectedColumn,
+  type LLMConfig,
+  type AnalysisGoal,
+  type ServiceConfig,
+  validateRequest,
+  validateResponse,
+  validateMultipleRequest,
+  validateValidationResult
+} from './schemas.js'
 
 // API Client Layer for server integration
 export {

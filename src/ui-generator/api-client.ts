@@ -1,7 +1,11 @@
 import { Effect, pipe } from 'effect'
 import type { CriticalPath, GeneratedQuery } from './query-generator/types.js'
-import { generateQueryWithLLM, ANALYSIS_GOALS } from './query-generator/llm-query-generator.js'
-import { LLMManagerLive } from '../llm-manager/index.js'
+import {
+  generateQueryWithLLM,
+  generateAndOptimizeQuery,
+  ANALYSIS_GOALS
+} from './query-generator/llm-query-generator.js'
+import type { SQLEvaluationResult } from './query-generator/sql-evaluator-optimizer.js'
 
 export interface QueryGenerationAPIRequest {
   path: {
@@ -13,11 +17,14 @@ export interface QueryGenerationAPIRequest {
   }
   analysisGoal?: string
   model?: string
+  isClickHouseAI?: boolean
+  useEvaluatorOptimizer?: boolean // Enable evaluator-optimizer for SQL validation
 }
 
 export interface QueryGenerationAPIResponse {
   sql: string
   model: string
+  actualModel?: string
   description: string
   expectedColumns?: Array<{
     name: string
@@ -25,6 +32,7 @@ export interface QueryGenerationAPIResponse {
     description: string
   }>
   generationTimeMs?: number
+  evaluations?: SQLEvaluationResult[] // Include evaluation history if evaluator was used
 }
 
 /**
@@ -32,12 +40,14 @@ export interface QueryGenerationAPIResponse {
  * Provides HTTP endpoints for query generation from Critical Paths
  */
 export class UIGeneratorAPIClient {
+  // Declare backward compatibility aliases as static members
+  static generateQuery: typeof UIGeneratorAPIClient.generateQueryEffect
+  static generateMultipleQueries: typeof UIGeneratorAPIClient.generateMultipleQueriesEffect
   /**
    * Generate a ClickHouse query from a Critical Path
+   * Returns an Effect that needs LLM and optionally Storage services
    */
-  static async generateQuery(
-    request: QueryGenerationAPIRequest
-  ): Promise<QueryGenerationAPIResponse> {
+  static generateQueryEffect(request: QueryGenerationAPIRequest) {
     const startTime = Date.now()
 
     // Convert API request to internal CriticalPath format
@@ -54,82 +64,121 @@ export class UIGeneratorAPIClient {
 
     // Model will be determined by Portkey config defaults if not specified
     const targetModel = request.model
+    const isClickHouseAI = request.isClickHouseAI
 
-    // Run the Effect-based query generation with LLM Manager Layer
-    const result = await Effect.runPromise(
-      pipe(
-        generateQueryWithLLM(
-          criticalPath,
-          analysisGoal,
-          targetModel ? { model: targetModel } : {} // Will use Portkey config defaults if not specified
-        ),
-        Effect.map((query: GeneratedQuery) => ({
-          sql: UIGeneratorAPIClient.sanitizeSQL(query.sql), // Remove semicolons for ClickHouse compatibility
-          model: targetModel || 'default', // Model info from actual generation
-          description: query.description,
-          expectedColumns: Object.entries(query.expectedSchema || {}).map(([name, type]) => ({
-            name,
-            type,
-            description: `Column: ${name}`
-          })),
-          generationTimeMs: Date.now() - startTime
-        })),
-        Effect.catchAll((error: unknown) => {
-          console.error('❌ Query generation error:', error)
+    // Determine the config object once
+    const llmConfig = targetModel
+      ? { model: targetModel, ...(isClickHouseAI !== undefined && { isClickHouseAI }) }
+      : isClickHouseAI !== undefined
+        ? { isClickHouseAI }
+        : undefined
 
-          // Check if this is a ModelUnavailable error
-          const isModelUnavailable =
-            (typeof error === 'object' &&
-              error !== null &&
-              '_tag' in error &&
-              error._tag === 'ModelUnavailable') ||
-            (error instanceof Error && error.message.includes('ModelUnavailable'))
-
-          if (isModelUnavailable) {
-            // Re-throw model unavailability errors - don't fall back to SQL generation
-            return Effect.fail(error)
-          }
-
-          // For other errors (network issues, parsing errors, etc.), generate a fallback query
-          const errorMessage = error instanceof Error ? error.message : JSON.stringify(error)
-          return Effect.succeed({
-            sql: UIGeneratorAPIClient.generateFallbackQuery(criticalPath),
-            model: 'fallback',
-            description: `Fallback query generated due to error: ${errorMessage}`,
-            expectedColumns: UIGeneratorAPIClient.getExpectedColumns(),
-            generationTimeMs: Date.now() - startTime
-          })
-        }),
-        // Provide the LLM Manager Layer
-        Effect.provide(LLMManagerLive)
-      )
+    // Generate the Effect based on evaluator usage
+    console.log(
+      `🔧 [EVALUATOR] API Client received useEvaluatorOptimizer: ${request.useEvaluatorOptimizer}`
+    )
+    console.log(
+      `🔧 [EVALUATOR] API Client deciding code path - evaluator enabled: ${!!request.useEvaluatorOptimizer}`
     )
 
-    return result
+    const queryEffect = request.useEvaluatorOptimizer
+      ? Effect.gen(function* () {
+          console.log(
+            '🔄 [EVALUATOR] API Client taking EVALUATOR PATH - calling generateAndOptimizeQuery'
+          )
+          console.log('🔄 [EVALUATOR] API Client parameters:', {
+            criticalPath: criticalPath.name,
+            analysisGoal,
+            llmConfig,
+            enableEvaluator: true
+          })
+          // Use the evaluator-optimizer version with StorageService
+          return yield* generateAndOptimizeQuery(
+            criticalPath,
+            analysisGoal,
+            llmConfig,
+            true // Enable evaluator
+          )
+        })
+      : Effect.gen(function* () {
+          console.log(
+            '🔄 [EVALUATOR] API Client taking DIRECT PATH - calling generateQueryWithLLM (NO EVALUATOR)'
+          )
+          console.log('🔄 [EVALUATOR] API Client parameters:', {
+            criticalPath: criticalPath.name,
+            analysisGoal,
+            llmConfig
+          })
+          return yield* generateQueryWithLLM(criticalPath, analysisGoal, llmConfig)
+        })
+
+    // Return the Effect for external execution with proper layers
+    return pipe(
+      queryEffect,
+      Effect.map((query: GeneratedQuery & { evaluations?: SQLEvaluationResult[] }) => ({
+        sql: UIGeneratorAPIClient.sanitizeSQL(query.sql), // Remove semicolons for ClickHouse compatibility
+        model: targetModel || 'default', // The model that was requested
+        actualModel: targetModel || 'portkey-default', // Track actual model used
+        description: query.description,
+        expectedColumns: Object.entries(query.expectedSchema || {}).map(([name, type]) => ({
+          name,
+          type,
+          description: `Column: ${name}`
+        })),
+        generationTimeMs: Date.now() - startTime,
+        evaluations: query.evaluations // Include evaluation history if present
+      })),
+      Effect.catchAll((error: unknown) => {
+        console.error('❌ Query generation error:', error)
+
+        // Check if this is a ModelUnavailable error
+        const isModelUnavailable =
+          (typeof error === 'object' &&
+            error !== null &&
+            '_tag' in error &&
+            error._tag === 'ModelUnavailable') ||
+          (error instanceof Error && error.message.includes('ModelUnavailable'))
+
+        if (isModelUnavailable) {
+          // Re-throw model unavailability errors - don't fall back to SQL generation
+          return Effect.fail(error)
+        }
+
+        // For other errors (network issues, parsing errors, etc.), generate a fallback query
+        const errorMessage = error instanceof Error ? error.message : JSON.stringify(error)
+        return Effect.succeed({
+          sql: UIGeneratorAPIClient.generateFallbackQuery(criticalPath),
+          model: 'fallback',
+          description: `Fallback query generated due to error: ${errorMessage}`,
+          expectedColumns: UIGeneratorAPIClient.getExpectedColumns(),
+          generationTimeMs: Date.now() - startTime
+        })
+      })
+    )
   }
 
   /**
    * Generate multiple queries for different analysis patterns
+   * Returns an Effect array that needs proper layers
    */
-  static async generateMultipleQueries(
+  static generateMultipleQueriesEffect(
     request: QueryGenerationAPIRequest & { patterns?: string[] }
-  ): Promise<QueryGenerationAPIResponse[]> {
+  ) {
     const patterns = request.patterns || [
       ANALYSIS_GOALS.latency,
       ANALYSIS_GOALS.errors,
       ANALYSIS_GOALS.bottlenecks
     ]
 
-    const results = await Promise.all(
+    return Effect.all(
       patterns.map((pattern) =>
-        this.generateQuery({
+        UIGeneratorAPIClient.generateQueryEffect({
           ...request,
           analysisGoal: pattern
         })
-      )
+      ),
+      { concurrency: 3 }
     )
-
-    return results
   }
 
   /**
@@ -254,8 +303,11 @@ LIMIT 1000`
   }
 }
 
+// Add backward compatibility aliases for tests
+UIGeneratorAPIClient.generateQuery = UIGeneratorAPIClient.generateQueryEffect
+UIGeneratorAPIClient.generateMultipleQueries = UIGeneratorAPIClient.generateMultipleQueriesEffect
+
 // Export for convenience
-export const generateQuery = UIGeneratorAPIClient.generateQuery.bind(UIGeneratorAPIClient)
-export const generateMultipleQueries =
-  UIGeneratorAPIClient.generateMultipleQueries.bind(UIGeneratorAPIClient)
-export const validateQuery = UIGeneratorAPIClient.validateQuery.bind(UIGeneratorAPIClient)
+export const generateQuery = UIGeneratorAPIClient.generateQueryEffect
+export const generateMultipleQueries = UIGeneratorAPIClient.generateMultipleQueriesEffect
+export const validateQuery = UIGeneratorAPIClient.validateQuery

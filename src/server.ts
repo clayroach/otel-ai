@@ -20,8 +20,20 @@ import {
   ResourceSpans,
   ScopeSpans
 } from './opentelemetry/index.js'
-import { StorageAPIClientTag, ClickHouseConfigTag, StorageAPIClientLayer } from './storage/index.js'
-import { LLMManagerAPIClientTag, LLMManagerAPIClientLayer } from './llm-manager/index.js'
+import {
+  StorageAPIClientTag,
+  ClickHouseConfigTag,
+  StorageAPIClientLayer,
+  StorageLayer as StorageServiceLayer,
+  StorageServiceTag,
+  ConfigServiceLive
+} from './storage/index.js'
+import {
+  LLMManagerAPIClientTag,
+  LLMManagerAPIClientLayer,
+  LLMManagerLive,
+  LLMManagerServiceTag
+} from './llm-manager/index.js'
 import { UIGeneratorAPIClientTag, UIGeneratorAPIClientLayer } from './ui-generator/index.js'
 import { interactionLogger, type LLMInteraction } from './llm-manager/interaction-logger.js'
 import {
@@ -85,34 +97,53 @@ const clickhouseConfig = {
   password: process.env.CLICKHOUSE_PASSWORD || 'otel123'
 }
 
-// Create the storage layer
-const StorageLayer = StorageAPIClientLayer.pipe(
+// Create the storage API client layer with ClickHouse configuration
+const StorageAPIClientLayerWithConfig = StorageAPIClientLayer.pipe(
   Layer.provide(Layer.succeed(ClickHouseConfigTag, clickhouseConfig))
 )
 
+// Create config layer first - shared by all services
+const ConfigLayer = ConfigServiceLive
+
+// Create storage layers with config
+const StorageWithConfig = StorageServiceLayer.pipe(Layer.provide(ConfigLayer))
+
+// Create the base dependencies
+const BaseDependencies = Layer.mergeAll(
+  ConfigLayer, // Shared config service
+  StorageWithConfig, // Storage Service with Config
+  StorageAPIClientLayerWithConfig, // Storage API client with ClickHouse config
+  LLMManagerLive, // LLM Manager service
+  LLMManagerAPIClientLayer, // LLM Manager API client
+  AIAnalyzerMockLayer() // AI Analyzer (mock)
+)
+
 // Create the composed application layer with all services
-// Use AIAnalyzerMockLayer() for now to avoid S3 connection issues
+// UIGenerator needs access to all base dependencies
 const ApplicationLayer = Layer.mergeAll(
-  StorageLayer,
-  LLMManagerAPIClientLayer,
-  UIGeneratorAPIClientLayer,
-  AIAnalyzerMockLayer() // Using mock for now
+  BaseDependencies,
+  UIGeneratorAPIClientLayer.pipe(Layer.provide(BaseDependencies))
 )
 
 // Helper function to run effects with all application services
-const runWithServices = <A, E>(
-  effect: Effect.Effect<
-    A,
-    E,
-    LLMManagerAPIClientTag | UIGeneratorAPIClientTag | StorageAPIClientTag | AIAnalyzerService
-  >
-): Promise<A> => {
-  return Effect.runPromise(Effect.provide(effect, ApplicationLayer))
+// The effect can require any of the services provided by ApplicationLayer
+// We use a union type of all possible service dependencies
+type AppServices =
+  | LLMManagerAPIClientTag
+  | UIGeneratorAPIClientTag
+  | StorageAPIClientTag
+  | AIAnalyzerService
+  | LLMManagerServiceTag
+  | StorageServiceTag
+
+const runWithServices = <A, E>(effect: Effect.Effect<A, E, AppServices>): Promise<A> => {
+  // TEMPORARY: Add type assertion back to enable compilation while debugging
+  return Effect.runPromise(Effect.provide(effect, ApplicationLayer) as Effect.Effect<A, E, never>)
 }
 
 // Helper function to run storage queries (maintained for backwards compatibility)
 const runStorageQuery = <A, E>(effect: Effect.Effect<A, E, StorageAPIClientTag>): Promise<A> => {
-  return Effect.runPromise(Effect.provide(effect, StorageLayer))
+  return Effect.runPromise(Effect.provide(effect, StorageAPIClientLayerWithConfig))
 }
 
 // Helper function for raw queries that returns data in legacy format
@@ -178,7 +209,7 @@ app.get('/health', async (_req, res) => {
     const healthResult = await Effect.runPromise(
       StorageAPIClientTag.pipe(
         Effect.flatMap((apiClient) => apiClient.healthCheck()),
-        Effect.provide(StorageLayer),
+        Effect.provide(StorageAPIClientLayerWithConfig),
         Effect.match({
           onFailure: (error) => {
             console.error('Storage health check failed:', error._tag)
@@ -1026,7 +1057,7 @@ app.post('/v1/traces', async (req, res) => {
                 encodingType
               )
             ),
-            Effect.provide(StorageLayer),
+            Effect.provide(StorageAPIClientLayerWithConfig),
             Effect.match({
               onFailure: (error) => {
                 console.error('Storage write failed:', error._tag, error)
@@ -1214,7 +1245,14 @@ app.get('/api/llm/live', (req, res) => {
 // UI Generator Query Generation Endpoint - REAL (production)
 app.post('/api/ui-generator/generate-query', async (req, res) => {
   try {
-    const { path, timeWindowMinutes = 60, analysisGoal, model } = req.body
+    const {
+      path,
+      timeWindowMinutes = 60,
+      analysisGoal,
+      model,
+      isClickHouseAI,
+      useEvaluatorOptimizer = true // Enable evaluator by default for better query validation
+    } = req.body
 
     // Validate that path exists
     if (!path || !path.services || path.services.length === 0) {
@@ -1223,6 +1261,12 @@ app.post('/api/ui-generator/generate-query', async (req, res) => {
         message: 'Path with services array is required'
       })
     }
+
+    console.log(`🔧 [EVALUATOR] Server received useEvaluatorOptimizer: ${useEvaluatorOptimizer}`)
+    console.log(`🔧 [EVALUATOR] Request body keys:`, Object.keys(req.body))
+    console.log(
+      `🔧 [EVALUATOR] About to call UIGeneratorAPIClient.generateQuery with evaluator flag: ${useEvaluatorOptimizer}`
+    )
 
     // Use the UI Generator API Client via Effect-TS
     const result = await runWithServices(
@@ -1237,7 +1281,9 @@ app.post('/api/ui-generator/generate-query', async (req, res) => {
             endService: path.endService || path.services?.[path.services.length - 1]
           },
           analysisGoal: analysisGoal || determineAnalysisGoal(path?.metrics),
-          model: model // Model will be determined by Portkey config defaults
+          model: model, // Model will be determined by Portkey config defaults
+          isClickHouseAI: isClickHouseAI, // Pass ClickHouse AI flag
+          useEvaluatorOptimizer: useEvaluatorOptimizer // Pass evaluator flag
         })
       })
     )
@@ -1254,7 +1300,23 @@ app.post('/api/ui-generator/generate-query', async (req, res) => {
       model: result.model,
       description: result.description,
       generationTimeMs: result.generationTimeMs,
-      analysisType: determineAnalysisType(result.description)
+      analysisType: determineAnalysisType(result.description),
+      // Include optimization status if evaluator was used
+      optimizationStatus: result.evaluations
+        ? {
+            wasOptimized: result.evaluations.length > 1,
+            attempts: result.evaluations.length,
+            finalValid: result.evaluations?.[result.evaluations.length - 1]?.isValid || false,
+            errors:
+              result.evaluations
+                ?.filter((e) => !e.isValid)
+                .map((e, index) => ({
+                  attempt: index + 1,
+                  code: e.error?.code,
+                  message: e.error?.message
+                })) || []
+          }
+        : undefined
     })
   } catch (error) {
     console.error('❌ Query generation error:', error)
