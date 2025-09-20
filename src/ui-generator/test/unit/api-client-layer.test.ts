@@ -15,21 +15,11 @@ import {
   validateQuery,
   type UIGeneratorAPIClientService
 } from '../../api-client-layer.js'
-import { UIGeneratorAPIClient } from '../../api-client.js'
 import type { QueryGenerationAPIRequest, QueryGenerationAPIResponse } from '../../api-client.js'
 import { UIGeneratorService, UIGeneratorServiceTag } from '../../service.js'
 import { ConfigServiceTag } from '../../../storage/services.js'
 import { LLMManagerServiceTag, type LLMManagerService } from '../../../llm-manager/llm-manager-service.js'
 import { StorageServiceTag, type StorageService } from '../../../storage/services.js'
-
-// Mock the UIGeneratorAPIClient
-vi.mock('../../api-client.js', () => ({
-  UIGeneratorAPIClient: {
-    generateQuery: vi.fn(),
-    generateMultipleQueries: vi.fn(),
-    validateQuery: vi.fn()
-  }
-}))
 
 describe('UI Generator API Client Layer', () => {
   beforeEach(() => {
@@ -128,6 +118,7 @@ describe('UI Generator API Client Layer', () => {
           sampleCount: 0
         }),
         queryRaw: () => Effect.succeed([]),
+        queryText: () => Effect.succeed(''),
         archiveData: () => Effect.succeed(undefined),
         applyRetentionPolicies: () => Effect.succeed(undefined),
         healthCheck: () => Effect.succeed({ clickhouse: true, s3: true }),
@@ -237,6 +228,7 @@ describe('UI Generator API Client Layer', () => {
           sampleCount: 0
         }),
         queryRaw: () => Effect.succeed([]),
+        queryText: () => Effect.succeed(''),
         archiveData: () => Effect.succeed(undefined),
         applyRetentionPolicies: () => Effect.succeed(undefined),
         healthCheck: () => Effect.succeed({ clickhouse: true, s3: true }),
@@ -280,20 +272,7 @@ describe('UI Generator API Client Layer', () => {
           model: 'test-model'
         }
 
-        const mockResponse: QueryGenerationAPIResponse = {
-          sql: 'SELECT * FROM traces',
-          model: 'test-model',
-          actualModel: 'test-model',
-          description: 'Test query',
-          expectedColumns: [],
-          generationTimeMs: 100
-        }
-
-        vi.mocked(UIGeneratorAPIClient.generateQuery).mockReturnValue(
-          Effect.succeed(mockResponse) as ReturnType<typeof UIGeneratorAPIClient.generateQuery>
-        )
-
-        // Service needs LLM and Storage layers, but we're mocking so we can provide empty layers
+        // The service delegates to UIGeneratorService which returns this mock response
         const result = await Effect.runPromise(
           service.generateQuery(mockRequest).pipe(
             Effect.provideService(LLMManagerServiceTag, mockLLMService),
@@ -301,11 +280,29 @@ describe('UI Generator API Client Layer', () => {
           )
         )
 
-        expect(result).toEqual(mockResponse)
-        expect(UIGeneratorAPIClient.generateQuery).toHaveBeenCalledWith(mockRequest)
+        // The mock UIGeneratorService returns a fixed response
+        expect(result).toBeDefined()
+        expect(result.sql).toBe('SELECT * FROM traces')
+        expect(result.model).toBe('mock')
+        expect(result.description).toBe('Mock query')
       })
 
-      it('should handle errors properly', async () => {
+      it('should delegate to UIGeneratorService', async () => {
+        // Import UIGeneratorErrors to create proper error types
+        const { UIGeneratorErrors } = await import('../../errors.js')
+
+        // Create a service with a failing UIGeneratorService
+        const failingUIGeneratorService: UIGeneratorService = {
+          generateQuery: () => Effect.fail(UIGeneratorErrors.queryGeneration('Generation failed')),
+          generateMultipleQueries: () => Effect.fail(UIGeneratorErrors.queryGeneration('Multiple generation failed')),
+          validateQuery: () => Effect.fail(UIGeneratorErrors.validation('Validation failed', ['test error']))
+        }
+
+        const failingLayer = Layer.succeed(UIGeneratorServiceTag, failingUIGeneratorService)
+        const failingService = await Effect.runPromise(
+          Effect.provide(makeUIGeneratorAPIClientService, failingLayer)
+        )
+
         const mockRequest: QueryGenerationAPIRequest = {
           path: {
             id: 'test-path',
@@ -316,24 +313,52 @@ describe('UI Generator API Client Layer', () => {
           }
         }
 
-        const mockError = new Error('Generation failed')
-        vi.mocked(UIGeneratorAPIClient.generateQuery).mockReturnValue(
-          Effect.fail(mockError)
-        )
-
         await expect(
           Effect.runPromise(
-            service.generateQuery(mockRequest).pipe(
+            failingService.generateQuery(mockRequest).pipe(
               Effect.provideService(LLMManagerServiceTag, mockLLMService),
               Effect.provideService(StorageServiceTag, mockStorageService)
             )
           )
-        ).rejects.toThrow()
+        ).rejects.toThrow('Generation failed')
       })
     })
 
     describe('generateMultipleQueries', () => {
       it('should successfully generate multiple queries', async () => {
+        // Create a service with a custom UIGeneratorService that returns multiple results
+        const multiQueryService: UIGeneratorService = {
+          generateQuery: () => Effect.succeed({
+            sql: 'SELECT * FROM traces',
+            model: 'mock',
+            description: 'Mock query',
+            expectedColumns: [],
+            generationTimeMs: 100
+          }),
+          generateMultipleQueries: () => Effect.succeed([
+            {
+              sql: 'SELECT * FROM traces WHERE type = "latency"',
+              model: 'mock',
+              description: 'Latency query',
+              expectedColumns: [],
+              generationTimeMs: 100
+            },
+            {
+              sql: 'SELECT * FROM traces WHERE type = "errors"',
+              model: 'mock',
+              description: 'Error query',
+              expectedColumns: [],
+              generationTimeMs: 150
+            }
+          ]),
+          validateQuery: () => Effect.succeed({ valid: true, errors: [] })
+        }
+
+        const customLayer = Layer.succeed(UIGeneratorServiceTag, multiQueryService)
+        const customService = await Effect.runPromise(
+          Effect.provide(makeUIGeneratorAPIClientService, customLayer)
+        )
+
         const mockRequest = {
           path: {
             id: 'test-path',
@@ -345,41 +370,34 @@ describe('UI Generator API Client Layer', () => {
           patterns: ['latency', 'errors']
         }
 
-        const mockResponses: QueryGenerationAPIResponse[] = [
-          {
-            sql: 'SELECT * FROM traces WHERE type = "latency"',
-            model: 'test-model',
-            actualModel: 'test-model',
-            description: 'Latency query',
-            expectedColumns: [],
-            generationTimeMs: 100
-          },
-          {
-            sql: 'SELECT * FROM traces WHERE type = "errors"',
-            model: 'test-model',
-            actualModel: 'test-model',
-            description: 'Error query',
-            expectedColumns: [],
-            generationTimeMs: 150
-          }
-        ]
-
-        vi.mocked(UIGeneratorAPIClient.generateMultipleQueries).mockReturnValue(
-          Effect.succeed(mockResponses) as ReturnType<typeof UIGeneratorAPIClient.generateMultipleQueries>
-        )
-
         const result = await Effect.runPromise(
-          service.generateMultipleQueries(mockRequest).pipe(
+          customService.generateMultipleQueries(mockRequest).pipe(
             Effect.provideService(LLMManagerServiceTag, mockLLMService),
             Effect.provideService(StorageServiceTag, mockStorageService)
           )
         )
 
-        expect(result).toEqual(mockResponses)
-        expect(UIGeneratorAPIClient.generateMultipleQueries).toHaveBeenCalledWith(mockRequest)
+        expect(result).toHaveLength(2)
+        expect(result[0]?.sql).toContain('latency')
+        expect(result[1]?.sql).toContain('errors')
       })
 
       it('should handle errors in multiple query generation', async () => {
+        // Import UIGeneratorErrors to create proper error types
+        const { UIGeneratorErrors } = await import('../../errors.js')
+
+        // Use the failingUIGeneratorService from the previous test
+        const failingUIGeneratorService: UIGeneratorService = {
+          generateQuery: () => Effect.fail(UIGeneratorErrors.queryGeneration('Generation failed')),
+          generateMultipleQueries: () => Effect.fail(UIGeneratorErrors.queryGeneration('Multiple generation failed')),
+          validateQuery: () => Effect.fail(UIGeneratorErrors.validation('Validation failed', ['test error']))
+        }
+
+        const failingLayer = Layer.succeed(UIGeneratorServiceTag, failingUIGeneratorService)
+        const failingService = await Effect.runPromise(
+          Effect.provide(makeUIGeneratorAPIClientService, failingLayer)
+        )
+
         const mockRequest = {
           path: {
             id: 'test-path',
@@ -390,49 +408,55 @@ describe('UI Generator API Client Layer', () => {
           }
         }
 
-        const mockError = new Error('Multiple generation failed')
-        vi.mocked(UIGeneratorAPIClient.generateMultipleQueries).mockReturnValue(
-          Effect.fail(mockError)
-        )
-
         await expect(
           Effect.runPromise(
-            service.generateMultipleQueries(mockRequest).pipe(
+            failingService.generateMultipleQueries(mockRequest).pipe(
               Effect.provideService(LLMManagerServiceTag, mockLLMService),
               Effect.provideService(StorageServiceTag, mockStorageService)
             )
           )
-        ).rejects.toThrow()
+        ).rejects.toThrow('Multiple generation failed')
       })
     })
 
     describe('validateQuery', () => {
       it('should successfully validate a query', async () => {
         const sql = 'SELECT * FROM traces'
-        const mockValidation = { valid: true, errors: [] }
-
-        vi.mocked(UIGeneratorAPIClient.validateQuery).mockReturnValue(mockValidation)
 
         const result = await Effect.runPromise(service.validateQuery(sql))
 
-        expect(result).toEqual(mockValidation)
-        expect(UIGeneratorAPIClient.validateQuery).toHaveBeenCalledWith(sql)
+        // The mock UIGeneratorService always returns valid: true
+        expect(result).toEqual({ valid: true, errors: [] })
       })
 
       it('should return validation errors', async () => {
-        const sql = 'INVALID SQL'
-        const mockValidation = {
-          valid: false,
-          errors: ['Syntax error near INVALID']
+        // Create a service with custom validation logic
+        const customValidationService: UIGeneratorService = {
+          generateQuery: () => Effect.succeed({
+            sql: 'SELECT * FROM traces',
+            model: 'mock',
+            description: 'Mock query',
+            expectedColumns: [],
+            generationTimeMs: 100
+          }),
+          generateMultipleQueries: () => Effect.succeed([]),
+          validateQuery: (sql: string) => Effect.succeed({
+            valid: !sql.includes('INVALID'),
+            errors: sql.includes('INVALID') ? ['Syntax error near INVALID'] : []
+          })
         }
 
-        vi.mocked(UIGeneratorAPIClient.validateQuery).mockReturnValue(mockValidation)
+        const customLayer = Layer.succeed(UIGeneratorServiceTag, customValidationService)
+        const customService = await Effect.runPromise(
+          Effect.provide(makeUIGeneratorAPIClientService, customLayer)
+        )
 
-        const result = await Effect.runPromise(service.validateQuery(sql))
+        const sql = 'INVALID SQL'
+        const result = await Effect.runPromise(customService.validateQuery(sql))
 
-        expect(result).toEqual(mockValidation)
         expect(result.valid).toBe(false)
         expect(result.errors).toHaveLength(1)
+        expect(result.errors[0]).toBe('Syntax error near INVALID')
       })
     })
   })

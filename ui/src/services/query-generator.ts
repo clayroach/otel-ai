@@ -65,6 +65,20 @@ apiClient.interceptors.response.use(
 )
 
 /**
+ * Optimization status for queries that were validated/optimized
+ */
+export interface OptimizationStatus {
+  wasOptimized: boolean
+  attempts: number
+  finalValid: boolean
+  errors: Array<{
+    attempt: number
+    code?: string
+    message?: string
+  }>
+}
+
+/**
  * Query generation result
  */
 export interface QueryGenerationResult {
@@ -74,6 +88,7 @@ export interface QueryGenerationResult {
   description?: string
   criticalPath?: string
   analysisType?: 'latency' | 'errors' | 'bottlenecks' | 'throughput' | 'general'
+  optimizationStatus?: OptimizationStatus
 }
 
 /**
@@ -128,7 +143,8 @@ export class QueryGeneratorService {
             request.analysisGoal || QueryGeneratorService.determineAnalysisGoal(request.path),
           model: request.preferredModel,
           timeWindowMinutes: request.timeWindowMinutes,
-          isClickHouseAI: request.isClickHouseAI
+          isClickHouseAI: request.isClickHouseAI,
+          useEvaluatorOptimizer: true // Always enable SQL validation
         },
         {
           timeout // Use model-specific timeout
@@ -141,7 +157,8 @@ export class QueryGeneratorService {
         generationTime: response.data.generationTimeMs || Date.now() - startTime,
         description: response.data.description,
         criticalPath: request.path.name,
-        analysisType: response.data.analysisType
+        analysisType: response.data.analysisType,
+        optimizationStatus: response.data.optimizationStatus
       }
     } catch (error) {
       console.error('[QueryGenerator] Query generation failed:', error)

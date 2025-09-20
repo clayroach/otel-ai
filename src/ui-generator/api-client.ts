@@ -5,6 +5,7 @@ import {
   generateAndOptimizeQuery,
   ANALYSIS_GOALS
 } from './query-generator/llm-query-generator.js'
+import type { SQLEvaluationResult } from './query-generator/sql-evaluator-optimizer.js'
 
 export interface QueryGenerationAPIRequest {
   path: {
@@ -31,6 +32,7 @@ export interface QueryGenerationAPIResponse {
     description: string
   }>
   generationTimeMs?: number
+  evaluations?: SQLEvaluationResult[] // Include evaluation history if evaluator was used
 }
 
 /**
@@ -72,9 +74,24 @@ export class UIGeneratorAPIClient {
         : undefined
 
     // Generate the Effect based on evaluator usage
+    console.log(
+      `🔧 [EVALUATOR] API Client received useEvaluatorOptimizer: ${request.useEvaluatorOptimizer}`
+    )
+    console.log(
+      `🔧 [EVALUATOR] API Client deciding code path - evaluator enabled: ${!!request.useEvaluatorOptimizer}`
+    )
+
     const queryEffect = request.useEvaluatorOptimizer
       ? Effect.gen(function* () {
-          console.log('🔄 [API Client] Using evaluator-optimizer for query generation')
+          console.log(
+            '🔄 [EVALUATOR] API Client taking EVALUATOR PATH - calling generateAndOptimizeQuery'
+          )
+          console.log('🔄 [EVALUATOR] API Client parameters:', {
+            criticalPath: criticalPath.name,
+            analysisGoal,
+            llmConfig,
+            enableEvaluator: true
+          })
           // Use the evaluator-optimizer version with StorageService
           return yield* generateAndOptimizeQuery(
             criticalPath,
@@ -83,12 +100,22 @@ export class UIGeneratorAPIClient {
             true // Enable evaluator
           )
         })
-      : generateQueryWithLLM(criticalPath, analysisGoal, llmConfig)
+      : Effect.gen(function* () {
+          console.log(
+            '🔄 [EVALUATOR] API Client taking DIRECT PATH - calling generateQueryWithLLM (NO EVALUATOR)'
+          )
+          console.log('🔄 [EVALUATOR] API Client parameters:', {
+            criticalPath: criticalPath.name,
+            analysisGoal,
+            llmConfig
+          })
+          return yield* generateQueryWithLLM(criticalPath, analysisGoal, llmConfig)
+        })
 
     // Return the Effect for external execution with proper layers
     return pipe(
       queryEffect,
-      Effect.map((query: GeneratedQuery) => ({
+      Effect.map((query: GeneratedQuery & { evaluations?: SQLEvaluationResult[] }) => ({
         sql: UIGeneratorAPIClient.sanitizeSQL(query.sql), // Remove semicolons for ClickHouse compatibility
         model: targetModel || 'default', // The model that was requested
         actualModel: targetModel || 'portkey-default', // Track actual model used
@@ -98,7 +125,8 @@ export class UIGeneratorAPIClient {
           type,
           description: `Column: ${name}`
         })),
-        generationTimeMs: Date.now() - startTime
+        generationTimeMs: Date.now() - startTime,
+        evaluations: query.evaluations // Include evaluation history if present
       })),
       Effect.catchAll((error: unknown) => {
         console.error('❌ Query generation error:', error)

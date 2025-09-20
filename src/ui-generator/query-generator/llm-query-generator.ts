@@ -513,7 +513,7 @@ The SQL must analyze: ${analysisGoal}`
             ? `-- Generation Time: ${response.metadata.latencyMs}ms`
             : null,
           response.metadata?.cached ? `-- Cached: true` : null,
-          parsed.reasoning ? `-- Reasoning: ${parsed.reasoning.substring(0, 200)}` : null,
+          parsed.reasoning ? `-- Reasoning: ${parsed.reasoning}` : null,
           '-- ========================================='
         ]
           .filter(Boolean)
@@ -630,15 +630,43 @@ export const generateAndOptimizeQuery = (
   Error,
   LLMManagerServiceTag | StorageServiceTag
 > => {
+  console.log(`🔧 [EVALUATOR] generateAndOptimizeQuery called with useEvaluator: ${useEvaluator}`)
+  console.log(`🔧 [EVALUATOR] generateAndOptimizeQuery parameters:`, {
+    path: path.name,
+    analysisGoal,
+    llmConfig,
+    useEvaluator
+  })
+
   return Effect.gen(function* () {
+    console.log(
+      `🔧 [EVALUATOR] generateAndOptimizeQuery Effect starting - first generating initial query`
+    )
+
     // First, generate the initial query
     const initialQuery = yield* generateQueryWithLLM(path, analysisGoal, llmConfig)
 
+    console.log(
+      `🔧 [EVALUATOR] generateAndOptimizeQuery got initial query: ${initialQuery.sql.substring(0, 100)}...`
+    )
+
     // If evaluator not enabled, return the initial query
     if (!useEvaluator) {
-      console.log('⚠️ [LLM Query Generator] Evaluator not enabled, returning initial query')
+      console.log(
+        '🔄 [EVALUATOR] generateAndOptimizeQuery SKIPPING EVALUATOR - useEvaluator is false'
+      )
+      console.log(
+        '🔄 [EVALUATOR] generateAndOptimizeQuery returning initial query WITHOUT optimization'
+      )
       return initialQuery
     }
+
+    console.log(
+      '🔄 [EVALUATOR] generateAndOptimizeQuery PROCEEDING WITH EVALUATOR - useEvaluator is true'
+    )
+    console.log(
+      '🔄 [EVALUATOR] generateAndOptimizeQuery about to call evaluateAndOptimizeSQLWithLLM'
+    )
 
     // Get the storage service for ClickHouse queries
     const storage = yield* StorageServiceTag
@@ -648,6 +676,11 @@ export const generateAndOptimizeQuery = (
       queryRaw: (sql: string) =>
         pipe(
           storage.queryRaw(sql),
+          Effect.mapError((error) => new Error(`Storage query failed: ${JSON.stringify(error)}`))
+        ),
+      queryText: (sql: string) =>
+        pipe(
+          storage.queryText(sql),
           Effect.mapError((error) => new Error(`Storage query failed: ${JSON.stringify(error)}`))
         )
     }
@@ -676,11 +709,62 @@ export const generateAndOptimizeQuery = (
       })
     )
 
+    // Add validation attempt information to SQL comments
+    let validationComments = ''
+    if (result.attempts.length > 0) {
+      validationComments = [
+        '',
+        '-- ========== VALIDATION ATTEMPTS ==========',
+        `-- Total Attempts: ${result.attempts.length}`,
+        ...result.attempts.map((attempt, idx) => {
+          const lines = []
+          lines.push(`-- Attempt ${idx + 1}: ${attempt.isValid ? '✅ VALID' : '❌ INVALID'}`)
+          if (attempt.error) {
+            lines.push(`--   Error Code: ${attempt.error.code}`)
+            lines.push(`--   Error: ${attempt.error.message}`)
+          }
+          if (attempt.executionTimeMs) {
+            lines.push(`--   Execution Time: ${attempt.executionTimeMs}ms`)
+          }
+          return lines.join('\n')
+        }),
+        `-- Final Status: ${result.attempts[result.attempts.length - 1]?.isValid ? '✅ Query validated successfully' : '⚠️ Query may have issues'}`,
+        '-- ========================================='
+      ].join('\n')
+    }
+
+    // Add optimization information if any
+    if (result.optimizations && result.optimizations.length > 0) {
+      validationComments += [
+        '',
+        '-- ========== OPTIMIZATIONS APPLIED ==========',
+        ...result.optimizations.map((opt, idx) => {
+          const lines = []
+          lines.push(`-- Optimization ${idx + 1}:`)
+          lines.push(`--   ${opt.explanation || 'Applied automatic optimization'}`)
+          if (opt.changes && opt.changes.length > 0) {
+            opt.changes.forEach((change) => {
+              lines.push(`--   - ${change}`)
+            })
+          }
+          return lines.join('\n')
+        }),
+        '-- ============================================='
+      ].join('\n')
+    }
+
+    // Prepend validation comments to the final SQL
+    const finalSqlWithComments = validationComments
+      ? result.finalSql.replace(/^(--[^\n]*\n)*/, '$&' + validationComments + '\n')
+      : result.finalSql
+
     // Return the optimized query with evaluation history
     return {
       ...initialQuery,
-      sql: result.finalSql,
+      sql: finalSqlWithComments,
       evaluations: result.attempts,
+      validationAttempts: result.attempts.length,
+      finalValidation: result.attempts[result.attempts.length - 1],
       description:
         result.attempts.length > 0 && result.attempts[result.attempts.length - 1]?.isValid
           ? `${initialQuery.description} (optimized after ${result.attempts.length} attempts)`

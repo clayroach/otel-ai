@@ -51,6 +51,11 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
   const [filterBy, setFilterBy] = useState<'all' | 'critical' | 'errors' | 'slow'>('all')
   const [generatingQuery, setGeneratingQuery] = useState<string | null>(null)
   const [generatingModel, setGeneratingModel] = useState<string | null>(null)
+  const [optimizationStatus, setOptimizationStatus] = useState<{
+    pathId: string
+    attempt: number
+    message: string
+  } | null>(null)
 
   // Filter paths based on search and filter criteria
   const filteredPaths = paths.filter((path) => {
@@ -121,6 +126,23 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
         isClickHouseAI: useClickHouseAI
       })
 
+      // Check if query was optimized and update status
+      if (result.optimizationStatus) {
+        const { wasOptimized, attempts, finalValid } = result.optimizationStatus
+        if (wasOptimized) {
+          setOptimizationStatus({
+            pathId: path.id,
+            attempt: attempts,
+            message: finalValid
+              ? `✅ Query optimized successfully after ${attempts} attempts`
+              : `⚠️ Query optimization attempted ${attempts} times, some issues remain`
+          })
+
+          // Clear optimization status after 3 seconds
+          setTimeout(() => setOptimizationStatus(null), 3000)
+        }
+      }
+
       // Navigate to Traces view with the generated query
       navigate('/traces', {
         state: {
@@ -132,13 +154,19 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
             generatedAt: Date.now(),
             generationTime: result.generationTime,
             criticalPath: path.name,
-            description: result.description
+            description: result.description,
+            optimizationStatus: result.optimizationStatus // Include optimization info
           }
         }
       })
     } catch (error) {
       console.error('Failed to generate query:', error)
-      // Could show a notification here
+      setOptimizationStatus({
+        pathId: path.id,
+        attempt: 0,
+        message: '❌ Query generation failed'
+      })
+      setTimeout(() => setOptimizationStatus(null), 3000)
     } finally {
       setGeneratingQuery(null)
       setGeneratingModel(null)
@@ -306,10 +334,19 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
                     </Text>
                   )}
 
+                  {/* Show optimization status message if active */}
+                  {optimizationStatus?.pathId === path.id && (
+                    <Text type="secondary" style={{ fontSize: '11px', marginTop: '4px' }}>
+                      {optimizationStatus.message}
+                    </Text>
+                  )}
+
                   <Tooltip
                     title={
                       generatingQuery === path.id
-                        ? `Generating query with ${generatingModel || 'selected model'}...`
+                        ? optimizationStatus?.pathId === path.id
+                          ? optimizationStatus.message
+                          : `Generating query with ${generatingModel || 'selected model'}...`
                         : `Will use ${useClickHouseAI ? 'ClickHouse AI with ' + (selectedModels.general || 'general model') : selectedModels.sql || 'SQL model'}`
                     }
                   >
@@ -326,7 +363,12 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
                     >
                       {generatingQuery === path.id ? (
                         <Space size={4}>
-                          <span>Generating with</span>
+                          <span>
+                            {optimizationStatus?.pathId === path.id &&
+                            optimizationStatus.attempt > 0
+                              ? `Optimizing (Attempt ${optimizationStatus.attempt})`
+                              : 'Generating with'}
+                          </span>
                           <Tag color="processing" style={{ margin: 0, fontSize: '11px' }}>
                             {generatingModel?.split('-')[0]?.toUpperCase() || 'MODEL'}
                           </Tag>

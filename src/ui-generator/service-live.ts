@@ -89,14 +89,40 @@ const generateSingleQuery = (
           : undefined
 
       // Generate query using appropriate method
+      console.log(
+        `🔧 [EVALUATOR] Service-Live received useEvaluatorOptimizer: ${request.useEvaluatorOptimizer}`
+      )
+      console.log(`🔧 [EVALUATOR] Service-Live deciding query generation method`)
+
       const queryEffect = request.useEvaluatorOptimizer
-        ? generateAndOptimizeQuery(
-            criticalPath,
-            analysisGoal,
-            llmConfig,
-            true // Enable evaluator
-          )
-        : generateQueryWithLLM(criticalPath, analysisGoal, llmConfig)
+        ? Effect.gen(function* () {
+            console.log(
+              '🔄 [EVALUATOR] Service-Live EVALUATOR PATH - calling generateAndOptimizeQuery'
+            )
+            console.log('🔄 [EVALUATOR] Service-Live parameters:', {
+              path: criticalPath.name,
+              analysisGoal,
+              llmConfig,
+              enableEvaluator: true
+            })
+            return yield* generateAndOptimizeQuery(
+              criticalPath,
+              analysisGoal,
+              llmConfig,
+              true // Enable evaluator
+            )
+          })
+        : Effect.gen(function* () {
+            console.log(
+              '🔄 [EVALUATOR] Service-Live DIRECT PATH - calling generateQueryWithLLM (NO EVALUATOR)'
+            )
+            console.log('🔄 [EVALUATOR] Service-Live parameters:', {
+              path: criticalPath.name,
+              analysisGoal,
+              llmConfig
+            })
+            return yield* generateQueryWithLLM(criticalPath, analysisGoal, llmConfig)
+          })
 
       // Execute the query generation
       const generatedQuery = yield* queryEffect

@@ -32,6 +32,7 @@ export interface ClickHouseStorage {
   readonly queryLogs: (params: QueryParams) => Effect.Effect<LogData[], StorageError>
   readonly queryForAI: (params: AIQueryParams) => Effect.Effect<AIDataset, StorageError>
   readonly queryRaw: (sql: string) => Effect.Effect<unknown[], StorageError>
+  readonly queryText: (sql: string) => Effect.Effect<string, StorageError>
   readonly healthCheck: () => Effect.Effect<boolean, StorageError>
   readonly close: () => Effect.Effect<void, never>
 }
@@ -473,11 +474,47 @@ export const makeClickHouseStorage = (
           return data.map((row) => convertBigIntToNumber(cleanProtobufStrings(row)))
         },
         catch: (error) =>
-          StorageErrorConstructors.QueryError(
-            `Raw query failed: ${String(error)}`,
-            String(error),
-            sql
-          )
+          StorageErrorConstructors.QueryError(`Raw query failed: ${String(error)}`, sql, error)
+      })
+
+    const queryText = (sql: string): Effect.Effect<string, StorageError> =>
+      Effect.tryPromise({
+        try: async () => {
+          // For EXPLAIN queries and other text output, use streaming to avoid JSON parsing
+          // The @clickhouse/client text() method has issues with non-JSON formats
+          const result = await client.query({
+            query: sql,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            format: 'TabSeparated' as any // Use TabSeparated (streamable) instead of TSV
+          })
+
+          // Use streaming to handle raw text data without JSON parsing
+          const stream = result.stream()
+          const chunks: string[] = []
+
+          return new Promise<string>((resolve, reject) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            stream.on('data', (rows: any[]) => {
+              // Each row in TSV format has a 'text' property with the raw line
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              rows.forEach((row: any) => {
+                if (row.text !== undefined) {
+                  chunks.push(row.text)
+                }
+              })
+            })
+
+            stream.on('end', () => {
+              resolve(chunks.join('\n'))
+            })
+
+            stream.on('error', (err: Error) => {
+              reject(err)
+            })
+          })
+        },
+        catch: (error) =>
+          StorageErrorConstructors.QueryError(`Text query failed: ${String(error)}`, sql, error)
       })
 
     // Helper function to clean protobuf JSON strings
@@ -554,6 +591,7 @@ export const makeClickHouseStorage = (
       queryLogs,
       queryForAI,
       queryRaw,
+      queryText,
       healthCheck,
       close
     }

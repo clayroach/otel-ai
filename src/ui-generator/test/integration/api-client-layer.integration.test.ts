@@ -17,14 +17,32 @@ import type { QueryGenerationAPIRequest } from '../../api-client.js'
 import type { ValidationResult } from '../../service.js'
 import type { UIGeneratorError } from '../../errors.js'
 import { LLMManagerLive } from '../../../llm-manager/index.js'
-import { StorageLayer } from '../../../storage/index.js'
+import { StorageServiceLive, ConfigServiceLive } from '../../../storage/index.js'
+import { ClickHouseConfigTag } from '../../../storage/api-client.js'
+
+// Create proper test configuration
+const testClickHouseConfig = {
+  host: 'localhost',
+  port: 8123,
+  database: 'otel',
+  username: 'otel',
+  password: 'otel123'
+}
 
 // Test helpers that properly resolve dependencies
-const testLayer = Layer.mergeAll(
-  UIGeneratorAPIClientLayer,
-  LLMManagerLive,
-  StorageLayer
+// Build the layer composition step by step
+const configLayer = ConfigServiceLive
+const clickHouseConfigLayer = Layer.succeed(ClickHouseConfigTag, testClickHouseConfig)
+const storageLayer = Layer.provide(StorageServiceLive, configLayer)
+const baseDependencies = Layer.mergeAll(
+  configLayer,
+  storageLayer,
+  clickHouseConfigLayer,
+  LLMManagerLive
 )
+
+// Now provide the UIGeneratorAPIClientLayer with all its dependencies
+const testLayer = Layer.provide(UIGeneratorAPIClientLayer, baseDependencies)
 
 // Helper to run effects with all required layers provided
 // This helper properly resolves all dependencies by providing the complete layer
@@ -120,7 +138,10 @@ describe('UI Generator API Client Layer Integration', () => {
         }
 
         // Use the convenience function with proper layer provision
-        const result = await runTest(generateQuery(request))
+        const result = await runTest(generateQuery(request)).catch((error) => {
+          console.error('Test failed with full error:', JSON.stringify(error, null, 2))
+          throw error
+        })
 
         expect(result).toBeDefined()
         expect(result.sql).toBeTruthy()
@@ -244,11 +265,19 @@ describe('UI Generator API Client Layer Integration', () => {
       )
 
       // Compose layers - include all required dependencies
-      const AppLayer = Layer.mergeAll(
-        UIGeneratorAPIClientLayer,
+      // First create the base layer with all dependencies
+      const BaseLayer = Layer.mergeAll(
         LLMManagerLive,
-        StorageLayer
-      ).pipe(Layer.provide(TestServiceLayer))
+        storageLayer,
+        ConfigServiceLive,
+        clickHouseConfigLayer
+      )
+
+      // Then provide the UI Generator API Client layer
+      const FullLayer = Layer.provide(UIGeneratorAPIClientLayer, BaseLayer)
+
+      // Finally provide the test service layer
+      const AppLayer = Layer.provide(TestServiceLayer, FullLayer)
 
       const result = await Effect.runPromise(
         Effect.gen(function* () {

@@ -16,6 +16,7 @@ import type { LLMRequest, LLMError } from '../../llm-manager/types.js'
 // The error type is generic to support different storage implementations
 export interface ClickHouseClient<E = Error> {
   queryRaw: (sql: string) => Effect.Effect<unknown[], E>
+  queryText: (sql: string) => Effect.Effect<string, E>
 }
 
 // Type for unknown error objects (unused but kept for future error handling)
@@ -29,18 +30,38 @@ export interface ClickHouseClient<E = Error> {
  * Source: https://github.com/ClickHouse/ClickHouse/blob/master/src/Common/ErrorCodes.cpp
  */
 export enum ClickHouseErrorCode {
-  UNKNOWN_IDENTIFIER = 47,
-  TYPE_MISMATCH = 53,
-  UNKNOWN_TABLE = 60,
+  // Parsing and Syntax Errors
+  CANNOT_PARSE_TEXT = 6,
   SYNTAX_ERROR = 62,
-  UNKNOWN_AGGREGATE_FUNCTION = 63,
   INCORRECT_QUERY = 80,
-  ILLEGAL_AGGREGATION = 184,
+  UNEXPECTED_EXPRESSION = 183,
+  TOO_DEEP_AST = 167,
+
+  // Column and Table Errors
+  THERE_IS_NO_COLUMN = 8,
+  NO_SUCH_COLUMN_IN_TABLE = 16,
+  UNKNOWN_IDENTIFIER = 47,
+  UNKNOWN_TABLE = 60,
   AMBIGUOUS_IDENTIFIER = 207,
   AMBIGUOUS_COLUMN_NAME = 352,
-  NUMBER_OF_ARGUMENTS_DOESNT_MATCH = 42,
+  COLUMN_QUERIED_MORE_THAN_ONCE = 52,
+  EMPTY_LIST_OF_COLUMNS_QUERIED = 51,
+  INCORRECT_NUMBER_OF_COLUMNS = 7,
+
+  // Type and Argument Errors
+  TYPE_MISMATCH = 53,
   ILLEGAL_TYPE_OF_ARGUMENT = 43,
-  TOO_DEEP_AST = 167,
+  CANNOT_CONVERT_TYPE = 70,
+  INCOMPATIBLE_COLUMNS = 122,
+  NUMBER_OF_ARGUMENTS_DOESNT_MATCH = 42,
+
+  // Aggregate Function Errors
+  UNKNOWN_AGGREGATE_FUNCTION = 63,
+  AGGREGATE_FUNCTION_DOESNT_ALLOW_PARAMETERS = 133,
+  PARAMETERS_TO_AGGREGATE_FUNCTIONS_MUST_BE_LITERALS = 134,
+  ILLEGAL_AGGREGATION = 184,
+  NOT_AN_AGGREGATE = 215, // Column not under aggregate function and not in GROUP BY
+
   // Default for unrecognized errors
   UNKNOWN = 0
 }
@@ -49,18 +70,41 @@ export enum ClickHouseErrorCode {
  * Map error code names to their numeric values
  */
 export const ErrorCodeNames: Record<string, ClickHouseErrorCode> = {
-  UNKNOWN_IDENTIFIER: ClickHouseErrorCode.UNKNOWN_IDENTIFIER,
-  TYPE_MISMATCH: ClickHouseErrorCode.TYPE_MISMATCH,
-  UNKNOWN_TABLE: ClickHouseErrorCode.UNKNOWN_TABLE,
+  // Parsing and Syntax
+  CANNOT_PARSE_TEXT: ClickHouseErrorCode.CANNOT_PARSE_TEXT,
   SYNTAX_ERROR: ClickHouseErrorCode.SYNTAX_ERROR,
-  UNKNOWN_AGGREGATE_FUNCTION: ClickHouseErrorCode.UNKNOWN_AGGREGATE_FUNCTION,
   INCORRECT_QUERY: ClickHouseErrorCode.INCORRECT_QUERY,
-  ILLEGAL_AGGREGATION: ClickHouseErrorCode.ILLEGAL_AGGREGATION,
+  UNEXPECTED_EXPRESSION: ClickHouseErrorCode.UNEXPECTED_EXPRESSION,
+  TOO_DEEP_AST: ClickHouseErrorCode.TOO_DEEP_AST,
+
+  // Columns and Tables
+  THERE_IS_NO_COLUMN: ClickHouseErrorCode.THERE_IS_NO_COLUMN,
+  NO_SUCH_COLUMN_IN_TABLE: ClickHouseErrorCode.NO_SUCH_COLUMN_IN_TABLE,
+  UNKNOWN_IDENTIFIER: ClickHouseErrorCode.UNKNOWN_IDENTIFIER,
+  UNKNOWN_TABLE: ClickHouseErrorCode.UNKNOWN_TABLE,
   AMBIGUOUS_IDENTIFIER: ClickHouseErrorCode.AMBIGUOUS_IDENTIFIER,
   AMBIGUOUS_COLUMN_NAME: ClickHouseErrorCode.AMBIGUOUS_COLUMN_NAME,
-  NUMBER_OF_ARGUMENTS_DOESNT_MATCH: ClickHouseErrorCode.NUMBER_OF_ARGUMENTS_DOESNT_MATCH,
+  COLUMN_QUERIED_MORE_THAN_ONCE: ClickHouseErrorCode.COLUMN_QUERIED_MORE_THAN_ONCE,
+  EMPTY_LIST_OF_COLUMNS_QUERIED: ClickHouseErrorCode.EMPTY_LIST_OF_COLUMNS_QUERIED,
+  INCORRECT_NUMBER_OF_COLUMNS: ClickHouseErrorCode.INCORRECT_NUMBER_OF_COLUMNS,
+
+  // Types and Arguments
+  TYPE_MISMATCH: ClickHouseErrorCode.TYPE_MISMATCH,
   ILLEGAL_TYPE_OF_ARGUMENT: ClickHouseErrorCode.ILLEGAL_TYPE_OF_ARGUMENT,
-  TOO_DEEP_AST: ClickHouseErrorCode.TOO_DEEP_AST,
+  CANNOT_CONVERT_TYPE: ClickHouseErrorCode.CANNOT_CONVERT_TYPE,
+  INCOMPATIBLE_COLUMNS: ClickHouseErrorCode.INCOMPATIBLE_COLUMNS,
+  NUMBER_OF_ARGUMENTS_DOESNT_MATCH: ClickHouseErrorCode.NUMBER_OF_ARGUMENTS_DOESNT_MATCH,
+
+  // Aggregates
+  UNKNOWN_AGGREGATE_FUNCTION: ClickHouseErrorCode.UNKNOWN_AGGREGATE_FUNCTION,
+  AGGREGATE_FUNCTION_DOESNT_ALLOW_PARAMETERS:
+    ClickHouseErrorCode.AGGREGATE_FUNCTION_DOESNT_ALLOW_PARAMETERS,
+  PARAMETERS_TO_AGGREGATE_FUNCTIONS_MUST_BE_LITERALS:
+    ClickHouseErrorCode.PARAMETERS_TO_AGGREGATE_FUNCTIONS_MUST_BE_LITERALS,
+  ILLEGAL_AGGREGATION: ClickHouseErrorCode.ILLEGAL_AGGREGATION,
+  NOT_AN_AGGREGATE: ClickHouseErrorCode.NOT_AN_AGGREGATE,
+
+  // Default
   UNKNOWN: ClickHouseErrorCode.UNKNOWN
 }
 
@@ -97,6 +141,111 @@ export interface SQLOptimizationResult {
 }
 
 /**
+ * Validates SQL syntax using EXPLAIN AST without executing the query
+ * This is a lightweight way to check if the query is syntactically correct
+ */
+export const validateSQLSyntax = <E = Error>(
+  sql: string,
+  clickhouseClient: ClickHouseClient<E>
+): Effect.Effect<SQLEvaluationResult, E> => {
+  console.log(`🔧 [SQL-VALIDATOR] validateSQLSyntax called with SQL length: ${sql.length}`)
+  console.log(`🔧 [SQL-VALIDATOR] validateSQLSyntax SQL preview: ${sql.substring(0, 100)}...`)
+
+  return Effect.gen(function* () {
+    const startTime = Date.now()
+
+    // Use EXPLAIN AST to validate syntax without execution
+    const explainQuery = `EXPLAIN AST ${sql.replace(/;?\s*$/, '')}`
+
+    console.log('🔍 [SQL-VALIDATOR] validateSQLSyntax executing EXPLAIN AST query')
+    console.log(
+      '🔍 [SQL-VALIDATOR] validateSQLSyntax EXPLAIN query:',
+      explainQuery.substring(0, 150) + '...'
+    )
+
+    const result = yield* pipe(
+      clickhouseClient.queryText(explainQuery),
+      Effect.map((_astText) => {
+        const executionTimeMs = Date.now() - startTime
+
+        console.log('✅ [SQL-VALIDATOR] validateSQLSyntax syntax is VALID - no errors found')
+        console.log('✅ [SQL-VALIDATOR] AST returned successfully, query is syntactically correct')
+
+        const result: SQLEvaluationResult = {
+          sql,
+          isValid: true,
+          executionTimeMs,
+          // No row data since we only validated syntax
+          rowCount: 0,
+          columns: []
+        }
+        return result
+      }),
+      Effect.catchAll((error) => {
+        const executionTimeMs = Date.now() - startTime
+        const errorMessage = error instanceof Error ? error.message : String(error)
+
+        console.log('❌ [SQL-VALIDATOR] validateSQLSyntax syntax validation FAILED:', errorMessage)
+        console.log(
+          '❌ [SQL-VALIDATOR] validateSQLSyntax this error should trigger optimization attempts'
+        )
+
+        // Parse ClickHouse error
+        let errorCode = 'SYNTAX_ERROR'
+        let errorCodeNumber = ClickHouseErrorCode.SYNTAX_ERROR
+        let position: number | undefined
+
+        // Extract error code from ClickHouse error message
+        const codeMatch = errorMessage.match(/Code:\s*(\d+)/i)
+        if (codeMatch && codeMatch[1]) {
+          const numericCode = parseInt(codeMatch[1], 10)
+          errorCodeNumber = numericCode
+
+          // Map numeric code to our enum
+          for (const [name, value] of Object.entries(ErrorCodeNames)) {
+            if (value === numericCode) {
+              errorCode = name
+              break
+            }
+          }
+        }
+
+        // Try to extract position if available
+        const positionMatch = errorMessage.match(/at position (\d+)|position (\d+)/i)
+        if (positionMatch) {
+          const matchedValue = positionMatch[1] || positionMatch[2]
+          if (matchedValue) {
+            position = parseInt(matchedValue, 10)
+          }
+        }
+
+        // Also check for line/col information
+        const lineColMatch = errorMessage.match(/\(line (\d+), col (\d+)\)/i)
+        let lineInfo = ''
+        if (lineColMatch) {
+          lineInfo = ` (line ${lineColMatch[1]}, col ${lineColMatch[2]})`
+        }
+
+        const result: SQLEvaluationResult = {
+          sql,
+          isValid: false,
+          executionTimeMs,
+          error: {
+            code: errorCode,
+            codeNumber: errorCodeNumber,
+            message: errorMessage + lineInfo,
+            ...(position !== undefined && { position })
+          }
+        }
+        return Effect.succeed(result)
+      })
+    )
+
+    return result
+  })
+}
+
+/**
  * Evaluates SQL by executing it against ClickHouse
  */
 export const evaluateSQL = <E = Error>(
@@ -106,8 +255,30 @@ export const evaluateSQL = <E = Error>(
   return Effect.gen(function* () {
     const startTime = Date.now()
 
-    // Execute the query with LIMIT 1 for testing validity
-    const testSql = `${sql.replace(/;?\s*$/, '')} LIMIT 1`
+    // Smart handling of LIMIT and FORMAT clauses
+    let testSql = sql.replace(/;?\s*$/, '') // Remove trailing semicolon
+
+    // Check if the query already has FORMAT clause
+    const formatMatch = testSql.match(/\s+(FORMAT\s+\w+)$/i)
+    let formatClause = ''
+    if (formatMatch) {
+      formatClause = formatMatch[1] || ''
+      // Remove FORMAT clause temporarily
+      testSql = testSql.substring(0, testSql.length - formatMatch[0].length)
+    }
+
+    // Check if the query already has a LIMIT clause
+    const hasLimit = /\bLIMIT\s+\d+/i.test(testSql)
+
+    // Add LIMIT 1 only if there isn't already a LIMIT
+    if (!hasLimit) {
+      testSql = `${testSql} LIMIT 1`
+    }
+
+    // Re-add FORMAT clause after LIMIT if it existed
+    if (formatClause) {
+      testSql = `${testSql} ${formatClause}`
+    }
 
     const result = yield* pipe(
       clickhouseClient.queryRaw(testSql),
@@ -166,6 +337,12 @@ export const evaluateSQL = <E = Error>(
           ) {
             errorCode = 'ILLEGAL_AGGREGATION'
             errorCodeNumber = ClickHouseErrorCode.ILLEGAL_AGGREGATION
+          } else if (
+            errorMessage.includes('NOT_AN_AGGREGATE') ||
+            errorMessage.includes('not under aggregate function and not in GROUP BY')
+          ) {
+            errorCode = 'NOT_AN_AGGREGATE'
+            errorCodeNumber = ClickHouseErrorCode.NOT_AN_AGGREGATE
           } else if (
             errorMessage.includes('Unknown expression identifier') ||
             errorMessage.includes('UNKNOWN_IDENTIFIER')
@@ -325,6 +502,30 @@ Fix by:
 1. Use 'traces' as the table name (not 'otel.traces')
 2. Ensure the FROM clause references the correct table`
 
+    case 'NOT_AN_AGGREGATE':
+      return `NOT_AN_AGGREGATE Error (Code 215) - Column not under aggregate function and not in GROUP BY:
+1. When using GROUP BY, all columns in SELECT must either be:
+   - In the GROUP BY clause, OR
+   - Used inside an aggregate function (COUNT, SUM, AVG, MIN, MAX, etc.)
+2. Common mistake: count() * column_name should be sum(column_name)
+3. If you need the raw column value multiplied by count, wrap it in an aggregate
+
+The specific error in your query:
+- count() * (duration_ns/1000000) is invalid
+- Should be: sum(duration_ns/1000000) to get total duration
+- Or: count() * avg(duration_ns/1000000) to get count multiplied by average
+
+Fix by:
+- Changing count() * (duration_ns/1000000) to sum(duration_ns/1000000)
+- Or wrapping the column in an appropriate aggregate function`
+
+    case 'THERE_IS_NO_COLUMN':
+    case 'NO_SUCH_COLUMN_IN_TABLE':
+      return `Column does not exist error:
+1. Check exact column names in the traces table
+2. Common columns: trace_id, span_id, parent_span_id, service_name, operation_name, start_time, end_time, duration_ns, status_code
+3. Use correct case sensitivity (ClickHouse is case-sensitive)`
+
     default:
       return `General ClickHouse optimization guidelines:
 1. Move aggregate functions from WHERE to HAVING
@@ -391,21 +592,111 @@ export const evaluateAndOptimizeSQLWithLLM = <E = Error>(
   LLMError | E,
   LLMManagerServiceTag
 > => {
+  console.log(
+    `🔧 [SQL-VALIDATOR] evaluateAndOptimizeSQLWithLLM called with SQL length: ${sql.length}`
+  )
+  console.log(`🔧 [SQL-VALIDATOR] evaluateAndOptimizeSQLWithLLM parameters:`, {
+    context,
+    maxAttempts
+  })
+  console.log(
+    `🔧 [SQL-VALIDATOR] evaluateAndOptimizeSQLWithLLM SQL preview: ${sql.substring(0, 100)}...`
+  )
+
   return Effect.gen(function* () {
+    console.log(
+      `🔧 [SQL-VALIDATOR] evaluateAndOptimizeSQLWithLLM Effect starting with ${maxAttempts} max attempts`
+    )
+
     const attempts: SQLEvaluationResult[] = []
     const optimizations: SQLOptimizationResult[] = []
     let currentSql = sql
 
     for (let i = 0; i < maxAttempts; i++) {
-      console.log(`🔄 [SQL Evaluator] Attempt ${i + 1}/${maxAttempts}`)
+      console.log(
+        `🔄 [SQL-VALIDATOR] evaluateAndOptimizeSQLWithLLM Attempt ${i + 1}/${maxAttempts}`
+      )
+      console.log(
+        `🔄 [SQL-VALIDATOR] evaluateAndOptimizeSQLWithLLM Current SQL: ${currentSql.substring(0, 100)}...`
+      )
 
-      // Evaluate the SQL
+      // First validate syntax using EXPLAIN AST (lightweight, no data execution)
+      console.log(`🔄 [SQL-VALIDATOR] evaluateAndOptimizeSQLWithLLM calling validateSQLSyntax`)
+      const syntaxValidation = yield* pipe(
+        validateSQLSyntax(currentSql, clickhouseClient),
+        Effect.mapError((error) => ({
+          _tag: 'NetworkError' as const,
+          model: 'clickhouse',
+          message: `Syntax validation failed: ${error}`
+        }))
+      )
+
+      // If syntax is invalid, immediately try to fix it without executing
+      if (!syntaxValidation.isValid) {
+        console.log(`❌ [SQL Evaluator] Syntax invalid: ${syntaxValidation.error?.message}`)
+        attempts.push(syntaxValidation)
+
+        // If we have attempts left, optimize with LLM
+        if (i < maxAttempts - 1 && syntaxValidation.error) {
+          console.log(`🔧 [SQL Optimizer] Fixing syntax error: ${syntaxValidation.error.code}`)
+
+          const optimizationRequest: SQLOptimizationRequest = {
+            originalSql: currentSql,
+            error: {
+              code: syntaxValidation.error.code,
+              message: syntaxValidation.error.message
+            },
+            ...(context && { context })
+          }
+
+          const optimization = yield* pipe(
+            optimizeSQLWithLLM(optimizationRequest),
+            Effect.map((result) => {
+              // If LLM returned empty SQL, use rule-based optimization
+              if (!result.optimizedSql || result.optimizedSql.trim() === '') {
+                return {
+                  optimizedSql: applyRuleBasedOptimization(
+                    currentSql,
+                    syntaxValidation.error?.code || 'UNKNOWN'
+                  ),
+                  explanation: `LLM returned empty result, using rule-based optimization`,
+                  changes: [
+                    `Applied rule-based optimization for ${syntaxValidation.error?.code || 'UNKNOWN'}`
+                  ]
+                }
+              }
+              return result
+            }),
+            Effect.catchAll((_error) => {
+              // If LLM optimization fails, use rule-based approach
+              console.log('⚠️ [SQL Optimizer] LLM optimization failed, using rule-based approach')
+              return Effect.succeed({
+                optimizedSql: applyRuleBasedOptimization(
+                  currentSql,
+                  syntaxValidation.error?.code || 'UNKNOWN'
+                ),
+                explanation: 'LLM optimization failed, using rule-based optimization',
+                changes: ['Applied rule-based optimization']
+              })
+            })
+          )
+
+          optimizations.push(optimization)
+          currentSql = optimization.optimizedSql
+          console.log(`🔄 [SQL Optimizer] Applied optimization: ${optimization.changes.join(', ')}`)
+        }
+        continue // Skip execution test since syntax is invalid
+      }
+
+      console.log('✅ [SQL Evaluator] Syntax is valid, now testing execution with LIMIT 1')
+
+      // If syntax is valid, test execution with LIMIT 1
       const evaluation = yield* pipe(
         evaluateSQL(currentSql, clickhouseClient),
         Effect.mapError((error) => ({
           _tag: 'NetworkError' as const,
           model: 'clickhouse',
-          message: `SQL evaluation failed: ${error}`
+          message: `SQL execution test failed: ${error}`
         }))
       )
 
@@ -419,6 +710,11 @@ export const evaluateAndOptimizeSQLWithLLM = <E = Error>(
           optimizations
         }
       }
+
+      // Log execution failure
+      console.log(
+        `❌ [SQL Evaluator] Execution test failed: ${evaluation.error?.code} - ${evaluation.error?.message}`
+      )
 
       // If not valid and we have attempts left, optimize with LLM
       if (i < maxAttempts - 1 && evaluation.error) {
@@ -472,6 +768,10 @@ export const evaluateAndOptimizeSQLWithLLM = <E = Error>(
     }
 
     console.log(`❌ [SQL Evaluator] Failed to produce valid SQL after ${maxAttempts} attempts`)
+    console.log(
+      `❌ [SQL Evaluator] Final attempt error: ${attempts[attempts.length - 1]?.error?.code} - ${attempts[attempts.length - 1]?.error?.message}`
+    )
+    console.log(`📊 [SQL Evaluator] Optimization attempts made: ${optimizations.length}`)
     return {
       finalSql: currentSql,
       attempts,
@@ -534,6 +834,10 @@ export const evaluateAndOptimizeSQL = <E = Error>(
     }
 
     console.log(`❌ [SQL Evaluator] Failed to produce valid SQL after ${maxAttempts} attempts`)
+    console.log(
+      `❌ [SQL Evaluator] Final attempt error: ${attempts[attempts.length - 1]?.error?.code} - ${attempts[attempts.length - 1]?.error?.message}`
+    )
+    console.log(`📊 [SQL Evaluator] Optimization attempts made: ${optimizations.length}`)
     return {
       finalSql: currentSql,
       attempts,
@@ -566,6 +870,40 @@ export function applyRuleBasedOptimization(sql: string, errorCode: string): stri
       optimized = optimized.replace(/\btimestamp\b/gi, 'start_time')
       optimized = optimized.replace(/\bduration\b/gi, 'duration_ns')
       break
+
+    case 'NOT_AN_AGGREGATE':
+      // Fix columns not under aggregate function
+      // Common pattern: count() * (duration_ns/1000000) -> sum(duration_ns/1000000)
+      optimized = optimized.replace(/count\(\)\s*\*\s*\(([^)]+)\)/gi, 'sum($1)')
+      // Also try to fix duration_ns specifically
+      optimized = optimized.replace(/count\(\)\s*\*\s*duration_ns/gi, 'sum(duration_ns)')
+      // Fix pattern with division: count() * (column/number)
+      optimized = optimized.replace(/count\(\)\s*\*\s*\(([^/)]+)\/([^)]+)\)/gi, 'sum($1/$2)')
+      // Fix any count() * column pattern
+      optimized = optimized.replace(/count\(\)\s*\*\s*(\w+)/gi, 'sum($1)')
+      break
+
+    case 'THERE_IS_NO_COLUMN':
+    case 'NO_SUCH_COLUMN_IN_TABLE':
+      // Try to fix common column name mistakes
+      optimized = optimized.replace(/\btimestamp\b/gi, 'start_time')
+      optimized = optimized.replace(/\bend_timestamp\b/gi, 'end_time')
+      optimized = optimized.replace(/\bduration\b/gi, 'duration_ns')
+      optimized = optimized.replace(/\berror_code\b/gi, 'status_code')
+      optimized = optimized.replace(/\berror_message\b/gi, 'status_message')
+      break
+
+    case 'SYNTAX_ERROR': {
+      // Try to fix HAVING after ORDER BY
+      const havingAfterOrderMatch = optimized.match(/ORDER\s+BY[^;]*?(HAVING\s+[^;]+)/i)
+      if (havingAfterOrderMatch && havingAfterOrderMatch[1]) {
+        const havingClause = havingAfterOrderMatch[1]
+        // Remove HAVING from after ORDER BY and add it before ORDER BY
+        optimized = optimized.replace(havingAfterOrderMatch[1], '')
+        optimized = optimized.replace(/ORDER\s+BY/i, `${havingClause} ORDER BY`)
+      }
+      break
+    }
   }
 
   return optimized

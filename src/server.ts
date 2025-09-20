@@ -1245,7 +1245,14 @@ app.get('/api/llm/live', (req, res) => {
 // UI Generator Query Generation Endpoint - REAL (production)
 app.post('/api/ui-generator/generate-query', async (req, res) => {
   try {
-    const { path, timeWindowMinutes = 60, analysisGoal, model, isClickHouseAI } = req.body
+    const {
+      path,
+      timeWindowMinutes = 60,
+      analysisGoal,
+      model,
+      isClickHouseAI,
+      useEvaluatorOptimizer = true // Enable evaluator by default for better query validation
+    } = req.body
 
     // Validate that path exists
     if (!path || !path.services || path.services.length === 0) {
@@ -1254,6 +1261,12 @@ app.post('/api/ui-generator/generate-query', async (req, res) => {
         message: 'Path with services array is required'
       })
     }
+
+    console.log(`🔧 [EVALUATOR] Server received useEvaluatorOptimizer: ${useEvaluatorOptimizer}`)
+    console.log(`🔧 [EVALUATOR] Request body keys:`, Object.keys(req.body))
+    console.log(
+      `🔧 [EVALUATOR] About to call UIGeneratorAPIClient.generateQuery with evaluator flag: ${useEvaluatorOptimizer}`
+    )
 
     // Use the UI Generator API Client via Effect-TS
     const result = await runWithServices(
@@ -1269,7 +1282,8 @@ app.post('/api/ui-generator/generate-query', async (req, res) => {
           },
           analysisGoal: analysisGoal || determineAnalysisGoal(path?.metrics),
           model: model, // Model will be determined by Portkey config defaults
-          isClickHouseAI: isClickHouseAI // Pass ClickHouse AI flag
+          isClickHouseAI: isClickHouseAI, // Pass ClickHouse AI flag
+          useEvaluatorOptimizer: useEvaluatorOptimizer // Pass evaluator flag
         })
       })
     )
@@ -1286,7 +1300,23 @@ app.post('/api/ui-generator/generate-query', async (req, res) => {
       model: result.model,
       description: result.description,
       generationTimeMs: result.generationTimeMs,
-      analysisType: determineAnalysisType(result.description)
+      analysisType: determineAnalysisType(result.description),
+      // Include optimization status if evaluator was used
+      optimizationStatus: result.evaluations
+        ? {
+            wasOptimized: result.evaluations.length > 1,
+            attempts: result.evaluations.length,
+            finalValid: result.evaluations?.[result.evaluations.length - 1]?.isValid || false,
+            errors:
+              result.evaluations
+                ?.filter((e) => !e.isValid)
+                .map((e, index) => ({
+                  attempt: index + 1,
+                  code: e.error?.code,
+                  message: e.error?.message
+                })) || []
+          }
+        : undefined
     })
   } catch (error) {
     console.error('❌ Query generation error:', error)

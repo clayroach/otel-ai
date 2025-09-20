@@ -30,6 +30,7 @@ export interface StorageService {
   readonly queryLogs: (params: QueryParams) => Effect.Effect<LogData[], StorageError>
   readonly queryForAI: (params: AIQueryParams) => Effect.Effect<AIDataset, StorageError>
   readonly queryRaw: (sql: string) => Effect.Effect<unknown[], StorageError>
+  readonly queryText: (sql: string) => Effect.Effect<string, StorageError>
 
   // Archive and retention
   readonly archiveData: (data: OTLPData, timestamp: number) => Effect.Effect<void, StorageError>
@@ -86,6 +87,7 @@ export const makeStorageService = (
   queryLogs: (params: QueryParams) => clickhouse.queryLogs(params),
   queryForAI: (params: AIQueryParams) => clickhouse.queryForAI(params),
   queryRaw: (sql: string) => clickhouse.queryRaw(sql),
+  queryText: (sql: string) => clickhouse.queryText(sql),
 
   archiveData: (_data: OTLPData, _timestamp: number) =>
     // S3 archiving not implemented yet - just return success

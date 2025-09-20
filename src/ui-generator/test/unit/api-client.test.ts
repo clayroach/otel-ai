@@ -28,6 +28,7 @@ const createMockStorageLayer = () => {
       sampleCount: 0
     }),
     queryRaw: () => Effect.succeed([]),
+    queryText: () => Effect.succeed(''),
     archiveData: () => Effect.succeed(undefined),
     applyRetentionPolicies: () => Effect.succeed(undefined),
     healthCheck: () => Effect.succeed({ clickhouse: true, s3: true }),
