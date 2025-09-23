@@ -147,15 +147,10 @@
     ]
   },
   "cache": {
-    "enabled": true,
+    "mode": "simple",
+    "enabled": false,
     "ttl": 3600,
     "maxSize": 1000
-  },
-  "retry": {
-    "attempts": 3,
-    "delay": 1000,
-    "backoff": "exponential",
-    "on_status_codes": [429, 502, 503, 504, 529]
   },
   "observability": {
     "metrics": true,

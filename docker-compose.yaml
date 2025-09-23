@@ -185,6 +185,7 @@ services:
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_LOW_TOKENS_API_KEY=${ANTHROPIC_LOW_TOKENS_API_KEY}
       - LM_STUDIO_ENDPOINT=${LM_STUDIO_ENDPOINT:-http://host.docker.internal:1234/v1}
       - OLLAMA_ENDPOINT=${OLLAMA_ENDPOINT:-http://host.docker.internal:11434}
       - PORT=8787
@@ -231,6 +232,7 @@ services:
       - PORTKEY_GATEWAY_URL=http://portkey-gateway:8787
     volumes:
       - ./config/portkey:/app/config/portkey:ro
+      - ./config/llm-manager.yaml:/app/config/llm-manager.yaml:ro
     depends_on:
       clickhouse:
         condition: service_healthy

@@ -6,6 +6,7 @@
  */
 
 import { Schema } from '@effect/schema'
+import { Data } from 'effect'
 
 // Configuration Schemas
 export const LLMConfigSchema = Schema.Struct({
@@ -117,17 +118,62 @@ export type LLMResponse = Schema.Schema.Type<typeof LLMResponseSchema>
 export type ConversationContext = Schema.Schema.Type<typeof ConversationContextSchema>
 export type ModelHealthStatus = Schema.Schema.Type<typeof ModelHealthStatusSchema>
 
-// LLM Error ADT
+// LLM Error ADT using Effect-TS Data.TaggedEnum pattern
+export class ModelUnavailable extends Data.TaggedError('ModelUnavailable')<{
+  model: string
+  message: string
+}> {}
+
+export class RateLimitExceeded extends Data.TaggedError('RateLimitExceeded')<{
+  model: string
+  retryAfter: number
+  message: string
+}> {}
+
+export class InvalidRequest extends Data.TaggedError('InvalidRequest')<{
+  message: string
+  request: LLMRequest
+}> {}
+
+export class AuthenticationFailed extends Data.TaggedError('AuthenticationFailed')<{
+  model: string
+  message: string
+}> {}
+
+export class TimeoutError extends Data.TaggedError('TimeoutError')<{
+  model: string
+  timeoutMs: number
+}> {}
+
+export class ContextTooLarge extends Data.TaggedError('ContextTooLarge')<{
+  model: string
+  tokenCount: number
+  maxTokens: number
+}> {}
+
+export class ConfigurationError extends Data.TaggedError('ConfigurationError')<{
+  message: string
+}> {}
+
+export class NetworkError extends Data.TaggedError('NetworkError')<{
+  model: string
+  message: string
+}> {}
+
+export class AllModelsUnavailable extends Data.TaggedError('AllModelsUnavailable')<{
+  message: string
+}> {}
+
 export type LLMError =
-  | { _tag: 'ModelUnavailable'; model: string; message: string }
-  | { _tag: 'RateLimitExceeded'; model: string; retryAfter: number }
-  | { _tag: 'InvalidRequest'; message: string; request: LLMRequest }
-  | { _tag: 'AuthenticationFailed'; model: string; message: string }
-  | { _tag: 'TimeoutError'; model: string; timeoutMs: number }
-  | { _tag: 'ContextTooLarge'; model: string; tokenCount: number; maxTokens: number }
-  | { _tag: 'ConfigurationError'; message: string }
-  | { _tag: 'NetworkError'; model: string; message: string }
-  | { _tag: 'AllModelsUnavailable'; message: string }
+  | ModelUnavailable
+  | RateLimitExceeded
+  | InvalidRequest
+  | AuthenticationFailed
+  | TimeoutError
+  | ContextTooLarge
+  | ConfigurationError
+  | NetworkError
+  | AllModelsUnavailable
 
 // Model type definitions
 export type ModelType = string // Accept any model name, not just hardcoded generic types

@@ -1589,7 +1589,8 @@ app.get('/api/llm-manager/health', async (_req, res) => {
       loadedModels: status.loadedModels?.length || 0,
       healthyModels: status.loadedModels?.filter((m) => m.status === 'available').length || 0,
       uptime: status.systemMetrics?.uptime,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      config: status.config
     })
   } catch (error) {
     console.error('❌ LLM Manager health check error:', error)

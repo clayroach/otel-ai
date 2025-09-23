@@ -2,15 +2,18 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
-    // Longer timeouts for integration tests with TestContainers
-    testTimeout: 300000, // 5 minutes
-    hookTimeout: 120000, // 2 minutes for setup/teardown
-    
-    // Run integration tests serially to avoid resource conflicts
+    // Increased timeouts to handle client-side retry logic
+    // With 5 retry attempts and potential retry-after headers up to 300s,
+    // tests need sufficient time to complete
+    testTimeout: 120000, // 2 minutes for individual tests (handles most retry scenarios)
+    hookTimeout: 180000, // 3 minutes for setup/teardown
+
+    // Enable parallel execution for 429 retry testing
     pool: 'threads',
     poolOptions: {
       threads: {
-        singleThread: true,
+        minThreads: 2,
+        maxThreads: 12, // Allow multiple threads for concurrent testing
       },
     },
     

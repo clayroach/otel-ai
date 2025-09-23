@@ -47,7 +47,7 @@ describe('SQL Evaluator-Optimizer with Multiple LLM Models', () => {
     await setupClickHouseSchema(testContainer.client)
 
     console.log('✅ Schema created for multi-model tests')
-  }, 60000)
+  })
 
   describe.skipIf(skipInCI)('Parallel model testing with Effect', () => {
     it('should test all models in parallel for NOT_AN_AGGREGATE errors', async () => {
@@ -142,7 +142,7 @@ describe('SQL Evaluator-Optimizer with Multiple LLM Models', () => {
       const successCount = results.filter(r => r.success).length
       expect(successCount).toBeGreaterThan(0)
       console.log(`\n✅ ${successCount}/${results.length} models fixed NOT_AN_AGGREGATE`)
-    }, 120000)
+    })
 
     it('should test all models in parallel for UNKNOWN_IDENTIFIER errors', async () => {
       const invalidSQL = `
@@ -257,7 +257,7 @@ describe('SQL Evaluator-Optimizer with Multiple LLM Models', () => {
         console.log(`  ⚠️  No models were able to fix the UNKNOWN_IDENTIFIER error in complex CTEs`)
         console.log(`      This is a known difficult case - the test validates error detection`)
       }
-    }, 120000)
+    })
 
     it('should test all models in parallel for SYNTAX_ERROR with HAVING clause', async () => {
       const invalidSQL = `
@@ -356,7 +356,7 @@ describe('SQL Evaluator-Optimizer with Multiple LLM Models', () => {
       const successCount = results.filter(r => r.success).length
       expect(successCount).toBeGreaterThan(0)
       console.log(`\n✅ ${successCount}/${results.length} models fixed SYNTAX_ERROR`)
-    }, 120000)
+    })
   })
 
   describe.skipIf(skipInCI)('Known Issues - Models Cannot Fix', () => {
@@ -489,7 +489,7 @@ describe('SQL Evaluator-Optimizer with Multiple LLM Models', () => {
       // This test expects at least one model to fix the error
       // Currently fails - that's why it's skipped
       expect(fixedCount).toBeGreaterThan(0)
-    }, 180000)
+    })
   })
 
   describe.skipIf(skipInCI)('Comprehensive model comparison with Effect', () => {
@@ -609,7 +609,7 @@ describe('SQL Evaluator-Optimizer with Multiple LLM Models', () => {
       // At least one model should succeed
       expect(successfulModels.length).toBeGreaterThan(0)
       console.log(`\n✅ Test completed: ${successfulModels.length} model(s) successfully fixed the SQL`)
-    }, 180000) // 3 minute timeout for comprehensive test
+    }) // 3 minute timeout for comprehensive test
   })
 
   afterAll(async () => {

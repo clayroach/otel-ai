@@ -109,6 +109,7 @@
     "cors": "^2.8.5",
     "effect": "^3.8.0",
     "express": "^4.19.2",
+    "js-yaml": "^4.1.0",
     "portkey-ai": "^1.10.3"
   },
   "devDependencies": {
@@ -120,6 +121,7 @@
     "@types/cors": "^2.8.17",
     "@types/echarts": "^5.0.0",
     "@types/express": "^4.17.21",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.14.0",
     "@types/supertest": "^6.0.3",
     "@typescript-eslint/eslint-plugin": "^7.18.0",

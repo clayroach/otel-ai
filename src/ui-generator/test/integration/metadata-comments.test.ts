@@ -60,5 +60,5 @@ describe.skipIf(shouldSkipLLMTests())('Metadata Comments in Generated SQL', () =
     console.log('- Services: ✓')
     console.log(`- Token usage: ${hasTokenInfo ? '✓' : '✗ (not provided by model)'}`)
     console.log(`- Generation time: ${hasGenerationTime ? '✓' : '✗ (not provided by model)'}`)
-  }, 30000)
+  })
 })

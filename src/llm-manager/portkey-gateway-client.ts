@@ -7,10 +7,15 @@
 
 import * as Schema from '@effect/schema/Schema'
 import { Effect, Layer, Stream } from 'effect'
+import { createHash } from 'crypto'
+import { readFileSync } from 'fs'
 import { interactionLogger } from './interaction-logger.js'
 import { LLMManagerServiceTag } from './llm-manager-service.js'
 import type { LLMError, LLMRequest, LLMResponse } from './types.js'
+import { ConfigurationError, ModelUnavailable, InvalidRequest, RateLimitExceeded } from './types.js'
 import type { ModelInfo, PortkeyConfig } from './model-types.js'
+import { loadLLMManagerConfig } from './config-loader.js'
+import { retryWithBackoff, parseRetryAfter, RetryableError } from './retry-handler.js'
 
 // OpenAI-compatible response schema
 const ChatCompletionSchema = Schema.Struct({
@@ -48,10 +53,8 @@ let configCache: {
 /**
  * Calculate SHA-256 hash of content
  */
-const calculateHash = async (content: string): Promise<string> => {
-  const crypto = await import('crypto')
-  return crypto.createHash('sha256').update(content).digest('hex')
-}
+const calculateHash = (content: string): string =>
+  createHash('sha256').update(content).digest('hex')
 
 /**
  * Load and cache the Portkey configuration
@@ -61,13 +64,12 @@ const loadPortkeyConfig = (): Effect.Effect<PortkeyConfig, LLMError, never> =>
   Effect.gen(function* () {
     const configPath = './config/portkey/config.json'
 
-    const result = yield* Effect.tryPromise({
-      try: async () => {
-        const fs = await import('fs')
-        const rawConfig = fs.readFileSync(configPath, 'utf8')
+    const result = yield* Effect.try({
+      try: () => {
+        const rawConfig = readFileSync(configPath, 'utf8')
 
         // Calculate hash of the raw content
-        const currentHash = await calculateHash(rawConfig)
+        const currentHash = calculateHash(rawConfig)
 
         // Check if config has changed
         if (configCache.config && configCache.contentHash === currentHash) {
@@ -141,10 +143,10 @@ const loadPortkeyConfig = (): Effect.Effect<PortkeyConfig, LLMError, never> =>
 
         return parsed
       },
-      catch: (error): LLMError => ({
-        _tag: 'ConfigurationError' as const,
-        message: `Failed to load Portkey config: ${error}`
-      })
+      catch: (error): LLMError =>
+        new ConfigurationError({
+          message: `Failed to load Portkey config: ${error}`
+        })
     })
 
     return result
@@ -198,8 +200,13 @@ export const makePortkeyGatewayManager = (baseURL: string) => {
       const startTime = Date.now()
 
       return Effect.gen(function* () {
-        // Load config to get model defaults
-        const config = yield* loadPortkeyConfig()
+        // Load both configurations
+        const [config, llmConfig] = yield* Effect.all([
+          loadPortkeyConfig(),
+          loadLLMManagerConfig().pipe(
+            Effect.mapError((error): LLMError => new ConfigurationError({ message: error.message }))
+          )
+        ])
         // Use model preference, then custom defaults, then Portkey override_params, then hardcoded fallback
         const model =
           request.preferences?.model ||
@@ -229,143 +236,230 @@ export const makePortkeyGatewayManager = (baseURL: string) => {
           temperature: request.preferences?.temperature || 0.7
         }
 
-        return yield* Effect.tryPromise({
-          try: async () => {
-            const timings = {
-              start: Date.now(),
-              headerBuild: 0,
-              fetchStart: 0,
-              fetchEnd: 0,
-              jsonParse: 0
-            }
-
-            // Find the route and provider for this model
-            let provider = 'openai' // default provider
-            let customHost: string | undefined
-
-            const route = config.routes.find((r) => r.models.includes(model))
-            if (route) {
-              provider = route.provider
-
-              // Get provider config
-              const providerConfig = config.providers.find((p) => p.id === provider)
-              if (
-                (providerConfig && providerConfig.baseURL.includes('localhost')) ||
-                providerConfig?.baseURL.includes('host.docker.internal')
-              ) {
-                // Local model - use custom host
-                customHost = providerConfig.baseURL
-              }
-            }
-
-            // Determine if this is a local model
-            const isLocalModel =
-              provider === 'lm-studio' ||
-              provider === 'ollama' ||
-              customHost?.includes('localhost') ||
-              customHost?.includes('host.docker.internal')
-
-            // Build headers for Portkey routing
-            const headers: Record<string, string> = {
-              'Content-Type': 'application/json',
-              'x-portkey-provider': isLocalModel ? 'openai' : provider // Use 'openai' for local models (OpenAI-compatible)
-            }
-
-            // For local models, add customHost header to point to LM Studio
-            if (isLocalModel && customHost) {
-              // Use the custom host from config (already processed for Docker/host environment)
-              headers['x-portkey-custom-host'] = customHost
-              // Use a placeholder API key for local models (Portkey requirement)
-              headers['Authorization'] = `Bearer sk-local-placeholder-key-for-portkey`
-            } else {
-              // For cloud models, use actual API key
-              const apiKey =
-                provider === 'anthropic'
-                  ? process.env.ANTHROPIC_API_KEY
-                  : process.env.OPENAI_API_KEY
-              headers['Authorization'] = `Bearer ${apiKey || ''}`
-            }
-
-            timings.headerBuild = Date.now() - timings.start
-
-            try {
-              timings.fetchStart = Date.now()
-              const response = await fetch(`${baseURL}/v1/chat/completions`, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(requestBody)
-              })
-              timings.fetchEnd = Date.now()
-
-              if (!response.ok) {
-                const errorText = await response.text()
-                throw new Error(`Gateway error (${response.status}): ${errorText}`)
+        // Create the request effect
+        const makeRequest = () =>
+          Effect.tryPromise({
+            try: async () => {
+              const timings = {
+                start: Date.now(),
+                headerBuild: 0,
+                fetchStart: 0,
+                fetchEnd: 0,
+                jsonParse: 0
               }
 
-              const jsonStart = Date.now()
-              const jsonData = await response.json()
-              timings.jsonParse = Date.now() - jsonStart
+              // Find the route and provider for this model
+              let provider = 'openai' // default provider
+              let customHost: string | undefined
 
-              // Log timing info only if explicitly debugging
-              const totalTime = Date.now() - timings.start
-              if (process.env.DEBUG_PORTKEY_TIMING) {
-                console.log(
-                  `[Portkey Timing] Total: ${totalTime}ms, Fetch: ${timings.fetchEnd - timings.fetchStart}ms, JSON: ${timings.jsonParse}ms`
-                )
-              }
+              const route = config.routes.find((r) => r.models.includes(model))
+              if (route) {
+                provider = route.provider
 
-              return jsonData
-            } catch (fetchError) {
-              // Handle specific Portkey HTTP protocol issue where response data is actually available
-              if (
-                fetchError instanceof TypeError &&
-                fetchError.message === 'fetch failed' &&
-                fetchError.cause &&
-                typeof fetchError.cause === 'object' &&
-                'code' in fetchError.cause &&
-                fetchError.cause.code === 'HPE_UNEXPECTED_CONTENT_LENGTH'
-              ) {
-                // Try to extract the JSON response from the error data
-                try {
-                  const cause = fetchError.cause as { code: string; data?: string }
-                  const data = cause.data
-                  if (typeof data === 'string') {
-                    // Parse chunked response data - look for JSON after hex length
-                    const lines = data.split('\r\n')
-                    const jsonLine = lines.find(
-                      (line) => line.startsWith('{') && line.includes('"id"')
-                    )
-                    if (jsonLine) {
-                      return JSON.parse(jsonLine)
-                    }
-                  }
-                } catch (parseError) {
-                  // Fall through to re-throw original error
+                // Get provider config
+                const providerConfig = config.providers.find((p) => p.id === provider)
+                if (
+                  (providerConfig && providerConfig.baseURL.includes('localhost')) ||
+                  providerConfig?.baseURL.includes('host.docker.internal')
+                ) {
+                  // Local model - use custom host
+                  customHost = providerConfig.baseURL
                 }
               }
-              // Re-throw the original error if we can't extract the response
-              throw fetchError
+
+              // Determine if this is a local model
+              const isLocalModel =
+                provider === 'lm-studio' ||
+                provider === 'ollama' ||
+                customHost?.includes('localhost') ||
+                customHost?.includes('host.docker.internal')
+
+              // Build headers for Portkey routing
+              const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+                'x-portkey-provider': isLocalModel ? 'openai' : provider // Use 'openai' for local models (OpenAI-compatible)
+              }
+
+              // Note: We handle ALL retries client-side now
+              // Portkey's 60-second limitation means we can't rely on it for long retry-after delays
+
+              // For local models, add customHost header to point to LM Studio
+              if (isLocalModel && customHost) {
+                // Use the custom host from config (already processed for Docker/host environment)
+                headers['x-portkey-custom-host'] = customHost
+                // Use a placeholder API key for local models (Portkey requirement)
+                headers['Authorization'] = `Bearer sk-local-placeholder-key-for-portkey`
+              } else {
+                // For cloud models, use actual API key
+                const apiKey =
+                  provider === 'anthropic'
+                    ? process.env.ANTHROPIC_API_KEY
+                    : process.env.OPENAI_API_KEY
+                headers['Authorization'] = `Bearer ${apiKey || ''}`
+              }
+
+              timings.headerBuild = Date.now() - timings.start
+
+              try {
+                timings.fetchStart = Date.now()
+                const response = await fetch(`${baseURL}/v1/chat/completions`, {
+                  method: 'POST',
+                  headers,
+                  body: JSON.stringify(requestBody)
+                })
+                timings.fetchEnd = Date.now()
+
+                // Log retry attempt header if present
+                if (process.env.DEBUG_PORTKEY_TIMING) {
+                  const retryAttemptCount = response.headers.get('x-portkey-retry-attempt-count')
+                  if (retryAttemptCount) {
+                    console.log(`[Portkey Debug] Retry attempt count: ${retryAttemptCount}`)
+                  }
+
+                  // Also log any retry-after headers from the provider
+                  const retryAfter = response.headers.get('retry-after')
+                  const retryAfterMs = response.headers.get('retry-after-ms')
+                  if (retryAfter || retryAfterMs) {
+                    console.log(`[Portkey Debug] Retry-after: ${retryAfter || retryAfterMs}`)
+                  }
+                }
+
+                // Check for 429 error specifically for client-side retry
+                if (response.status === 429) {
+                  const retryAfterHeader =
+                    response.headers.get('retry-after') ||
+                    response.headers.get('x-ratelimit-reset-after') ||
+                    response.headers.get('retry-after-ms')
+                  const retryAfter = parseRetryAfter(retryAfterHeader)
+
+                  if (llmConfig.observability.logRetries) {
+                    console.log(`[Client Retry] 429 detected. Retry-after: ${retryAfter}ms`)
+                    const portkeyRetryCount = response.headers.get('x-portkey-retry-attempt-count')
+                    if (portkeyRetryCount) {
+                      console.log(`[Client Retry] Portkey retry attempts: ${portkeyRetryCount}`)
+                    }
+                  }
+
+                  const errorText = await response.text()
+                  // Throw a specific error for retry handler
+                  const retryError = new RetryableError({
+                    status: 429,
+                    retryAfter,
+                    message: `Rate limit exceeded: ${errorText}`
+                  })
+                  throw retryError
+                }
+
+                if (!response.ok) {
+                  const errorText = await response.text()
+                  throw new Error(`Gateway error (${response.status}): ${errorText}`)
+                }
+
+                const jsonStart = Date.now()
+                const jsonData = await response.json()
+                timings.jsonParse = Date.now() - jsonStart
+
+                // Log timing info only if explicitly debugging
+                const totalTime = Date.now() - timings.start
+                if (process.env.DEBUG_PORTKEY_TIMING) {
+                  console.log(
+                    `[Portkey Timing] Total: ${totalTime}ms, Fetch: ${timings.fetchEnd - timings.fetchStart}ms, JSON: ${timings.jsonParse}ms`
+                  )
+                }
+
+                return jsonData
+              } catch (fetchError) {
+                // Handle specific Portkey HTTP protocol issue where response data is actually available
+                if (
+                  fetchError instanceof TypeError &&
+                  fetchError.message === 'fetch failed' &&
+                  fetchError.cause &&
+                  typeof fetchError.cause === 'object' &&
+                  'code' in fetchError.cause &&
+                  fetchError.cause.code === 'HPE_UNEXPECTED_CONTENT_LENGTH'
+                ) {
+                  // Try to extract the JSON response from the error data
+                  try {
+                    const cause = fetchError.cause as { code: string; data?: string }
+                    const data = cause.data
+                    if (typeof data === 'string') {
+                      // Parse chunked response data - look for JSON after hex length
+                      const lines = data.split('\r\n')
+                      const jsonLine = lines.find(
+                        (line) => line.startsWith('{') && line.includes('"id"')
+                      )
+                      if (jsonLine) {
+                        return JSON.parse(jsonLine)
+                      }
+                    }
+                  } catch (parseError) {
+                    // Fall through to re-throw original error
+                  }
+                }
+                // Re-throw the original error if we can't extract the response
+                throw fetchError
+              }
+            },
+            catch: (error): RetryableError => {
+              // If it's already a RetryableError (429), preserve it
+              if (error && typeof error === 'object' && 'status' in error && error.status === 429) {
+                return error as RetryableError
+              }
+
+              const errorObj = new RetryableError({
+                message: String(error)
+              })
+              // Log the failed interaction with a proper LLMError
+              const llmError = new ModelUnavailable({
+                model: model,
+                message: errorObj.message
+              })
+              interactionLogger.failInteraction(interactionId, llmError, Date.now() - startTime)
+              return errorObj
             }
-          },
-          catch: (error): LLMError => {
-            const errorObj = {
-              _tag: 'ModelUnavailable' as const,
-              model: model,
-              message: String(error)
-            }
-            // Log the failed interaction
-            interactionLogger.failInteraction(interactionId, errorObj, Date.now() - startTime)
-            return errorObj
-          }
-        }).pipe(
+          })
+
+        // Apply retry logic if enabled
+        const requestWithRetry = llmConfig.clientRetry.enabled
+          ? retryWithBackoff(
+              makeRequest(),
+              llmConfig.clientRetry,
+              llmConfig.observability.logRetries
+            ).pipe(
+              Effect.mapError((error): LLMError => {
+                // Convert RetryableError back to LLMError
+                if (error._tag === 'RetryableError' && error.status === 429) {
+                  return new RateLimitExceeded({
+                    model: model,
+                    retryAfter: error.retryAfter || 60000,
+                    message: error.message || 'Rate limit exceeded'
+                  })
+                }
+                return new ModelUnavailable({
+                  model: model,
+                  message: error.message || String(error)
+                })
+              })
+            )
+          : makeRequest().pipe(
+              Effect.mapError(
+                (error): LLMError =>
+                  new ModelUnavailable({
+                    model: model,
+                    message: error.message || String(error)
+                  })
+              )
+            )
+
+        return yield* requestWithRetry.pipe(
           Effect.flatMap((rawResponse) =>
             Schema.decodeUnknown(ChatCompletionSchema)(rawResponse).pipe(
               Effect.mapError(
-                (error): LLMError => ({
-                  _tag: 'InvalidRequest',
-                  message: `Invalid response format: ${error}`,
-                  request
-                })
+                (error): LLMError =>
+                  new InvalidRequest({
+                    message: `Invalid response format: ${error}`,
+                    request
+                  })
               ),
               Effect.map((response): LLMResponse => {
                 const llmResponse = {
@@ -408,11 +502,12 @@ export const makePortkeyGatewayManager = (baseURL: string) => {
     },
 
     generateStream: (_request: LLMRequest) =>
-      Stream.fail({
-        _tag: 'ModelUnavailable' as const,
-        model: 'portkey',
-        message: 'Streaming not implemented yet'
-      }),
+      Stream.fail(
+        new ModelUnavailable({
+          model: 'portkey',
+          message: 'Streaming not implemented yet'
+        })
+      ),
 
     isHealthy: () =>
       Effect.tryPromise({
@@ -420,17 +515,32 @@ export const makePortkeyGatewayManager = (baseURL: string) => {
           const response = await fetch(baseURL)
           return response.ok && (await response.text()).includes('Gateway')
         },
-        catch: (): LLMError => ({
-          _tag: 'ModelUnavailable' as const,
-          model: 'portkey',
-          message: 'Gateway health check failed'
-        })
+        catch: (): LLMError =>
+          new ModelUnavailable({
+            model: 'portkey',
+            message: 'Gateway health check failed'
+          })
       }),
 
     getStatus: () =>
       Effect.gen(function* () {
         const config = yield* loadPortkeyConfig()
         const models = config.routes.flatMap((route) => route.models)
+
+        // Check if llm-manager.yaml config is loaded
+        const llmManagerConfig = yield* Effect.either(loadLLMManagerConfig())
+        const configStatus =
+          llmManagerConfig._tag === 'Right'
+            ? {
+                loaded: true,
+                retryEnabled: llmManagerConfig.right.clientRetry.enabled,
+                maxAttempts: llmManagerConfig.right.clientRetry.maxAttempts,
+                strategy: llmManagerConfig.right.clientRetry.strategy || 'prefer-retry-after'
+              }
+            : {
+                loaded: false,
+                error: llmManagerConfig.left.message
+              }
 
         return {
           availableModels: models,
@@ -439,7 +549,8 @@ export const makePortkeyGatewayManager = (baseURL: string) => {
             baseURL,
             defaults: config.defaults,
             providers: config.providers.length,
-            routes: config.routes.length
+            routes: config.routes.length,
+            llmManager: configStatus
           }
         }
       }),
@@ -496,11 +607,12 @@ export const makePortkeyGatewayManager = (baseURL: string) => {
         const info = getModelInfoFromConfig(modelId, config)
 
         if (!info) {
-          return yield* Effect.fail<LLMError>({
-            _tag: 'ModelUnavailable',
-            model: modelId,
-            message: `Model ${modelId} not found in configuration`
-          })
+          return yield* Effect.fail(
+            new ModelUnavailable({
+              model: modelId,
+              message: `Model ${modelId} not found in configuration`
+            })
+          )
         }
 
         return info
