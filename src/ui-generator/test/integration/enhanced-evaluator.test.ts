@@ -103,7 +103,7 @@ describe('Enhanced SQL Evaluator Integration', () => {
       console.log('   SQL length:', sql.length)
       console.log('   Has validation comments:', sql.includes('VALIDATION ATTEMPTS'))
       console.log('   Has optimization notes:', sql.includes('OPTIMIZATIONS APPLIED'))
-    }, 30000) // 30 second timeout for LLM calls
+    })
 
     it('should preserve full error messages in validation comments', async () => {
       // Intentionally create a query that will likely have issues
@@ -156,7 +156,7 @@ describe('Enhanced SQL Evaluator Integration', () => {
       }
 
       console.log('✅ Error messages are preserved without truncation')
-    }, 30000)
+    })
   })
 
   describe('Validation comment structure', () => {

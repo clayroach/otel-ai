@@ -1,0 +1,36 @@
+# LLM Manager Configuration
+# Handles client-side retry logic and Portkey gateway integration
+
+# Portkey Gateway Settings
+portkey:
+  # Path to Portkey's native configuration
+  configPath: ./config/portkey/config.json
+
+  # Whether to pass retry config to Portkey
+  # Note: Portkey only retries when retry-after < 60 seconds
+  # We handle ALL retries client-side for consistency
+  useGatewayRetry: false
+
+# Client-Side Retry Configuration
+# Handles all 429 rate limits including long delays
+clientRetry:
+  enabled: true
+  maxAttempts: 5
+  maxDelayMs: 300000      # 5 minutes maximum delay
+  initialDelayMs: 1000    # Start with 1 second
+  backoffMultiplier: 2    # Double the delay each attempt
+  jitterFactor: 0.1       # Add 10% random jitter to prevent thundering herd
+
+  # Retry strategy configuration
+  # Options: 'prefer-retry-after' | 'exponential-backoff' | 'adaptive'
+  # - prefer-retry-after: Use retry-after header if present, fallback to exponential
+  # - exponential-backoff: Always use exponential backoff, ignore retry-after
+  # - adaptive: Use shorter of retry-after or exponential backoff
+  strategy: prefer-retry-after
+
+# Observability Settings
+observability:
+  # Log retry attempts for debugging
+  logRetries: true
+  # Include retry metadata in responses
+  includeRetryMetadata: true

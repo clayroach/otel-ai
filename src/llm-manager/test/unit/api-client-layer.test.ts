@@ -15,6 +15,7 @@ import {
 import type { ModelInfo } from '../../model-types.js'
 import { LLMManagerServiceTag } from '../../llm-manager-service.js'
 import type { LLMRequest, LLMResponse } from '../../types.js'
+import { ModelUnavailable } from '../../types.js'
 
 // Create a mock manager service
 const createMockManager = (overrides = {}) => {
@@ -37,7 +38,7 @@ const createMockManager = (overrides = {}) => {
           }
         })
       ),
-      generateStream: vi.fn(() => Effect.fail({ _tag: 'ModelUnavailable' as const, model: 'mock', message: 'Not implemented' })),
+      generateStream: vi.fn(() => Effect.fail(new ModelUnavailable({ model: 'mock', message: 'Not implemented' }))),
       isHealthy: vi.fn(() => Effect.succeed(true)),
       getStatus: vi.fn(() =>
         Effect.succeed({

@@ -98,7 +98,7 @@ describe.skipIf(shouldSkipLLMTests())("Diagnostic Query Generation", () => {
       Layer.merge(mockStorageAPIClient, Layer.provide(LLMManagerLive, LLMManagerEssentials))
     )
     
-    it("should generate diagnostic queries with improved requirements", { timeout: 20000 }, async () => {
+    it("should generate diagnostic queries with improved requirements", async () => {
       
       const program = Effect.gen(function* () {
         const queryGenerator = yield* CriticalPathQueryGeneratorClickHouseAI
@@ -161,7 +161,7 @@ describe.skipIf(shouldSkipLLMTests())("Diagnostic Query Generation", () => {
       }
     })
     
-    it("should execute diagnostic queries and return actionable results", { timeout: 20000 }, async () => {
+    it("should execute diagnostic queries and return actionable results", async () => {
       
       const program = Effect.gen(function* () {
         const queryGenerator = yield* CriticalPathQueryGeneratorClickHouseAI

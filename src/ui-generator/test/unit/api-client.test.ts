@@ -11,6 +11,7 @@ import type { QueryGenerationAPIRequest } from '../../api-client.js'
 import { LLMManagerServiceTag } from '../../../llm-manager/index.js'
 import type { ManagerStatus } from '../../../llm-manager/index.js'
 import type { LLMRequest, LLMResponse, LLMError } from '../../../llm-manager/types.js'
+import { NetworkError, ModelUnavailable } from '../../../llm-manager/types.js'
 import { ConfigServiceLive, StorageServiceTag } from '../../../storage/index.js'
 
 // Create a mock Storage Layer for testing
@@ -48,11 +49,10 @@ const createMockLLMManagerLayer = (mockResponse?: Partial<LLMResponse>, shouldFa
       }
       if (shouldFail) {
         // Create a proper LLMError
-        const llmError: LLMError = {
-          _tag: 'NetworkError',
+        const llmError = new NetworkError({
           model: request.preferences?.model || 'mock-model',
           message: 'LLM generation failed'
-        }
+        })
         return Effect.fail(llmError)
       }
 
@@ -74,11 +74,10 @@ const createMockLLMManagerLayer = (mockResponse?: Partial<LLMResponse>, shouldFa
       return Effect.succeed(response)
     },
     generateStream: (request: LLMRequest): Stream.Stream<string, LLMError, never> => {
-      const error: LLMError = {
-        _tag: 'NetworkError',
+      const error = new NetworkError({
         model: request.preferences?.model || 'mock-model',
         message: 'Streaming not implemented in mock'
-      }
+      })
       return Stream.fail(error)
     },
     isHealthy: () => Effect.succeed(true),
@@ -241,11 +240,10 @@ describe('UIGeneratorAPIClient', () => {
         }
       }
 
-      const modelUnavailableError: LLMError = {
-        _tag: 'ModelUnavailable',
+      const modelUnavailableError = new ModelUnavailable({
         model: 'test-model',
         message: 'Model is not available'
-      }
+      })
 
       const mockLayer = createMockLLMManagerLayer(undefined, true, modelUnavailableError)
 
@@ -335,11 +333,10 @@ describe('UIGeneratorAPIClient', () => {
           return Effect.succeed(response)
         },
         generateStream: (request: LLMRequest): Stream.Stream<string, LLMError, never> => {
-          const error: LLMError = {
-            _tag: 'NetworkError',
+          const error = new NetworkError({
             model: request.preferences?.model || 'mock-model',
             message: 'Not implemented'
-          }
+          })
           return Stream.fail(error)
         },
         isHealthy: () => Effect.succeed(true),

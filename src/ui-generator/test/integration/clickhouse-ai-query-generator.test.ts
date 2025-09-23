@@ -74,7 +74,7 @@ describe.skipIf(shouldSkipLLMTests())("ClickHouse AI Query Generator", () => {
       Layer.merge(mockStorageAPIClient, LLMManagerLive)
     )
     
-    it("should generate multiple analysis queries for a critical path", { timeout: 20000 }, async () => {
+    it("should generate multiple analysis queries for a critical path", async () => {
       
       const program = Effect.gen(function* () {
         const queryGenerator = yield* CriticalPathQueryGeneratorClickHouseAI
@@ -111,7 +111,7 @@ describe.skipIf(shouldSkipLLMTests())("ClickHouse AI Query Generator", () => {
       })
     })
     
-    it("should optimize an existing query", { timeout: 15000 }, async () => {
+    it("should optimize an existing query", async () => {
       
       const originalQuery = `
         SELECT service_name, COUNT(*) as count
@@ -145,7 +145,7 @@ describe.skipIf(shouldSkipLLMTests())("ClickHouse AI Query Generator", () => {
       console.log("   Optimized query length:", optimized.length)
     })
     
-    it("should explain what a query does", { timeout: 15000 }, async () => {
+    it("should explain what a query does", async () => {
       
       const complexQuery = `
         SELECT 
@@ -189,7 +189,7 @@ describe.skipIf(shouldSkipLLMTests())("ClickHouse AI Query Generator", () => {
       console.log("   ", explanation.substring(0, 200) + "...")
     })
     
-    it("should execute generated queries", { timeout: 20000 }, async () => {
+    it("should execute generated queries", async () => {
       
       const program = Effect.gen(function* () {
         const queryGenerator = yield* CriticalPathQueryGeneratorClickHouseAI

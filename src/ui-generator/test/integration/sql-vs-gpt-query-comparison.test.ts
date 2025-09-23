@@ -161,7 +161,7 @@ describe.skipIf(shouldSkipLLMTests())("SQL Model vs GPT Model Query Generation C
     }
   }
   
-  it("should compare SQL model vs GPT model query generation quality", { timeout: 60000 }, async () => {
+  it("should compare SQL model vs GPT model query generation quality", async () => {
     
     const program = Effect.gen(function* () {
       const clickHouseAI = yield* CriticalPathQueryGeneratorClickHouseAI
@@ -355,7 +355,7 @@ GROUP BY service_name`,
     return comparisons
   })
   
-  it("should execute and compare query results", { timeout: 45000 }, async () => {
+  it("should execute and compare query results", async () => {
     
     const program = Effect.gen(function* () {
       const clickHouseAI = yield* CriticalPathQueryGeneratorClickHouseAI

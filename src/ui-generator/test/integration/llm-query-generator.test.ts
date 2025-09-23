@@ -136,7 +136,7 @@ describe.skipIf(shouldSkipTests)("LLM Query Generator", () => {
       console.log(`   Error: ${llmDetails.error}`)
       console.log("   Tests requiring LLM will be skipped")
     }
-  }, 90000) // 90 second timeout for beforeAll to allow for LLM health check
+  }) // Use global timeout from vitest.integration.config.ts
   
   describe("LLM Availability", () => {
     it("should report LLM status", () => {
@@ -231,7 +231,7 @@ describe.skipIf(shouldSkipTests)("LLM Query Generator", () => {
       expect(hasAggregation).toBe(true)
     })
     
-    it("should generate deterministic queries for same input", { timeout: 30000 }, async () => {
+    it("should generate deterministic queries for same input", async () => {
       if (!llmAvailable) {
         console.log("   ⏭️  Skipping: LLM not available")
         return
@@ -310,7 +310,7 @@ describe.skipIf(shouldSkipTests)("LLM Query Generator", () => {
       expect(structure1.from).toEqual(structure2.from)
     })
     
-    it("should generate different queries for different analysis goals", { timeout: 30000 }, async () => {
+    it("should generate different queries for different analysis goals", async () => {
       if (!llmAvailable) {
         console.log("   ⏭️  Skipping: LLM not available")
         return
@@ -372,7 +372,7 @@ describe.skipIf(shouldSkipTests)("LLM Query Generator", () => {
       expect(errorQuery.sql).not.toEqual(bottleneckQuery.sql)
     })
     
-    it("should handle custom analysis goals", { timeout: 30000 }, async () => {
+    it("should handle custom analysis goals", async () => {
       if (!llmAvailable) {
         console.log("   ⏭️  Skipping: LLM not available")
         return
@@ -395,7 +395,7 @@ describe.skipIf(shouldSkipTests)("LLM Query Generator", () => {
       console.log(`   Description: ${query.description}`)
     })
     
-    it.skip("should properly escape service names to prevent SQL injection", { timeout: 30000 }, async () => {
+    it.skip("should properly escape service names to prevent SQL injection", async () => {
       // KNOWN ISSUE: SQL-specific models (sqlcoder, codellama) do not properly escape
       // SQL injection attempts in service names. This is a limitation of these models
       // that are trained on SQL patterns but not security best practices.
@@ -454,7 +454,7 @@ describe.skipIf(shouldSkipTests)("LLM Query Generator", () => {
       }
     )
     
-    it("should execute generated queries and return results", { timeout: 30000 }, async () => {
+    it("should execute generated queries and return results", async () => {
       if (!llmAvailable) {
         console.log("   ⏭️  Skipping: LLM not available")
         return
@@ -485,7 +485,7 @@ describe.skipIf(shouldSkipTests)("LLM Query Generator", () => {
       expect(Array.isArray(result)).toBe(true)
     })
     
-    it("should handle query execution errors gracefully", { timeout: 30000 }, async () => {
+    it("should handle query execution errors gracefully", async () => {
       if (!llmAvailable) {
         console.log("   ⏭️  Skipping: LLM not available")
         return

@@ -11,6 +11,7 @@
 import { Effect, pipe } from 'effect'
 import { LLMManagerServiceTag } from '../../llm-manager/index.js'
 import type { LLMRequest, LLMError } from '../../llm-manager/types.js'
+import { NetworkError } from '../../llm-manager/types.js'
 
 // ClickHouse client interface using Effect
 // The error type is generic to support different storage implementations
@@ -624,11 +625,13 @@ export const evaluateAndOptimizeSQLWithLLM = <E = Error>(
       console.log(`🔄 [SQL-VALIDATOR] evaluateAndOptimizeSQLWithLLM calling validateSQLSyntax`)
       const syntaxValidation = yield* pipe(
         validateSQLSyntax(currentSql, clickhouseClient),
-        Effect.mapError((error) => ({
-          _tag: 'NetworkError' as const,
-          model: 'clickhouse',
-          message: `Syntax validation failed: ${error}`
-        }))
+        Effect.mapError(
+          (error) =>
+            new NetworkError({
+              model: 'clickhouse',
+              message: `Syntax validation failed: ${error}`
+            })
+        )
       )
 
       // If syntax is invalid, immediately try to fix it without executing
@@ -693,11 +696,13 @@ export const evaluateAndOptimizeSQLWithLLM = <E = Error>(
       // If syntax is valid, test execution with LIMIT 1
       const evaluation = yield* pipe(
         evaluateSQL(currentSql, clickhouseClient),
-        Effect.mapError((error) => ({
-          _tag: 'NetworkError' as const,
-          model: 'clickhouse',
-          message: `SQL execution test failed: ${error}`
-        }))
+        Effect.mapError(
+          (error) =>
+            new NetworkError({
+              model: 'clickhouse',
+              message: `SQL execution test failed: ${error}`
+            })
+        )
       )
 
       attempts.push(evaluation)

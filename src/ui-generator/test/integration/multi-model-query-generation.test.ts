@@ -174,7 +174,7 @@ describe.skipIf(shouldSkipTests)("Multi-Model Query Generation", () => {
   describe("Comparative Query Generation", () => {
     const availableModels = () => modelAvailability.filter(m => m.available)
     
-    it("should generate valid SQL across all available models", { timeout: 30000 }, async () => {
+    it("should generate valid SQL across all available models", async () => {
       // Limit models in test/CI environments for faster feedback
       const allModels = availableModels()
       const maxModels = process.env.NODE_ENV === 'test' || process.env.CI ? 2 : allModels.length
@@ -302,7 +302,7 @@ describe.skipIf(shouldSkipTests)("Multi-Model Query Generation", () => {
       }
     })
     
-    it("should handle different analysis goals consistently", { timeout: 30000 }, async () => {
+    it("should handle different analysis goals consistently", async () => {
       // Reduce scope for faster test feedback in test/CI environments
       const allModels = availableModels()
       const maxModels = process.env.NODE_ENV === 'test' || process.env.CI ? 1 : 2
@@ -424,7 +424,7 @@ describe.skipIf(shouldSkipTests)("Multi-Model Query Generation", () => {
       }
     })
     
-    it("should measure performance characteristics", { timeout: 30000 }, async () => {
+    it("should measure performance characteristics", async () => {
       const models = availableModels()
       
       // Additional safety check

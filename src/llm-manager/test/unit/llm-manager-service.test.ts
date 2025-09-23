@@ -9,6 +9,7 @@ import type { ModelInfo } from '../../model-types.js'
 import { LLMManagerLive, LLMManagerDev } from '../../llm-manager-live.js'
 import { PortkeyGatewayLive } from '../../portkey-gateway-client.js'
 import type { LLMRequest, LLMResponse, LLMError } from '../../types.js'
+import { ModelUnavailable } from '../../types.js'
 
 describe('LLMManagerService', () => {
   describe('Service Interface', () => {
@@ -130,65 +131,55 @@ describe('LLMManagerService', () => {
     it('should handle errors properly', async () => {
       const mockService: LLMManagerService = {
         generate: () =>
-          Effect.fail<LLMError>({
-            _tag: 'ModelUnavailable',
+          Effect.fail<LLMError>(new ModelUnavailable({
             model: 'test-model',
             message: 'Test error'
-          }),
+          })),
         generateStream: () =>
-          Stream.fail({
-            _tag: 'ModelUnavailable',
+          Stream.fail(new ModelUnavailable({
             model: 'test-model',
             message: 'Stream error'
-          }),
+          })),
         isHealthy: () =>
-          Effect.fail({
-            _tag: 'ModelUnavailable',
+          Effect.fail(new ModelUnavailable({
             model: 'test-model',
             message: 'Health check failed'
-          }),
+          })),
         getStatus: () =>
-          Effect.fail({
-            _tag: 'ModelUnavailable',
+          Effect.fail(new ModelUnavailable({
             model: 'test-model',
             message: 'Status error'
-          }),
+          })),
         getAvailableModels: () =>
-          Effect.fail({
-            _tag: 'ModelUnavailable',
+          Effect.fail(new ModelUnavailable({
             model: 'test-model',
             message: 'Models error'
-          }),
+          })),
         getDefaultModel: () =>
-          Effect.fail({
-            _tag: 'ModelUnavailable',
+          Effect.fail(new ModelUnavailable({
             model: 'test-model',
             message: 'Default model error'
-          }),
+          })),
         getModelInfo: () =>
-          Effect.fail({
-            _tag: 'ModelUnavailable',
+          Effect.fail(new ModelUnavailable({
             model: 'test-model',
             message: 'Model info error'
-          }),
+          })),
         getModelsByCapability: () =>
-          Effect.fail({
-            _tag: 'ModelUnavailable',
+          Effect.fail(new ModelUnavailable({
             model: 'test-model',
             message: 'Models by capability error'
-          }),
+          })),
         getModelsByProvider: () =>
-          Effect.fail({
-            _tag: 'ModelUnavailable',
+          Effect.fail(new ModelUnavailable({
             model: 'test-model',
             message: 'Models by provider error'
-          }),
+          })),
         getAllModels: () =>
-          Effect.fail({
-            _tag: 'ModelUnavailable',
+          Effect.fail(new ModelUnavailable({
             model: 'test-model',
             message: 'All models error'
-          })
+          }))
       }
 
       const layer = Layer.succeed(LLMManagerServiceTag, mockService)
