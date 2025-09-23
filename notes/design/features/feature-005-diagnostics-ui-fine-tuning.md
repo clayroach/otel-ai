@@ -594,6 +594,573 @@ export const DIAGNOSTICS_UI_CONFIG = {
 }
 ```
 
+## Model Fine-Tuning Integration
+
+### Overview
+
+This feature integrates comprehensive model fine-tuning capabilities to continuously improve diagnostic accuracy based on validated session results. The system learns from human corrections and expert feedback to create custom-trained models optimized for your specific observability patterns.
+
+### Training Data Collection Architecture
+
+#### Automatic Session Capture
+
+```typescript
+export const TrainingDataCollector = Schema.Struct({
+  sessionId: Schema.String,
+  timestamp: Schema.Date,
+  diagnosticData: Schema.Struct({
+    flagActivated: Schema.String,
+    expectedImpact: FeatureFlag.pipe(Schema.pick('expectedImpact')),
+    detectedAnomalies: Schema.Array(AnomalyResultSchema),
+    generatedQuery: Schema.String,
+    criticalPaths: Schema.Array(CriticalPath),
+    rootCauseIdentified: Schema.String
+  }),
+  groundTruth: Schema.Struct({
+    actualRootCause: Schema.String,
+    wasCorrect: Schema.Boolean,
+    humanCorrections: Schema.optional(Schema.Array(Schema.String)),
+    expertNotes: Schema.optional(Schema.String)
+  }),
+  modelPerformance: Schema.Struct({
+    humanPromptsRequired: Schema.Number,
+    timeToRootCause: Schema.Number,
+    confidenceScore: Schema.Number,
+    dataSources: Schema.Array(Schema.Literal('traces', 'logs', 'metrics'))
+  })
+})
+```
+
+#### Training Data Pipeline
+
+```typescript
+export const TrainingDataPipeline = Layer.effect(
+  TrainingDataService,
+  Effect.gen(function* () {
+    const storage = yield* Storage
+
+    return {
+      collectSessionData: (session: DiagnosticsSession) =>
+        Effect.gen(function* () {
+          // Extract training examples from session
+          const trainingExamples = yield* extractTrainingExamples(session)
+
+          // Format for different training backends
+          const jsonlData = yield* formatAsJSONL(trainingExamples)
+          const huggingfaceData = yield* formatAsHuggingFace(trainingExamples)
+
+          // Store in database
+          yield* storage.storeTrainingData({
+            sessionId: session.id,
+            examples: trainingExamples,
+            formats: {
+              jsonl: jsonlData,
+              huggingface: huggingfaceData
+            }
+          })
+
+          return { examplesCollected: trainingExamples.length }
+        }),
+
+      exportDataset: (format: ExportFormat, filters?: DatasetFilters) =>
+        Effect.gen(function* () {
+          const data = yield* storage.getTrainingData(filters)
+
+          switch (format) {
+            case 'jsonl':
+              return yield* exportAsJSONL(data)
+            case 'huggingface':
+              return yield* exportAsHuggingFace(data)
+            case 'llama-factory':
+              return yield* exportAsLlamaFactory(data)
+            case 'label-studio':
+              return yield* exportAsLabelStudio(data)
+          }
+        })
+    }
+  })
+)
+```
+
+### Label Studio Integration
+
+#### Deployment Configuration
+
+```yaml
+# docker-compose.yml addition
+label-studio:
+  image: heartexlabs/label-studio:latest
+  container_name: otel-ai-label-studio
+  ports:
+    - "8200:8080"
+  volumes:
+    - ./data/label-studio:/label-studio/data
+    - ./configs/label-studio:/label-studio/config
+  environment:
+    - LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true
+    - LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/label-studio/data
+    - DJANGO_DB=default
+    - POSTGRE_NAME=label_studio
+    - POSTGRE_USER=postgres
+    - POSTGRE_PASSWORD=postgres
+    - POSTGRE_HOST=postgres
+    - POSTGRE_PORT=5432
+  networks:
+    - otel-network
+```
+
+#### Annotation Templates
+
+```typescript
+export const ANNOTATION_TEMPLATES = {
+  rootCauseValidation: {
+    name: 'Root Cause Validation',
+    config: `
+      <View>
+        <Text name="diagnostic_prompt" value="$prompt"/>
+        <Text name="ai_response" value="$response"/>
+        <Text name="expected_root_cause" value="$expected_root_cause"/>
+
+        <Choices name="validation" toName="ai_response" choice="single">
+          <Choice value="correct"/>
+          <Choice value="partially_correct"/>
+          <Choice value="incorrect"/>
+        </Choices>
+
+        <TextArea name="corrections" toName="ai_response"
+                  placeholder="Provide corrections if needed"
+                  rows="4" maxSubmissions="1"/>
+
+        <Rating name="confidence" toName="ai_response" maxRating="5"/>
+      </View>
+    `
+  },
+
+  queryQualityRating: {
+    name: 'Diagnostic Query Quality',
+    config: `
+      <View>
+        <Text name="generated_query" value="$query"/>
+        <Text name="context" value="$context"/>
+
+        <Rating name="relevance" toName="generated_query" maxRating="5"/>
+        <Rating name="accuracy" toName="generated_query" maxRating="5"/>
+        <Rating name="efficiency" toName="generated_query" maxRating="5"/>
+
+        <TextArea name="improved_query" toName="generated_query"
+                  placeholder="Provide improved query if needed"/>
+      </View>
+    `
+  }
+}
+```
+
+#### Label Studio API Client
+
+```typescript
+export const LabelStudioClient = Layer.effect(
+  LabelStudioService,
+  Effect.gen(function* () {
+    const config = yield* Config.config
+    const baseUrl = config.labelStudioUrl || 'http://localhost:8200'
+    const apiKey = config.labelStudioApiKey
+
+    return {
+      createProject: (name: string, template: string) =>
+        Effect.tryPromise({
+          try: () => fetch(`${baseUrl}/api/projects`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Token ${apiKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              title: name,
+              label_config: template,
+              enable_empty_annotation: false
+            })
+          }).then(res => res.json()),
+          catch: (error) => new LabelStudioError({ message: String(error) })
+        }),
+
+      importTasks: (projectId: number, tasks: any[]) =>
+        Effect.tryPromise({
+          try: () => fetch(`${baseUrl}/api/projects/${projectId}/import`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Token ${apiKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(tasks)
+          }),
+          catch: (error) => new LabelStudioError({ message: String(error) })
+        }),
+
+      exportAnnotations: (projectId: number) =>
+        Effect.tryPromise({
+          try: () => fetch(`${baseUrl}/api/projects/${projectId}/export?format=JSON`, {
+            headers: { 'Authorization': `Token ${apiKey}` }
+          }).then(res => res.json()),
+          catch: (error) => new LabelStudioError({ message: String(error) })
+        })
+    }
+  })
+)
+```
+
+### LLaMA-Factory Integration
+
+#### Deployment Configuration
+
+```yaml
+# docker-compose.yml addition
+llama-factory:
+  image: hiyouga/llama-factory:latest
+  container_name: otel-ai-llama-factory
+  ports:
+    - "7860:7860"  # Gradio Web UI
+    - "8000:8000"  # API Server
+  volumes:
+    - ./data/llama-factory/models:/app/models
+    - ./data/llama-factory/datasets:/app/data
+    - ./data/llama-factory/checkpoints:/app/saves
+    - ./configs/llama-factory:/app/configs
+  environment:
+    - CUDA_VISIBLE_DEVICES=0
+    - GRADIO_SERVER_NAME=0.0.0.0
+    - GRADIO_SERVER_PORT=7860
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [gpu]
+  networks:
+    - otel-network
+```
+
+#### Fine-Tuning Configuration
+
+```typescript
+export const LlamaFactoryConfig = Schema.Struct({
+  baseModel: Schema.Literal('llama3', 'llama2', 'mistral', 'qwen'),
+  trainingMethod: Schema.Literal('lora', 'qlora', 'full', 'freeze'),
+  loraConfig: Schema.optional(Schema.Struct({
+    rank: Schema.Number,            // LoRA rank (default: 8)
+    alpha: Schema.Number,           // LoRA alpha (default: 16)
+    dropout: Schema.Number,         // LoRA dropout (default: 0.1)
+    targetModules: Schema.Array(Schema.String) // ['q_proj', 'v_proj']
+  })),
+  quantizationConfig: Schema.optional(Schema.Struct({
+    bits: Schema.Literal(2, 3, 4, 5, 6, 8),
+    method: Schema.Literal('gptq', 'awq', 'aqlm', 'eetq', 'hqq')
+  })),
+  trainingArgs: Schema.Struct({
+    epochs: Schema.Number,
+    batchSize: Schema.Number,
+    learningRate: Schema.Number,
+    warmupSteps: Schema.Number,
+    gradientAccumulation: Schema.Number,
+    maxLength: Schema.Number
+  }),
+  optimizations: Schema.Struct({
+    flashAttention: Schema.Boolean,
+    unsloth: Schema.Boolean,
+    deepspeed: Schema.Boolean,
+    gradientCheckpointing: Schema.Boolean
+  })
+})
+```
+
+#### LLaMA-Factory Service
+
+```typescript
+export const LlamaFactoryService = Layer.effect(
+  FineTuningBackend,
+  Effect.gen(function* () {
+    const config = yield* Config.config
+    const apiUrl = config.llamaFactoryUrl || 'http://localhost:8000'
+
+    return {
+      prepareDataset: (data: TrainingData[]) =>
+        Effect.gen(function* () {
+          // Convert to LLaMA-Factory format
+          const dataset = data.map(item => ({
+            instruction: item.prompt,
+            input: item.context,
+            output: item.expectedResponse,
+            history: item.conversationHistory || []
+          }))
+
+          // Save to datasets directory
+          const datasetPath = `/app/data/otel-diagnostics-${Date.now()}.json`
+          yield* saveDataset(dataset, datasetPath)
+
+          return { datasetPath, examples: dataset.length }
+        }),
+
+      startFineTuning: (config: LlamaFactoryConfig, datasetPath: string) =>
+        Effect.tryPromise({
+          try: () => fetch(`${apiUrl}/api/train`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model_name_or_path: config.baseModel,
+              dataset: datasetPath,
+              adapter_name: `otel-diagnostics-${Date.now()}`,
+              finetuning_type: config.trainingMethod,
+              lora_target: config.loraConfig?.targetModules?.join(','),
+              lora_rank: config.loraConfig?.rank,
+              lora_alpha: config.loraConfig?.alpha,
+              lora_dropout: config.loraConfig?.dropout,
+              quantization_bit: config.quantizationConfig?.bits,
+              num_train_epochs: config.trainingArgs.epochs,
+              per_device_train_batch_size: config.trainingArgs.batchSize,
+              learning_rate: config.trainingArgs.learningRate,
+              warmup_steps: config.trainingArgs.warmupSteps,
+              gradient_accumulation_steps: config.trainingArgs.gradientAccumulation,
+              cutoff_len: config.trainingArgs.maxLength,
+              flash_attn: config.optimizations.flashAttention,
+              use_unsloth: config.optimizations.unsloth
+            })
+          }).then(res => res.json()),
+          catch: (error) => new FineTuningError({ message: String(error) })
+        }),
+
+      monitorTraining: (jobId: string) =>
+        Stream.repeatEffectWithSchedule(
+          Effect.tryPromise({
+            try: () => fetch(`${apiUrl}/api/train/${jobId}/status`)
+              .then(res => res.json()),
+            catch: (error) => new FineTuningError({ message: String(error) })
+          }),
+          Schedule.spaced(Duration.seconds(10))
+        ),
+
+      evaluateModel: (modelPath: string, testSet: TestData[]) =>
+        Effect.tryPromise({
+          try: () => fetch(`${apiUrl}/api/evaluate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model_path: modelPath,
+              test_data: testSet,
+              metrics: ['accuracy', 'perplexity', 'bleu', 'rouge']
+            })
+          }).then(res => res.json()),
+          catch: (error) => new EvaluationError({ message: String(error) })
+        })
+    }
+  })
+)
+```
+
+### Model Evaluation & Deployment
+
+#### A/B Testing Framework
+
+```typescript
+export const ModelABTester = Layer.effect(
+  ABTestingService,
+  Effect.gen(function* () {
+    const storage = yield* Storage
+    const metrics = yield* MetricsCollector
+
+    return {
+      createExperiment: (baseModel: string, fineTunedModel: string, config: ABConfig) =>
+        Effect.gen(function* () {
+          const experimentId = crypto.randomUUID()
+
+          yield* storage.createExperiment({
+            id: experimentId,
+            baseModel,
+            fineTunedModel,
+            trafficSplit: config.trafficSplit || 0.5,
+            startTime: new Date(),
+            status: 'active'
+          })
+
+          return experimentId
+        }),
+
+      routeRequest: (experimentId: string) =>
+        Effect.gen(function* () {
+          const experiment = yield* storage.getExperiment(experimentId)
+          const random = Math.random()
+
+          return random < experiment.trafficSplit
+            ? { model: experiment.fineTunedModel, variant: 'treatment' }
+            : { model: experiment.baseModel, variant: 'control' }
+        }),
+
+      collectMetrics: (experimentId: string, variant: 'control' | 'treatment', result: DiagnosticResult) =>
+        Effect.gen(function* () {
+          yield* metrics.record({
+            experimentId,
+            variant,
+            metrics: {
+              accuracy: result.wasCorrect ? 1 : 0,
+              humanPromptsRequired: result.humanPromptsRequired,
+              timeToRootCause: result.timeToRootCause,
+              confidenceScore: result.confidenceScore
+            }
+          })
+        }),
+
+      analyzeResults: (experimentId: string) =>
+        Effect.gen(function* () {
+          const data = yield* storage.getExperimentData(experimentId)
+
+          // Statistical significance testing
+          const stats = yield* calculateStatistics(data)
+
+          return {
+            sampleSize: data.length,
+            controlMetrics: stats.control,
+            treatmentMetrics: stats.treatment,
+            improvement: {
+              accuracy: stats.treatment.accuracy - stats.control.accuracy,
+              humanPromptsReduction: stats.control.humanPrompts - stats.treatment.humanPrompts,
+              speedImprovement: stats.control.timeToRootCause - stats.treatment.timeToRootCause
+            },
+            pValue: stats.pValue,
+            isSignificant: stats.pValue < 0.05,
+            recommendation: stats.pValue < 0.05 && stats.treatment.accuracy > stats.control.accuracy
+              ? 'deploy_fine_tuned'
+              : 'keep_base_model'
+          }
+        })
+    }
+  })
+)
+```
+
+#### Performance Metrics Dashboard
+
+```typescript
+interface FineTuningMetricsDashboardProps {
+  experiments: ABExperiment[]
+  trainingJobs: TrainingJob[]
+  modelVersions: ModelVersion[]
+}
+
+const FineTuningMetricsDashboard: React.FC<FineTuningMetricsDashboardProps> = ({
+  experiments,
+  trainingJobs,
+  modelVersions
+}) => (
+  <div className="fine-tuning-dashboard">
+    <div className="training-status">
+      <h3>Active Training Jobs</h3>
+      {trainingJobs.map(job => (
+        <TrainingJobCard
+          key={job.id}
+          job={job}
+          progress={job.progress}
+          metrics={job.currentMetrics}
+        />
+      ))}
+    </div>
+
+    <div className="ab-experiments">
+      <h3>A/B Testing Results</h3>
+      {experiments.map(exp => (
+        <ExperimentResults
+          key={exp.id}
+          experiment={exp}
+          showStatistics={true}
+          showRecommendation={true}
+        />
+      ))}
+    </div>
+
+    <div className="model-comparison">
+      <h3>Model Performance Comparison</h3>
+      <ModelComparisonChart
+        models={modelVersions}
+        metrics={['accuracy', 'latency', 'cost', 'human_intervention']}
+      />
+    </div>
+
+    <div className="annotation-queue">
+      <h3>Pending Annotations</h3>
+      <AnnotationQueueWidget
+        pendingCount={getPendingAnnotations()}
+        labelStudioUrl="http://localhost:8200"
+      />
+    </div>
+  </div>
+)
+```
+
+### Database Schema for Fine-Tuning
+
+```sql
+-- Training data storage
+CREATE TABLE training_data (
+  id String,
+  session_id String,
+  timestamp DateTime64(9),
+  prompt Text,
+  context Text,
+  response Text,
+  expected_response Text,
+  ground_truth Text,
+  human_feedback Text,
+  confidence_score Float32,
+  model_version String,
+  data_source LowCardinality(String),
+  created_at DateTime64(9)
+) ENGINE = MergeTree()
+PARTITION BY toYYYYMM(created_at)
+ORDER BY (created_at, session_id);
+
+-- Model versions tracking
+CREATE TABLE model_versions (
+  id String,
+  base_model String,
+  version String,
+  training_job_id String,
+  training_method LowCardinality(String), -- lora, qlora, full
+  training_config JSON,
+  metrics JSON,
+  evaluation_results JSON,
+  deployed Boolean DEFAULT false,
+  deployed_at Nullable(DateTime64(9)),
+  created_at DateTime64(9)
+) ENGINE = MergeTree()
+ORDER BY created_at;
+
+-- A/B testing experiments
+CREATE TABLE ab_experiments (
+  id String,
+  name String,
+  base_model_id String,
+  fine_tuned_model_id String,
+  traffic_split Float32,
+  status LowCardinality(String),
+  start_time DateTime64(9),
+  end_time Nullable(DateTime64(9)),
+  results JSON,
+  created_at DateTime64(9)
+) ENGINE = MergeTree()
+ORDER BY created_at;
+
+-- Annotation tasks for Label Studio
+CREATE TABLE annotation_tasks (
+  id String,
+  project_id String,
+  task_data JSON,
+  annotations JSON,
+  status LowCardinality(String),
+  annotator String,
+  completed_at Nullable(DateTime64(9)),
+  created_at DateTime64(9)
+) ENGINE = MergeTree()
+ORDER BY created_at;
+```
+
 ## Future Enhancements
 
 ### Automated Testing Pipeline
@@ -608,17 +1175,19 @@ export const DIAGNOSTICS_UI_CONFIG = {
 - Custom failure scenarios
 - Time-based activation patterns
 
-### Machine Learning Integration
+### Advanced Fine-Tuning Features
 
-- Learn optimal analysis parameters from successful sessions
-- Predict expected impact based on flag patterns
-- Auto-tune detection thresholds
+- Multi-task learning for different diagnostic scenarios
+- Federated learning across multiple deployments
+- Reinforcement learning from human feedback (RLHF)
+- Continuous learning pipeline with automatic retraining
 
 ### Export and Reporting
 
 - Session result export to various formats
 - Trend analysis across multiple sessions
 - Integration with external monitoring systems
+- Model performance reports and dashboards
 
 ## Success Metrics
 
