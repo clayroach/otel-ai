@@ -527,6 +527,21 @@ export const makePortkeyGatewayManager = (baseURL: string) => {
         const config = yield* loadPortkeyConfig()
         const models = config.routes.flatMap((route) => route.models)
 
+        // Check if llm-manager.yaml config is loaded
+        const llmManagerConfig = yield* Effect.either(loadLLMManagerConfig())
+        const configStatus =
+          llmManagerConfig._tag === 'Right'
+            ? {
+                loaded: true,
+                retryEnabled: llmManagerConfig.right.clientRetry.enabled,
+                maxAttempts: llmManagerConfig.right.clientRetry.maxAttempts,
+                strategy: llmManagerConfig.right.clientRetry.strategy || 'prefer-retry-after'
+              }
+            : {
+                loaded: false,
+                error: llmManagerConfig.left.message
+              }
+
         return {
           availableModels: models,
           healthStatus: { portkey: 'healthy' as const },
@@ -534,7 +549,8 @@ export const makePortkeyGatewayManager = (baseURL: string) => {
             baseURL,
             defaults: config.defaults,
             providers: config.providers.length,
-            routes: config.routes.length
+            routes: config.routes.length,
+            llmManager: configStatus
           }
         }
       }),
