@@ -21,7 +21,7 @@
     "@ant-design/icons": "^5.2.5",
     "@monaco-editor/react": "^4.5.1",
     "antd": "^5.8.4",
-    "axios": "^1.5.0",
+    "axios": "^1.12.2",
     "cors": "^2.8.5",
     "dayjs": "^1.11.9",
     "echarts": "^5.4.3",
