@@ -1,0 +1,95 @@
+name: Dependabot Auto-Merge and Lockfile Fix
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-lockfile:
+    name: Update pnpm lockfile for Dependabot PRs
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: '8.15.0'
+
+      - name: Update lockfile
+        run: |
+          echo "📦 Updating pnpm lockfile for Dependabot PR..."
+
+          # Remove frozen lockfile to allow updates
+          pnpm install --no-frozen-lockfile
+
+          # Check if lockfile was updated
+          if git diff --quiet pnpm-lock.yaml; then
+            echo "✅ Lockfile is already up to date"
+          else
+            echo "🔄 Lockfile was updated"
+
+            # Configure git
+            git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git config --local user.name "github-actions[bot]"
+
+            # Commit the updated lockfile
+            git add pnpm-lock.yaml
+            git commit -m "chore: update pnpm lockfile for Dependabot changes"
+
+            # Push the changes
+            git push
+
+            echo "✅ Lockfile updated and pushed"
+          fi
+
+  auto-merge:
+    name: Auto-merge Dependabot PRs
+    runs-on: ubuntu-latest
+    needs: update-lockfile
+    if: github.actor == 'dependabot[bot]'
+
+    steps:
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Auto-approve PR
+        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        run: gh pr review --approve "$PR_URL"
+        env:
+          PR_URL: ${{github.event.pull_request.html_url}}
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+      - name: Enable auto-merge for minor/patch updates
+        if: steps.metadata.outputs.update-type == 'version-update:semver-patch' || steps.metadata.outputs.update-type == 'version-update:semver-minor'
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{github.event.pull_request.html_url}}
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+      - name: Add label for major updates
+        if: steps.metadata.outputs.update-type == 'version-update:semver-major'
+        run: |
+          gh pr edit "$PR_URL" --add-label "major-update,needs-review"
+          gh pr comment "$PR_URL" --body "⚠️ This is a major version update and requires manual review before merging."
+        env:
+          PR_URL: ${{github.event.pull_request.html_url}}
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}

@@ -43,7 +43,13 @@ jobs:
       - name: Install dependencies
         run: |
           echo "📦 Installing workspace dependencies..."
-          pnpm install --frozen-lockfile
+          # For Dependabot PRs, allow lockfile updates
+          if [ "${{ github.actor }}" == "dependabot[bot]" ]; then
+            echo "🤖 Dependabot PR detected - allowing lockfile updates"
+            pnpm install --no-frozen-lockfile
+          else
+            pnpm install --frozen-lockfile
+          fi
         
       - name: TypeScript compilation
         run: pnpm typecheck:all
@@ -102,7 +108,13 @@ jobs:
       - name: Install dependencies (minimal)
         run: |
           echo "📦 Installing workspace dependencies (minimal)..."
-          pnpm install --frozen-lockfile --ignore-scripts
+          # For Dependabot PRs, allow lockfile updates
+          if [ "${{ github.actor }}" == "dependabot[bot]" ]; then
+            echo "🤖 Dependabot PR detected - allowing lockfile updates"
+            pnpm install --no-frozen-lockfile --ignore-scripts
+          else
+            pnpm install --frozen-lockfile --ignore-scripts
+          fi
         
 # DISABLING FOR NOW
       # - name: Run code-to-docs sync validation
