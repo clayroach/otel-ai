@@ -68,9 +68,10 @@ export const defaultAnalyzerConfig: AnalyzerConfig = {
 }
 
 /**
- * AI Analyzer Service Implementation
+ * Internal: AI Analyzer Service Implementation
+ * Not exported - use AIAnalyzerLayer instead
  */
-export const makeAIAnalyzerService = (config: AnalyzerConfig) =>
+const makeAIAnalyzerService = (config: AnalyzerConfig) =>
   Effect.gen(function* (_) {
     const llmManagerService = yield* _(LLMManagerServiceTag)
     const storageService = yield* _(StorageServiceTag)
@@ -796,12 +797,10 @@ export const AIAnalyzerLayer = (config: AnalyzerConfig = defaultAnalyzerConfig) 
   Layer.effect(AIAnalyzerService, makeAIAnalyzerService(config))
 
 /**
- * Mock AI Analyzer Service Implementation for Testing and Development
- *
- * Provides a working implementation that doesn't require external LLM services
- * but still follows proper Effect-TS patterns and service boundaries.
+ * Internal: Mock AI Analyzer Service Implementation
+ * Not exported - use AIAnalyzerMockLayer instead
  */
-export const makeAIAnalyzerMockService = (_config: AnalyzerConfig = defaultAnalyzerConfig) =>
+const makeAIAnalyzerMockService = (_config: AnalyzerConfig = defaultAnalyzerConfig) =>
   Effect.gen(function* (_) {
     // Mock implementation that works without external dependencies
     yield* _(Effect.succeed(void 0)) // Satisfy generator requirement

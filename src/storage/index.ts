@@ -5,10 +5,8 @@
  * integrating ClickHouse for real-time analytics and S3/MinIO for raw data storage.
  */
 
-export * from './schemas.js'
-export * from './config.js'
-export * from './errors.js'
-export * from './api-client.js'
+// Note: No wildcard exports to prevent accidental function exports
+// All exports must be explicit to ensure Layer-only pattern
 
 // Schema types
 export type {
@@ -35,27 +33,26 @@ export { StorageConfigSchema, defaultStorageConfig } from './config.js'
 export type { StorageError } from './errors.js'
 export { StorageErrorSchema } from './errors.js'
 
-// API Client types and implementations
+// API Client types and tags
 export type { StorageAPIClient } from './api-client.js'
 export {
   StorageAPIClientTag,
   ClickHouseConfigTag,
   S3ConfigTag,
-  makeStorageAPIClient,
-  StorageAPIClientLayer
+  StorageAPIClientLayer // Layer is the ONLY way to get a client
 } from './api-client.js'
 
-// Effect-TS storage implementations - now with resolved type issues
-export * from './clickhouse.js'
-export * from './s3.js'
-export * from './services.js'
+// Storage Service Layers and Tags - External consumption via Layers only
 export type { StorageService } from './services.js'
 export {
-  StorageServiceLive,
-  makeStorageService,
   StorageServiceTag,
   ConfigServiceTag,
-  ConfigServiceLive,
-  StorageLayer,
-  StorageOperations
+  StorageServiceLive, // Layer for production use
+  ConfigServiceLive, // Layer for config service
+  StorageLayer, // Combined layer
+  StorageOperations // Type/namespace for operations
 } from './services.js'
+
+// ClickHouse and S3 storage interfaces
+export type { ClickHouseStorage } from './clickhouse.js'
+export type { S3Storage } from './s3.js'

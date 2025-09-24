@@ -35,6 +35,8 @@ This file is automatically read by Claude Code when working in this package.
 
 ## Mandatory Package Conventions
 CRITICAL: These conventions MUST be followed in this package:
+- **ONLY export Effect Layers for external consumption** (no factory functions)
+- External packages must use Layers or create their own mock Layers
 - List of 5-7 critical rules
 - Test organization requirements
 - Effect-TS patterns
@@ -177,6 +179,43 @@ export const ServiceNameLive = Layer.effect(
     // Implementation
   })
 )
+
+// Mock Layer (only if useful across multiple packages)
+export const ServiceNameMock = Layer.succeed(
+  ServiceName,
+  ServiceName.of({
+    operation: () => Effect.succeed(mockResult)
+  })
+)
+```
+
+## CRITICAL: Layer-Only Export Pattern
+
+**Packages MUST only export Effect Layers for external consumption:**
+
+```typescript
+// ✅ CORRECT - index.ts exports
+export { ServiceNameLive, ServiceNameMock } from './service.js'
+export type { ServiceName } from './service.js'
+
+// ❌ WRONG - Never export factory functions
+export const createServiceClient = () => { /* ... */ }  // FORBIDDEN
+export const createAIAnalyzerClient = () => { /* ... */ }  // FORBIDDEN
+```
+
+**External packages consume via Layers:**
+
+```typescript
+// ✅ CORRECT - External usage
+import { ServiceNameLive } from '@otel-ai/package-name'
+
+const program = Effect.gen(function* () {
+  const service = yield* ServiceName
+  // Use service
+}).pipe(Effect.provide(ServiceNameLive))
+
+// ❌ WRONG - Don't create clients
+const client = createServiceClient()  // FORBIDDEN
 ```
 
 ## Common Pitfalls to Avoid

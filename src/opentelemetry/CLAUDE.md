@@ -6,10 +6,11 @@ This file is automatically read by Claude Code when working in this package.
 
 ## Mandatory Package Conventions
 CRITICAL: These conventions MUST be followed in this package:
+- **This package exports types only** (no Layers needed for pure type definitions)
+- External packages import types directly from this package
 - This is a GENERATED CODE package - do not manually edit proto/ files
 - All proto files generated via `pnpm proto:generate`
 - Tests go in test/unit/ and test/integration/ subdirectories
-- Never use scattered *.test.ts files in src/
 - Use BigInt for all nanosecond timestamps
 - Prefer binary format over JSON for production
 

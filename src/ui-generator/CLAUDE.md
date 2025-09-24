@@ -6,6 +6,8 @@ This file is automatically read by Claude Code when working in this package.
 
 ## Mandatory Package Conventions
 CRITICAL: These conventions MUST be followed in this package:
+- **ONLY export Effect Layers for external consumption** (no factory functions)
+- External packages must use UIGeneratorLive Layer or create their own mock
 - All async operations use Effect-TS
 - Generated components must be valid TypeScript React
 - Tests go in test/unit/ and test/integration/ subdirectories

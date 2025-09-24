@@ -6,10 +6,11 @@ This file is automatically read by Claude Code when working in this package.
 
 ## Mandatory Package Conventions
 CRITICAL: These conventions MUST be followed in this package:
+- **ONLY export Effect Layers for external consumption** (no factory functions)
+- External packages must use StorageLive Layer or create their own mock
 - All async operations use Effect-TS with proper error handling
 - Schema validation required for all OTLP data inputs
 - Tests go in test/unit/ and test/integration/ subdirectories
-- Never use scattered *.test.ts files in src/
 - Always use parameterized queries to prevent SQL injection
 - Handle DateTime64(9) with nanosecond precision conversion
 

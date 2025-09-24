@@ -6,10 +6,11 @@ This file is automatically read by Claude Code when working in this package.
 
 ## Mandatory Package Conventions
 CRITICAL: These conventions MUST be followed in this package:
+- **ONLY export Effect Layers for external consumption** (no factory functions)
+- External packages must use PortkeyGatewayLive Layer or create their own mock
 - All LLM operations use Effect-TS with proper error handling
 - Schema validation required for all LLM responses
 - Tests go in test/unit/ and test/integration/ subdirectories
-- Never use scattered *.test.ts files in src/
 - Use Portkey gateway for ALL model interactions
 - Always implement retry logic with exponential backoff
 - Response extraction must handle partial/malformed JSON
