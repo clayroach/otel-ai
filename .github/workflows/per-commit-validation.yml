@@ -97,8 +97,8 @@ jobs:
 
       - name: Build UI package
         run: |
-          echo "🏗️ Building UI package..."
-          cd ui && pnpm build
+          echo "🏗️ Building UI package (web only)..."
+          cd ui && pnpm build:web
 
       - name: Run UI-specific tests
         run: |
