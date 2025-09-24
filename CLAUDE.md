@@ -120,13 +120,13 @@ git log --oneline -10
 ### 2. GitHub Issues Review (2-3 seconds)
 ```bash
 # Check public repo issues
-mcp__github__list_issues owner:croach repo:otel-ai state:OPEN
+mcp__github__list_issues owner:clayroach repo:otel-ai state:OPEN
 
 # Check private repo for sensitive planning (if accessible)
 mcp__github__list_issues owner:clayroach repo:otel-ai-private state:OPEN
 
 # Filter for high priority or assigned issues
-mcp__github__search_issues query:"repo:croach/otel-ai is:open is:issue assignee:@me"
+mcp__github__search_issues query:"repo:clayroach/otel-ai is:open is:issue assignee:@me"
 ```
 
 ### 3. Package Context (Auto-loaded)
