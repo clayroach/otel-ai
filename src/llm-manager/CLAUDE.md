@@ -1,7 +1,7 @@
 # LLM Manager Package - Claude Context
 
 ## Package Overview
-Multi-model LLM orchestration via Portkey gateway for intelligent routing, cost optimization, and unified API. Handles GPT, Claude, and local models with automatic fallback and response extraction.
+Multi-model LLM orchestration via Portkey gateway with intelligent routing and cost optimization.
 This file is automatically read by Claude Code when working in this package.
 
 ## Mandatory Package Conventions
@@ -18,7 +18,6 @@ CRITICAL: These conventions MUST be followed in this package:
 
 ### Service Definition Pattern
 ```typescript
-// LLM Manager service definition
 export interface LLMManager extends Context.Tag<"LLMManager", {
   readonly query: (request: LLMRequest) => Effect.Effect<LLMResponse, LLMError, never>
   readonly queryWithSchema: <A, I>(
@@ -27,38 +26,19 @@ export interface LLMManager extends Context.Tag<"LLMManager", {
   ) => Effect.Effect<A, LLMError | ParseError, never>
   readonly stream: (request: LLMRequest) => Stream.Stream<string, LLMError, never>
 }>{}
-
-export const LLMManagerLive = Layer.effect(
-  LLMManager,
-  Effect.gen(function* () {
-    const config = yield* Config
-    const portkeyClient = yield* PortkeyClient
-
-    return LLMManager.of({
-      query: (request) => Effect.gen(function* () {
-        // Implementation with Portkey
-      })
-    })
-  })
-)
 ```
 
-### Portkey Integration Pattern
+### Portkey Request Pattern
 ```typescript
 // Always use Portkey gateway with virtual keys
 const portkeyRequest = {
   url: "https://api.portkey.ai/v1/chat/completions",
   headers: {
     "x-portkey-api-key": PORTKEY_API_KEY,
-    "x-portkey-virtual-key": virtualKey, // Model-specific virtual key
-    "x-portkey-mode": "single", // or "fallback" for multi-model
-    "Content-Type": "application/json"
+    "x-portkey-virtual-key": virtualKey, // Model-specific
+    "x-portkey-mode": "single", // or "fallback"
   },
-  body: {
-    messages: [{ role: "user", content: prompt }],
-    max_tokens: maxTokens,
-    temperature: temperature
-  }
+  body: { messages, max_tokens, temperature }
 }
 ```
 
@@ -72,163 +52,39 @@ export const extractWithSchema = <A, I>(
   // Try JSON block extraction first
   const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/)
   if (jsonMatch) {
-    const json = JSON.parse(jsonMatch[1])
-    return yield* Schema.decodeUnknown(schema)(json)
+    return yield* Schema.decodeUnknown(schema)(JSON.parse(jsonMatch[1]))
   }
-
-  // Fallback to direct JSON parsing
-  try {
-    const json = JSON.parse(response)
-    return yield* Schema.decodeUnknown(schema)(json)
-  } catch {
-    // Try to extract JSON object from mixed content
-    const objectMatch = response.match(/\{[\s\S]*\}/)
-    if (objectMatch) {
-      const json = JSON.parse(objectMatch[0])
-      return yield* Schema.decodeUnknown(schema)(json)
-    }
-  }
-
-  return yield* Effect.fail(new ParseError("No valid JSON found"))
+  // Fallback to direct parsing
+  // Try object extraction from mixed content
 })
 ```
 
-### Error Handling Pattern
-```typescript
-export type LLMError =
-  | { _tag: "ModelUnavailable"; model: string; message: string }
-  | { _tag: "RateLimitError"; retryAfter: number }
-  | { _tag: "ValidationError"; message: string }
-  | { _tag: "PortkeyError"; statusCode: number; message: string }
-  | { _tag: "ExtractionError"; response: string; message: string }
-```
-
-## API Contracts
-
-### LLM Manager Service Interface
-```typescript
-import { Context, Effect, Layer, Stream } from 'effect'
-import { Schema } from '@effect/schema'
-
-// Main LLM service
-export interface LLMManager extends Context.Tag<"LLMManager", {
-  // Basic query
-  readonly query: (request: LLMRequest) => Effect.Effect<LLMResponse, LLMError, never>
-
-  // Query with structured response
-  readonly queryWithSchema: <A, I>(
-    request: LLMRequest,
-    schema: Schema.Schema<A, I>
-  ) => Effect.Effect<A, LLMError | ParseError, never>
-
-  // Streaming responses
-  readonly stream: (request: LLMRequest) => Stream.Stream<string, LLMError, never>
-
-  // Multi-model query (parallel)
-  readonly queryMultiple: (
-    request: LLMRequest,
-    models: ReadonlyArray<ModelType>
-  ) => Effect.Effect<ReadonlyArray<LLMResponse>, LLMError, never>
-}>{}
-
-// Request/Response schemas
-export const LLMRequestSchema = Schema.Struct({
-  prompt: Schema.String,
-  model: Schema.optional(Schema.Literal("gpt-4", "claude-3-opus", "llama-70b")),
-  temperature: Schema.optional(Schema.Number),
-  maxTokens: Schema.optional(Schema.Number),
-  systemPrompt: Schema.optional(Schema.String)
-})
-
-export const LLMResponseSchema = Schema.Struct({
-  content: Schema.String,
-  model: Schema.String,
-  usage: Schema.Struct({
-    promptTokens: Schema.Number,
-    completionTokens: Schema.Number,
-    totalCost: Schema.optional(Schema.Number)
-  }),
-  latencyMs: Schema.Number
-})
-
-// Specialized query schemas
-export const ComponentGenerationSchema = Schema.Struct({
-  component: Schema.String, // React component code
-  dependencies: Schema.Array(Schema.String),
-  props: Schema.Record(Schema.String, Schema.Unknown)
-})
-
-export const AnomalyAnalysisSchema = Schema.Struct({
-  anomalies: Schema.Array(Schema.Struct({
-    service: Schema.String,
-    severity: Schema.Literal("low", "medium", "high", "critical"),
-    description: Schema.String,
-    recommendation: Schema.String
-  }))
-})
-```
-
-## Common Pitfalls & Anti-Patterns
-AVOID these common mistakes:
-- ❌ Direct API calls to OpenAI/Anthropic (always use Portkey)
-- ❌ Not handling rate limits (429 errors need retry logic)
-- ❌ Parsing LLM responses without validation
-- ❌ Missing timeout configuration (can hang indefinitely)
-- ❌ Not extracting JSON from markdown code blocks
-- ❌ Hardcoding API keys (use environment variables)
-- ❌ Sequential model queries (use parallel when possible)
-- ❌ Not implementing circuit breakers for failing models
-
-## Testing Requirements
-- Unit tests: Mock Portkey responses for all scenarios
-- Integration tests: Require Portkey container or API access
-- Response extraction tests: Various malformed JSON scenarios
-- Rate limit tests: Validate retry logic with 429 responses
-- Multi-model tests: Parallel query execution
-- Test commands: `pnpm test:unit:llm-manager`, `pnpm test:integration:llm-manager`
-
-## Performance Considerations
-
-### Optimization Strategies
-- Cache frequent queries with Redis (5-minute TTL)
-- Use streaming for long responses (>1000 tokens)
-- Implement circuit breakers per model
-- Batch similar queries when possible
-- Use model-specific virtual keys for cost tracking
-
-### Portkey Configuration
-```typescript
-// Environment variables
-PORTKEY_API_KEY=your-api-key
-PORTKEY_GPT4_VIRTUAL_KEY=virtual-key-1
-PORTKEY_CLAUDE_VIRTUAL_KEY=virtual-key-2
-PORTKEY_LLAMA_VIRTUAL_KEY=virtual-key-3
-
-// Retry configuration
-const retrySchedule = Schedule.exponential(Duration.seconds(1))
-  .pipe(Schedule.jittered)
-  .pipe(Schedule.upTo(Duration.seconds(60)))
-```
+## Known Issues & Workarounds
 
 ### Rate Limiting
-- GPT-4: 10,000 TPM (tokens per minute)
-- Claude Opus: 20,000 TPM
-- Local Llama: Unlimited (CPU/GPU bound)
-- Implement client-side retry for 429 errors
+- **Problem**: Models have TPM limits (GPT-4: 10K, Claude: 20K)
+- **Workaround**: Client-side rate limiting with exponential backoff
+- **Fix**: Upgrade API tier or use local models for bulk operations
 
-## Dependencies & References
-- External:
-  - `effect` ^3.11.0
-  - `@effect/schema` ^0.78.0
-  - `@effect/platform` ^0.69.0 (HTTP client)
-- Internal:
-  - Storage package (for caching)
-- Documentation:
-  - Portkey Docs: https://docs.portkey.ai
-  - Virtual Keys: https://docs.portkey.ai/docs/product/ai-gateway/virtual-keys
-  - Rate Limits: https://docs.portkey.ai/docs/product/ai-gateway/rate-limits
+### Response Extraction
+- **Problem**: LLMs return mixed text/JSON or markdown code blocks
+- **Workaround**: Multiple extraction strategies with fallbacks
+- **Fix**: Use specific prompts requesting JSON-only responses
 
-## Quick Start Commands
+## Common Pitfalls
+
+❌ **DON'T**: Direct API calls to OpenAI/Anthropic (always use Portkey)
+❌ **DON'T**: Parse LLM responses without validation
+❌ **DON'T**: Missing timeout configuration (can hang indefinitely)
+❌ **DON'T**: Sequential model queries (use parallel when possible)
+
+✅ **DO**: Use Portkey virtual keys for all models
+✅ **DO**: Extract JSON from markdown code blocks
+✅ **DO**: Implement circuit breakers for failing models
+✅ **DO**: Cache frequent queries with Redis (5-minute TTL)
+
+## Quick Command Reference
+
 ```bash
 # Development
 pnpm dev:llm-manager
@@ -240,9 +96,14 @@ pnpm test:integration:llm-manager
 # Test with local Portkey
 docker run -p 8787:8787 portkeyai/gateway
 
-# Building
-pnpm build:llm-manager
-
-# Find active work
-mcp__github__search_issues query:"package:llm-manager is:open"
+# Debug mode
+DEBUG_PORTKEY_TIMING=1 pnpm test:integration
 ```
+
+## Dependencies & References
+- `effect` ^3.11.0
+- `@effect/schema` ^0.78.0
+- `@effect/platform` ^0.69.0 (HTTP client)
+- Storage package (for caching)
+- Full documentation: See README.md
+- Portkey Docs: https://docs.portkey.ai
