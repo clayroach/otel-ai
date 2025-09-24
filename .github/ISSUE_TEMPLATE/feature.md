@@ -8,6 +8,13 @@ assignees: ''
 
 ## Feature: [Name]
 
+### Feature Metadata
+<!-- For sub-features, specify parent relationship -->
+**Feature ID**: FEAT-XXX
+**Parent Feature**: [If applicable - e.g., Feature-005 (#103)]
+**Priority**: HIGH/MEDIUM/LOW
+**Target Release**: [Phase/Milestone]
+
 ### Problem Statement
 <!-- What problem does this solve? Why is this needed? -->
 
@@ -35,6 +42,18 @@ assignees: ''
 - [ ] Criterion 3
 
 ### Related Issues
+<!-- Use parent/child relationships for feature hierarchies -->
+- Parent Feature: # <!-- For sub-features (e.g., Feature-005a has parent Feature-005) -->
+- Child Features: # <!-- For parent features listing their sub-features -->
 - Depends on: #
 - Blocks: #
 - Related to: #
+
+### Notes on Parent/Child Relationships
+<!--
+Parent/child relationships help organize complex features:
+- Parent features define the overall capability (e.g., Feature-005: Diagnostics UI)
+- Child features implement specific aspects (e.g., Feature-005a: OTLP Capture, Feature-005b: Annotations)
+- Child features reference their parent for context
+- Parent features list their children for completeness
+-->
