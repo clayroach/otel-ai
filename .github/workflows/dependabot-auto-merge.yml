@@ -58,11 +58,48 @@ jobs:
             echo "✅ Lockfile updated and pushed"
           fi
 
+  validate-ui-changes:
+    name: Validate UI dependency updates
+    runs-on: ubuntu-latest
+    needs: update-lockfile
+    if: |
+      github.actor == 'dependabot[bot]' &&
+      (contains(github.event.pull_request.title, '/ui') ||
+       contains(github.event.pull_request.title, 'react') ||
+       contains(github.event.pull_request.title, 'electron'))
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: '8.15.0'
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build UI
+        run: cd ui && pnpm build
+
+      - name: Test UI
+        run: cd ui && pnpm test
+
   auto-merge:
     name: Auto-merge Dependabot PRs
     runs-on: ubuntu-latest
-    needs: update-lockfile
-    if: github.actor == 'dependabot[bot]'
+    needs: [update-lockfile, validate-ui-changes]
+    if: |
+      github.actor == 'dependabot[bot]' &&
+      (success() || needs.validate-ui-changes.result == 'skipped')
 
     steps:
       - name: Dependabot metadata
