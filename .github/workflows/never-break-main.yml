@@ -41,7 +41,7 @@ jobs:
           node-version: '20'
           
       - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
           version: '8.15.0'
           
@@ -79,7 +79,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           
       - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
           
@@ -223,7 +223,7 @@ jobs:
   #         node-version: ${{ env.NODE_VERSION }}
   #         
   #     - name: Setup pnpm
-  #       uses: pnpm/action-setup@v2
+  #       uses: pnpm/action-setup@v4
   #       with:
   #         version: ${{ env.PNPM_VERSION }}
   #         
@@ -261,7 +261,7 @@ jobs:
   #         node-version: ${{ env.NODE_VERSION }}
   #         
   #     - name: Setup pnpm
-  #       uses: pnpm/action-setup@v2
+  #       uses: pnpm/action-setup@v4
   #       with:
   #         version: ${{ env.PNPM_VERSION }}
   #         
