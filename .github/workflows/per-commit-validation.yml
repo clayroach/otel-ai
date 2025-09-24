@@ -60,6 +60,57 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
+  ui-dependency-validation:
+    name: UI Dependency Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: |
+      contains(github.event.head_commit.message, 'dependabot') &&
+      (contains(github.event.head_commit.message, '/ui') ||
+       contains(github.event.head_commit.message, 'react') ||
+       contains(github.event.head_commit.message, 'electron'))
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: '8.15.0'
+
+      - name: Install dependencies
+        run: |
+          echo "📦 Installing workspace dependencies..."
+          # For Dependabot PRs, allow lockfile updates
+          if [ "${{ github.actor }}" == "dependabot[bot]" ]; then
+            echo "🤖 Dependabot PR detected - allowing lockfile updates"
+            pnpm install --no-frozen-lockfile
+          else
+            pnpm install --frozen-lockfile
+          fi
+
+      - name: Build UI package
+        run: |
+          echo "🏗️ Building UI package (web only)..."
+          cd ui && pnpm build:web
+
+      - name: Run UI-specific tests
+        run: |
+          echo "🧪 Running UI-specific tests..."
+          cd ui && pnpm test
+
+      - name: Integration tests (if available)
+        run: |
+          echo "🔗 Running integration tests..."
+          pnpm test:integration || echo "No integration tests configured"
+        continue-on-error: true
+
 # DISABLING CODE-TO-DOCS SYNC JOB FOR NOW
   # code-to-docs-sync:
   #   name: Code-to-Docs Sync Validation

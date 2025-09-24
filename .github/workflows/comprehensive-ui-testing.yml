@@ -6,11 +6,17 @@ on:
     paths:
       - 'ui/**'
       - 'playwright.config.ts'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/comprehensive-ui-testing.yml'
   push:
     branches: [main]
     paths:
       - 'ui/**'
       - 'playwright.config.ts'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/comprehensive-ui-testing.yml'
   workflow_dispatch:
 
 env:
