@@ -1,28 +1,22 @@
-// UI Generator Package Exports
-export {
+// UI Generator Package Exports - Types Only
+export type {
   UIGeneratorAPIClient,
-  generateQuery,
-  generateMultipleQueries,
-  validateQuery
+  QueryGenerationAPIRequest,
+  QueryGenerationAPIResponse
 } from './api-client.js'
-export type { QueryGenerationAPIRequest, QueryGenerationAPIResponse } from './api-client.js'
-
-// Export query generator functionality
-export {
-  generateQueryWithLLM,
-  generateStandardQueries,
-  generateQueryWithSQLModel,
-  ANALYSIS_GOALS
-} from './query-generator/llm-query-generator.js'
 
 // Export types from query generator
 export type { GeneratedQuery, QueryResult, QueryPattern } from './query-generator/types.js'
 
-// Service Interface and Implementation
+// Constants are okay to export
+export { ANALYSIS_GOALS } from './query-generator/llm-query-generator.js'
+
+// Service Tags and Types
 export type { UIGeneratorService, ValidationResult } from './service.js'
 export { UIGeneratorServiceTag } from './service.js'
 
-export { UIGeneratorServiceLive, makeUIGeneratorService } from './service-live.js'
+// Layer exports ONLY - no factory functions
+export { UIGeneratorServiceLive } from './service-live.js'
 
 // Error Types
 export {
@@ -35,55 +29,47 @@ export {
   UIGeneratorErrors
 } from './errors.js'
 
-// Schema Types and Validation
-export {
-  type CriticalPath,
-  type QueryGenerationAPIRequest as SchemaQueryGenerationAPIRequest,
-  type QueryGenerationAPIResponse as SchemaQueryGenerationAPIResponse,
-  type MultipleQueryGenerationRequest,
-  type ValidationResult as SchemaValidationResult,
-  type ExpectedColumn,
-  type LLMConfig,
-  type AnalysisGoal,
-  type ServiceConfig,
-  validateRequest,
-  validateResponse,
-  validateMultipleRequest,
-  validateValidationResult
+// Schema Types Only - no validation functions exported
+export type {
+  CriticalPath,
+  QueryGenerationAPIRequest as SchemaQueryGenerationAPIRequest,
+  QueryGenerationAPIResponse as SchemaQueryGenerationAPIResponse,
+  MultipleQueryGenerationRequest,
+  ValidationResult as SchemaValidationResult,
+  ExpectedColumn,
+  LLMConfig,
+  AnalysisGoal,
+  ServiceConfig
 } from './schemas.js'
 
-// API Client Layer for server integration
-export {
-  UIGeneratorAPIClientTag,
-  UIGeneratorAPIClientLayer,
-  type UIGeneratorAPIClientService,
-  generateQuery as generateQueryEffect,
-  generateMultipleQueries as generateMultipleQueriesEffect,
-  validateQuery as validateQueryEffect
-} from './api-client-layer.js'
+// API Client Layer for server integration - Layers and Types Only
+export { UIGeneratorAPIClientTag, UIGeneratorAPIClientLayer } from './api-client-layer.js'
+export type { UIGeneratorAPIClientService } from './api-client-layer.js'
 
-// Export all services and their layers
+// Service Layers and Tags - External consumption via Layers only
 export {
-  // Result Analysis Service
+  // Service Tags (for dependency injection)
   ResultAnalysisServiceTag,
-  ResultAnalysisServiceLive,
-  type ResultAnalysisService,
-
-  // Chart Config Generator Service
   ChartConfigGeneratorServiceTag,
-  ChartConfigGeneratorServiceLive,
-  type ChartConfigGeneratorService,
-
-  // Dynamic Component Generator Service
   DynamicComponentGeneratorServiceTag,
-  DynamicComponentGeneratorServiceLive,
-  type DynamicComponentGeneratorService,
-  DynamicUIGenerator,
-  type DynamicComponent,
-  type GenerationRequest,
 
-  // Types
-  type ColumnAnalysis,
-  type ResultAnalysis,
-  type ChartAnalysisInput
+  // Service Layers (the ONLY way to get service instances)
+  ResultAnalysisServiceLive,
+  ChartConfigGeneratorServiceLive,
+  DynamicComponentGeneratorServiceLive,
+
+  // Class for type reference only (not for direct instantiation)
+  DynamicUIGenerator
+} from './services/index.js'
+
+// Types for external use
+export type {
+  ResultAnalysisService,
+  ChartConfigGeneratorService,
+  DynamicComponentGeneratorService,
+  DynamicComponent,
+  GenerationRequest,
+  ColumnAnalysis,
+  ResultAnalysis,
+  ChartAnalysisInput
 } from './services/index.js'

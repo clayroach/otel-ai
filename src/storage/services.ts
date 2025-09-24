@@ -68,7 +68,8 @@ export class ConfigServiceTag extends Context.Tag('ConfigService')<
   StorageConfig
 >() {}
 
-export const makeStorageService = (
+// Internal: Not exported - use StorageServiceLive Layer instead
+const makeStorageService = (
   clickhouse: ClickHouseStorage,
   config: StorageConfig
 ): StorageService => ({

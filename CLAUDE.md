@@ -25,7 +25,7 @@ This project demonstrates that AI-assisted development can achieve enterprise-le
 - **Traditional workflows** → **Documentation-driven development with AI automation**
 - **8-hour workdays** → **4-hour focused sessions with AI handling routine tasks**
 
-The philosophy: Technology should give us more time for life and family, not consume it. See [ADR-001](notes/design/adr/adr-001-4-hour-workday-philosophy.md) for the complete strategy.
+The philosophy: Technology should give us more time for life and family, not consume it. See [ADR-001 (Issue #80)](https://github.com/croach/otel-ai/issues/80) for the complete strategy.
 
 ## Architecture
 
@@ -104,6 +104,46 @@ gh pr create --title "Feature: Description" --body "..."
 - Commit directly to `main` branch
 - Push unfinished/broken code
 - Skip PR review process
+
+## Automatic Session Context Recovery
+
+When starting a new Claude session, automatically perform these checks to recover context:
+
+### 1. Git Repository Status (Instant)
+```bash
+# Check current branch and changes
+git branch --show-current
+git status --short
+git log --oneline -10
+```
+
+### 2. GitHub Issues Review (2-3 seconds)
+```bash
+# Check public repo issues
+mcp__github__list_issues owner:clayroach repo:otel-ai state:OPEN
+
+# Check private repo for sensitive planning (if accessible)
+mcp__github__list_issues owner:clayroach repo:otel-ai-private state:OPEN
+
+# Filter for high priority or assigned issues
+mcp__github__search_issues query:"repo:clayroach/otel-ai is:open is:issue assignee:@me"
+```
+
+### 3. Package Context (Auto-loaded)
+When working in any package directory, Claude automatically reads the package's CLAUDE.md file which contains:
+- Package conventions and patterns
+- API contracts and interfaces
+- Common pitfalls to avoid
+- Quick start commands
+
+### 4. Recent Context Recovery
+- Check for yesterday's daily note in `notes/daily/`
+- Review any uncommitted work or staged changes
+- Identify work items that were in progress
+
+**Performance Target:** <5 seconds total startup time
+
+This automatic context recovery ensures Claude maintains continuity across sessions without requiring manual context loading or explicit instructions to read documentation files.
 
 ## AI Subagent Workflow Patterns
 

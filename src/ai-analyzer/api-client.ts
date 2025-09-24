@@ -149,8 +149,14 @@ export const getServiceName = (service: { service?: string }): string => {
   return service.service || 'unknown-service'
 }
 
-// Implementation using the shared API client with proper Effect-TS typing
-export const createAIAnalyzerClient = (
+// Tag for the AI Analyzer Client service
+export class AIAnalyzerClientTag extends Context.Tag('AIAnalyzerClient')<
+  AIAnalyzerClientTag,
+  AIAnalyzerClient
+>() {}
+
+// Internal implementation - not exported
+const createAIAnalyzerClientImpl = (
   baseUrl: string
 ): Effect.Effect<AIAnalyzerClient, never, APIClientService> =>
   Effect.map(APIClientService, (apiClient) => ({
@@ -172,12 +178,40 @@ export const createAIAnalyzerClient = (
 // Import the API client layer
 import { APIClientLayer } from '../shared/api-client.js'
 
-// Convenience layer for testing and service usage
+// Layer for production use - the ONLY way to get an AIAnalyzerClient
 export const AIAnalyzerClientLive = (baseUrl: string = 'http://localhost:4319/api/ai-analyzer') =>
-  Layer.effect(
-    Context.GenericTag<AIAnalyzerClient>('AIAnalyzerClient'),
-    createAIAnalyzerClient(baseUrl)
-  ).pipe(Layer.provide(APIClientLayer))
+  Layer.effect(AIAnalyzerClientTag, createAIAnalyzerClientImpl(baseUrl)).pipe(
+    Layer.provide(APIClientLayer)
+  )
+
+// Mock Layer for testing
+export const AIAnalyzerClientMock = Layer.succeed(AIAnalyzerClientTag, {
+  analyze: () =>
+    Effect.succeed({
+      requestId: 'mock-request-id',
+      type: 'mock',
+      summary: 'Mock analysis summary',
+      architecture: {
+        applicationName: 'mock-app',
+        description: 'Mock application',
+        services: [],
+        dataFlows: [],
+        criticalPaths: [],
+        generatedAt: new Date().toISOString()
+      },
+      insights: [],
+      metadata: {
+        analyzedSpans: 0,
+        analysisTimeMs: 0,
+        llmTokensUsed: 0,
+        llmModel: 'mock',
+        selectedModel: 'mock',
+        confidence: 1
+      }
+    }),
+  getTopology: () => Effect.succeed([]),
+  health: () => Effect.succeed({ status: 'ok', message: 'Mock healthy' })
+} satisfies AIAnalyzerClient)
 
 // Export schemas for use in tests and other services
 export {

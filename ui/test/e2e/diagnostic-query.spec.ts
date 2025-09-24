@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test'
 
 test.describe('Diagnostic Query Feature', () => {
+  // Run these tests serially to avoid navigation conflicts
+  test.describe.configure({ mode: 'serial' })
+
   test.beforeEach(async ({ page }) => {
     // Capture console errors
     page.on('console', msg => {
@@ -31,35 +34,44 @@ test.describe('Diagnostic Query Feature', () => {
   })
 
   test('should generate and navigate to Traces view when clicking Diagnostic Query', async ({ page }) => {
+    // Increase timeout for this test as it involves API calls and navigation
+    test.setTimeout(45000)
+
     // Wait for critical paths to load
-    await page.waitForSelector('.critical-paths-scroll-container', { timeout: 5000 })
-    
+    await page.waitForSelector('.critical-paths-scroll-container', { timeout: 10000 })
+
+    // Wait for the diagnostic button to be ready
+    await page.waitForTimeout(1000)
+
     // Click on the first Generate Diagnostic Query button using test ID
     const diagnosticButton = page.locator('[data-testid^="diagnostic-query-button-"]').first()
+    await expect(diagnosticButton).toBeVisible()
     await diagnosticButton.click()
-    
+
     // Wait for navigation to Traces view (with increased timeout for API call)
     // The loading state might be too quick to catch, so we focus on the navigation
-    await page.waitForURL('**/traces', { timeout: 15000 })
-    
+    await page.waitForURL('**/traces', { timeout: 20000 })
+
     // Wait a bit for the page to render
     await page.waitForTimeout(2000)
-    
+
     // Verify we're on the Traces page - wait for the page title to appear
     await page.waitForSelector('[data-testid="traces-page-title"]', { timeout: 10000 })
     const pageTitle = page.locator('[data-testid="traces-page-title"]')
     await expect(pageTitle).toBeVisible()
-    
+
     // Check that the query editor has content
     const queryEditor = page.locator('.monaco-editor')
     await expect(queryEditor).toBeVisible()
-    
+
     // Verify the Run Query button is present
     const runQueryButton = page.locator('[data-testid="traces-run-query-button"]')
     await expect(runQueryButton).toBeVisible()
   })
 
   test('should handle API connection errors gracefully', async ({ page }) => {
+    // NOTE: This test intentionally causes network errors to test error handling
+    // The console errors "ERR_CONNECTION_REFUSED" are EXPECTED and not a bug
     // Intercept the API call and force it to fail
     await page.route('**/api/ui-generator/generate-query', route => {
       route.abort('connectionrefused')

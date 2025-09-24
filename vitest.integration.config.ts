@@ -16,28 +16,28 @@ export default defineConfig({
         maxThreads: 12, // Allow multiple threads for concurrent testing
       },
     },
-    
+
     // Include integration test files and directories
     include: [
-      '**/*.integration.test.{js,ts}', 
+      '**/*.integration.test.{js,ts}',
       '**/test/integration/**/*.test.{js,ts}'
     ],
-    
-    // Exclude regular unit tests  
+
+    // Exclude regular unit tests
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
     ],
-    
+
     watch: false, // Disable watch mode by default - run once and exit
 
     // Environment setup
     environment: 'node',
     setupFiles: ['./src/test-setup.ts'],
-    
+
     // Reporters
     reporters: ['verbose'],
-    
+
     // Globals
     globals: true,
   },

@@ -30,7 +30,8 @@
       "Bash(rg:*)",
       "Bash(npx vitest:*)",
       "Bash(timeout:*)",
-      "WebSearch"
+      "WebSearch",
+      "mcp__github"
     ],
     "deny": [],
     "ask": [],

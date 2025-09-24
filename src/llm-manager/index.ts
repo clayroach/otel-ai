@@ -6,40 +6,36 @@
  * configuration-driven routing with automatic failover and caching.
  */
 
-// Core types and schemas
-export * from './types.js'
+// Core types - explicit exports only
+export type {
+  LLMConfig,
+  LLMRequest,
+  LLMResponse,
+  LLMError,
+  ConversationContext,
+  ModelHealthStatus,
+  ModelType,
+  TaskType,
+  RoutingStrategy,
+  ModelClient
+} from './types.js'
 
-// Service interface
+// Service Tags and Types
 export { LLMManagerServiceTag } from './llm-manager-service.js'
 export type { LLMManagerService, ManagerStatus } from './llm-manager-service.js'
 
-// Portkey Gateway implementation
-export { makePortkeyGatewayManager, PortkeyGatewayLive } from './portkey-gateway-client.js'
+// Layers ONLY - no factory functions
+export { PortkeyGatewayLive } from './portkey-gateway-client.js'
 
-// Backward compatibility exports for refactored code
+// Backward compatibility Layer exports
 export { LLMManagerAPIClientLayer as LLMManagerEssentials } from './api-client-layer.js'
 export { PortkeyGatewayLive as LLMManagerLive } from './portkey-gateway-client.js'
 
-// API Client Layer for server integration
-export {
-  generateLLMResponse,
-  getLLMManagerStatus,
-  getLoadedModels,
-  LLMManagerAPIClientLayer,
-  LLMManagerAPIClientTag,
-  selectBestModel,
-  type LLMManagerAPIClientService,
-  type ServerModelInfo
-} from './api-client-layer.js'
+// API Client Layer and Tag for server integration
+export { LLMManagerAPIClientLayer, LLMManagerAPIClientTag } from './api-client-layer.js'
 
-// New rich model discovery APIs
-export {
-  getAllModels,
-  getDefaultModel,
-  getModelInfo,
-  getModelsByCapability,
-  getModelsByProvider
-} from './api-client-layer.js'
+// Types only from api-client-layer
+export type { LLMManagerAPIClientService, ServerModelInfo } from './api-client-layer.js'
 
 // Model types from unified source
 export type { ModelInfo, PortkeyConfig } from './model-types.js'

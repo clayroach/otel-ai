@@ -18,10 +18,10 @@ import {
 } from './query-generator/llm-query-generator.js'
 
 /**
- * Live implementation of UI Generator Service
- * Explicitly declares all dependencies for compile-time safety
+ * Internal implementation of UI Generator Service
+ * Not exported - use UIGeneratorServiceLive Layer instead
  */
-export const makeUIGeneratorService: Effect.Effect<
+const makeUIGeneratorService: Effect.Effect<
   UIGeneratorService,
   never,
   LLMManagerServiceTag | StorageServiceTag | ConfigServiceTag

@@ -528,7 +528,12 @@ export const ServiceTopologyGraph: React.FC<ServiceTopologyGraphProps> = ({
       )}
 
       {/* Main Chart */}
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <div
+        style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+        data-testid="topology-chart-container"
+        data-nodes-count={filteredNodes.length}
+        data-edges-count={filteredEdges.length}
+      >
         <ReactECharts
           ref={chartRef}
           option={getOption()}
