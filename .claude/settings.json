@@ -31,7 +31,7 @@
       "Bash(npx vitest:*)",
       "Bash(timeout:*)",
       "WebSearch",
-      "mcp__github__*"
+      "mcp__github"
     ],
     "deny": [],
     "ask": [],
