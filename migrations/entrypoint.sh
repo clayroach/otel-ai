@@ -133,14 +133,30 @@ run_migrations() {
     # Check if this is first run or clean slate
     TABLES_COUNT=$(execute_sql "SELECT count(*) FROM system.tables WHERE database = '${CLICKHOUSE_DATABASE}'" true || echo "0")
     
-    # Apply original schema from main branch
-    log_info "Applying initial schema from SQL migration..."
-    if execute_sql_file "/migrations/clickhouse/20250819000000_initial_schema.sql"; then
-        log_info "Schema tables created successfully"
-    else
-        log_error "Failed to create schema tables"
+    # Apply all SQL migrations in order
+    log_info "Applying SQL migrations..."
+    local migration_count=0
+    local failed_count=0
+
+    for migration_file in /migrations/clickhouse/*.sql; do
+        if [ -f "$migration_file" ]; then
+            log_info "Applying migration: $(basename "$migration_file")"
+            if execute_sql_file "$migration_file"; then
+                migration_count=$((migration_count + 1))
+                log_info "Migration applied successfully: $(basename "$migration_file")"
+            else
+                failed_count=$((failed_count + 1))
+                log_error "Failed to apply migration: $(basename "$migration_file")"
+            fi
+        fi
+    done
+
+    if [ "$failed_count" -gt 0 ]; then
+        log_error "Failed to apply $failed_count migrations"
         return 1
     fi
+
+    log_info "Applied $migration_count migrations successfully"
     
     # Apply views (idempotent - safe to run multiple times)
     log_info "Creating/updating views..."
