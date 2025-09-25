@@ -95,11 +95,13 @@ runs:
         fi
 
         if [ -n "$ERROR_DETAILS" ]; then
-          CLAUDE_SNIPPET="${CLAUDE_SNIPPET}Additional Errors:\\n\\`\\`\\`\\n${ERROR_DETAILS}\\n\\`\\`\\`\\n"
+          # Use printf to safely handle special characters and emojis
+          ERROR_CONTENT=$(printf '%s' "$ERROR_DETAILS")
+          CLAUDE_SNIPPET="${CLAUDE_SNIPPET}Additional Errors:\\n\\`\\`\\`\\n${ERROR_CONTENT}\\n\\`\\`\\`\\n"
         fi
 
         # Escape for JSON
-        CLAUDE_SNIPPET=$(echo "$CLAUDE_SNIPPET" | jq -Rs .)
+        CLAUDE_SNIPPET=$(printf '%s' "$CLAUDE_SNIPPET" | jq -Rs .)
         echo "claude_snippet=$CLAUDE_SNIPPET" >> $GITHUB_OUTPUT
 
     - name: Send Slack notification
