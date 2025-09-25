@@ -230,7 +230,7 @@ jobs:
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
           status: 'failure'
-          job-name: 'E2E Tests Failed'
+          job-name: '🚨 E2E Tests Failed'
           workflow-name: 'Never Break Main'
           test-results: ${{ steps.e2e-tests.outputs.e2e_errors }}
           error-details: "🚨 E2E tests failed on main branch protection. View test artifacts: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. Test results and screenshots have been uploaded as artifacts."
@@ -397,6 +397,6 @@ jobs:
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
           status: ${{ (needs.quick-validation.result == 'success' && needs.full-validation.result == 'success') && 'success' || 'failure' }}
-          job-name: 'Main Branch Protection Complete'
+          job-name: '✅ Main Branch Protection Complete'
           workflow-name: 'Never Break Main'
           error-details: "🛡️ Main Branch Protection ${{ (needs.quick-validation.result == 'success' && needs.full-validation.result == 'success') && '✅ Passed' || '❌ Failed' }}. Quick Validation: ${{ needs.quick-validation.result }}. Full Validation: ${{ needs.full-validation.result }}. ${{ (needs.quick-validation.result == 'success' && needs.full-validation.result == 'success') && '✅ All checks passed - Safe to merge!' || '🚨 Protection activated - Fix required issues before merge' }} View full details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

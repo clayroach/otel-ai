@@ -159,7 +159,7 @@ jobs:
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
           status: 'failure'
-          job-name: 'Multi-Browser E2E Tests Failed'
+          job-name: '🚨 Multi-Browser E2E Tests Failed'
           workflow-name: 'Comprehensive UI Testing'
           test-results: ${{ steps.e2e-tests.outputs.e2e_errors }}
           error-details: "🚨 E2E tests failed across browsers (Chromium, Firefox, WebKit). Test artifacts uploaded: comprehensive-ui-test-results. View artifacts: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
@@ -187,7 +187,7 @@ jobs:
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
           status: ${{ needs.comprehensive-ui-testing.result == 'success' && 'success' || 'failure' }}
-          job-name: 'UI Testing Complete'
+          job-name: '✅ UI Testing Complete'
           workflow-name: 'Comprehensive UI Testing'
           error-details: "🎭 Multi-Browser UI Testing ${{ needs.comprehensive-ui-testing.result == 'success' && '✅ Passed' || '❌ Failed' }}. Browsers tested: Chromium, Firefox, WebKit. Status: ${{ needs.comprehensive-ui-testing.result }}. ${{ needs.comprehensive-ui-testing.result == 'success' && '✅ All browsers passed UI testing!' || '🚨 UI tests failed - Check artifacts for details' }} View full details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
