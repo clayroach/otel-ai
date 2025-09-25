@@ -87,6 +87,20 @@ runs:
         fi
         echo "claude_snippet=$CLAUDE_SNIPPET" >> $GITHUB_OUTPUT
 
+    - name: Format branch name and commit SHA
+      id: format-refs
+      shell: bash
+      run: |
+        # Clean up branch name - remove refs/heads/ prefix if present
+        BRANCH_NAME="${{ inputs.branch }}"
+        BRANCH_NAME="${BRANCH_NAME#refs/heads/}"
+        echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+        # Shorten commit SHA to 7 characters
+        COMMIT_SHA="${{ inputs.commit-sha }}"
+        SHORT_SHA="${COMMIT_SHA:0:7}"
+        echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+
     - name: Send Slack notification
       shell: bash
       env:
@@ -97,8 +111,8 @@ runs:
         JOB_NAME: ${{ inputs.job-name }}
         RUN_URL: ${{ inputs.run-url }}
         REPOSITORY: ${{ github.repository }}
-        BRANCH: ${{ inputs.branch }}
-        COMMIT_SHA: ${{ inputs.commit-sha }}
+        BRANCH: ${{ steps.format-refs.outputs.branch }}
+        COMMIT_SHA: ${{ steps.format-refs.outputs.short_sha }}
         COMMIT_AUTHOR: ${{ inputs.commit-author }}
         SLACK_WEBHOOK_URL: ${{ inputs.webhook-url }}
       run: |

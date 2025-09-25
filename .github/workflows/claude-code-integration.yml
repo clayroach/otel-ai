@@ -132,7 +132,7 @@ jobs:
         if: always()
         run: docker compose --profile dev down -v
 
-  # Claude Code integration for PR review and assistance  
+  # Claude Code integration for PR review and assistance
   claude-assistant:
     runs-on: ubuntu-latest
     permissions:
