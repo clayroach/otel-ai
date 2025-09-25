@@ -4,7 +4,14 @@ test.describe('Diagnostic Query Feature', () => {
   // Run these tests serially to avoid navigation conflicts
   test.describe.configure({ mode: 'serial' })
 
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, context }) => {
+    // Set a unique test ID to help with debugging
+    await context.addCookies([{
+      name: 'test-id',
+      value: `diagnostic-query-${Date.now()}`,
+      domain: 'localhost',
+      path: '/'
+    }])
     // Capture console errors
     page.on('console', msg => {
       if (msg.type() === 'error') {
