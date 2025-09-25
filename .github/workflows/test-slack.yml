@@ -1,0 +1,117 @@
+name: Test Slack Integration
+
+on:
+  workflow_dispatch:
+    inputs:
+      test-scenario:
+        description: 'Test scenario to run'
+        required: true
+        type: choice
+        options:
+          - success
+          - typescript-error
+          - test-failure
+          - lint-error
+          - combined-failure
+        default: success
+
+jobs:
+  test-slack-notification:
+    name: Test Slack Notification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Test Success Notification
+        if: ${{ github.event.inputs.test-scenario == 'success' }}
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: 'success'
+          job-name: 'Test Successful Build'
+          workflow-name: 'Slack Integration Test - Success'
+
+      - name: Test TypeScript Error Notification
+        if: ${{ github.event.inputs.test-scenario == 'typescript-error' }}
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: 'failure'
+          job-name: 'TypeScript Compilation'
+          workflow-name: 'Slack Integration Test - TypeScript'
+          typescript-errors: |
+            src/llm-manager/llm-manager.ts:45:10 - Type 'string' is not assignable to type 'number'
+            src/storage/storage.ts:123:5 - Property 'query' does not exist on type 'Client'
+            src/ai-analyzer/autoencoder.ts:89:15 - Argument of type 'any[]' is not assignable to parameter of type 'Tensor'
+          error-details: |
+            TypeScript compilation failed with 3 errors.
+            Build cannot proceed until these are fixed.
+
+      - name: Test Test Failure Notification
+        if: ${{ github.event.inputs.test-scenario == 'test-failure' }}
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: 'failure'
+          job-name: 'Unit Tests'
+          workflow-name: 'Slack Integration Test - Tests'
+          test-results: |
+            FAIL src/llm-manager/test/unit/llm-manager.test.ts
+              ✗ should handle multi-model orchestration
+                Expected: 'claude-3-opus'
+                Received: undefined
+              ✗ should retry on transient failures
+                Timeout exceeded after 5000ms
+
+            Test Suites: 1 failed, 12 passed, 13 total
+            Tests:       2 failed, 156 passed, 158 total
+          error-details: |
+            Unit tests failed. Please review the test failures above.
+
+      - name: Test Lint Error Notification
+        if: ${{ github.event.inputs.test-scenario == 'lint-error' }}
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: 'failure'
+          job-name: 'Code Quality (ESLint)'
+          workflow-name: 'Slack Integration Test - Linting'
+          lint-errors: |
+            src/ui-generator/component-generator.ts
+              15:3  error  'console.log' is not allowed  no-console
+              45:10 error  'any' type is not allowed     @typescript-eslint/no-explicit-any
+
+            src/config-manager/self-healing.ts
+              78:5  error  Expected blank line before return  padding-line-between-statements
+
+            ✖ 3 problems (3 errors, 0 warnings)
+          error-details: |
+            ESLint found 3 errors that must be fixed.
+
+      - name: Test Combined Failure Notification
+        if: ${{ github.event.inputs.test-scenario == 'combined-failure' }}
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: 'failure'
+          job-name: 'Full Validation'
+          workflow-name: 'Slack Integration Test - Combined'
+          typescript-errors: |
+            src/annotations/annotation-service.ts:67:12 - Type 'unknown' is not assignable to type 'Annotation'
+            src/diagnostics-ui/session-manager.ts:234:8 - Cannot find name 'SessionConfig'
+          lint-errors: |
+            src/annotations/anti-contamination.ts
+              45:15 error  Unexpected 'any' type  @typescript-eslint/no-explicit-any
+          test-results: |
+            FAIL src/annotations/test/unit/annotation-service.test.ts
+              ✗ should validate annotation prefixes
+                Expected 'test.' prefix to be rejected in production
+          error-details: |
+            Multiple validation failures detected:
+            - TypeScript: 2 errors
+            - ESLint: 1 error
+            - Tests: 1 failing test
+
+            All issues must be resolved before merge.
