@@ -1,7 +1,6 @@
 # OTel AI - AI-Native Observability Platform
 
 > Enterprise-grade observability platform that leverages AI at its core for intelligent system insights, real-time anomaly detection, and adaptive monitoring.
-<!-- Testing Slack notifications and Claude Code architectural review integration -->
 
 ![Service Topology](notes/screenshots/2025-09-11/final-service-topology.png)
 
