@@ -65,6 +65,9 @@ runs:
         elif [ "${{ inputs.status }}" == "cancelled" ]; then
           echo "emoji=⚪" >> $GITHUB_OUTPUT
           echo "color=warning" >> $GITHUB_OUTPUT
+        elif [ "${{ inputs.status }}" == "started" ] || [ "${{ inputs.status }}" == "running" ]; then
+          echo "emoji=🔵" >> $GITHUB_OUTPUT
+          echo "color=#439FE0" >> $GITHUB_OUTPUT
         else
           echo "emoji=❓" >> $GITHUB_OUTPUT
           echo "color=#808080" >> $GITHUB_OUTPUT
