@@ -33,7 +33,7 @@ jobs:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
           status: 'success'
           job-name: 'Workflow Started'
-          workflow-name: 'Slack Test - ${{ github.event.inputs.test-scenario || 'push-trigger' }}'
+          workflow-name: ${{ format('Slack Test - {0}', github.event.inputs.test-scenario || 'push-trigger') }}
           error-details: |
             🚀 Starting Slack integration test
             Scenario: ${{ github.event.inputs.test-scenario || 'all-scenarios' }}
@@ -140,7 +140,7 @@ jobs:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
           status: 'success'
           job-name: 'Workflow Completed'
-          workflow-name: 'Slack Test - ${{ github.event.inputs.test-scenario }}'
+          workflow-name: ${{ format('Slack Test - {0}', github.event.inputs.test-scenario || 'push-trigger') }}
           error-details: |
             ✅ Slack integration test completed
             Scenario tested: ${{ github.event.inputs.test-scenario }}
