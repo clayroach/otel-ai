@@ -1,4 +1,4 @@
-# CLAUDE.md - Diagnostics UI Package
+# CLAUDE.md - Annotations Package
 
 AI assistance context for the OpenTelemetry universal annotation system.
 
@@ -128,10 +128,10 @@ Located in `test/integration/`:
 
 ```bash
 # Run unit tests
-pnpm test diagnostics-ui
+pnpm test annotations
 
 # Run integration tests (requires ClickHouse)
-pnpm test:integration diagnostics-ui
+pnpm test:integration annotations
 
 # Type check
 pnpm typecheck

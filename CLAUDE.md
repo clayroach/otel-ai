@@ -764,19 +764,27 @@ pnpm test:coverage:ui                   # Interactive coverage UI
 # Run all integration tests
 pnpm test:integration                   # All integration tests
 
-# Run specific integration test patterns
+# Run specific integration test patterns (NO NEED FOR INTEGRATION_TEST=true flag)
 pnpm test:integration [pattern]         # Pattern matching
+pnpm test:integration feature-flag      # Feature flag controller tests with real flagd
+pnpm test:integration diagnostics       # Diagnostics session tests with ClickHouse
 pnpm test:integration portkey           # Portkey integration tests
 pnpm test:integration clickhouse        # ClickHouse integration tests
 pnpm test:integration multi-model       # Multi-model query tests
 
 # Package-specific integration tests
+pnpm test:integration src/annotations   # Annotations package integration tests
 pnpm test:integration:storage           # Storage package only
 pnpm test:integration:ai-analyzer       # AI Analyzer package only
 
 # Docker-based integration tests
 pnpm test:integration:docker            # Full Docker environment tests
 ```
+
+**Integration Test Requirements:**
+- **Feature Flag Tests**: Require flagd service running (via `pnpm demo:up`)
+- **Database Tests**: May use testcontainers or require ClickHouse running
+- **No Environment Flags Needed**: Tests run directly without `INTEGRATION_TEST=true`
 
 #### 3. End-to-End (E2E) Tests
 ```bash

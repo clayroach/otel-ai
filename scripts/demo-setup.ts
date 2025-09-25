@@ -100,11 +100,19 @@ services:
     ports:
       - "8089:8089"
 
-  # Fix shipping service health check - distroless containers don't have shell utilities  
+  # Fix shipping service health check - distroless containers don't have shell utilities
   # Use a simple approach: disable the problematic shell-based health check
   shipping:
     healthcheck:
       disable: true
+
+  # Expose flagd feature flag service on consistent port for integration testing
+  flagd:
+    ports:
+      - "8013:8013"  # gRPC port
+      - "8016:8016"  # HTTP/REST port
+
+  # flagd-ui is accessible via frontend-proxy at http://localhost:8080/feature
 `
   }
 
