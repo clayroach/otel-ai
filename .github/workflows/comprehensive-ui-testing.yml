@@ -40,7 +40,7 @@ jobs:
         uses: ./.github/actions/slack-notify
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
-          status: 'success'
+          status: 'started'
           job-name: 'UI Testing Started'
           workflow-name: 'Comprehensive UI Testing'
           error-details: "🎭 Starting comprehensive UI testing across all browsers. Branch: ${{ github.head_ref || github.ref_name }}. Event: ${{ github.event_name }}. Testing: Chromium, Firefox, WebKit."

@@ -38,7 +38,7 @@ jobs:
         uses: ./.github/actions/slack-notify
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
-          status: 'success'
+          status: 'started'
           job-name: 'Main Branch Protection Started'
           workflow-name: 'Never Break Main'
           error-details: "🛡️ Main branch protection workflow started. Event: ${{ github.event_name }}. Branch: ${{ github.head_ref || github.ref_name }}. Author: ${{ github.actor }}. Commit: ${{ github.event.pull_request.head.sha || github.sha }}."
