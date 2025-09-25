@@ -1,0 +1,13 @@
+{
+  "name": "@otel-ai/test-arch-violations",
+  "version": "1.0.0",
+  "description": "Test package to validate architectural review and Slack notifications",
+  "dependencies": {
+    "@clickhouse/client": "^0.2.10",
+    "effect": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
