@@ -5,14 +5,14 @@ import { defineConfig, devices } from '@playwright/test'
  */
 export default defineConfig({
   testDir: './ui/test/e2e',
-  /* Run tests in files in parallel - disabled in CI to prevent navigation conflicts */
-  fullyParallel: !process.env.CI,
+  /* Run tests in files in parallel */
+  fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI - single worker prevents test conflicts */
-  workers: process.env.CI ? 1 : 4,
+  /* Use multiple workers for faster test execution */
+  workers: process.env.CI ? 2 : 4,
   /* Timeout for each test - increased for CI environments */
   timeout: process.env.CI ? 120 * 1000 : 30 * 1000, // 120s for CI, 30s local
   /* Global timeout for entire test run */
