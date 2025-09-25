@@ -3,17 +3,13 @@
 
 FROM alpine:latest
 
-# Install required tools including curl for HTTP requests to ClickHouse and Atlas CLI
+# Install required tools including curl for HTTP requests to ClickHouse
 RUN apk add --no-cache bash curl jq
-
-# Install Atlas CLI
-RUN curl -sSf https://atlasgo.sh | sh
 
 # Create migration directory structure
 WORKDIR /migrations
 
 # Copy migration files
-COPY atlas.hcl .
 COPY schema/ ./schema/
 COPY clickhouse/ ./clickhouse/
 COPY scripts/ ./scripts/

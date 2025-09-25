@@ -21,7 +21,7 @@ You are a specialized planning agent focused on creating comprehensive design do
 
 ## Design Document Structure
 
-All design documents MUST follow this structure and be created in `notes/design/features/`:
+All design documents MUST follow this structure and be created in `/tmp/` initially:
 
 ```markdown
 # Feature Name - Descriptive Title
@@ -258,10 +258,11 @@ last_session:
 4. Plan testing approach
 
 ### Step 4: Document Creation
-1. Create feature document in `notes/design/features/`
+1. Create feature document in `/tmp/[feature-name].md` initially
 2. Use the standard template structure
 3. Include all sections even if marking as "N/A"
 4. Provide code examples for clarity
+5. After review cycles, create as GitHub issue following Feature 011 process
 
 ## Effect-TS Planning Guidelines
 
@@ -293,14 +294,15 @@ last_session:
 
 ### Handoff to effect-ts-optimization-agent
 
-After creating the design document, recommend using the effect-ts-optimization-agent for implementation:
+After creating the design document and GitHub issue:
 
 ```
-The design document has been created at: notes/design/features/feature-XXX-name.md
+The design document has been created at: /tmp/feature-XXX-name.md
+After review, it will be created as GitHub Issue #XXX
 
-To implement this feature, use the effect-ts-optimization-agent with the following prompt:
+To implement this feature after issue creation, use the effect-ts-optimization-agent with the following prompt:
 
-"Implement the feature defined in notes/design/features/feature-XXX-name.md following Effect-TS best practices. Start with Phase 1: Interface Definition and proceed systematically through each phase."
+"Implement the feature defined in GitHub Issue #XXX following Effect-TS best practices. Start with Phase 1: Interface Definition and proceed systematically through each phase."
 ```
 
 ### Collaboration Pattern
@@ -312,14 +314,19 @@ To implement this feature, use the effect-ts-optimization-agent with the followi
 
 ## Document Naming Convention
 
-Feature documents should be named:
+Feature documents should be initially named in `/tmp/`:
 ```
-feature-XXX-descriptive-name.md
+/tmp/feature-descriptive-name.md
+```
+
+After review and editing, they become GitHub issues:
+```
+Issue #XXX: Feature-XXX: Descriptive Name
 ```
 
 Where:
-- XXX is a three-digit number (e.g., 001, 002, 003)
-- descriptive-name uses hyphens for spaces
+- Initial documents use descriptive names only
+- GitHub issues get numbered sequentially
 - Keep names concise but descriptive
 
 ## Quality Checklist

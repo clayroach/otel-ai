@@ -1,7 +1,7 @@
 # UI Dockerfile for production and development
 
 # Development stage - minimal setup for mounting local files
-FROM node:18-alpine AS development
+FROM node:20-alpine AS development
 
 # Install debug tools
 RUN apk add --no-cache curl wget netcat-openbsd jq bash
@@ -24,7 +24,7 @@ EXPOSE 5173
 CMD ["sh", "-c", "pnpm install && pnpm dev:web --host 0.0.0.0"]
 
 # Production build stage
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 # Install pnpm
 RUN npm install -g pnpm
