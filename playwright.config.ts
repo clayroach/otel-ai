@@ -67,7 +67,7 @@ export default defineConfig({
   /* Run your local dev server before starting the tests */
   webServer: {
     command: process.env.CI
-      ? 'cd ui && pnpm dev'  // Start dev server in CI
+      ? 'cd ui && pnpm dev:web'  // Start only web server in CI (not Electron)
       : 'echo "Using existing dev environment"',  // Use existing server locally
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,  // Don't reuse in CI, always start fresh
