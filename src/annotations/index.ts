@@ -1,5 +1,5 @@
 /**
- * Diagnostics UI package exports
+ * Annotations package exports
  * Universal annotation system for OpenTelemetry signals
  */
 
@@ -35,6 +35,31 @@ export {
   AntiContaminationService,
   AntiContaminationServiceLive
 } from './anti-contamination-service.js'
+
+// Export Feature Flag Controller
+export {
+  type FeatureFlag,
+  type FlagEvaluation,
+  type FeatureFlagConfig,
+  type FeatureFlagControllerImpl,
+  FeatureFlagError,
+  FeatureFlagController,
+  FeatureFlagControllerLive,
+  FeatureFlagControllerMock,
+  FeatureFlagConfigTag
+} from './feature-flag-controller.js'
+
+// Export Diagnostics Session Manager
+export {
+  type DiagnosticsSession,
+  type SessionPhase,
+  type SessionConfig,
+  type DiagnosticsSessionManagerImpl,
+  DiagnosticsSessionError,
+  DiagnosticsSessionManager,
+  DiagnosticsSessionManagerLive,
+  DiagnosticsSessionManagerMock
+} from './diagnostics-session.js'
 
 // Re-export Effect dependencies for convenience
 export { Effect, Layer, Context } from 'effect'
