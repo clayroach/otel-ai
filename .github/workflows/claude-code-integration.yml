@@ -153,7 +153,9 @@ jobs:
           fetch-depth: 0
           
       - name: Claude Code Architectural Review (on PR open)
-        if: github.event_name == 'pull_request' && secrets.ANTHROPIC_API_KEY != ''
+        if: github.event_name == 'pull_request'
+        id: claude-review
+        continue-on-error: true
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -209,31 +211,9 @@ jobs:
           test-results: 'Architectural review completed - check PR comments for findings'
           run-url: ${{ github.event.pull_request.html_url }}
 
-      - name: Claude Code Not Available
-        if: github.event_name == 'pull_request' && secrets.ANTHROPIC_API_KEY == ''
-        uses: actions/github-script@v8
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `## 🤖 Claude Code Integration
-              
-              Claude Code automated review is not available (ANTHROPIC_API_KEY not configured).
-              
-              **Manual Review Checklist:**
-              - [ ] Code quality and adherence to project standards in CLAUDE.md
-              - [ ] Testing coverage and quality
-              - [ ] Documentation updates (README.md files match implementation)
-              - [ ] AI-native development patterns and Effect-TS usage
-              - [ ] Security considerations and best practices
-              
-              To enable Claude Code integration, add \`ANTHROPIC_API_KEY\` to repository secrets.`
-            })
           
       - name: Claude Code Comment Response
-        if: github.event_name == 'issue_comment' && secrets.ANTHROPIC_API_KEY != ''
+        if: github.event_name == 'issue_comment'
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
