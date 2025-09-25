@@ -1,11 +1,13 @@
-# Diagnostics UI Package
+# Annotations Package
 
-Universal annotation system for OpenTelemetry signals supporting traces, metrics, logs, and future signal types.
+Universal annotation system for OpenTelemetry signals with diagnostic session management and feature flag integration.
 
 ## Overview
 
-The Diagnostics UI package provides a comprehensive annotation system that allows attaching metadata to any OpenTelemetry signal without modifying the original telemetry data. This is critical for:
+The Annotations package provides a comprehensive annotation system that allows attaching metadata to any OpenTelemetry signal without modifying the original telemetry data. This package supports multiple features across the platform:
 
+- **Feature-005 (Diagnostics)**: Feature flag testing and diagnostic session management
+- **Feature-012 (Model Training)**: Data labeling for model fine-tuning pipelines
 - **Feature flag tracking** - Annotate when feature flags are enabled/disabled
 - **Diagnostic investigations** - Add hypotheses, evidence, and conclusions to traces
 - **Model training** - Label data for supervised learning without contamination
@@ -23,7 +25,7 @@ The Diagnostics UI package provides a comprehensive annotation system that allow
 ## Quick Start
 
 ```typescript
-import { AnnotationServiceLive } from '@otel-ai/diagnostics-ui'
+import { AnnotationServiceLive } from '@otel-ai/annotations'
 
 // Annotate a trace
 const result = await Effect.runPromise(
@@ -121,10 +123,10 @@ interface AntiContaminationService {
 
 ```bash
 # Unit tests
-pnpm test diagnostics-ui
+pnpm test annotations
 
 # Integration tests with ClickHouse
-pnpm test:integration diagnostics-ui
+pnpm test:integration annotations
 ```
 
 ## Configuration
@@ -148,10 +150,10 @@ ANNOTATION_MAX_VALUE_SIZE=65536
 
 The annotation system integrates with:
 
-- **Feature-005**: Diagnostics UI for feature flag control
-- **Feature-005a**: OTLP capture/replay sessions
-- **Feature-012**: Model fine-tuning pipeline
-- **Storage**: Direct ClickHouse access for queries
+- **Feature-005**: Diagnostics UI for feature flag control and session management
+- **Feature-005a**: OTLP capture/replay sessions with annotation markers
+- **Feature-012**: Model fine-tuning pipeline using labeled data
+- **Storage**: Direct ClickHouse access for high-performance queries
 
 ## Performance
 

@@ -1,0 +1,29 @@
+# Claude Code ignore file
+# Files and directories Claude should not modify
+
+# Git hooks managed by Husky
+.husky/
+
+# Generated files
+dist/
+build/
+target/
+coverage/
+*.log
+
+# Package manager files
+node_modules/
+pnpm-lock.yaml
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db

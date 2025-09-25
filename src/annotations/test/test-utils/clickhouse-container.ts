@@ -1,5 +1,5 @@
 /**
- * ClickHouse test container utilities for diagnostics-ui tests
+ * ClickHouse test container utilities for annotations tests
  */
 
 import { createClient, type ClickHouseClient } from '@clickhouse/client'

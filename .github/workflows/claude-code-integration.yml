@@ -152,23 +152,63 @@ jobs:
           # Fetch full history for better context
           fetch-depth: 0
           
-      - name: Claude Code Architectural Review
+      - name: Claude Code Architectural Review (on PR open)
         if: github.event_name == 'pull_request' && secrets.ANTHROPIC_API_KEY != ''
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
-            Please review this pull request focusing on:
+            Use the enhanced code-review-agent to analyze this pull request with focus on:
+
+            **PRIORITY 1 - Architectural Validation:**
+            - Scan for direct ClickHouse client usage outside storage package
+            - Detect @clickhouse/client imports in non-storage packages
+            - Flag raw SQL strings outside storage service
+            - Verify StorageServiceTag usage instead of direct database access
+
+            **PRIORITY 2 - Code Standards:**
             1. Code quality and adherence to project standards in CLAUDE.md
-            2. Testing coverage and quality
-            3. Documentation updates (README.md files should match implementation)
+            2. Testing coverage and quality (tests in test/ subdirectories)
+            3. Documentation updates (README.md files match implementation)
             4. AI-native development patterns and Effect-TS usage
             5. Security considerations and best practices
-            
-            Provide constructive feedback and suggestions for improvement.
-            Use the code-review-agent patterns when available.
-          claude_args: "--max-turns 3 --timeout 300"
-          
+
+            **Output Format:**
+            - Generate PR comments for architectural violations
+            - Include confidence levels (HIGH/MEDIUM/LOW)
+            - Provide specific fix recommendations with code examples
+            - Format findings for potential Slack notification integration
+
+            Focus on being helpful and educational, not blocking development.
+          claude_args: "--max-turns 5 --timeout 600"
+
+      - name: Slack Architectural Review Notification
+        if: github.event_name == 'pull_request' && secrets.SLACK_WEBHOOK_URL != ''
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: 'success'
+          job-name: 'Claude Code Architectural Review'
+          workflow-name: 'PR Architectural Review'
+          branch: ${{ github.head_ref }}
+          commit-sha: ${{ github.event.pull_request.head.sha }}
+          commit-author: ${{ github.event.pull_request.user.login }}
+          error-details: |
+            🔍 **Claude Code Architectural Review Completed**
+
+            **PR #${{ github.event.number }}**: ${{ github.event.pull_request.title }}
+            **Author**: ${{ github.event.pull_request.user.login }}
+
+            Architectural validation completed focusing on:
+            - Service abstraction boundaries
+            - ClickHouse client usage patterns
+            - Effect-TS layer compliance
+            - Storage service integration
+
+            Review findings posted as PR comments with confidence scoring.
+          test-results: 'Architectural review completed - check PR comments for findings'
+          run-url: ${{ github.event.pull_request.html_url }}
+
       - name: Claude Code Not Available
         if: github.event_name == 'pull_request' && secrets.ANTHROPIC_API_KEY == ''
         uses: actions/github-script@v8

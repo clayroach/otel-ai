@@ -4,9 +4,9 @@
  */
 
 import { Effect, Context, Layer } from 'effect'
-import type { ClickHouseClient } from '@clickhouse/client'
 import type { Annotation, AnnotationFilter } from './annotation.schema.js'
 import { AnnotationError, ValidationError } from './errors.js'
+import { StorageServiceTag } from '../storage/services.js'
 
 // Service interface - simplified
 export interface AnnotationServiceImpl {
@@ -25,17 +25,13 @@ export class AnnotationService extends Context.Tag('AnnotationService')<
   AnnotationServiceImpl
 >() {}
 
-// ClickHouse client dependency
-export class ClickhouseClient extends Context.Tag('ClickhouseClient')<
-  ClickhouseClient,
-  ClickHouseClient
->() {}
+// Remove duplicate ClickhouseClient - use StorageService instead
 
 // Service implementation
 export const AnnotationServiceLive = Layer.effect(
   AnnotationService,
   Effect.gen(function* () {
-    const client = yield* ClickhouseClient
+    const storage = yield* StorageServiceTag
 
     const annotate = (annotation: Annotation) =>
       Effect.gen(function* () {
@@ -73,21 +69,56 @@ export const AnnotationServiceLive = Layer.effect(
           parent_annotation_id: annotation.parentAnnotationId || null
         }
 
-        // Insert into ClickHouse
-        yield* Effect.tryPromise({
-          try: () =>
-            client.insert({
-              table: 'otel.annotations',
-              values: [values],
-              format: 'JSONEachRow'
-            }),
-          catch: (error) =>
-            new AnnotationError({
-              reason: 'StorageFailure',
-              message: `Failed to insert annotation: ${error}`,
-              retryable: true
-            })
-        })
+        // Insert into ClickHouse using StorageService
+        const insertSQL = `
+          INSERT INTO otel.annotations (
+            annotation_id, signal_type, trace_id, span_id, metric_name, metric_labels,
+            log_timestamp, log_body_hash, time_range_start, time_range_end, service_name,
+            resource_attributes, annotation_type, annotation_key, annotation_value,
+            confidence, created_at, created_by, session_id, expires_at, parent_annotation_id
+          ) VALUES (
+            '${values.annotation_id}', '${values.signal_type}',
+            ${values.trace_id ? `'${values.trace_id}'` : 'NULL'},
+            ${values.span_id ? `'${values.span_id}'` : 'NULL'},
+            ${values.metric_name ? `'${values.metric_name}'` : 'NULL'},
+            ${
+              JSON.stringify(values.metric_labels) === '{}'
+                ? "'{}'"
+                : `map(${Object.entries(values.metric_labels || {})
+                    .map(([k, v]) => `'${k}', '${v}'`)
+                    .join(', ')})`
+            },
+            ${values.log_timestamp || 'NULL'},
+            ${values.log_body_hash ? `'${values.log_body_hash}'` : 'NULL'},
+            ${values.time_range_start},
+            ${values.time_range_end || 'NULL'},
+            ${values.service_name ? `'${values.service_name}'` : 'NULL'},
+            ${
+              JSON.stringify(values.resource_attributes) === '{}'
+                ? "'{}'"
+                : `map(${Object.entries(values.resource_attributes || {})
+                    .map(([k, v]) => `'${k}', '${v}'`)
+                    .join(', ')})`
+            },
+            '${values.annotation_type}', '${values.annotation_key}', '${values.annotation_value}',
+            ${values.confidence || 'NULL'}, ${values.created_at}, '${values.created_by}',
+            ${values.session_id ? `'${values.session_id}'` : 'NULL'},
+            ${values.expires_at || 'NULL'},
+            ${values.parent_annotation_id ? `'${values.parent_annotation_id}'` : 'NULL'}
+          )
+        `
+
+        yield* storage.queryRaw(insertSQL).pipe(
+          Effect.catchAll((error) =>
+            Effect.fail(
+              new AnnotationError({
+                reason: 'StorageFailure',
+                message: `Failed to insert annotation: ${error}`,
+                retryable: true
+              })
+            )
+          )
+        )
 
         return annotationId
       })
@@ -95,54 +126,43 @@ export const AnnotationServiceLive = Layer.effect(
     const query = (filter: AnnotationFilter) =>
       Effect.gen(function* () {
         const conditions: string[] = []
-        const params: Record<string, unknown> = {}
 
         if (filter.signalType) {
-          conditions.push('signal_type = {signalType:String}')
-          params.signalType = filter.signalType
+          conditions.push(`signal_type = '${filter.signalType}'`)
         }
 
         if (filter.traceId) {
-          conditions.push('trace_id = {traceId:String}')
-          params.traceId = filter.traceId
+          conditions.push(`trace_id = '${filter.traceId}'`)
         }
 
         if (filter.serviceName) {
-          conditions.push('service_name = {serviceName:String}')
-          params.serviceName = filter.serviceName
+          conditions.push(`service_name = '${filter.serviceName}'`)
         }
 
         const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
 
+        const limit = filter.limit || 100
         const queryText = `
           SELECT *
           FROM otel.annotations
           ${whereClause}
           ORDER BY time_range_start DESC
-          LIMIT {limit:UInt32}
+          LIMIT ${limit}
         `
 
-        params.limit = filter.limit || 100
-
-        const result = yield* Effect.tryPromise({
-          try: () =>
-            client.query({
-              query: queryText,
-              query_params: params,
-              format: 'JSONEachRow'
-            }),
-          catch: (error) =>
-            new AnnotationError({
-              reason: 'StorageFailure',
-              message: `Failed to query annotations: ${error}`,
-              retryable: true
-            })
-        })
-
-        const rows = yield* Effect.tryPromise({
-          try: () =>
-            result.json() as Promise<
-              Array<{
+        const rows = yield* storage.queryRaw(queryText).pipe(
+          Effect.catchAll((error) =>
+            Effect.fail(
+              new AnnotationError({
+                reason: 'StorageFailure',
+                message: `Failed to query annotations: ${error}`,
+                retryable: true
+              })
+            )
+          ),
+          Effect.map(
+            (result) =>
+              result as Array<{
                 annotation_id: string
                 signal_type: string
                 trace_id?: string | null
@@ -165,14 +185,8 @@ export const AnnotationServiceLive = Layer.effect(
                 expires_at?: number | null
                 parent_annotation_id?: string | null
               }>
-            >,
-          catch: (error) =>
-            new AnnotationError({
-              reason: 'StorageFailure',
-              message: `Failed to parse query results: ${error}`,
-              retryable: false
-            })
-        })
+          )
+        )
 
         // Convert DateTime64 back to Date objects and map snake_case to camelCase
         // ClickHouse returns DateTime64(3) as a string with milliseconds
@@ -237,24 +251,24 @@ export const AnnotationServiceLive = Layer.effect(
         // Get current time in milliseconds for comparison with DateTime64(3)
         const nowMillis = Date.now()
 
-        yield* Effect.tryPromise({
-          try: () =>
-            client.command({
-              query: `
-              DELETE FROM otel.annotations
-              WHERE expires_at IS NOT NULL AND expires_at < fromUnixTimestamp64Milli({now:Int64})
-            `,
-              query_params: {
-                now: nowMillis
-              }
-            }),
-          catch: (error) =>
-            new AnnotationError({
-              reason: 'StorageFailure',
-              message: `Failed to delete expired annotations: ${error}`,
-              retryable: true
-            })
-        })
+        yield* storage
+          .queryRaw(
+            `
+          DELETE FROM otel.annotations
+          WHERE expires_at IS NOT NULL AND expires_at < fromUnixTimestamp64Milli(${nowMillis})
+        `
+          )
+          .pipe(
+            Effect.catchAll((error) =>
+              Effect.fail(
+                new AnnotationError({
+                  reason: 'StorageFailure',
+                  message: `Failed to delete expired annotations: ${error}`,
+                  retryable: true
+                })
+              )
+            )
+          )
 
         return 0 // Simplified return - ClickHouse doesn't easily return count for DELETE
       })
