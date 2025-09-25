@@ -103,13 +103,20 @@ const makeFeatureFlagController = Effect.gen(function* () {
         try: async () => {
           // Flagd doesn't have a direct list API, so we maintain a known flags list
           // In production, this would be fetched from flagd configuration or a registry
+          // These flags are from the OpenTelemetry demo: https://opentelemetry.io/docs/demo/feature-flags/
           const knownFlags = [
             'productCatalogFailure',
-            'recommendationCache',
-            'adServiceFailure',
-            'cartServiceFailure',
-            'paymentServiceFailure',
-            'loadgeneratorFloodHomepage'
+            'recommendationCacheFailure',
+            'adManualGc',
+            'adHighCpu',
+            'adFailure',
+            'kafkaQueueProblems',
+            'cartFailure',
+            'paymentFailure',
+            'paymentUnreachable',
+            'loadGeneratorFloodHomepage',
+            'imageSlowLoad',
+            'emailMemoryLeak'
           ]
 
           const flags = await Promise.all(

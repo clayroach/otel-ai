@@ -18,8 +18,6 @@
     "test:coverage:ui": "vitest --coverage --ui",
     "test:coverage:watch": "vitest --coverage --watch",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:integration:storage": "vitest run --config vitest.integration.config.ts src/storage/",
-    "test:integration:ai-analyzer": "vitest run --config vitest.integration.config.ts src/ai-analyzer/test/integration/",
     "test:integration:docker": "docker compose --profile test build integration-tests && docker compose --profile test run --rm integration-tests",
     "test:e2e": "playwright test --reporter=line --project=chromium",
     "test:e2e:all": "playwright test --reporter=line",

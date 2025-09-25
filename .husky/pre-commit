@@ -4,6 +4,15 @@ echo "🔍 Running pre-commit checks..."
 echo "📝 Formatting code..."
 pnpm format
 
+# Auto-stage any files that were formatted
+echo "📦 Auto-staging formatted files..."
+if [ -n "$(git diff --name-only)" ]; then
+    git diff --name-only | xargs git add
+    echo "   ✅ Formatted files have been auto-staged"
+else
+    echo "   ✅ No files needed formatting"
+fi
+
 # Run type checking for all packages
 echo "🔍 Running TypeScript type checking..."
 if ! pnpm typecheck:all; then
