@@ -41,7 +41,7 @@ jobs:
           status: 'success'
           job-name: 'Main Branch Protection Started'
           workflow-name: 'Never Break Main'
-          error-details: "Main branch protection workflow started. Event: ${{ github.event_name }}. Branch: ${{ github.head_ref || github.ref_name }}. Author: ${{ github.actor }}. Commit: ${{ github.event.pull_request.head.sha || github.sha }}."
+          error-details: "🛡️ Main branch protection workflow started. Event: ${{ github.event_name }}. Branch: ${{ github.head_ref || github.ref_name }}. Author: ${{ github.actor }}. Commit: ${{ github.event.pull_request.head.sha || github.sha }}."
 
   # Fast feedback - basic checks
   quick-validation:
@@ -233,7 +233,7 @@ jobs:
           job-name: 'E2E Tests Failed'
           workflow-name: 'Never Break Main'
           test-results: ${{ steps.e2e-tests.outputs.e2e_errors }}
-          error-details: "E2E tests failed on main branch protection. View test artifacts: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. Test results and screenshots have been uploaded as artifacts."
+          error-details: "🚨 E2E tests failed on main branch protection. View test artifacts: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. Test results and screenshots have been uploaded as artifacts."
                     
       - name: Performance baseline check
         run: |
@@ -399,4 +399,4 @@ jobs:
           status: ${{ (needs.quick-validation.result == 'success' && needs.full-validation.result == 'success') && 'success' || 'failure' }}
           job-name: 'Main Branch Protection Complete'
           workflow-name: 'Never Break Main'
-          error-details: "Main Branch Protection ${{ (needs.quick-validation.result == 'success' && needs.full-validation.result == 'success') && 'Passed' || 'Failed' }}. Quick Validation: ${{ needs.quick-validation.result }}. Full Validation: ${{ needs.full-validation.result }}. ${{ (needs.quick-validation.result == 'success' && needs.full-validation.result == 'success') && 'All checks passed - Safe to merge!' || 'Protection activated - Fix required issues before merge' }} View full details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          error-details: "🛡️ Main Branch Protection ${{ (needs.quick-validation.result == 'success' && needs.full-validation.result == 'success') && '✅ Passed' || '❌ Failed' }}. Quick Validation: ${{ needs.quick-validation.result }}. Full Validation: ${{ needs.full-validation.result }}. ${{ (needs.quick-validation.result == 'success' && needs.full-validation.result == 'success') && '✅ All checks passed - Safe to merge!' || '🚨 Protection activated - Fix required issues before merge' }} View full details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
