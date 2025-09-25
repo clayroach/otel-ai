@@ -1,6 +1,9 @@
 name: Test Slack Integration
 
 on:
+  push:
+    branches:
+      - test/slack-integration
   workflow_dispatch:
     inputs:
       test-scenario:
@@ -30,15 +33,16 @@ jobs:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
           status: 'success'
           job-name: 'Workflow Started'
-          workflow-name: 'Slack Test - ${{ github.event.inputs.test-scenario }}'
+          workflow-name: 'Slack Test - ${{ github.event.inputs.test-scenario || 'push-trigger' }}'
           error-details: |
             🚀 Starting Slack integration test
-            Scenario: ${{ github.event.inputs.test-scenario }}
+            Scenario: ${{ github.event.inputs.test-scenario || 'all-scenarios' }}
             Branch: ${{ github.ref_name }}
             Triggered by: ${{ github.actor }}
+            Event: ${{ github.event_name }}
 
       - name: Test Success Notification
-        if: ${{ github.event.inputs.test-scenario == 'success' }}
+        if: ${{ github.event.inputs.test-scenario == 'success' || github.event_name == 'push' }}
         uses: ./.github/actions/slack-notify
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
