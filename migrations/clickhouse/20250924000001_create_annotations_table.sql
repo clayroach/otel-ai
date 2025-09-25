@@ -53,9 +53,7 @@ CREATE TABLE IF NOT EXISTS annotations (
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMM(time_range_start)
 ORDER BY (signal_type, annotation_type, time_range_start, annotation_id)
-TTL expires_at
-SETTINGS index_granularity = 8192,
-         ttl_only_drop_parts = 1;
+SETTINGS index_granularity = 8192;
 
 -- Create view for trace annotations
 CREATE VIEW IF NOT EXISTS trace_annotations AS

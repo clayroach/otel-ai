@@ -1,17 +1,14 @@
+import { App as AntdApp, ConfigProvider, theme } from 'antd'
 import React from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { ConfigProvider, theme, App as AntdApp } from 'antd'
 import { QueryClient, QueryClientProvider } from 'react-query'
+import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout/Layout'
-import { TracesView } from './views/TracesView/TracesView'
-import { MetricsView } from './views/MetricsView/MetricsView'
-import { LogsView } from './views/LogsView/LogsView'
-import ServiceTopologyView from './views/ServiceTopologyView/ServiceTopologyView'
-import { LLMDebugView } from './views/LLMDebugView'
-import { DynamicUIDemo } from './components/DynamicCharts/DynamicUIDemo'
+import { ModelSelectionProvider } from './contexts/ModelSelectionContext'
 import { useMenuActions } from './hooks/useMenuActions'
 import { useAppStore } from './store/appStore'
-import { ModelSelectionProvider } from './contexts/ModelSelectionContext'
+import { LLMDebugView } from './views/LLMDebugView'
+import ServiceTopologyView from './views/ServiceTopologyView/ServiceTopologyView'
+import { TracesView } from './views/TracesView/TracesView'
 
 // Create a client for React Query
 const queryClient = new QueryClient({
@@ -35,10 +32,10 @@ const AppContent: React.FC = () => {
         <Route path="/" element={<Navigate to="/servicetopology" replace />} />
         <Route path="/servicetopology" element={<ServiceTopologyView />} />
         <Route path="/traces" element={<TracesView />} />
-        <Route path="/metrics" element={<MetricsView />} />
-        <Route path="/logs" element={<LogsView />} />
         <Route path="/llm-debug" element={<LLMDebugView />} />
-        <Route path="/dynamic-ui" element={<DynamicUIDemo />} />
+        {/* <Route path="/metrics" element={<MetricsView />} />
+        <Route path="/logs" element={<LogsView />} />
+        <Route path="/dynamic-ui" element={<DynamicUIDemo />} /> */}
       </Routes>
     </Layout>
   )

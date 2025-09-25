@@ -94,13 +94,134 @@ jobs:
       - name: Test UI
         run: cd ui && pnpm test
 
+  validate-electron-major-updates:
+    name: Validate Major Electron Updates
+    runs-on: ubuntu-latest
+    needs: update-lockfile
+    if: |
+      github.actor == 'dependabot[bot]' &&
+      contains(github.event.pull_request.title, 'electron')
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Check if Electron major update
+        id: electron-check
+        run: |
+          if [[ "${{ github.event.pull_request.title }}" == *"electron"* ]]; then
+            echo "is_electron=true" >> $GITHUB_OUTPUT
+            if [[ "${{ steps.metadata.outputs.update-type }}" == "version-update:semver-major" ]]; then
+              echo "is_major=true" >> $GITHUB_OUTPUT
+              echo "🚨 Major Electron version update detected!"
+            else
+              echo "is_major=false" >> $GITHUB_OUTPUT
+              echo "✅ Minor/patch Electron update"
+            fi
+          else
+            echo "is_electron=false" >> $GITHUB_OUTPUT
+            echo "is_major=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Node.js
+        if: steps.electron-check.outputs.is_electron == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        if: steps.electron-check.outputs.is_electron == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: '8.15.0'
+
+      - name: Install dependencies
+        if: steps.electron-check.outputs.is_electron == 'true'
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build Electron app
+        if: steps.electron-check.outputs.is_electron == 'true'
+        run: |
+          echo "🏗️ Building Electron application..."
+          cd ui && pnpm build:electron
+
+      - name: Run Electron-specific tests
+        if: steps.electron-check.outputs.is_electron == 'true'
+        run: |
+          echo "🧪 Running Electron-specific tests..."
+          cd ui && pnpm test
+
+      - name: Install Playwright for E2E tests
+        if: steps.electron-check.outputs.is_major == 'true'
+        run: |
+          echo "📥 Installing Playwright for major Electron update E2E testing..."
+          pnpm exec playwright install --with-deps chromium
+
+      - name: Start services for E2E tests
+        if: steps.electron-check.outputs.is_major == 'true'
+        run: |
+          echo "🚀 Starting services for E2E testing..."
+          pnpm dev:build
+          pnpm dev:up
+          sleep 30
+
+      - name: Run E2E tests for major Electron updates
+        if: steps.electron-check.outputs.is_major == 'true'
+        run: |
+          echo "🎭 Running E2E tests for major Electron update..."
+          CI=true pnpm test:e2e:quick || {
+            echo "❌ E2E tests failed for major Electron update"
+            exit 1
+          }
+
+      - name: Add warning comment for major updates
+        if: steps.electron-check.outputs.is_major == 'true'
+        run: |
+          gh pr comment "$PR_URL" --body "## ⚠️ Major Electron Version Update Detected
+
+This PR updates Electron across multiple major versions. This requires careful testing:
+
+### Required Validation:
+- [ ] **Desktop app startup** - Verify the Electron app launches correctly
+- [ ] **Window management** - Test window creation, resizing, and closing
+- [ ] **IPC communication** - Ensure renderer-main process communication works
+- [ ] **Native features** - Test file dialogs, menus, and system integration
+- [ ] **Performance** - Check for memory leaks or performance regressions
+- [ ] **Security** - Review breaking changes for security implications
+
+### Automated Testing:
+- ✅ Unit tests have been run
+- ✅ Build verification completed
+- 🔄 E2E tests are being executed
+
+**Manual testing is strongly recommended before merging this PR.**"
+        env:
+          PR_URL: ${{github.event.pull_request.html_url}}
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+      - name: Cleanup services
+        if: always() && steps.electron-check.outputs.is_major == 'true'
+        run: |
+          echo "🧹 Cleaning up services..."
+          pnpm dev:down || true
+          docker system prune -f
+
   auto-merge:
     name: Auto-merge Dependabot PRs
     runs-on: ubuntu-latest
-    needs: [update-lockfile, validate-ui-changes]
+    needs: [update-lockfile, validate-ui-changes, validate-electron-major-updates]
     if: |
       github.actor == 'dependabot[bot]' &&
-      (success() || needs.validate-ui-changes.result == 'skipped')
+      (success() || needs.validate-ui-changes.result == 'skipped') &&
+      (success() || needs.validate-electron-major-updates.result == 'skipped')
 
     steps:
       - name: Dependabot metadata
@@ -126,8 +247,26 @@ jobs:
       - name: Add label for major updates
         if: steps.metadata.outputs.update-type == 'version-update:semver-major'
         run: |
-          gh pr edit "$PR_URL" --add-label "major-update,needs-review"
-          gh pr comment "$PR_URL" --body "⚠️ This is a major version update and requires manual review before merging."
+          # Check if this is an Electron update
+          if [[ "${{ github.event.pull_request.title }}" == *"electron"* ]]; then
+            gh pr edit "$PR_URL" --add-label "major-update,needs-review,electron-major-update"
+            gh pr comment "$PR_URL" --body "## ⚠️ Major Electron Version Update - Manual Review Required
+
+This PR contains a major Electron version update that could have significant breaking changes.
+
+**This PR will NOT be auto-merged** due to the high risk of breaking changes in major Electron updates.
+
+Please ensure:
+1. All E2E tests pass
+2. Manual testing has been performed on the desktop application
+3. Breaking changes have been reviewed and addressed
+4. Security implications have been considered
+
+See the validation comment above for detailed testing requirements."
+          else
+            gh pr edit "$PR_URL" --add-label "major-update,needs-review"
+            gh pr comment "$PR_URL" --body "⚠️ This is a major version update and requires manual review before merging."
+          fi
         env:
           PR_URL: ${{github.event.pull_request.html_url}}
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}

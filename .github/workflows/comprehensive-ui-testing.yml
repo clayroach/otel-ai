@@ -18,6 +18,7 @@ on:
       - 'pnpm-lock.yaml'
       - '.github/workflows/comprehensive-ui-testing.yml'
   workflow_dispatch:
+  workflow_call:  # Allow this workflow to be called by other workflows
 
 env:
   NODE_VERSION: '20'
