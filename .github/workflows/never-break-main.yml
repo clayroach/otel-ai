@@ -42,7 +42,7 @@ jobs:
           job-name: 'Main Branch Protection Started'
           workflow-name: 'Never Break Main'
           error-details: >
-            🛡️ Main branch protection workflow started.
+            Main branch protection workflow started.
             Event: ${{ github.event_name }}.
             Branch: ${{ github.head_ref || github.ref_name }}.
             Author: ${{ github.actor }}.
@@ -239,7 +239,7 @@ jobs:
           workflow-name: 'Never Break Main'
           test-results: ${{ steps.e2e-tests.outputs.e2e_errors }}
           error-details: >
-            ❌ E2E tests failed on main branch protection.
+            E2E tests failed on main branch protection.
             View test artifacts: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}.
             Test results and screenshots have been uploaded as artifacts.
                     
@@ -408,8 +408,8 @@ jobs:
           job-name: 'Main Branch Protection Complete'
           workflow-name: 'Never Break Main'
           error-details: >
-            ${{ (needs.quick-validation.result == 'success' && needs.full-validation.result == 'success') && '✅' || '❌' }} Main Branch Protection ${{ (needs.quick-validation.result == 'success' && needs.full-validation.result == 'success') && 'Passed' || 'Failed' }}.
-            Quick Validation: ${{ needs.quick-validation.result == 'success' && '✅' || '❌' }} ${{ needs.quick-validation.result }}.
-            Full Validation: ${{ needs.full-validation.result == 'success' && '✅' || '❌' }} ${{ needs.full-validation.result }}.
-            ${{ (needs.quick-validation.result == 'success' && needs.full-validation.result == 'success') && '🎉 All checks passed - Safe to merge!' || '⚠️ Protection activated - Fix required issues before merge' }}
+            Main Branch Protection ${{ (needs.quick-validation.result == 'success' && needs.full-validation.result == 'success') && 'Passed' || 'Failed' }}.
+            Quick Validation: ${{ needs.quick-validation.result }}.
+            Full Validation: ${{ needs.full-validation.result }}.
+            ${{ (needs.quick-validation.result == 'success' && needs.full-validation.result == 'success') && 'All checks passed - Safe to merge!' || 'Protection activated - Fix required issues before merge' }}
             View full details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
