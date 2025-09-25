@@ -2,7 +2,7 @@
  * S3/MinIO storage implementation for raw data archival and retention
  */
 
-import { Effect, Schedule } from 'effect'
+import { Effect, Schedule, Context, Layer } from 'effect'
 import {
   S3Client,
   PutObjectCommand,
@@ -23,6 +23,9 @@ export interface S3Storage {
   readonly listObjects: (prefix?: string) => Effect.Effect<string[], StorageError>
   readonly healthCheck: () => Effect.Effect<boolean, StorageError>
 }
+
+// Context tag for dependency injection
+export class S3StorageTag extends Context.Tag('S3Storage')<S3StorageTag, S3Storage>() {}
 
 export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, StorageError> =>
   Effect.gen(function* (_) {
@@ -335,3 +338,23 @@ const parseRetentionPeriod = (period: string): number => {
 
   return value * millisecondsPerUnit[unit as keyof typeof millisecondsPerUnit]
 }
+
+// Layer for S3Storage
+export const S3StorageLive = Layer.effect(
+  S3StorageTag,
+  Effect.gen(function* () {
+    // For now, use a default configuration from environment
+    // In a real implementation, this would come from ConfigServiceTag
+    const config: S3Config = {
+      endpoint: process.env.S3_ENDPOINT || 'http://localhost:9000',
+      region: process.env.S3_REGION || 'us-east-1',
+      bucket: process.env.S3_BUCKET || 'otel-data',
+      accessKeyId: process.env.S3_ACCESS_KEY_ID || 'otel-ai',
+      secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || 'otel-ai-secret',
+      forcePathStyle: process.env.S3_FORCE_PATH_STYLE === 'true',
+      enableEncryption: process.env.S3_ENABLE_ENCRYPTION === 'true'
+    }
+
+    return yield* makeS3Storage(config)
+  })
+)

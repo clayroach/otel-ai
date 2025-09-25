@@ -37,6 +37,24 @@ import {
 import { UIGeneratorAPIClientTag, UIGeneratorAPIClientLayer } from './ui-generator/index.js'
 import { interactionLogger, type LLMInteraction } from './llm-manager/interaction-logger.js'
 import {
+  AnnotationService,
+  AnnotationServiceLive,
+  DiagnosticsSessionManager,
+  DiagnosticsSessionManagerLive,
+  FeatureFlagController,
+  FeatureFlagControllerLive,
+  FeatureFlagConfigTag,
+  type Annotation,
+  type DiagnosticsSession
+} from './annotations/index.js'
+import {
+  OtlpCaptureServiceTag,
+  OtlpCaptureServiceLive,
+  OtlpReplayServiceTag,
+  OtlpReplayServiceLive
+} from './otlp-capture/index.js'
+import { S3StorageTag, S3StorageLive } from './storage/s3.js'
+import {
   cleanAttributes,
   parseOTLPFromRaw,
   isProtobufContent,
@@ -46,6 +64,19 @@ import {
 
 const app = express()
 const PORT = process.env.PORT || 4319
+
+// In-memory state for diagnostic sessions and feature flags
+interface DiagnosticState {
+  activeSession: DiagnosticsSession | null
+  enabledFlags: Set<string>
+  flagStates: Map<string, boolean>
+}
+
+const diagnosticState: DiagnosticState = {
+  activeSession: null,
+  enabledFlags: new Set(),
+  flagStates: new Map()
+}
 
 // Middleware
 app.use(cors())
@@ -108,6 +139,21 @@ const ConfigLayer = ConfigServiceLive
 // Create storage layers with config
 const StorageWithConfig = StorageServiceLayer.pipe(Layer.provide(ConfigLayer))
 
+// Create feature flag config layer
+const FeatureFlagConfigLayer = Layer.succeed(FeatureFlagConfigTag, {
+  flagdHost: process.env.FLAGD_HOST ?? 'localhost',
+  flagdPort: parseInt(process.env.FLAGD_PORT ?? '8013'),
+  cacheTTL: parseInt(process.env.FLAGD_CACHE_TTL ?? '30000'),
+  timeout: parseInt(process.env.FLAGD_TIMEOUT ?? '5000')
+})
+
+// Create S3Storage layer for OTLP capture
+const S3StorageLayer = S3StorageLive
+
+// Create OTLP capture services with S3 dependency
+const OtlpCaptureLayer = OtlpCaptureServiceLive.pipe(Layer.provide(S3StorageLayer))
+const OtlpReplayLayer = OtlpReplayServiceLive.pipe(Layer.provide(S3StorageLayer))
+
 // Create the base dependencies
 const BaseDependencies = Layer.mergeAll(
   ConfigLayer, // Shared config service
@@ -115,7 +161,20 @@ const BaseDependencies = Layer.mergeAll(
   StorageAPIClientLayerWithConfig, // Storage API client with ClickHouse config
   LLMManagerLive, // LLM Manager service
   LLMManagerAPIClientLayer, // LLM Manager API client
-  AIAnalyzerMockLayer() // AI Analyzer (mock)
+  AIAnalyzerMockLayer(), // AI Analyzer (mock)
+  AnnotationServiceLive.pipe(Layer.provide(StorageWithConfig)), // Annotation Service
+  FeatureFlagControllerLive.pipe(Layer.provide(FeatureFlagConfigLayer)), // Feature Flag Controller
+  DiagnosticsSessionManagerLive.pipe(
+    Layer.provide(
+      Layer.mergeAll(
+        AnnotationServiceLive.pipe(Layer.provide(StorageWithConfig)),
+        FeatureFlagControllerLive.pipe(Layer.provide(FeatureFlagConfigLayer))
+      )
+    )
+  ), // Diagnostics Session Manager
+  S3StorageLayer, // S3 storage for OTLP capture
+  OtlpCaptureLayer, // OTLP capture service
+  OtlpReplayLayer // OTLP replay service
 )
 
 // Create the composed application layer with all services
@@ -135,6 +194,12 @@ type AppServices =
   | AIAnalyzerService
   | LLMManagerServiceTag
   | StorageServiceTag
+  | AnnotationService
+  | FeatureFlagController
+  | DiagnosticsSessionManager
+  | OtlpCaptureServiceTag
+  | OtlpReplayServiceTag
+  | S3StorageTag
 
 const runWithServices = <A, E>(effect: Effect.Effect<A, E, AppServices>): Promise<A> => {
   // TEMPORARY: Add type assertion back to enable compilation while debugging
@@ -647,6 +712,475 @@ app.post('/api/ai-analyzer/topology-visualization', async (req, res) => {
   }
 })
 
+// Diagnostics API Endpoints
+app.get('/api/diagnostics/flags', async (_req, res) => {
+  try {
+    const flags = await runWithServices(
+      Effect.gen(function* () {
+        const controller = yield* FeatureFlagController
+        return yield* controller.listFlags()
+      })
+    )
+
+    res.json({
+      flags,
+      enabled: Array.from(diagnosticState.enabledFlags),
+      states: Object.fromEntries(diagnosticState.flagStates)
+    })
+  } catch (error) {
+    console.error('❌ Error listing feature flags:', error)
+    res.status(500).json({
+      error: 'Failed to list feature flags',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+app.post('/api/diagnostics/flags/:flagName', async (req, res) => {
+  try {
+    const { flagName } = req.params
+    const { enable } = req.body
+
+    await runWithServices(
+      Effect.gen(function* () {
+        const controller = yield* FeatureFlagController
+        if (enable) {
+          yield* controller.enableFlag(flagName)
+          diagnosticState.enabledFlags.add(flagName)
+          diagnosticState.flagStates.set(flagName, true)
+          console.log(`✅ Feature flag ${flagName} enabled`)
+        } else {
+          yield* controller.disableFlag(flagName)
+          diagnosticState.enabledFlags.delete(flagName)
+          diagnosticState.flagStates.set(flagName, false)
+          console.log(`✅ Feature flag ${flagName} disabled`)
+        }
+      })
+    )
+
+    res.json({
+      flagName,
+      enabled: enable,
+      message: `Feature flag ${flagName} ${enable ? 'enabled' : 'disabled'}`
+    })
+  } catch (error) {
+    console.error('❌ Error toggling feature flag:', error)
+    res.status(500).json({
+      error: 'Failed to toggle feature flag',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+app.post('/api/diagnostics/sessions', async (req, res) => {
+  try {
+    const { name, description } = req.body
+
+    const session = await runWithServices(
+      Effect.gen(function* () {
+        const manager = yield* DiagnosticsSessionManager
+        const newSession = yield* manager.createSession({
+          name: name || 'Diagnostic Session',
+          flagName: 'diagnostics.enabled',
+          metadata: {
+            description: description || 'Manual diagnostic session',
+            source: 'api'
+          }
+        })
+
+        // Start the session immediately
+        yield* manager.startSession(newSession.id)
+
+        // Update in-memory state
+        diagnosticState.activeSession = newSession
+        console.log(`✅ Diagnostic session ${newSession.id} created and started`)
+
+        return newSession
+      })
+    )
+
+    res.json(session)
+  } catch (error) {
+    console.error('❌ Error creating diagnostic session:', error)
+    res.status(500).json({
+      error: 'Failed to create diagnostic session',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+app.get('/api/diagnostics/sessions', async (_req, res) => {
+  try {
+    const sessions = await runWithServices(
+      Effect.gen(function* () {
+        const manager = yield* DiagnosticsSessionManager
+        return yield* manager.listSessions()
+      })
+    )
+
+    res.json({
+      sessions,
+      activeSession: diagnosticState.activeSession
+    })
+  } catch (error) {
+    console.error('❌ Error listing diagnostic sessions:', error)
+    res.status(500).json({
+      error: 'Failed to list diagnostic sessions',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+app.get('/api/diagnostics/sessions/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params
+
+    const session = await runWithServices(
+      Effect.gen(function* () {
+        const manager = yield* DiagnosticsSessionManager
+        return yield* manager.getSession(sessionId)
+      })
+    )
+
+    res.json(session)
+  } catch (error) {
+    console.error('❌ Error getting diagnostic session:', error)
+    res.status(500).json({
+      error: 'Failed to get diagnostic session',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+app.delete('/api/diagnostics/sessions/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params
+
+    const session = await runWithServices(
+      Effect.gen(function* () {
+        const manager = yield* DiagnosticsSessionManager
+        const stoppedSession = yield* manager.stopSession(sessionId)
+
+        // Clear active session if it matches
+        if (diagnosticState.activeSession?.id === sessionId) {
+          diagnosticState.activeSession = null
+          console.log(`✅ Cleared active diagnostic session ${sessionId}`)
+        }
+
+        return stoppedSession
+      })
+    )
+
+    res.json({
+      message: `Diagnostic session ${sessionId} stopped`,
+      session
+    })
+  } catch (error) {
+    console.error('❌ Error stopping diagnostic session:', error)
+    res.status(500).json({
+      error: 'Failed to stop diagnostic session',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+app.get('/api/diagnostics/sessions/:sessionId/annotations', async (req, res) => {
+  try {
+    const { sessionId } = req.params
+
+    const annotations = await runWithServices(
+      Effect.gen(function* () {
+        const manager = yield* DiagnosticsSessionManager
+        return yield* manager.getSessionAnnotations(sessionId)
+      })
+    )
+
+    res.json({
+      sessionId,
+      annotations,
+      count: annotations.length
+    })
+  } catch (error) {
+    console.error('❌ Error getting session annotations:', error)
+    res.status(500).json({
+      error: 'Failed to get session annotations',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// OTLP Capture API Endpoints
+app.get('/api/capture/sessions', async (_req, res) => {
+  try {
+    const sessions = await runWithServices(
+      Effect.gen(function* () {
+        const captureService = yield* OtlpCaptureServiceTag
+        return yield* captureService.listCaptureSessions()
+      })
+    )
+
+    res.json({
+      sessions,
+      count: sessions.length,
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('❌ Error listing capture sessions:', error)
+    res.status(500).json({
+      error: 'Failed to list capture sessions',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+app.get('/api/capture/sessions/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params
+
+    const status = await runWithServices(
+      Effect.gen(function* () {
+        const captureService = yield* OtlpCaptureServiceTag
+        return yield* captureService.getCaptureStatus(sessionId)
+      })
+    )
+
+    res.json(status)
+  } catch (error) {
+    console.error('❌ Error getting capture session:', error)
+    res.status(500).json({
+      error: 'Failed to get capture session',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+app.post('/api/capture/sessions', async (req, res) => {
+  try {
+    const { sessionId, description, enabledFlags, captureTraces, captureMetrics, captureLogs } =
+      req.body
+
+    const session = await runWithServices(
+      Effect.gen(function* () {
+        const captureService = yield* OtlpCaptureServiceTag
+        return yield* captureService.startCapture({
+          sessionId: sessionId || `capture-${Date.now()}`,
+          description: description || 'Manual capture session',
+          enabledFlags: enabledFlags || [],
+          captureTraces: captureTraces !== false,
+          captureMetrics: captureMetrics === true,
+          captureLogs: captureLogs === true,
+          compressionEnabled: true
+        })
+      })
+    )
+
+    res.json(session)
+  } catch (error) {
+    console.error('❌ Error starting capture session:', error)
+    res.status(500).json({
+      error: 'Failed to start capture session',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+app.delete('/api/capture/sessions/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params
+
+    const finalSession = await runWithServices(
+      Effect.gen(function* () {
+        const captureService = yield* OtlpCaptureServiceTag
+        return yield* captureService.stopCapture(sessionId)
+      })
+    )
+
+    res.json({
+      message: `Capture session ${sessionId} stopped`,
+      session: finalSession
+    })
+  } catch (error) {
+    console.error('❌ Error stopping capture session:', error)
+    res.status(500).json({
+      error: 'Failed to stop capture session',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// OTLP Replay API Endpoints
+app.get('/api/replay/available', async (_req, res) => {
+  try {
+    const sessions = await runWithServices(
+      Effect.gen(function* () {
+        const replayService = yield* OtlpReplayServiceTag
+        return yield* replayService.listAvailableReplays()
+      })
+    )
+
+    res.json({
+      sessions,
+      count: sessions.length,
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('❌ Error listing available replays:', error)
+    res.status(500).json({
+      error: 'Failed to list available replays',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+app.post('/api/replay/start', async (req, res) => {
+  try {
+    const {
+      sessionId,
+      timestampAdjustment = 'current',
+      speedMultiplier = 1.0,
+      targetEndpoint,
+      replayTraces = true,
+      replayMetrics = false,
+      replayLogs = false
+    } = req.body
+
+    if (!sessionId) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'sessionId is required'
+      })
+    }
+
+    const replayStatus = await runWithServices(
+      Effect.gen(function* () {
+        const replayService = yield* OtlpReplayServiceTag
+        return yield* replayService.startReplay({
+          sessionId,
+          timestampAdjustment,
+          speedMultiplier,
+          targetEndpoint: targetEndpoint || `http://localhost:${PORT}/v1/traces`,
+          replayTraces,
+          replayMetrics,
+          replayLogs
+        })
+      })
+    )
+
+    res.json(replayStatus)
+    return
+  } catch (error) {
+    console.error('❌ Error starting replay:', error)
+    res.status(500).json({
+      error: 'Failed to start replay',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+    return
+  }
+})
+
+app.get('/api/replay/status/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params
+
+    const status = await runWithServices(
+      Effect.gen(function* () {
+        const replayService = yield* OtlpReplayServiceTag
+        return yield* replayService.getReplayStatus(sessionId)
+      })
+    )
+
+    res.json(status)
+  } catch (error) {
+    console.error('❌ Error getting replay status:', error)
+    res.status(500).json({
+      error: 'Failed to get replay status',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+app.get('/api/replay/stream/:sessionId/:signalType', async (req, res) => {
+  try {
+    const { sessionId, signalType } = req.params
+
+    if (!['traces', 'metrics', 'logs'].includes(signalType)) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'signalType must be one of: traces, metrics, logs'
+      })
+    }
+
+    // Set up SSE response
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+      'Access-Control-Allow-Origin': '*'
+    })
+
+    // Stream the replay data
+    await runWithServices(
+      Effect.gen(function* () {
+        const replayService = yield* OtlpReplayServiceTag
+        const stream = replayService.replayDataStream(
+          sessionId,
+          signalType as 'traces' | 'metrics' | 'logs'
+        )
+
+        // Process the stream
+        const { Stream } = yield* Effect.promise(() => import('effect'))
+        yield* stream.pipe(
+          Stream.tap((chunk) =>
+            Effect.sync(() => {
+              // Send chunk as SSE event
+              res.write(
+                `data: ${JSON.stringify({
+                  type: 'data',
+                  signalType,
+                  size: chunk.length,
+                  timestamp: Date.now()
+                })}\n\n`
+              )
+            })
+          ),
+          Stream.runDrain
+        )
+
+        // Send completion event
+        res.write(
+          `data: ${JSON.stringify({
+            type: 'complete',
+            sessionId,
+            signalType,
+            timestamp: Date.now()
+          })}\n\n`
+        )
+        res.end()
+      }).pipe(
+        Effect.catchAll((error) => {
+          console.error('❌ Stream error:', error)
+          res.write(
+            `data: ${JSON.stringify({
+              type: 'error',
+              error: error instanceof Error ? error.message : 'Unknown error'
+            })}\n\n`
+          )
+          res.end()
+          return Effect.succeed(undefined)
+        })
+      )
+    )
+    return
+  } catch (error) {
+    console.error('❌ Error streaming replay data:', error)
+    res.status(500).json({
+      error: 'Failed to stream replay data',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+    return
+  }
+})
+
 // Helper function to recursively extract values from protobuf objects
 
 // OTLP Traces ingestion endpoint (handles both protobuf and JSON)
@@ -1076,6 +1610,138 @@ app.post('/v1/traces', async (req, res) => {
             `Storage write failed: ${'error' in writeResult ? writeResult.error : 'Unknown error'}`
           )
         }
+
+        // Capture raw OTLP data if a diagnostic session is capturing
+        if (diagnosticState.activeSession && diagnosticState.activeSession.phase === 'capturing') {
+          console.log(
+            `🎬 Capturing OTLP data for diagnostic session: ${diagnosticState.activeSession.id}`
+          )
+
+          // Capture the raw OTLP data to S3
+          await runWithServices(
+            Effect.gen(function* () {
+              const captureService = yield* OtlpCaptureServiceTag
+
+              // Check if we have an active capture session
+              if (!diagnosticState.activeSession) return // Type guard
+              const captureSessionId = `diag-${diagnosticState.activeSession.id}`
+
+              // Try to get existing capture session or create a new one
+              const existingSession = yield* captureService
+                .getCaptureStatus(captureSessionId)
+                .pipe(Effect.catchAll(() => Effect.succeed(null)))
+
+              if (!existingSession || existingSession.status !== 'active') {
+                // Create new capture session
+                yield* captureService.startCapture({
+                  sessionId: captureSessionId,
+                  diagnosticSessionId: diagnosticState.activeSession.id,
+                  description: `Capture for diagnostic session: ${diagnosticState.activeSession.name}`,
+                  enabledFlags: Array.from(diagnosticState.enabledFlags),
+                  captureTraces: true,
+                  captureMetrics: false,
+                  captureLogs: false,
+                  compressionEnabled: true
+                })
+                console.log(`✅ Started OTLP capture session: ${captureSessionId}`)
+              }
+
+              // Capture the OTLP data
+              const captureData = Buffer.isBuffer(req.body)
+                ? req.body
+                : Buffer.from(JSON.stringify(otlpData))
+
+              yield* captureService.captureOTLPData(captureSessionId, captureData, 'traces')
+
+              console.log(`✅ Captured ${captureData.length} bytes of OTLP data to S3`)
+            }).pipe(
+              Effect.catchAll((error) => {
+                console.error('❌ Failed to capture OTLP data:', error)
+                return Effect.succeed('capture-error')
+              })
+            )
+          )
+        }
+
+        // After successful storage, create annotations if we have an active diagnostic session
+        if (diagnosticState.activeSession) {
+          console.log(
+            `📝 Creating annotations for diagnostic session: ${diagnosticState.activeSession.id}`
+          )
+
+          // Annotate traces with feature flag states
+          const annotationPromises = traces.map(async (trace) => {
+            const traceId = trace.TraceId
+
+            // Create annotations for each enabled feature flag
+            for (const flagName of diagnosticState.enabledFlags) {
+              const annotation: Annotation = {
+                signalType: 'trace',
+                traceId,
+                timeRangeStart: new Date(),
+                timeRangeEnd: new Date(Date.now() + 86400000), // 24 hours TTL
+                annotationType: 'test',
+                annotationKey: `test.flag.${flagName}`,
+                annotationValue: JSON.stringify({
+                  sessionId: diagnosticState.activeSession?.id || 'unknown',
+                  flagState: 'enabled',
+                  timestamp: Date.now(),
+                  serviceName: trace.ServiceName || 'unknown'
+                }),
+                createdBy: 'system:diagnostics'
+              }
+
+              // Use the annotation service to store the annotation
+              await runWithServices(
+                Effect.gen(function* () {
+                  const annotationService = yield* AnnotationService
+                  const result = yield* annotationService.annotate(annotation)
+                  console.log(`✅ Created annotation for trace ${traceId} with flag ${flagName}`)
+                  return result
+                }).pipe(
+                  Effect.catchAll((error) => {
+                    console.error(`❌ Failed to create annotation for trace ${traceId}:`, error)
+                    return Effect.succeed('error')
+                  })
+                )
+              )
+            }
+
+            // Also create a session metadata annotation
+            const sessionAnnotation: Annotation = {
+              signalType: 'trace',
+              traceId,
+              timeRangeStart: new Date(),
+              timeRangeEnd: new Date(Date.now() + 86400000), // 24 hours TTL
+              annotationType: 'meta',
+              annotationKey: `meta.session.${diagnosticState.activeSession?.id || 'unknown'}`,
+              annotationValue: JSON.stringify({
+                sessionId: diagnosticState.activeSession?.id || 'unknown',
+                sessionName: diagnosticState.activeSession?.name || 'unknown',
+                phase: diagnosticState.activeSession?.phase || 'unknown',
+                timestamp: Date.now()
+              }),
+              createdBy: 'system:diagnostics'
+            }
+
+            await runWithServices(
+              Effect.gen(function* () {
+                const annotationService = yield* AnnotationService
+                const result = yield* annotationService.annotate(sessionAnnotation)
+                console.log(`✅ Created session annotation for trace ${traceId}`)
+                return result
+              }).pipe(
+                Effect.catchAll((error) => {
+                  console.error(`❌ Failed to create session annotation:`, error)
+                  return Effect.succeed('error')
+                })
+              )
+            )
+          })
+
+          await Promise.all(annotationPromises)
+          console.log(`✅ Annotations created for ${traces.length} traces`)
+        }
       }
 
       // Return success response (OTLP format)
@@ -1117,6 +1783,8 @@ app.listen(PORT, async () => {
   console.log(`📡 Direct ingestion endpoint: http://localhost:${PORT}/v1/traces`)
   console.log(`🏥 Health check: http://localhost:${PORT}/health`)
   console.log(`🔧 MIDDLEWARE DEBUG BUILD v2.0 - GLOBAL MIDDLEWARE ACTIVE`)
+  console.log(`🎯 Diagnostics API: http://localhost:${PORT}/api/diagnostics/flags`)
+  console.log(`📝 Session Management: http://localhost:${PORT}/api/diagnostics/sessions`)
 
   // Wait a bit for schema migrations to complete, then create views
   setTimeout(async () => {

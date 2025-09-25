@@ -85,22 +85,24 @@ describe('Port Conflict Detection', () => {
     }
   })
 
-  it('should use non-conflicting MinIO port (9001, not 9000)', async () => {
-    // Standard MinIO port is 9000, we should use 9001
-    // This is configured in docker-compose.yaml
-    const expectedMinIOPort = 9001
-    
+  it('should use non-conflicting MinIO port (9001 console, 9010 API)', async () => {
+    // MinIO uses port 9000 for API by default, we map it to 9010
+    // MinIO console uses port 9001
+    const expectedMinIOAPIPort = 9010
+    const expectedMinIOConsolePort = 9001
+
     // Check if standard MinIO port 9000 might be available
     const standardMinIOPortAvailable = await checkPortAvailable(9000)
-    
-    // Our docker-compose should map to 9001:9000 to avoid conflicts
-    console.log(`✅ Our MinIO configuration maps to port ${expectedMinIOPort} to avoid conflicts with standard port 9000`)
-    
+
+    // Our docker-compose maps API to 9010:9000 to avoid conflicts
+    console.log(`✅ MinIO API mapped to port ${expectedMinIOAPIPort} to avoid conflicts with standard port 9000`)
+    console.log(`✅ MinIO Console on port ${expectedMinIOConsolePort}`)
+
     if (!standardMinIOPortAvailable) {
       console.log('⚠️  Standard MinIO port 9000 is occupied - our configuration correctly avoids it')
     }
-    
-    expect(expectedMinIOPort).not.toBe(9000) // Should not use standard port
+
+    expect(expectedMinIOAPIPort).not.toBe(9000) // Should not use standard port
   })
 
   it('should provide clear error messages for port conflicts', () => {
@@ -124,8 +126,8 @@ describe('Port Conflict Detection', () => {
     // This test serves as living documentation of our port usage
     const portMapping = {
       'ClickHouse HTTP': { standard: 8123, ourConfig: 8124 },
-      'ClickHouse Native': { standard: 9000, ourConfig: 9001 },
-      'MinIO API': { standard: 9000, ourConfig: 9001 },  
+      'MinIO API': { standard: 9000, ourConfig: 9010 },
+      'MinIO Console': { standard: 9001, ourConfig: 9001 }, // Using standard
       'Frontend Dev': { standard: 3000, ourConfig: 5173 },
       'Backend API': { standard: 3000, ourConfig: 4319 },
       'OTLP gRPC': { standard: 4317, ourConfig: 4317 }, // Standard

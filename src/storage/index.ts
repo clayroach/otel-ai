@@ -31,7 +31,7 @@ export { StorageConfigSchema, defaultStorageConfig } from './config.js'
 
 // Error types
 export type { StorageError } from './errors.js'
-export { StorageErrorSchema } from './errors.js'
+export { StorageErrorSchema, StorageErrorConstructors } from './errors.js'
 
 // API Client types and tags
 export type { StorageAPIClient } from './api-client.js'
@@ -56,3 +56,4 @@ export {
 // ClickHouse and S3 storage interfaces
 export type { ClickHouseStorage } from './clickhouse.js'
 export type { S3Storage } from './s3.js'
+export { S3StorageTag, S3StorageLive } from './s3.js'
