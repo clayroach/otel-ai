@@ -1,0 +1,8 @@
+{
+  "name": "@otel-ai/test-violation",
+  "version": "1.0.0",
+  "description": "Test package to verify architectural review catches violations",
+  "dependencies": {
+    "@clickhouse/client": "^0.2.10"
+  }
+}
