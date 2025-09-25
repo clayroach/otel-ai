@@ -1,0 +1,205 @@
+name: 'Slack Build Notification'
+description: 'Send detailed build status notifications to Slack with error details for debugging'
+author: 'otel-ai'
+
+inputs:
+  webhook-url:
+    description: 'Slack webhook URL'
+    required: true
+  status:
+    description: 'Build status (success/failure/cancelled)'
+    required: true
+  job-name:
+    description: 'Name of the GitHub Actions job'
+    required: true
+  workflow-name:
+    description: 'Name of the workflow'
+    required: false
+    default: ${{ github.workflow }}
+  branch:
+    description: 'Git branch name'
+    required: false
+    default: ${{ github.ref_name }}
+  commit-sha:
+    description: 'Git commit SHA'
+    required: false
+    default: ${{ github.sha }}
+  commit-author:
+    description: 'Commit author'
+    required: false
+    default: ${{ github.actor }}
+  error-details:
+    description: 'Detailed error output for debugging'
+    required: false
+    default: ''
+  test-results:
+    description: 'Test results summary'
+    required: false
+    default: ''
+  typescript-errors:
+    description: 'TypeScript compilation errors'
+    required: false
+    default: ''
+  lint-errors:
+    description: 'ESLint errors'
+    required: false
+    default: ''
+  run-url:
+    description: 'URL to the GitHub Actions run'
+    required: false
+    default: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set status emoji and color
+      id: status-format
+      shell: bash
+      run: |
+        if [ "${{ inputs.status }}" == "success" ]; then
+          echo "emoji=✅" >> $GITHUB_OUTPUT
+          echo "color=good" >> $GITHUB_OUTPUT
+        elif [ "${{ inputs.status }}" == "failure" ]; then
+          echo "emoji=🔴" >> $GITHUB_OUTPUT
+          echo "color=danger" >> $GITHUB_OUTPUT
+        elif [ "${{ inputs.status }}" == "cancelled" ]; then
+          echo "emoji=⚪" >> $GITHUB_OUTPUT
+          echo "color=warning" >> $GITHUB_OUTPUT
+        elif [ "${{ inputs.status }}" == "started" ] || [ "${{ inputs.status }}" == "running" ]; then
+          echo "emoji=🔵" >> $GITHUB_OUTPUT
+          echo "color=#439FE0" >> $GITHUB_OUTPUT
+        else
+          echo "emoji=❓" >> $GITHUB_OUTPUT
+          echo "color=#808080" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Format error details for Claude Code
+      id: format-errors
+      shell: bash
+      env:
+        ERROR_DETAILS: ${{ inputs.error-details }}
+      run: |
+        # Simply pass through the error details without complex formatting
+        if [ -n "$ERROR_DETAILS" ]; then
+          CLAUDE_SNIPPET=$(printf '%s' "$ERROR_DETAILS" | jq -Rs .)
+        else
+          CLAUDE_SNIPPET='""'
+        fi
+        echo "claude_snippet=$CLAUDE_SNIPPET" >> $GITHUB_OUTPUT
+
+    - name: Send Slack notification
+      shell: bash
+      env:
+        STATUS_COLOR: ${{ steps.status-format.outputs.color }}
+        STATUS_EMOJI: ${{ steps.status-format.outputs.emoji }}
+        INPUT_STATUS: ${{ inputs.status }}
+        WORKFLOW_NAME: ${{ inputs.workflow-name }}
+        JOB_NAME: ${{ inputs.job-name }}
+        RUN_URL: ${{ inputs.run-url }}
+        REPOSITORY: ${{ github.repository }}
+        BRANCH: ${{ inputs.branch }}
+        COMMIT_SHA: ${{ inputs.commit-sha }}
+        COMMIT_AUTHOR: ${{ inputs.commit-author }}
+        SLACK_WEBHOOK_URL: ${{ inputs.webhook-url }}
+      run: |
+        # Construct the Slack message payload
+        PAYLOAD=$(cat <<EOF
+        {
+          "username": "OTEL-AI Bot",
+          "icon_emoji": ":robot_face:",
+          "attachments": [
+            {
+              "color": "$STATUS_COLOR",
+              "fallback": "$STATUS_EMOJI Build $INPUT_STATUS: $WORKFLOW_NAME - $JOB_NAME",
+              "title": "$STATUS_EMOJI Build $INPUT_STATUS: $WORKFLOW_NAME",
+              "title_link": "$RUN_URL",
+              "fields": [
+                {
+                  "title": "Repository",
+                  "value": "\`$REPOSITORY\`",
+                  "short": true
+                },
+                {
+                  "title": "Branch",
+                  "value": "\`$BRANCH\`",
+                  "short": true
+                },
+                {
+                  "title": "Job",
+                  "value": "\`$JOB_NAME\`",
+                  "short": true
+                },
+                {
+                  "title": "Commit",
+                  "value": "\`$COMMIT_SHA\`",
+                  "short": true
+                },
+                {
+                  "title": "Author",
+                  "value": "@$COMMIT_AUTHOR",
+                  "short": true
+                },
+                {
+                  "title": "Time",
+                  "value": "$(date -u '+%Y-%m-%d %H:%M UTC')",
+                  "short": true
+                }
+              ],
+              "footer": "GitHub Actions",
+              "footer_icon": "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
+              "ts": $(date +%s)
+            }
+          ]
+        }
+        EOF
+        )
+
+        # Add error details if this is a failure
+        if [ "$INPUT_STATUS" == "failure" ]; then
+          ERROR_ATTACHMENT=$(cat <<EOF
+          {
+            "color": "danger",
+            "title": "📋 Error Details (Copy for Claude Code)",
+            "text": ${{ steps.format-errors.outputs.claude_snippet }},
+            "footer": "Copy the above errors to Claude Code for debugging assistance"
+          }
+        EOF
+        )
+
+          # Add the error attachment to the payload
+          PAYLOAD=$(echo "$PAYLOAD" | jq ".attachments += [$ERROR_ATTACHMENT]")
+
+          # Add action buttons
+          BUTTONS_ATTACHMENT=$(cat <<EOF
+          {
+            "color": "#1f2937",
+            "fallback": "Actions",
+            "actions": [
+              {
+                "type": "button",
+                "text": "📋 View Full Logs",
+                "url": "$RUN_URL"
+              },
+              {
+                "type": "button",
+                "text": "🔄 Re-run Workflow",
+                "url": "$RUN_URL"
+              },
+              {
+                "type": "button",
+                "text": "💬 Open Claude Code",
+                "url": "https://claude.ai/code"
+              }
+            ]
+          }
+        EOF
+        )
+
+          PAYLOAD=$(echo "$PAYLOAD" | jq ".attachments += [$BUTTONS_ATTACHMENT]")
+        fi
+
+        # Send to Slack
+        curl -X POST \
+          -H 'Content-type: application/json' \
+          --data "$PAYLOAD" \
+          "$SLACK_WEBHOOK_URL"

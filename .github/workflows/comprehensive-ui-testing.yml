@@ -35,7 +35,16 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-        
+
+      - name: Send Start Notification
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: 'started'
+          job-name: '🎭 UI Testing Started'
+          workflow-name: 'Comprehensive UI Testing'
+          error-details: "Starting comprehensive UI testing across all browsers. Branch: ${{ github.head_ref || github.ref_name }}. Event: ${{ github.event_name }}. Testing: Chromium, Firefox, WebKit."
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -116,13 +125,26 @@ jobs:
           sleep 90  # Extended wait for CI environments
           
       - name: Comprehensive E2E tests (All Browsers)
+        id: e2e-tests
         run: |
           echo "🎭 Running comprehensive E2E tests across all browsers..."
           echo "Testing on: Chromium, Firefox, WebKit"
-          CI=true pnpm test:e2e:all
-          
+
+          set +e
+          CI=true pnpm test:e2e:all 2>&1 | tee e2e-all-browsers.log
+          E2E_EXIT_CODE=${PIPESTATUS[0]}
+
+          if [ $E2E_EXIT_CODE -ne 0 ]; then
+            echo "e2e_errors<<EOF" >> $GITHUB_OUTPUT
+            grep -A 10 "Error\\|Failed\\|FAIL\\|✗" e2e-all-browsers.log | tail -n 150 >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
+          exit $E2E_EXIT_CODE
+        continue-on-error: true
+
       - name: Upload test artifacts on failure
-        if: failure()
+        if: failure() && steps.e2e-tests.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
           name: comprehensive-ui-test-results
@@ -130,6 +152,17 @@ jobs:
             target/test-results/
             target/screenshots/
           retention-days: 7
+
+      - name: Notify E2E Test Failure
+        if: steps.e2e-tests.outcome == 'failure'
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: 'failure'
+          job-name: '🚨 Multi-Browser E2E Tests Failed'
+          workflow-name: 'Comprehensive UI Testing'
+          test-results: ${{ steps.e2e-tests.outputs.e2e_errors }}
+          error-details: "🚨 E2E tests failed across browsers (Chromium, Firefox, WebKit). Test artifacts uploaded: comprehensive-ui-test-results. View artifacts: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           
       - name: Cleanup services
         if: always()
@@ -146,6 +179,18 @@ jobs:
     if: always()
     
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Send Final Summary
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: ${{ needs.comprehensive-ui-testing.result == 'success' && 'success' || 'failure' }}
+          job-name: '✅ UI Testing Complete'
+          workflow-name: 'Comprehensive UI Testing'
+          error-details: "🎭 Multi-Browser UI Testing ${{ needs.comprehensive-ui-testing.result == 'success' && '✅ Passed' || '❌ Failed' }}. Browsers tested: Chromium, Firefox, WebKit. Status: ${{ needs.comprehensive-ui-testing.result }}. ${{ needs.comprehensive-ui-testing.result == 'success' && '✅ All browsers passed UI testing!' || '🚨 UI tests failed - Check artifacts for details' }} View full details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
       - name: Report comprehensive UI testing results
         run: |
           echo "📋 Comprehensive UI Testing Results:"
