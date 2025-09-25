@@ -209,11 +209,7 @@ const makeFeatureFlagController = Effect.gen(function* () {
             ? { targetingKey: String(context.targetingKey) }
             : {}
 
-          const evaluation = await client.getBooleanDetails(
-            flagName,
-            false,
-            evaluationContext
-          )
+          const evaluation = await client.getBooleanDetails(flagName, false, evaluationContext)
           return {
             value: evaluation.value,
             variant: evaluation.variant,

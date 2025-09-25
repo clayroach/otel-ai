@@ -153,7 +153,7 @@ jobs:
           fetch-depth: 0
           
       - name: Claude Code Review (on PR open)
-        if: github.event_name == 'pull_request' && secrets.ANTHROPIC_API_KEY != ''
+        if: github.event_name == 'pull_request'
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -164,14 +164,17 @@ jobs:
             3. Documentation updates (README.md files should match implementation)
             4. AI-native development patterns and Effect-TS usage
             5. Security considerations and best practices
-            
+
             Provide constructive feedback and suggestions for improvement.
             Use the code-review-agent patterns when available.
           claude_args: "--max-turns 3 --timeout 300"
-          
+        continue-on-error: true
+
       - name: Claude Code Not Available
-        if: github.event_name == 'pull_request' && secrets.ANTHROPIC_API_KEY == ''
+        if: github.event_name == 'pull_request' && env.ANTHROPIC_API_KEY == ''
         uses: actions/github-script@v8
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY || '' }}
         with:
           script: |
             github.rest.issues.createComment({
@@ -193,12 +196,13 @@ jobs:
             })
           
       - name: Claude Code Comment Response
-        if: github.event_name == 'issue_comment' && secrets.ANTHROPIC_API_KEY != ''
+        if: github.event_name == 'issue_comment'
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: ${{ github.event.comment.body }}
           claude_args: "--max-turns 5 --timeout 600"
+        continue-on-error: true
           
       - name: Claude Manual Command
         if: github.event_name == 'workflow_dispatch'

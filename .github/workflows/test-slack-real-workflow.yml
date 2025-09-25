@@ -1,0 +1,202 @@
+name: Test Slack - Real Workflow Simulation
+
+on:
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '8.15.0'
+
+jobs:
+  simulate-real-workflow:
+    name: Simulate Real Build with Slack Updates
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📢 Build Started
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: 'success'
+          job-name: 'Build Pipeline Started'
+          workflow-name: 'Never Break Main - Simulation'
+          error-details: |
+            🚀 Starting comprehensive validation pipeline
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+
+            Steps to execute:
+            1. Setup environment
+            2. TypeScript compilation
+            3. ESLint checks
+            4. Unit tests
+            5. Integration tests
+
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: 📢 Environment Setup
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: 'success'
+          job-name: 'Environment Setup'
+          workflow-name: 'Never Break Main - Simulation'
+          error-details: |
+            ✅ Code checked out
+            🔧 Setting up Node.js ${{ env.NODE_VERSION }}
+            📦 Installing pnpm ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: 📢 Installing Dependencies
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: 'success'
+          job-name: 'Dependencies Installation'
+          workflow-name: 'Never Break Main - Simulation'
+          error-details: |
+            📦 Installing workspace dependencies...
+            This may take a few minutes...
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 📢 Running TypeScript Compilation
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: 'success'
+          job-name: 'TypeScript Compilation'
+          workflow-name: 'Never Break Main - Simulation'
+          error-details: |
+            🔍 Checking TypeScript types across all packages...
+
+      - name: TypeScript compilation
+        id: typecheck
+        run: |
+          set +e
+          pnpm typecheck:all 2>&1 | tee typescript-output.log
+          TYPECHECK_EXIT=$?
+
+          if [ $TYPECHECK_EXIT -ne 0 ]; then
+            echo "typescript_errors<<EOF" >> $GITHUB_OUTPUT
+            tail -n 50 typescript-output.log >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
+          exit $TYPECHECK_EXIT
+        continue-on-error: true
+
+      - name: 📢 TypeScript Results
+        if: always()
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: ${{ steps.typecheck.outcome }}
+          job-name: 'TypeScript Compilation Results'
+          workflow-name: 'Never Break Main - Simulation'
+          typescript-errors: ${{ steps.typecheck.outputs.typescript_errors }}
+          error-details: |
+            ${{ steps.typecheck.outcome == 'success' && '✅ TypeScript compilation successful!' || '❌ TypeScript compilation failed - see errors above' }}
+
+      - name: 📢 Running ESLint
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: 'success'
+          job-name: 'Code Quality Check'
+          workflow-name: 'Never Break Main - Simulation'
+          error-details: |
+            🔍 Running ESLint checks...
+
+      - name: Code quality (ESLint)
+        id: lint
+        run: |
+          set +e
+          pnpm lint 2>&1 | tee lint-output.log
+          LINT_EXIT=$?
+
+          if [ $LINT_EXIT -ne 0 ]; then
+            echo "lint_errors<<EOF" >> $GITHUB_OUTPUT
+            tail -n 50 lint-output.log >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
+          exit $LINT_EXIT
+        continue-on-error: true
+
+      - name: 📢 ESLint Results
+        if: always()
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: ${{ steps.lint.outcome }}
+          job-name: 'ESLint Results'
+          workflow-name: 'Never Break Main - Simulation'
+          lint-errors: ${{ steps.lint.outputs.lint_errors }}
+          error-details: |
+            ${{ steps.lint.outcome == 'success' && '✅ Code quality checks passed!' || '❌ ESLint found issues - see errors above' }}
+
+      - name: 📢 Running Unit Tests
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: 'success'
+          job-name: 'Unit Tests'
+          workflow-name: 'Never Break Main - Simulation'
+          error-details: |
+            🧪 Running unit tests across all packages...
+
+      - name: Unit tests
+        id: tests
+        run: |
+          set +e
+          pnpm test --reporter=verbose 2>&1 | tee test-output.log
+          TEST_EXIT=$?
+
+          if [ $TEST_EXIT -ne 0 ]; then
+            echo "test_results<<EOF" >> $GITHUB_OUTPUT
+            grep -A 5 "FAIL\|Error" test-output.log | tail -n 50 >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
+          exit $TEST_EXIT
+        continue-on-error: true
+
+      - name: 📢 Test Results
+        if: always()
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: ${{ steps.tests.outcome }}
+          job-name: 'Unit Test Results'
+          workflow-name: 'Never Break Main - Simulation'
+          test-results: ${{ steps.tests.outputs.test_results }}
+          error-details: |
+            ${{ steps.tests.outcome == 'success' && '✅ All unit tests passed!' || '❌ Unit tests failed - see failures above' }}
+
+      - name: 📢 Final Summary
+        if: always()
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: ${{ (steps.typecheck.outcome == 'success' && steps.lint.outcome == 'success' && steps.tests.outcome == 'success') && 'success' || 'failure' }}
+          job-name: 'Build Pipeline Complete'
+          workflow-name: 'Never Break Main - Simulation'
+          error-details: |
+            📊 Build Summary:
+            • TypeScript: ${{ steps.typecheck.outcome == 'success' && '✅ Passed' || '❌ Failed' }}
+            • ESLint: ${{ steps.lint.outcome == 'success' && '✅ Passed' || '❌ Failed' }}
+            • Unit Tests: ${{ steps.tests.outcome == 'success' && '✅ Passed' || '❌ Failed' }}
+
+            Overall Status: ${{ (steps.typecheck.outcome == 'success' && steps.lint.outcome == 'success' && steps.tests.outcome == 'success') && '✅ All checks passed - safe to merge!' || '❌ Validation failed - fixes required' }}

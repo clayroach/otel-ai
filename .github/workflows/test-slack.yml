@@ -24,6 +24,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
+      - name: Send Start Notification
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: 'success'
+          job-name: 'Workflow Started'
+          workflow-name: 'Slack Test - ${{ github.event.inputs.test-scenario }}'
+          error-details: |
+            🚀 Starting Slack integration test
+            Scenario: ${{ github.event.inputs.test-scenario }}
+            Branch: ${{ github.ref_name }}
+            Triggered by: ${{ github.actor }}
+
       - name: Test Success Notification
         if: ${{ github.event.inputs.test-scenario == 'success' }}
         uses: ./.github/actions/slack-notify
@@ -115,3 +128,18 @@ jobs:
             - Tests: 1 failing test
 
             All issues must be resolved before merge.
+
+      - name: Send Completion Notification
+        if: always()
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: 'success'
+          job-name: 'Workflow Completed'
+          workflow-name: 'Slack Test - ${{ github.event.inputs.test-scenario }}'
+          error-details: |
+            ✅ Slack integration test completed
+            Scenario tested: ${{ github.event.inputs.test-scenario }}
+            Duration: ${{ job.status }}
+
+            All notifications have been sent successfully.
