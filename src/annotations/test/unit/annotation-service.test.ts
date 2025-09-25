@@ -7,9 +7,9 @@ import { Effect, Layer } from 'effect'
 import { Schema } from '@effect/schema'
 import {
   AnnotationService,
-  AnnotationServiceLive,
-  ClickhouseClient
+  AnnotationServiceLive
 } from '../../annotation-service.js'
+import { StorageServiceTag, type StorageService } from '../../../storage/services.js'
 import { AnnotationSchema, type Annotation } from '../../annotation.schema.js'
 import {
   type ClickHouseTestContainer,
@@ -31,9 +31,66 @@ describe('AnnotationService with TestContainer', () => {
       // Set up the annotations schema
       await setupAnnotationsSchema(testContainer.client)
 
-      // Create the service layer with ClickHouse dependency
-      const clickhouseLayer = Layer.succeed(ClickhouseClient, testContainer.client)
-      serviceLayer = Layer.provide(AnnotationServiceLive, clickhouseLayer)
+      // Create the service layer with storage service wrapping the test ClickHouse client
+      const storageService: StorageService = {
+        writeOTLP: () => Effect.succeed(undefined),
+        writeBatch: () => Effect.succeed(undefined),
+        queryTraces: () => Effect.succeed([]),
+        queryMetrics: () => Effect.succeed([]),
+        queryLogs: () => Effect.succeed([]),
+        queryForAI: () => Effect.succeed({
+          features: [],
+          labels: [],
+          metadata: {},
+          timeRange: { start: 0, end: 0 },
+          sampleCount: 0
+        }),
+        queryRaw: (sql: string) => Effect.tryPromise({
+          try: async () => {
+            if (sql.includes('INSERT INTO') || sql.includes('DELETE FROM')) {
+              // For INSERT/DELETE operations, execute as command and return empty array
+              await testContainer.client.command({ query: sql })
+              return []
+            } else {
+              // For SELECT operations, return the JSON result as an array
+              const result = await testContainer.client.query({ query: sql })
+              const jsonResult = await result.json()
+
+              // ClickHouse can return different formats. Handle various cases:
+              if (Array.isArray(jsonResult)) {
+                return jsonResult
+              } else if (jsonResult && typeof jsonResult === 'object' && 'data' in jsonResult) {
+                // Some ClickHouse formats return {data: [...]}
+                return Array.isArray(jsonResult.data) ? jsonResult.data : []
+              } else if (jsonResult && typeof jsonResult === 'object' && 'rows' in jsonResult) {
+                // Some formats return {rows: [...]}
+                const rowsResult = jsonResult as { rows: unknown }
+                return Array.isArray(rowsResult.rows) ? rowsResult.rows : []
+              } else {
+                // Fallback: try to convert single objects to arrays
+                return jsonResult ? [jsonResult] : []
+              }
+            }
+          },
+          catch: (error) => {
+            return { _tag: 'QueryError' as const, message: String(error), query: sql.slice(0, 100), cause: error }
+          }
+        }),
+        queryText: (sql: string) => Effect.tryPromise({
+          try: () => testContainer.client.query({ query: sql }).then(result => result.text()),
+          catch: (error) => ({ _tag: 'QueryError' as const, message: String(error), query: sql, cause: error })
+        }),
+        archiveData: () => Effect.succeed(undefined),
+        applyRetentionPolicies: () => Effect.succeed(undefined),
+        healthCheck: () => Effect.succeed({ clickhouse: true, s3: true }),
+        getStorageStats: () => Effect.succeed({
+          clickhouse: { totalTraces: 0, totalMetrics: 0, totalLogs: 0, diskUsage: '0 GB' },
+          s3: { totalObjects: 0, totalSize: '0 GB', oldestObject: null, newestObject: null }
+        })
+      }
+
+      const storageLayer = Layer.succeed(StorageServiceTag, storageService)
+      serviceLayer = Layer.provide(AnnotationServiceLive, storageLayer)
     } catch (error) {
       console.error('Failed to start test container:', error)
       throw error

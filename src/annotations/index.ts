@@ -26,8 +26,7 @@ export { AnnotationError, ValidationError, ContaminationError } from './errors.j
 export {
   type AnnotationServiceImpl,
   AnnotationService,
-  AnnotationServiceLive,
-  ClickhouseClient
+  AnnotationServiceLive
 } from './annotation-service.js'
 
 export {

@@ -8,34 +8,39 @@ import { Effect, Layer } from 'effect'
 import { Schema } from '@effect/schema'
 import {
   AnnotationService,
-  AnnotationServiceLive,
-  ClickhouseClient
+  AnnotationServiceLive
 } from '../../annotation-service.js'
 import { AnnotationSchema } from '../../annotation.schema.js'
-import type { ClickHouseClient } from '@clickhouse/client'
+import { StorageServiceTag, type StorageService } from '../../../storage/services.js'
 
 describe('AnnotationService Logic Tests', () => {
-  // Create a mock ClickHouse client
-  const mockClient: Partial<ClickHouseClient> = {
-    insert: async () => ({ query_id: 'mock-query-id', executed: true, response_headers: {} }),
-    query: async () => {
-      return {
-        json: async () => [],
-        text: async () => '',
-        stream: async function* () {
-          yield { rows: [] }
-        }
-      } as unknown as Awaited<ReturnType<ClickHouseClient['query']>>
-    },
-    command: async () => ({
-      query_id: 'mock-query-id',
-      response_headers: {}
+  // Create a mock storage service
+  const mockStorage: StorageService = {
+    writeOTLP: () => Effect.succeed(undefined),
+    writeBatch: () => Effect.succeed(undefined),
+    queryTraces: () => Effect.succeed([]),
+    queryMetrics: () => Effect.succeed([]),
+    queryLogs: () => Effect.succeed([]),
+    queryForAI: () => Effect.succeed({
+      features: [],
+      labels: [],
+      metadata: {},
+      timeRange: { start: 0, end: 0 },
+      sampleCount: 0
     }),
-    ping: async () => ({ success: true })
+    queryRaw: () => Effect.succeed([]),
+    queryText: () => Effect.succeed(''),
+    archiveData: () => Effect.succeed(undefined),
+    applyRetentionPolicies: () => Effect.succeed(undefined),
+    healthCheck: () => Effect.succeed({ clickhouse: true, s3: true }),
+    getStorageStats: () => Effect.succeed({
+      clickhouse: { totalTraces: 0, totalMetrics: 0, totalLogs: 0, diskUsage: '0 GB' },
+      s3: { totalObjects: 0, totalSize: '0 GB', oldestObject: null, newestObject: null }
+    })
   }
 
-  const mockClickhouseLayer = Layer.succeed(ClickhouseClient, mockClient as ClickHouseClient)
-  const serviceLayer = Layer.provide(AnnotationServiceLive, mockClickhouseLayer)
+  const mockStorageLayer = Layer.succeed(StorageServiceTag, mockStorage)
+  const serviceLayer = Layer.provide(AnnotationServiceLive, mockStorageLayer)
 
   const runEffect = <A, E>(effect: Effect.Effect<A, E, AnnotationService>) =>
     Effect.runPromise(Effect.provide(effect, serviceLayer))

@@ -13,28 +13,7 @@ else
     echo "   ✅ No files needed formatting"
 fi
 
-# Run type checking for all packages
-echo "🔍 Running TypeScript type checking..."
-if ! pnpm typecheck:all; then
-    echo ""
-    echo "⚠️  TypeScript or ESLint errors detected!"
-    echo ""
-    echo "🤖 The Effect-TS Optimization Agent can help fix these issues."
-    echo "   This agent will:"
-    echo "   • Eliminate 'as any' usage and type assertions"
-    echo "   • Fix Effect-TS anti-patterns (Effect.gen misuse, Effect.Adaptor)"
-    echo "   • Ensure proper layer composition and dependency injection"
-    echo "   • Apply TypeScript best practices and null safety"
-    echo ""
-    echo "To run the optimization agent, use Claude Code with:"
-    echo ""
-    echo "  'Use the effect-ts-optimization-agent to fix the TypeScript and linting errors'"
-    echo ""
-    echo "Or commit with --no-verify to bypass these checks (not recommended):"
-    echo ""
-    echo "  git commit --no-verify -m \"your message\""
-    echo ""
-    exit 1
-fi
+# Run type checking for all packages with agent integration
+pnpm typecheck:fix
 
 echo "✅ Pre-commit checks passed!"

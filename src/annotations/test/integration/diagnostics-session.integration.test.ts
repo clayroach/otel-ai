@@ -11,12 +11,13 @@ import {
   FeatureFlagControllerLive,
   FeatureFlagConfigTag
 } from '../../feature-flag-controller.js'
+import { StorageServiceLive, ConfigServiceLive } from '../../../storage/services.js'
 
 describe('DiagnosticsSession Integration Tests', () => {
   // Skip ClickHouse tests for now - dependencies need to be set up
   describe.skip('Live session orchestration with ClickHouse and flagd', () => {
     let clickhouseContainer: unknown // TestContainer
-    let clickhouseClient: unknown // ClickhouseClient.ClickhouseClient
+    // clickhouseClient no longer needed - using storage service layers
 
     beforeAll(async () => {
       // Start ClickHouse container - commented out for now
@@ -85,9 +86,6 @@ describe('DiagnosticsSession Integration Tests', () => {
     })
 
     const createTestLayer = () => {
-      // ClickHouse layer - mock for now
-      const ClickhouseLayer = Layer.succeed('ClickhouseClient' as never, clickhouseClient)
-
       // Feature flag configuration
       const FlagConfigLayer = Layer.succeed(FeatureFlagConfigTag, {
         flagdHost: 'localhost',
@@ -96,12 +94,13 @@ describe('DiagnosticsSession Integration Tests', () => {
         timeout: 5000
       })
 
-      // Compose all layers
+      // Compose all layers using proper storage integration
       return DiagnosticsSessionManagerLive.pipe(
         Layer.provide(AnnotationServiceLive),
         Layer.provide(FeatureFlagControllerLive),
         Layer.provide(FlagConfigLayer),
-        Layer.provide(ClickhouseLayer)
+        Layer.provide(StorageServiceLive),
+        Layer.provide(ConfigServiceLive)
       )
     }
 
@@ -219,6 +218,9 @@ describe('DiagnosticsSession Integration Tests', () => {
 
   describe('Fallback behavior when services unavailable', () => {
     it('should handle flagd unavailability gracefully', async () => {
+      // Import mock storage service from storage package
+      const { MockStorageServiceLive } = await import('../../../storage/test/unit/api-client.test.js')
+
       // Test with mock layers when flagd is not available
       const result = await Effect.runPromise(
         Effect.gen(function* () {
@@ -244,10 +246,9 @@ describe('DiagnosticsSession Integration Tests', () => {
               variant: 'off'
             })
           })),
-          // Mock ClickHouse layer - skipping for now
-          Effect.provide(Layer.succeed('ClickhouseClient' as never, {
-            execute: () => Effect.succeed({ rows: [] })
-          } as never)),
+          // Use proper mock storage service
+          Effect.provide(MockStorageServiceLive),
+          Effect.provide(ConfigServiceLive),
           Effect.catchAll(() =>
             Effect.succeed({
               id: 'fallback-session',
