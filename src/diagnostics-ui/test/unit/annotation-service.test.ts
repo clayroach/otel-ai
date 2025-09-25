@@ -295,6 +295,25 @@ describe('AnnotationService with TestContainer', () => {
     })
 
     it('should query annotations by trace ID', async () => {
+      // Create test annotation first
+      const annotation: Annotation = {
+        signalType: 'trace',
+        traceId: 'query-trace-1',
+        serviceName: 'service-a',
+        timeRangeStart: new Date(),
+        annotationType: 'diag',
+        annotationKey: 'diag.trace.query',
+        annotationValue: '{}',
+        createdBy: 'test-trace-query'
+      }
+
+      await runEffect(
+        Effect.gen(function* () {
+          const service = yield* AnnotationService
+          yield* service.annotate(annotation)
+        })
+      )
+
       const results = await runEffect(
         Effect.gen(function* () {
           const service = yield* AnnotationService
