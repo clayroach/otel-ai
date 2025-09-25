@@ -185,16 +185,17 @@ jobs:
           claude_args: "--max-turns 5 --timeout 600"
 
       - name: Slack Architectural Review Notification
-        if: github.event_name == 'pull_request' && secrets.SLACK_WEBHOOK_URL != ''
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
         uses: ./.github/actions/slack-notify
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
           status: 'success'
           job-name: 'Claude Code Architectural Review'
           workflow-name: 'PR Architectural Review'
-          branch: ${{ github.head_ref }}
-          commit-sha: ${{ github.event.pull_request.head.sha }}
-          commit-author: ${{ github.event.pull_request.user.login }}
+          branch: ${{ github.head_ref || github.ref_name }}
+          commit-sha: ${{ github.event.pull_request.head.sha || github.sha }}
+          commit-author: ${{ github.event.pull_request.user.login || github.actor }}
           error-details: |
             🔍 **Claude Code Architectural Review Completed**
 
