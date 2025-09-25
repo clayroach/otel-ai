@@ -41,6 +41,7 @@ jobs:
           status: 'started'
           job-name: '🛡️ Main Branch Protection Started'
           workflow-name: 'Never Break Main'
+          branch: ${{ github.head_ref || github.ref_name }}
           error-details: "Main branch protection workflow started. Event: ${{ github.event_name }}. Branch: ${{ github.head_ref || github.ref_name }}. Author: ${{ github.actor }}. Commit: ${{ github.event.pull_request.head.sha || github.sha }}."
 
   # Fast feedback - basic checks
@@ -107,6 +108,7 @@ jobs:
           status: 'failure'
           job-name: 'Quick Validation Failed'
           workflow-name: 'Never Break Main'
+          branch: ${{ github.head_ref || github.ref_name }}
           error-details: |
             🚨 **Quick Validation Failed**
 
@@ -281,6 +283,7 @@ jobs:
           status: 'failure'
           job-name: '🚨 E2E Tests Failed'
           workflow-name: 'Never Break Main'
+          branch: ${{ github.head_ref || github.ref_name }}
           test-results: ${{ steps.e2e-tests.outputs.e2e_errors }}
           error-details: "🚨 E2E tests failed on main branch protection. View test artifacts: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. Test results and screenshots have been uploaded as artifacts."
                     
@@ -448,6 +451,7 @@ jobs:
           status: ${{ (needs.quick-validation.result == 'success' && needs.full-validation.result == 'success') && 'success' || 'failure' }}
           job-name: 'Main Branch Protection Summary'
           workflow-name: 'Never Break Main'
+          branch: ${{ github.head_ref || github.ref_name }}
           error-details: |
             🛡️ **Main Branch Protection ${{ (needs.quick-validation.result == 'success' && needs.full-validation.result == 'success') && '✅ PASSED' || '❌ FAILED' }}**
 
