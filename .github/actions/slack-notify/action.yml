@@ -77,32 +77,14 @@ runs:
       id: format-errors
       shell: bash
       env:
-        TYPESCRIPT_ERRORS: ${{ inputs.typescript-errors }}
-        LINT_ERRORS: ${{ inputs.lint-errors }}
-        TEST_RESULTS: ${{ inputs.test-results }}
         ERROR_DETAILS: ${{ inputs.error-details }}
       run: |
-        # Create a Claude Code ready snippet
-        CLAUDE_SNIPPET=""
-
-        if [ -n "$TYPESCRIPT_ERRORS" ]; then
-          CLAUDE_SNIPPET="${CLAUDE_SNIPPET}TypeScript Errors:\\n\\`\\`\\`\\n${TYPESCRIPT_ERRORS}\\n\\`\\`\\`\\n"
-        fi
-
-        if [ -n "$LINT_ERRORS" ]; then
-          CLAUDE_SNIPPET="${CLAUDE_SNIPPET}ESLint Errors:\\n\\`\\`\\`\\n${LINT_ERRORS}\\n\\`\\`\\`\\n"
-        fi
-
-        if [ -n "$TEST_RESULTS" ]; then
-          CLAUDE_SNIPPET="${CLAUDE_SNIPPET}Test Failures:\\n\\`\\`\\`\\n${TEST_RESULTS}\\n\\`\\`\\`\\n"
-        fi
-
+        # Simply pass through the error details without complex formatting
         if [ -n "$ERROR_DETAILS" ]; then
-          CLAUDE_SNIPPET="${CLAUDE_SNIPPET}Additional Errors:\\n\\`\\`\\`\\n${ERROR_DETAILS}\\n\\`\\`\\`\\n"
+          CLAUDE_SNIPPET=$(printf '%s' "$ERROR_DETAILS" | jq -Rs .)
+        else
+          CLAUDE_SNIPPET='""'
         fi
-
-        # Escape for JSON
-        CLAUDE_SNIPPET=$(echo "$CLAUDE_SNIPPET" | jq -Rs .)
         echo "claude_snippet=$CLAUDE_SNIPPET" >> $GITHUB_OUTPUT
 
     - name: Send Slack notification
