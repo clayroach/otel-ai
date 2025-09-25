@@ -73,24 +73,29 @@ runs:
     - name: Format error details for Claude Code
       id: format-errors
       shell: bash
+      env:
+        TYPESCRIPT_ERRORS: ${{ inputs.typescript-errors }}
+        LINT_ERRORS: ${{ inputs.lint-errors }}
+        TEST_RESULTS: ${{ inputs.test-results }}
+        ERROR_DETAILS: ${{ inputs.error-details }}
       run: |
         # Create a Claude Code ready snippet
         CLAUDE_SNIPPET=""
 
-        if [ -n "${{ inputs.typescript-errors }}" ]; then
-          CLAUDE_SNIPPET="${CLAUDE_SNIPPET}TypeScript Errors:\\n\\`\\`\\`\\n${{ inputs.typescript-errors }}\\n\\`\\`\\`\\n"
+        if [ -n "$TYPESCRIPT_ERRORS" ]; then
+          CLAUDE_SNIPPET="${CLAUDE_SNIPPET}TypeScript Errors:\\n\\`\\`\\`\\n${TYPESCRIPT_ERRORS}\\n\\`\\`\\`\\n"
         fi
 
-        if [ -n "${{ inputs.lint-errors }}" ]; then
-          CLAUDE_SNIPPET="${CLAUDE_SNIPPET}ESLint Errors:\\n\\`\\`\\`\\n${{ inputs.lint-errors }}\\n\\`\\`\\`\\n"
+        if [ -n "$LINT_ERRORS" ]; then
+          CLAUDE_SNIPPET="${CLAUDE_SNIPPET}ESLint Errors:\\n\\`\\`\\`\\n${LINT_ERRORS}\\n\\`\\`\\`\\n"
         fi
 
-        if [ -n "${{ inputs.test-results }}" ]; then
-          CLAUDE_SNIPPET="${CLAUDE_SNIPPET}Test Failures:\\n\\`\\`\\`\\n${{ inputs.test-results }}\\n\\`\\`\\`\\n"
+        if [ -n "$TEST_RESULTS" ]; then
+          CLAUDE_SNIPPET="${CLAUDE_SNIPPET}Test Failures:\\n\\`\\`\\`\\n${TEST_RESULTS}\\n\\`\\`\\`\\n"
         fi
 
-        if [ -n "${{ inputs.error-details }}" ]; then
-          CLAUDE_SNIPPET="${CLAUDE_SNIPPET}Additional Errors:\\n\\`\\`\\`\\n${{ inputs.error-details }}\\n\\`\\`\\`\\n"
+        if [ -n "$ERROR_DETAILS" ]; then
+          CLAUDE_SNIPPET="${CLAUDE_SNIPPET}Additional Errors:\\n\\`\\`\\`\\n${ERROR_DETAILS}\\n\\`\\`\\`\\n"
         fi
 
         # Escape for JSON
@@ -99,6 +104,18 @@ runs:
 
     - name: Send Slack notification
       shell: bash
+      env:
+        STATUS_COLOR: ${{ steps.status-format.outputs.color }}
+        STATUS_EMOJI: ${{ steps.status-format.outputs.emoji }}
+        INPUT_STATUS: ${{ inputs.status }}
+        WORKFLOW_NAME: ${{ inputs.workflow-name }}
+        JOB_NAME: ${{ inputs.job-name }}
+        RUN_URL: ${{ inputs.run-url }}
+        REPOSITORY: ${{ github.repository }}
+        BRANCH: ${{ inputs.branch }}
+        COMMIT_SHA: ${{ inputs.commit-sha }}
+        COMMIT_AUTHOR: ${{ inputs.commit-author }}
+        SLACK_WEBHOOK_URL: ${{ inputs.webhook-url }}
       run: |
         # Construct the Slack message payload
         PAYLOAD=$(cat <<EOF
@@ -107,34 +124,34 @@ runs:
           "icon_emoji": ":robot_face:",
           "attachments": [
             {
-              "color": "${{ steps.status-format.outputs.color }}",
-              "fallback": "${{ steps.status-format.outputs.emoji }} Build ${{ inputs.status }}: ${{ inputs.workflow-name }} - ${{ inputs.job-name }}",
-              "title": "${{ steps.status-format.outputs.emoji }} Build ${{ inputs.status }}: ${{ inputs.workflow-name }}",
-              "title_link": "${{ inputs.run-url }}",
+              "color": "$STATUS_COLOR",
+              "fallback": "$STATUS_EMOJI Build $INPUT_STATUS: $WORKFLOW_NAME - $JOB_NAME",
+              "title": "$STATUS_EMOJI Build $INPUT_STATUS: $WORKFLOW_NAME",
+              "title_link": "$RUN_URL",
               "fields": [
                 {
                   "title": "Repository",
-                  "value": "\\`${{ github.repository }}\\`",
+                  "value": "\`$REPOSITORY\`",
                   "short": true
                 },
                 {
                   "title": "Branch",
-                  "value": "\\`${{ inputs.branch }}\\`",
+                  "value": "\`$BRANCH\`",
                   "short": true
                 },
                 {
                   "title": "Job",
-                  "value": "\\`${{ inputs.job-name }}\\`",
+                  "value": "\`$JOB_NAME\`",
                   "short": true
                 },
                 {
                   "title": "Commit",
-                  "value": "\\`${{ inputs.commit-sha }}\\`",
+                  "value": "\`$COMMIT_SHA\`",
                   "short": true
                 },
                 {
                   "title": "Author",
-                  "value": "@${{ inputs.commit-author }}",
+                  "value": "@$COMMIT_AUTHOR",
                   "short": true
                 },
                 {
@@ -153,7 +170,7 @@ runs:
         )
 
         # Add error details if this is a failure
-        if [ "${{ inputs.status }}" == "failure" ]; then
+        if [ "$INPUT_STATUS" == "failure" ]; then
           ERROR_ATTACHMENT=$(cat <<EOF
           {
             "color": "danger",
@@ -176,12 +193,12 @@ runs:
               {
                 "type": "button",
                 "text": "📋 View Full Logs",
-                "url": "${{ inputs.run-url }}"
+                "url": "$RUN_URL"
               },
               {
                 "type": "button",
                 "text": "🔄 Re-run Workflow",
-                "url": "${{ inputs.run-url }}"
+                "url": "$RUN_URL"
               },
               {
                 "type": "button",
@@ -200,4 +217,4 @@ runs:
         curl -X POST \
           -H 'Content-type: application/json' \
           --data "$PAYLOAD" \
-          "${{ inputs.webhook-url }}"
+          "$SLACK_WEBHOOK_URL"
