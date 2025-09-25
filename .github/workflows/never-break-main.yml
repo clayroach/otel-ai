@@ -70,13 +70,62 @@ jobs:
           pnpm install --frozen-lockfile
         
       - name: TypeScript compilation
-        run: pnpm typecheck:all
-        
+        id: typescript
+        run: |
+          echo "🔍 Running TypeScript type checking..."
+          pnpm typecheck:all 2>&1 | tee typescript-output.log || echo "typescript_failed=true" >> $GITHUB_ENV
+          if [ "$typescript_failed" == "true" ]; then
+            echo "❌ TypeScript compilation failed"
+            exit 1
+          fi
+
       - name: Code quality (ESLint)
-        run: pnpm lint
-        
+        id: eslint
+        run: |
+          echo "🔍 Running ESLint code quality checks..."
+          pnpm lint 2>&1 | tee eslint-output.log || echo "eslint_failed=true" >> $GITHUB_ENV
+          if [ "$eslint_failed" == "true" ]; then
+            echo "❌ ESLint validation failed"
+            exit 1
+          fi
+
       - name: Unit tests
-        run: pnpm test
+        id: unit-tests
+        run: |
+          echo "🧪 Running unit tests..."
+          pnpm test 2>&1 | tee test-output.log || echo "tests_failed=true" >> $GITHUB_ENV
+          if [ "$tests_failed" == "true" ]; then
+            echo "❌ Unit tests failed"
+            exit 1
+          fi
+
+      - name: Send Quick Validation Failure Notification
+        if: failure() && (env.typescript_failed == 'true' || env.eslint_failed == 'true' || env.tests_failed == 'true')
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: 'failure'
+          job-name: 'Quick Validation Failed'
+          workflow-name: 'Never Break Main'
+          error-details: |
+            🚨 **Quick Validation Failed**
+
+            **Failed Checks:**
+            ${{ env.typescript_failed == 'true' && '❌ TypeScript Compilation - Type checking errors found' || '' }}
+            ${{ env.eslint_failed == 'true' && '❌ ESLint - Code quality issues detected' || '' }}
+            ${{ env.tests_failed == 'true' && '❌ Unit Tests - Test failures detected' || '' }}
+
+            **Error Summary:**
+            ${{ env.typescript_failed == 'true' && 'TypeScript found type errors in the codebase. Check the workflow logs for specific type violations.' || '' }}
+            ${{ env.eslint_failed == 'true' && 'ESLint found code quality issues. Review linting rules and fix violations.' || '' }}
+            ${{ env.tests_failed == 'true' && 'Unit tests are failing. Ensure all tests pass before merging.' || '' }}
+
+            **Next Steps:**
+            1. Review the detailed error output in the GitHub Actions logs
+            2. Fix the reported issues locally
+            3. Push the fixes to update this PR
+
+            View full details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
   # Comprehensive testing with real services
   full-validation:
@@ -397,6 +446,18 @@ jobs:
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
           status: ${{ (needs.quick-validation.result == 'success' && needs.full-validation.result == 'success') && 'success' || 'failure' }}
-          job-name: '✅ Main Branch Protection Complete'
+          job-name: 'Main Branch Protection Summary'
           workflow-name: 'Never Break Main'
-          error-details: "🛡️ Main Branch Protection ${{ (needs.quick-validation.result == 'success' && needs.full-validation.result == 'success') && '✅ Passed' || '❌ Failed' }}. Quick Validation: ${{ needs.quick-validation.result }}. Full Validation: ${{ needs.full-validation.result }}. ${{ (needs.quick-validation.result == 'success' && needs.full-validation.result == 'success') && '✅ All checks passed - Safe to merge!' || '🚨 Protection activated - Fix required issues before merge' }} View full details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          error-details: |
+            🛡️ **Main Branch Protection ${{ (needs.quick-validation.result == 'success' && needs.full-validation.result == 'success') && '✅ PASSED' || '❌ FAILED' }}**
+
+            **Validation Results:**
+            • Quick Validation: ${{ needs.quick-validation.result == 'success' && '✅ Passed' || '❌ Failed' }}
+            • Full Stack Testing: ${{ needs.full-validation.result == 'success' && '✅ Passed' || needs.full-validation.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }}
+
+            ${{ needs.quick-validation.result != 'success' && '**Quick Validation Issues:**\n• Check TypeScript compilation\n• Review ESLint violations\n• Verify unit tests pass\n' || '' }}
+            ${{ needs.full-validation.result == 'failure' && '**Full Stack Issues:**\n• Integration tests may be failing\n• E2E tests may have issues\n• Service dependencies might be down\n' || '' }}
+
+            **Status:** ${{ (needs.quick-validation.result == 'success' && needs.full-validation.result == 'success') && '✅ All checks passed - Safe to merge!' || '🚨 Fix required issues before merging to main' }}
+
+            **View Details:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
