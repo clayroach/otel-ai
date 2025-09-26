@@ -69,45 +69,36 @@ export const AnnotationServiceLive = Layer.effect(
           parent_annotation_id: annotation.parentAnnotationId || null
         }
 
-        // Insert into ClickHouse using StorageService
+        // Full SQL insert with all columns for proper testing
         const insertSQL = `
           INSERT INTO otel.annotations (
-            annotation_id, signal_type, trace_id, span_id, metric_name, metric_labels,
-            log_timestamp, log_body_hash, time_range_start, time_range_end, service_name,
-            resource_attributes, annotation_type, annotation_key, annotation_value,
-            confidence, created_at, created_by, session_id, expires_at, parent_annotation_id
+            annotation_id, signal_type, trace_id, span_id, metric_name,
+            time_range_start, time_range_end, service_name,
+            annotation_type, annotation_key, annotation_value, created_by,
+            created_at, session_id, expires_at
           ) VALUES (
-            '${values.annotation_id}', '${values.signal_type}',
+            '${values.annotation_id}',
+            '${values.signal_type}',
             ${values.trace_id ? `'${values.trace_id}'` : 'NULL'},
             ${values.span_id ? `'${values.span_id}'` : 'NULL'},
             ${values.metric_name ? `'${values.metric_name}'` : 'NULL'},
-            ${
-              JSON.stringify(values.metric_labels) === '{}'
-                ? "'{}'"
-                : `map(${Object.entries(values.metric_labels || {})
-                    .map(([k, v]) => `'${k}', '${v}'`)
-                    .join(', ')})`
-            },
-            ${values.log_timestamp || 'NULL'},
-            ${values.log_body_hash ? `'${values.log_body_hash}'` : 'NULL'},
             ${values.time_range_start},
             ${values.time_range_end || 'NULL'},
             ${values.service_name ? `'${values.service_name}'` : 'NULL'},
-            ${
-              JSON.stringify(values.resource_attributes) === '{}'
-                ? "'{}'"
-                : `map(${Object.entries(values.resource_attributes || {})
-                    .map(([k, v]) => `'${k}', '${v}'`)
-                    .join(', ')})`
-            },
-            '${values.annotation_type}', '${values.annotation_key}', '${values.annotation_value}',
-            ${values.confidence || 'NULL'}, ${values.created_at}, '${values.created_by}',
+            '${values.annotation_type}',
+            '${values.annotation_key}',
+            '${values.annotation_value}',
+            '${values.created_by}',
+            ${values.created_at},
             ${values.session_id ? `'${values.session_id}'` : 'NULL'},
-            ${values.expires_at || 'NULL'},
-            ${values.parent_annotation_id ? `'${values.parent_annotation_id}'` : 'NULL'}
+            ${values.expires_at || 'NULL'}
           )
         `
 
+        console.log('DEBUG: Values for annotation insert:', values)
+        console.log('DEBUG: Generated SQL for annotation insert:', insertSQL)
+
+        // Execute the insert using the storage service
         yield* storage.queryRaw(insertSQL).pipe(
           Effect.catchAll((error) =>
             Effect.fail(

@@ -33,7 +33,7 @@ processors:
     override: false
 
 exporters:
-  # OTLP exporter to our AI-native backend service  
+  # OTLP exporter to our AI-native backend service
   otlphttp/backend:
     endpoint: http://backend:4319
     tls:
@@ -50,6 +50,38 @@ exporters:
       num_consumers: 10
       queue_size: 5000
     timeout: 30s
+
+  # S3 exporters for raw OTLP capture (MinIO/S3 compatible) - FR-005a-002
+  # Always defined - enable by uncommenting in pipeline exporters below
+  awss3/traces:
+    s3uploader:
+      region: us-east-1
+      s3_bucket: otel-data
+      endpoint: http://minio:9000
+      s3_force_path_style: true
+      s3_prefix: continuous
+      file_prefix: traces-
+      compression: gzip
+
+  awss3/metrics:
+    s3uploader:
+      region: us-east-1
+      s3_bucket: otel-data
+      endpoint: http://minio:9000
+      s3_force_path_style: true
+      s3_prefix: continuous
+      file_prefix: metrics-
+      compression: gzip
+
+  awss3/logs:
+    s3uploader:
+      region: us-east-1
+      s3_bucket: otel-data
+      endpoint: http://minio:9000
+      s3_force_path_style: true
+      s3_prefix: continuous
+      file_prefix: logs-
+      compression: gzip
 
   # Debug exporter for development
   debug:
@@ -74,17 +106,20 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, resourcedetection, batch]
-      exporters: [otlphttp/backend, debug]
+      exporters: [otlphttp/backend, awss3/traces, debug]
+      # To disable S3 capture, change above line to: [otlphttp/backend, debug]
 
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, resourcedetection, batch]
-      exporters: [otlphttp/backend, debug]
+      exporters: [otlphttp/backend, awss3/metrics, debug]
+      # To disable S3 capture, change above line to: [otlphttp/backend, debug]
 
     logs:
       receivers: [otlp]
       processors: [memory_limiter, resourcedetection, batch]
-      exporters: [otlphttp/backend, debug]
+      exporters: [otlphttp/backend, awss3/logs, debug]
+      # To disable S3 capture, change above line to: [otlphttp/backend, debug]
 
   telemetry:
     logs:
