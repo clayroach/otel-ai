@@ -168,18 +168,18 @@ jobs:
 
             **CRITICAL: Use mcp__github_inline_comment__create_inline_comment to comment on specific lines.**
 
-            Violations to detect:
-            1. Direct @clickhouse/client imports outside storage package (HIGH)
-            2. Raw SQL strings outside storage service (HIGH)
-            3. Direct database client usage bypassing StorageServiceTag (HIGH)
-            4. Test files outside test/ subdirectories (MEDIUM)
+            Detection patterns to scan for:
+            1. `from '@clickhouse/client'` outside src/storage/ → HIGH violation
+            2. `SELECT|INSERT|CREATE TABLE` SQL strings outside src/storage/ → HIGH violation
+            3. `createClient` or `new.*Client.*clickhouse` → HIGH violation
+            4. `*.test.ts` files outside /test/ directories → MEDIUM violation
+            5. `ClickhouseClient` or `client.query` outside src/storage/ → HIGH violation
 
-            For each violation, post a comment with:
-            - Confidence level (HIGH/MEDIUM/LOW)
-            - What's wrong
-            - How to fix (use StorageServiceTag for DB access)
-
-            Focus on posting comments, not lengthy explanations.
+            For each match found:
+            - Post inline comment on that exact line
+            - State: "🚨 HIGH/MEDIUM: [violation type]"
+            - Suggest: "Use StorageServiceTag from storage/services"
+            - Keep comments concise (2-3 sentences max)
 
       - name: Slack Architectural Review Notification
         if: github.event_name == 'pull_request'
