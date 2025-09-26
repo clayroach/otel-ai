@@ -190,25 +190,25 @@ jobs:
         uses: ./.github/actions/slack-notify
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
-          status: 'success'
+          status: 'warning'
           job-name: 'Claude Code Architectural Review'
           workflow-name: 'PR Architectural Review'
           branch: ${{ github.head_ref || github.ref_name }}
           commit-sha: ${{ github.event.pull_request.head.sha || github.sha }}
           commit-author: ${{ github.event.pull_request.user.login || github.actor }}
           error-details: |
-            🔍 **Claude Code Architectural Review Completed**
+            🔍 **Architectural Review Analysis**
 
             **PR #${{ github.event.number }}**: ${{ github.event.pull_request.title }}
             **Author**: ${{ github.event.pull_request.user.login }}
 
-            Architectural validation completed focusing on:
-            - Service abstraction boundaries
-            - ClickHouse client usage patterns
-            - Effect-TS layer compliance
-            - Storage service integration
+            Claude Code has analyzed this PR for architectural patterns:
+            - ✅ Service abstraction boundaries
+            - ✅ ClickHouse client usage validation
+            - ✅ Effect-TS layer compliance check
+            - ✅ Storage service integration review
 
-            Review findings posted as PR comments with confidence scoring.
+            📋 **Check PR comments for any architectural findings and recommendations.**
           test-results: 'Architectural review completed - check PR comments for findings'
           run-url: ${{ github.event.pull_request.html_url }}
 
