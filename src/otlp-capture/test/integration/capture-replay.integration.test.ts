@@ -15,6 +15,7 @@ import {
 import { S3StorageTag } from '../../../storage/index.js'
 import { generateTestOtlpData } from '../fixtures/otlp-generator.js'
 
+// This test uses testcontainers to spin up MinIO, so it should work in CI
 describe('OTLP Capture and Replay Integration Tests', () => {
   let minioContainer: StartedTestContainer
   let s3Client: S3Client

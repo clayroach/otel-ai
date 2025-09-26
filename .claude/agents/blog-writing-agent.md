@@ -1,7 +1,10 @@
 ---
 name: blog-writing-agent
 description: Professional technical blog writer with measured tone and focus on implementation details
-tools: ["*"]
+author: Claude Code
+version: 1.1
+tags: [blog, design, otel, aiops]
+model: claude-3-opus-4-20250805
 ---
 
 # Blog Writing Agent

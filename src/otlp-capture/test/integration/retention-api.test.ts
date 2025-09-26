@@ -5,71 +5,113 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { Effect, Layer } from 'effect'
+import { GenericContainer, StartedTestContainer } from 'testcontainers'
+import { S3Client, CreateBucketCommand } from '@aws-sdk/client-s3'
 import { OtlpCaptureServiceTag, OtlpCaptureServiceLive } from '../../capture-service.js'
 import { RetentionServiceTag, RetentionServiceLive } from '../../retention-service.js'
-import { S3StorageTag, S3StorageLive } from '../../../storage/s3.js'
+import { S3StorageTag, makeS3Storage } from '../../../storage/s3.js'
 import { mockCaptureConfig, mockOtlpTraceData } from '../fixtures/test-data.js'
 import type { RetentionPolicy } from '../../index.js'
 
-// Integration test layer with real S3Storage (using MinIO)
-const IntegrationLayer = Layer.mergeAll(
-  S3StorageLive,
-  OtlpCaptureServiceLive.pipe(Layer.provide(S3StorageLive)),
-  RetentionServiceLive.pipe(Layer.provide(S3StorageLive))
-)
-
-const runTest = <A, E>(
-  effect: Effect.Effect<A, E, OtlpCaptureServiceTag | RetentionServiceTag | S3StorageTag>
-) => Effect.runPromise(Effect.provide(effect, IntegrationLayer))
-
 describe('OTLP Capture + Retention Integration Tests', () => {
+  let minioContainer: StartedTestContainer
+  let s3Client: S3Client
+  let testLayer: Layer.Layer<
+    S3StorageTag | OtlpCaptureServiceTag | RetentionServiceTag,
+    unknown,
+    never
+  >
+
   const testSessionId = `integration-test-${Date.now()}`
 
+  // Helper function to run tests with the layer
+  const runTest = <A, E>(
+    effect: Effect.Effect<A, E, OtlpCaptureServiceTag | RetentionServiceTag | S3StorageTag>
+  ) => Effect.runPromise(Effect.provide(effect, testLayer))
+
   beforeAll(async () => {
-    // Create a test capture session
-    await runTest(
+    console.log('🚀 Starting MinIO container...')
+
+    // Start MinIO container
+    minioContainer = await new GenericContainer('minio/minio:latest')
+      .withExposedPorts(9000)
+      .withEnvironment({
+        MINIO_ROOT_USER: 'minioadmin',
+        MINIO_ROOT_PASSWORD: 'minioadmin'
+      })
+      .withCommand(['server', '/data'])
+      .start()
+
+    const host = minioContainer.getHost()
+    const port = minioContainer.getMappedPort(9000)
+
+    console.log(`✅ MinIO started on ${host}:${port}`)
+
+    // Create S3 client
+    s3Client = new S3Client({
+      endpoint: `http://${host}:${port}`,
+      region: 'us-east-1',
+      credentials: {
+        accessKeyId: 'minioadmin',
+        secretAccessKey: 'minioadmin'
+      },
+      forcePathStyle: true
+    })
+
+    // Create test bucket
+    await s3Client.send(
+      new CreateBucketCommand({
+        Bucket: 'otel-data'
+      })
+    )
+
+    console.log('✅ Test bucket created')
+
+    // Create the test layer with real S3Storage
+    const s3Storage = await Effect.runPromise(
+      makeS3Storage({
+        endpoint: `http://${host}:${port}`,
+        region: 'us-east-1',
+        bucket: 'otel-data',
+        accessKeyId: 'minioadmin',
+        secretAccessKey: 'minioadmin',
+        forcePathStyle: true
+      })
+    )
+
+    const s3Layer = Layer.succeed(S3StorageTag, s3Storage)
+
+    testLayer = Layer.mergeAll(
+      s3Layer,
+      OtlpCaptureServiceLive.pipe(Layer.provide(s3Layer)),
+      RetentionServiceLive.pipe(Layer.provide(s3Layer))
+    )
+
+    // Create a test capture session and add some test data
+    await Effect.runPromise(
       Effect.gen(function* () {
         const captureService = yield* OtlpCaptureServiceTag
-        return yield* captureService.startCapture({
+
+        // Start capture session
+        yield* captureService.startCapture({
           ...mockCaptureConfig,
           sessionId: testSessionId,
           description: 'Integration test session for retention testing'
         })
-      })
-    )
 
-    // Add some test data
-    await runTest(
-      Effect.gen(function* () {
-        const captureService = yield* OtlpCaptureServiceTag
-
-        // Capture multiple data points
+        // Capture multiple data points in the same effect
         yield* captureService.captureOTLPData(testSessionId, mockOtlpTraceData, 'traces')
         yield* captureService.captureOTLPData(testSessionId, mockOtlpTraceData, 'metrics')
         yield* captureService.captureOTLPData(testSessionId, mockOtlpTraceData, 'logs')
-      })
+      }).pipe(Effect.provide(testLayer))
     )
   })
 
   afterAll(async () => {
-    // Clean up test session
-    try {
-      await runTest(
-        Effect.gen(function* () {
-          const s3Storage = yield* S3StorageTag
-
-          // List and delete all objects for this test session
-          const objects = yield* s3Storage.listObjects(`sessions/${testSessionId}/`)
-
-          yield* Effect.forEach(
-            objects,
-            (key) => s3Storage.deleteRawData(key),
-            { concurrency: 5 }
-          )
-        })
-      )
-    } catch (error) {
-      console.warn('Failed to clean up test session:', error)
+    // Clean up
+    if (minioContainer) {
+      console.log('🧹 Stopping MinIO container...')
+      await minioContainer.stop()
     }
   })
 
@@ -235,79 +277,63 @@ describe('OTLP Capture + Retention Integration Tests', () => {
     it('should handle complete capture session lifecycle with retention', async () => {
       const e2eSessionId = `e2e-test-${Date.now()}`
 
-      // 1. Start capture session
-      const session = await runTest(
+      const result = await runTest(
         Effect.gen(function* () {
           const captureService = yield* OtlpCaptureServiceTag
-          return yield* captureService.startCapture({
+          const retentionService = yield* RetentionServiceTag
+
+          // 1. Start capture session
+          const session = yield* captureService.startCapture({
             ...mockCaptureConfig,
             sessionId: e2eSessionId,
             description: 'End-to-end test session'
           })
-        })
-      )
 
-      expect(session.sessionId).toBe(e2eSessionId)
-      expect(session.status).toBe('active')
+          // 2. Capture some data
+          const captureResult = yield* captureService.captureOTLPData(
+            e2eSessionId,
+            mockOtlpTraceData,
+            'traces'
+          )
 
-      // 2. Capture some data
-      const captureResult = await runTest(
-        Effect.gen(function* () {
-          const captureService = yield* OtlpCaptureServiceTag
-          return yield* captureService.captureOTLPData(e2eSessionId, mockOtlpTraceData, 'traces')
-        })
-      )
+          // 3. Stop capture session
+          const completedSession = yield* captureService.stopCapture(e2eSessionId)
 
-      expect(captureResult.signalType).toBe('traces')
-      expect(captureResult.compressed).toBe(true)
+          // 4. Get storage usage
+          const metrics = yield* retentionService.getStorageUsage()
 
-      // 3. Stop capture session
-      const completedSession = await runTest(
-        Effect.gen(function* () {
-          const captureService = yield* OtlpCaptureServiceTag
-          return yield* captureService.stopCapture(e2eSessionId)
-        })
-      )
-
-      expect(completedSession.status).toBe('completed')
-      expect(completedSession.endTime).toBeDefined()
-      expect(completedSession.capturedTraces).toBe(1)
-
-      // 4. Verify storage usage reflects the new session
-      const metrics = await runTest(
-        Effect.gen(function* () {
-          const retentionService = yield* RetentionServiceTag
-          return yield* retentionService.getStorageUsage()
-        })
-      )
-
-      expect(metrics.sessionsPath.totalObjects).toBeGreaterThan(0)
-      expect(metrics.totalSizeBytes).toBeGreaterThan(0)
-
-      // 5. Apply retention policy (should not delete recent data)
-      const retentionPolicy: RetentionPolicy['sessions'] = {
-        defaultRetentionDays: 1,
-        maxRetentionDays: 7,
-        cleanupEnabled: true
-      }
-
-      await runTest(
-        Effect.gen(function* () {
-          const retentionService = yield* RetentionServiceTag
+          // 5. Apply retention policy
+          const retentionPolicy: RetentionPolicy['sessions'] = {
+            defaultRetentionDays: 1,
+            maxRetentionDays: 7,
+            cleanupEnabled: true
+          }
           yield* retentionService.manageSessionData(e2eSessionId, retentionPolicy)
+
+          // 6. Get final status
+          const finalStatus = yield* captureService.getCaptureStatus(e2eSessionId)
+
+          return {
+            session,
+            captureResult,
+            completedSession,
+            metrics,
+            finalStatus
+          }
         })
       )
 
-      // 6. Verify session still exists (too recent to be deleted)
-      const finalStatus = await runTest(
-        Effect.gen(function* () {
-          const captureService = yield* OtlpCaptureServiceTag
-          return yield* captureService.getCaptureStatus(e2eSessionId)
-        })
-      )
-
-      expect(finalStatus.sessionId).toBe(e2eSessionId)
-      expect(finalStatus.status).toBe('completed')
+      expect(result.session.sessionId).toBe(e2eSessionId)
+      expect(result.session.status).toBe('active')
+      expect(result.captureResult.signalType).toBe('traces')
+      expect(result.captureResult.compressed).toBe(true)
+      expect(result.completedSession.status).toBe('completed')
+      expect(result.completedSession.endTime).toBeDefined()
+      expect(result.completedSession.capturedTraces).toBe(1)
+      expect(result.metrics.sessionsPath.totalObjects).toBeGreaterThan(0)
+      expect(result.metrics.totalSizeBytes).toBeGreaterThan(0)
+      expect(result.finalStatus.sessionId).toBe(e2eSessionId)
+      expect(result.finalStatus.status).toBe('completed')
 
       // Clean up E2E test session
       await runTest(
