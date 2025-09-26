@@ -203,8 +203,8 @@ describe.skipIf(shouldSkipLLMTests())("Diagnostic Query Generation", () => {
         console.log(`   ❌ Contains error analysis: ${hasErrorRates}`)
         console.log(`   🔧 Contains operation detail: ${hasOperationDetail}`)
       }
-    })
-    
+    }, { timeout: 180000 })  // 3 minutes timeout for LLM operations
+
     it("should validate diagnostic patterns are present in generated queries", () => {
       // Test the diagnostic patterns we identified
       const requiredPatterns = [

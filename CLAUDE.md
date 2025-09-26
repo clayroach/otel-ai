@@ -25,7 +25,7 @@ This project demonstrates that AI-assisted development can achieve enterprise-le
 - **Traditional workflows** → **Documentation-driven development with AI automation**
 - **8-hour workdays** → **4-hour focused sessions with AI handling routine tasks**
 
-The philosophy: Technology should give us more time for life and family, not consume it. See [ADR-001 (Issue #80)](https://github.com/croach/otel-ai/issues/80) for the complete strategy.
+The philosophy: Technology should give us more time for life and family, not consume it. See [ADR-001 (Issue #80)](https://github.com/clayroach/otel-ai/issues/80) for the complete strategy.
 
 ## Architecture
 

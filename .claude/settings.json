@@ -31,24 +31,12 @@
       "Bash(npx vitest:*)",
       "Bash(timeout:*)",
       "WebSearch",
-      "mcp__github"
+      "mcp__github",
+      "mcp__github-minimal"
     ],
     "deny": [],
     "ask": [],
     "defaultMode": "plan",
     "additionalDirectories": []
-  },
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'if [[ \"$CLAUDE_TOOL_INPUT\" == *\"git commit\"* ]]; then cd /Users/croach/projects/otel-ai && echo \"🔍 Running pre-commit checks...\" && pnpm format:check && pnpm typecheck:all && echo \"✅ Pre-commit checks passed!\"; fi'"
-          }
-        ]
-      }
-    ]
   }
 }

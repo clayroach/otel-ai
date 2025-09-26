@@ -10,7 +10,6 @@ services:
     container_name: otel-ai-clickhouse
     ports:
       - '8124:8123' # HTTP interface (using 8124 to avoid conflicts)
-      - '9001:9000' # Native interface (using 9001 to avoid conflicts)
     environment:
       CLICKHOUSE_DB: otel
       CLICKHOUSE_USER: otel
@@ -38,39 +37,39 @@ services:
           memory: 1G
 
   # MinIO for S3-compatible object storage (DISABLED for now)
-  # minio:
-  #   image: minio/minio:latest
-  #   container_name: otel-ai-minio
-  #   ports:
-  #     - '9001:9001' # Console
-  #     - '9010:9000' # API
-  #   environment:
-  #     MINIO_ROOT_USER: otel-ai
-  #     MINIO_ROOT_PASSWORD: otel-ai-secret
-  #     MINIO_CONSOLE_ADDRESS: ':9001'
-  #   volumes:
-  #     - minio_data:/data
-  #   command: server /data
-  #   healthcheck:
-  #     test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
+  minio:
+    image: minio/minio:latest
+    container_name: otel-ai-minio
+    ports:
+      - '9001:9001' # Console
+      - '9010:9000' # API
+    environment:
+      MINIO_ROOT_USER: otel-ai
+      MINIO_ROOT_PASSWORD: otel-ai-secret
+      MINIO_CONSOLE_ADDRESS: ':9001'
+    volumes:
+      - minio_data:/data
+    command: server /data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Create MinIO bucket on startup (DISABLED for now)
-  # minio-bucket:
-  #   image: minio/mc:latest
-  #   container_name: otel-ai-minio-setup
-  #   depends_on:
-  #     minio:
-  #       condition: service_healthy
-  #   entrypoint: >
-  #     /bin/sh -c "
-  #     /usr/bin/mc alias set myminio http://minio:9000 otel-ai otel-ai-secret;
-  #     /usr/bin/mc mb --ignore-existing myminio/otel-data;
-  #     /usr/bin/mc anonymous set public myminio/otel-data;
-  #     exit 0;
-  #     "
+  minio-bucket:
+    image: minio/mc:latest
+    container_name: otel-ai-minio-setup
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 otel-ai otel-ai-secret;
+      /usr/bin/mc mb --ignore-existing myminio/otel-data;
+      /usr/bin/mc anonymous set public myminio/otel-data;
+      exit 0;
+      "
 
   # Schema Migration Service - Manages all database schemas
   schema-migrator:
@@ -95,6 +94,7 @@ services:
     restart: "no"  # Run once and exit
 
   # OpenTelemetry Collector - Default (protobuf encoding)
+  # S3 exporters always defined, enable by editing config/otel-collector/config.yaml
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
     container_name: otel-ai-collector
@@ -104,7 +104,11 @@ services:
       - '8888:8888' # Prometheus metrics
       - '13133:13133' # Health check
     volumes:
-      - ./docker/otel-collector/config.yaml:/etc/otelcol-contrib/config.yaml
+      - ./config/otel-collector/config.yaml:/etc/otelcol-contrib/config.yaml
+    environment:
+      # S3/MinIO configuration (for when S3 exporters are enabled in config)
+      - AWS_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID:-otel-ai}
+      - AWS_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY:-otel-ai-secret}
     depends_on:
       clickhouse:
         condition: service_healthy
@@ -115,23 +119,6 @@ services:
     # Health check disabled as it's not working reliably
     # The collector is healthy when port 13133 responds
 
-  # OpenTelemetry Collector - JSON encoding (alternative config)
-  otel-collector-json:
-    image: otel/opentelemetry-collector-contrib:latest
-    container_name: otel-ai-collector
-    ports:
-      - '4317:4317' # OTLP gRPC receiver
-      - '4318:4318' # OTLP HTTP receiver  
-      - '8888:8888' # Prometheus metrics
-      - '13133:13133' # Health check
-    volumes:
-      - ./docker/otel-collector/config-json.yaml:/etc/otelcol-contrib/config.yaml
-    depends_on:
-      clickhouse:
-        condition: service_healthy
-    command: ['--config=/etc/otelcol-contrib/config.yaml']
-    profiles:
-      - collector-json
 
   # UI Service - Production build by default
   ui-prod:
@@ -222,6 +209,13 @@ services:
       - CLICKHOUSE_DATABASE=otel
       - CLICKHOUSE_USERNAME=otel
       - CLICKHOUSE_PASSWORD=otel123
+      # S3/MinIO Configuration
+      - S3_ENDPOINT=http://minio:9000
+      - S3_REGION=us-east-1
+      - S3_BUCKET=otel-data
+      - S3_ACCESS_KEY_ID=otel-ai
+      - S3_SECRET_ACCESS_KEY=otel-ai-secret
+      - S3_FORCE_PATH_STYLE=true
       # API Keys only
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
@@ -294,8 +288,8 @@ services:
 volumes:
   clickhouse_data:
     name: otel-ai-clickhouse-data
-  # minio_data:
-  #   name: otel-ai-minio-data
+  minio_data:
+    name: otel-ai-minio-data
 
 networks:
   default:
