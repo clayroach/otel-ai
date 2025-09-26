@@ -118,10 +118,27 @@ export const OtlpCaptureServiceLive = Layer.effect(
     const stopCapture = (sessionId: string): Effect.Effect<CaptureSessionMetadata, CaptureError> =>
       Effect.gen(function* () {
         const sessions = yield* Ref.get(activeSessions)
-        const metadata = sessions.get(sessionId)
+        let metadata = sessions.get(sessionId)
 
+        // If not in memory, try to load from S3
         if (!metadata) {
-          return yield* Effect.fail(CaptureErrorConstructors.SessionNotFound(sessionId))
+          const metadataKey = `sessions/${sessionId}/metadata.json`
+
+          const metadataBytes = yield* s3Storage
+            .retrieveRawData(metadataKey)
+            .pipe(Effect.mapError(() => CaptureErrorConstructors.SessionNotFound(sessionId)))
+
+          const metadataJson = new TextDecoder().decode(metadataBytes)
+          metadata = JSON.parse(metadataJson) as CaptureSessionMetadata
+
+          // Only allow stopping if session is still active
+          if (metadata.status !== 'active') {
+            return yield* Effect.fail(
+              CaptureErrorConstructors.SessionAlreadyActive(
+                `Session ${sessionId} is already ${metadata.status}`
+              )
+            )
+          }
         }
 
         // Update metadata

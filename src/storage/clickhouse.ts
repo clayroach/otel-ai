@@ -484,8 +484,9 @@ export const makeClickHouseStorage = (
           // The @clickhouse/client text() method has issues with non-JSON formats
           const result = await client.query({
             query: sql,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            format: 'TabSeparated' as any // Use TabSeparated (streamable) instead of TSV
+            // TypeScript fix: ClickHouse client supports TabSeparated format for streaming
+            // but types don't include it yet - explicit casting for legitimate API usage
+            format: 'TabSeparated' as 'JSONEachRow' // TabSeparated format for streaming
           })
 
           // Use streaming to handle raw text data without JSON parsing

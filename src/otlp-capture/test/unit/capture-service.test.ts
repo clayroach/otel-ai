@@ -16,7 +16,7 @@ const MockS3Storage = Layer.succeed(
   S3StorageTag.of({
     storeRawData: (_data: Uint8Array, _key: string) => Effect.succeed(undefined),
     retrieveRawData: (key: string) => {
-      if (key.includes('metadata.json')) {
+      if (key.includes('metadata.json') && !key.includes('non-existent-session')) {
         const mockMetadata = {
           sessionId: 'test-session-001',
           startTime: new Date().toISOString(),

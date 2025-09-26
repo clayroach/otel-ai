@@ -51,7 +51,10 @@ import {
   OtlpCaptureServiceTag,
   OtlpCaptureServiceLive,
   OtlpReplayServiceTag,
-  OtlpReplayServiceLive
+  OtlpReplayServiceLive,
+  RetentionServiceTag,
+  RetentionServiceLive,
+  type RetentionPolicy
 } from './otlp-capture/index.js'
 import { S3StorageTag, S3StorageLive } from './storage/s3.js'
 import {
@@ -153,6 +156,7 @@ const S3StorageLayer = S3StorageLive
 // Create OTLP capture services with S3 dependency
 const OtlpCaptureLayer = OtlpCaptureServiceLive.pipe(Layer.provide(S3StorageLayer))
 const OtlpReplayLayer = OtlpReplayServiceLive.pipe(Layer.provide(S3StorageLayer))
+const RetentionServiceLayer = RetentionServiceLive.pipe(Layer.provide(S3StorageLayer))
 
 // Create the base dependencies
 const BaseDependencies = Layer.mergeAll(
@@ -174,7 +178,8 @@ const BaseDependencies = Layer.mergeAll(
   ), // Diagnostics Session Manager
   S3StorageLayer, // S3 storage for OTLP capture
   OtlpCaptureLayer, // OTLP capture service
-  OtlpReplayLayer // OTLP replay service
+  OtlpReplayLayer, // OTLP replay service
+  RetentionServiceLayer // Retention service for cleanup policies
 )
 
 // Create the composed application layer with all services
@@ -200,6 +205,7 @@ type AppServices =
   | OtlpCaptureServiceTag
   | OtlpReplayServiceTag
   | S3StorageTag
+  | RetentionServiceTag
 
 const runWithServices = <A, E>(effect: Effect.Effect<A, E, AppServices>): Promise<A> => {
   // TEMPORARY: Add type assertion back to enable compilation while debugging
@@ -1181,6 +1187,103 @@ app.get('/api/replay/stream/:sessionId/:signalType', async (req, res) => {
   }
 })
 
+// Retention Management API endpoints
+
+// Get storage usage metrics
+app.get('/api/retention/usage', async (req, res) => {
+  try {
+    const usage = await runWithServices(
+      Effect.gen(function* () {
+        const retentionService = yield* RetentionServiceTag
+        return yield* retentionService.getStorageUsage()
+      })
+    )
+
+    res.json(usage)
+  } catch (error) {
+    console.error('❌ Error getting storage usage:', error)
+    res.status(500).json({
+      error: 'Failed to get storage usage',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// Cleanup continuous data (manual trigger)
+app.post('/api/retention/cleanup/continuous', async (req, res) => {
+  try {
+    const { olderThanDays = 7 } = req.body
+
+    const result = await runWithServices(
+      Effect.gen(function* () {
+        const retentionService = yield* RetentionServiceTag
+        return yield* retentionService.cleanupContinuousData(olderThanDays)
+      })
+    )
+
+    res.json({
+      success: true,
+      result
+    })
+  } catch (error) {
+    console.error('❌ Error cleaning up continuous data:', error)
+    res.status(500).json({
+      error: 'Failed to cleanup continuous data',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// Start retention jobs with policy
+app.post('/api/retention/jobs/start', async (req, res) => {
+  try {
+    const policy: RetentionPolicy = req.body
+
+    await runWithServices(
+      Effect.gen(function* () {
+        const retentionService = yield* RetentionServiceTag
+        return yield* retentionService.scheduleRetentionJobs(policy)
+      })
+    )
+
+    res.json({
+      success: true,
+      message: 'Retention jobs started successfully'
+    })
+  } catch (error) {
+    console.error('❌ Error starting retention jobs:', error)
+    res.status(500).json({
+      error: 'Failed to start retention jobs',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// Archive old sessions
+app.post('/api/retention/archive', async (req, res) => {
+  try {
+    const { olderThanDays = 30 } = req.body
+
+    const result = await runWithServices(
+      Effect.gen(function* () {
+        const retentionService = yield* RetentionServiceTag
+        return yield* retentionService.archiveOldSessions(olderThanDays)
+      })
+    )
+
+    res.json({
+      success: true,
+      result
+    })
+  } catch (error) {
+    console.error('❌ Error archiving sessions:', error)
+    res.status(500).json({
+      error: 'Failed to archive sessions',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
 // Helper function to recursively extract values from protobuf objects
 
 // OTLP Traces ingestion endpoint (handles both protobuf and JSON)
@@ -1785,12 +1888,48 @@ app.listen(PORT, async () => {
   console.log(`🔧 MIDDLEWARE DEBUG BUILD v2.0 - GLOBAL MIDDLEWARE ACTIVE`)
   console.log(`🎯 Diagnostics API: http://localhost:${PORT}/api/diagnostics/flags`)
   console.log(`📝 Session Management: http://localhost:${PORT}/api/diagnostics/sessions`)
+  console.log(`🎬 OTLP Capture & Replay: http://localhost:${PORT}/api/capture/sessions`)
+  console.log(`🗄️ Retention Management: http://localhost:${PORT}/api/retention/usage`)
 
   // Wait a bit for schema migrations to complete, then create views
   setTimeout(async () => {
     await createViews()
     console.log('✅ AI Analyzer service available through layer composition')
     console.log(`🤖 AI Analyzer API: http://localhost:${PORT}/api/ai-analyzer/health`)
+
+    // Start retention jobs with default policy
+    try {
+      const defaultRetentionPolicy: RetentionPolicy = {
+        continuous: {
+          retentionDays: 7,
+          cleanupSchedule: '0 2 * * *', // Daily at 2 AM
+          enabled: true
+        },
+        sessions: {
+          defaultRetentionDays: 90,
+          maxRetentionDays: 365,
+          archiveAfterDays: 30,
+          cleanupEnabled: true
+        }
+      }
+
+      await runWithServices(
+        Effect.gen(function* () {
+          const retentionService = yield* RetentionServiceTag
+          yield* retentionService.scheduleRetentionJobs(defaultRetentionPolicy)
+          console.log('🗄️ Retention jobs started with default policy:')
+          console.log('   📂 Continuous data: 7-day retention, daily cleanup at 2 AM')
+          console.log('   📁 Session data: 90-day default, 365-day max retention')
+        }).pipe(
+          Effect.catchAll((error) => {
+            console.warn('⚠️ Failed to start retention jobs:', error)
+            return Effect.succeed(undefined)
+          })
+        )
+      )
+    } catch (error) {
+      console.warn('⚠️ Failed to initialize retention jobs:', error)
+    }
   }, 10000) // Wait 10 seconds
 })
 

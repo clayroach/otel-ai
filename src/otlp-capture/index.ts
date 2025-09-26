@@ -40,5 +40,17 @@ export {
   OtlpReplayServiceLive
 } from './replay-service.js'
 
+export {
+  type RetentionService,
+  RetentionServiceTag,
+  RetentionServiceLive,
+  type RetentionPolicy,
+  type CleanupResult,
+  type StorageMetrics,
+  RetentionPolicySchema,
+  CleanupResultSchema,
+  StorageMetricsSchema
+} from './retention-service.js'
+
 // Re-export Effect dependencies for convenience
 export { Effect, Layer, Context } from 'effect'

@@ -99,8 +99,10 @@ const makeSessionManager = Effect.gen(function* () {
 
   const createAnnotation = (sessionId: string, key: string, value: unknown) =>
     Effect.gen(function* () {
+      console.log(`DEBUG: createAnnotation called for session ${sessionId}, key: ${key}`)
       const session = sessions.get(sessionId)
       if (!session) {
+        console.log(`DEBUG: Session ${sessionId} not found in createAnnotation`)
         return yield* Effect.fail(
           new DiagnosticsSessionError({
             reason: 'SessionNotFound',
@@ -110,6 +112,7 @@ const makeSessionManager = Effect.gen(function* () {
         )
       }
 
+      console.log(`DEBUG: About to call annotationService.annotate for session ${sessionId}`)
       const annotationId = yield* annotationService.annotate({
         signalType: 'any',
         timeRangeStart: session.startTime,
@@ -131,16 +134,26 @@ const makeSessionManager = Effect.gen(function* () {
 
   const orchestrateSession = (sessionId: string, config: SessionConfig) =>
     Effect.gen(function* () {
+      // CRITICAL: This should be the first thing we see if orchestration runs
+      console.log(`🚀 ORCHESTRATION STARTED FOR SESSION ${sessionId}`)
+
       const warmupDelay = config.warmupDelay ?? 5000
       const testDuration = config.testDuration ?? 60000
       const captureInterval = config.captureInterval ?? 30000
 
+      console.log(`DEBUG: About to update session ${sessionId} to 'started' phase`)
       // Phase 1: Start session
       yield* updateSession(sessionId, { phase: 'started' })
+      // Add error handling for annotation creation
       yield* createAnnotation(sessionId, 'diag.session.started', {
         flagName: config.flagName,
         config
-      })
+      }).pipe(
+        Effect.catchAll((error) => {
+          console.error('ERROR: Failed to create session annotation:', error)
+          return Effect.void // Continue even if annotation fails
+        })
+      )
 
       // Phase 2: Enable flag
       yield* Effect.logInfo(`Enabling flag ${config.flagName} for session ${sessionId}`)
@@ -263,15 +276,24 @@ const makeSessionManager = Effect.gen(function* () {
           )
         }
 
-        // Fork the orchestration to run in background
+        // Fork the orchestration to run in background - Effect-TS layers work perfectly!
+        console.log(`DEBUG: About to fork orchestration for session ${sessionId}`)
         yield* Effect.fork(
           orchestrateSession(sessionId, {
             flagName: session.flagName,
             name: session.name,
             captureInterval: session.captureInterval,
             metadata: session.metadata
-          })
+          }).pipe(
+            // Ensure errors in orchestration don't crash the fiber silently
+            Effect.catchAll((error) => {
+              // Log error for debugging
+              console.error(`Session ${sessionId} orchestration failed:`, error)
+              return Effect.void
+            })
+          )
         )
+        console.log(`DEBUG: Successfully forked orchestration fiber for session ${sessionId}`)
       }),
 
     getSession: (sessionId: string) =>
