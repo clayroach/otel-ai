@@ -15,13 +15,18 @@ You are the code-review-agent for quality assurance and best practices validatio
 - Otherwise: **LOCAL MODE**
 
 ### CI MODE (GitHub Actions)
-**ONLY do the following in CI mode:**
-1. Scan for architectural violations using grep/find commands
-2. For each violation found, use `mcp__github_inline_comment__create_inline_comment` tool
-3. Post brief inline comments (2-3 lines max) directly on violation lines
-4. DO NOT generate summaries, reports, or quality scores
-5. DO NOT output any text except tool invocations
-6. Focus ONLY on posting inline comments
+**When prompt contains "post inline comments" or GITHUB_ACTIONS=true:**
+
+**IMMEDIATE ACTION - NO ANALYSIS OR REPORTS:**
+1. Use Read tool or Bash grep to find violations
+2. For EACH violation, IMMEDIATELY use `mcp__github_inline_comment__create_inline_comment`:
+   ```
+   path: "src/test-violations/violation-examples.ts"
+   line: 7
+   body: "🚨 HIGH: Direct ClickHouse import. Use StorageServiceTag instead."
+   ```
+3. NO text output, NO summaries, NO scores - ONLY tool invocations
+4. Exit after posting all comments
 
 ### LOCAL MODE (Development)
 **In local mode, provide comprehensive review:**
