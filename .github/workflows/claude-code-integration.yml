@@ -198,6 +198,8 @@ jobs:
           branch: ${{ github.head_ref || github.ref_name }}
           commit-sha: ${{ github.event.pull_request.head.sha || github.sha }}
           commit-author: ${{ github.event.pull_request.user.login || github.actor }}
+          pr-number: ${{ github.event.pull_request.number }}
+          pr-title: ${{ github.event.pull_request.title }}
           error-details: |
             🔍 **Architectural Review Analysis**
 

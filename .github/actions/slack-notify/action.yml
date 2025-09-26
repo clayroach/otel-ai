@@ -48,6 +48,14 @@ inputs:
     description: 'URL to the GitHub Actions run'
     required: false
     default: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  pr-number:
+    description: 'Pull request number (when applicable)'
+    required: false
+    default: ''
+  pr-title:
+    description: 'Pull request title (when applicable)'
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
@@ -115,7 +123,18 @@ runs:
         COMMIT_SHA: ${{ steps.format-refs.outputs.short_sha }}
         COMMIT_AUTHOR: ${{ inputs.commit-author }}
         SLACK_WEBHOOK_URL: ${{ inputs.webhook-url }}
+        PR_NUMBER: ${{ inputs.pr-number }}
+        PR_TITLE: ${{ inputs.pr-title }}
       run: |
+        # Construct the title based on whether this is a PR or branch push
+        if [ -n "$PR_NUMBER" ] && [ -n "$PR_TITLE" ]; then
+          TITLE="$STATUS_EMOJI PR #$PR_NUMBER: $PR_TITLE - $WORKFLOW_NAME"
+          FALLBACK="$STATUS_EMOJI PR #$PR_NUMBER: $PR_TITLE - $WORKFLOW_NAME - $JOB_NAME"
+        else
+          TITLE="$STATUS_EMOJI [$BRANCH] Build $INPUT_STATUS: $WORKFLOW_NAME"
+          FALLBACK="$STATUS_EMOJI [$BRANCH] Build $INPUT_STATUS: $WORKFLOW_NAME - $JOB_NAME"
+        fi
+
         # Construct the Slack message payload
         PAYLOAD=$(cat <<EOF
         {
@@ -124,8 +143,8 @@ runs:
           "attachments": [
             {
               "color": "$STATUS_COLOR",
-              "fallback": "$STATUS_EMOJI Build $INPUT_STATUS: $WORKFLOW_NAME - $JOB_NAME",
-              "title": "$STATUS_EMOJI Build $INPUT_STATUS: $WORKFLOW_NAME",
+              "fallback": "$FALLBACK",
+              "title": "$TITLE",
               "title_link": "$RUN_URL",
               "fields": [
                 {

@@ -43,6 +43,9 @@ jobs:
           status: 'started'
           job-name: '🎭 UI Testing Started'
           workflow-name: 'Comprehensive UI Testing'
+          branch: ${{ github.head_ref || github.ref_name }}
+          pr-number: ${{ github.event.pull_request.number }}
+          pr-title: ${{ github.event.pull_request.title }}
           error-details: "Starting comprehensive UI testing across all browsers. Branch: ${{ github.head_ref || github.ref_name }}. Event: ${{ github.event_name }}. Testing: Chromium, Firefox, WebKit."
 
       - name: Setup Node.js
@@ -161,6 +164,9 @@ jobs:
           status: 'failure'
           job-name: '🚨 Multi-Browser E2E Tests Failed'
           workflow-name: 'Comprehensive UI Testing'
+          branch: ${{ github.head_ref || github.ref_name }}
+          pr-number: ${{ github.event.pull_request.number }}
+          pr-title: ${{ github.event.pull_request.title }}
           test-results: ${{ steps.e2e-tests.outputs.e2e_errors }}
           error-details: "🚨 E2E tests failed across browsers (Chromium, Firefox, WebKit). Test artifacts uploaded: comprehensive-ui-test-results. View artifacts: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           
@@ -189,6 +195,9 @@ jobs:
           status: ${{ needs.comprehensive-ui-testing.result == 'success' && 'success' || 'failure' }}
           job-name: '✅ UI Testing Complete'
           workflow-name: 'Comprehensive UI Testing'
+          branch: ${{ github.head_ref || github.ref_name }}
+          pr-number: ${{ github.event.pull_request.number }}
+          pr-title: ${{ github.event.pull_request.title }}
           error-details: "🎭 Multi-Browser UI Testing ${{ needs.comprehensive-ui-testing.result == 'success' && '✅ Passed' || '❌ Failed' }}. Browsers tested: Chromium, Firefox, WebKit. Status: ${{ needs.comprehensive-ui-testing.result }}. ${{ needs.comprehensive-ui-testing.result == 'success' && '✅ All browsers passed UI testing!' || '🚨 UI tests failed - Check artifacts for details' }} View full details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
       - name: Report comprehensive UI testing results

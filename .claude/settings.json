@@ -31,7 +31,9 @@
       "Bash(npx vitest:*)",
       "Bash(timeout:*)",
       "WebSearch",
-      "mcp__github"
+      "mcp__github",
+      "mcp__github-minimal",
+      "Bash(yq eval:*)"
     ],
     "deny": [],
     "ask": [],
