@@ -575,10 +575,9 @@ describe('Portkey Gateway Integration with Testcontainer', () => {
 
   describe('429 Rate Limit Retry Behavior', () => {
     it('should handle 429 rate limits with exponential backoff', () => {
-      // Skip if no Anthropic API key
-      if (!process.env.ANTHROPIC_API_KEY) {
-        console.log('⏭️ Skipping 429 retry test - no Anthropic API key')
-        return
+      // Require ANTHROPIC_LOW_TOKENS_API_KEY specifically for rate limit testing
+      if (!process.env.ANTHROPIC_LOW_TOKENS_API_KEY) {
+        throw new Error('ANTHROPIC_LOW_TOKENS_API_KEY environment variable is required for rate limit testing. This key was created specifically for testing rate limits.')
       }
 
       console.log('\n🧪 Testing 429 rate limit retry behavior...')
@@ -595,12 +594,39 @@ describe('Portkey Gateway Integration with Testcontainer', () => {
         readonly tokensUsed: number
       }
 
-      // Set up API key for rate limit testing
+      // Set up API key for rate limit testing - use ONLY the low-tokens key
       const originalApiKey = process.env.ANTHROPIC_API_KEY
-      if (process.env.ANTHROPIC_LOW_TOKENS_API_KEY) {
-        console.log('🔑 Using ANTHROPIC_LOW_TOKENS_API_KEY for rate limit testing')
-        process.env.ANTHROPIC_API_KEY = process.env.ANTHROPIC_LOW_TOKENS_API_KEY
-      }
+      console.log('🔑 Using ANTHROPIC_LOW_TOKENS_API_KEY for rate limit testing')
+      process.env.ANTHROPIC_API_KEY = process.env.ANTHROPIC_LOW_TOKENS_API_KEY
+
+      // Pre-flight validation: test if the API key works
+      const validateApiKey = Effect.gen(function* () {
+        console.log('🔍 Validating ANTHROPIC_LOW_TOKENS_API_KEY...')
+
+        // Make a simple query to test authentication
+        const request: LLMRequest = {
+          prompt: 'Hello',
+          taskType: 'general',
+          preferences: {
+            model: 'claude-3-haiku-20240307',
+            maxTokens: 50
+          }
+        }
+
+        try {
+          const response = yield* service.generate(request)
+          console.log('✅ API key validation successful')
+          return response
+        } catch (error) {
+          if (typeof error === 'object' && error !== null && 'message' in error) {
+            const errorMessage = String(error.message)
+            if (errorMessage.includes('invalid x-api-key') || errorMessage.includes('authentication_error')) {
+              throw new Error(`ANTHROPIC_LOW_TOKENS_API_KEY is invalid or expired. Authentication failed: ${errorMessage}`)
+            }
+          }
+          throw error
+        }
+      })
 
       // Pure Effect function to make a request that uses many tokens
       const makeLargeRequest = (requestId: number) =>
@@ -748,6 +774,10 @@ describe('Portkey Gateway Integration with Testcontainer', () => {
       // Run the complete test as an Effect program
       return Effect.runPromise(
         Effect.gen(function* () {
+          // First validate the API key
+          yield* validateApiKey
+
+          // Then run the main test
           const results = yield* testProgram
 
           // Assertions
@@ -792,7 +822,23 @@ describe('Portkey Gateway Integration with Testcontainer', () => {
             expect(results.successfulRequests).toBeGreaterThan(0)
           } else {
             console.log(`⚠️ Only consumed ${results.totalTokens} tokens - insufficient for rate limit testing`)
-            expect(results.totalTokens).toBeGreaterThan(1500)
+            console.log('   Possible reasons:')
+            console.log('   - API calls failed early (network issues, authentication, etc.)')
+            console.log('   - Rate limits hit immediately before token consumption')
+            console.log('   - Service unavailable or maintenance mode')
+            console.log('   - CI environment network restrictions')
+
+            // Since API key was validated successfully, this is a legitimate test failure
+            console.log('   Since ANTHROPIC_LOW_TOKENS_API_KEY was validated, this indicates test logic issues.')
+
+            throw new Error(
+              `Rate limit test failed: Only consumed ${results.totalTokens} tokens, expected >1500. ` +
+              `Attempted ${results.requestAttempts.length} requests. ` +
+              `The ANTHROPIC_LOW_TOKENS_API_KEY was validated successfully, so this suggests: ` +
+              `(1) Test requests are not generating enough tokens, ` +
+              `(2) Rate limits are preventing token consumption, or ` +
+              `(3) Test logic needs adjustment for current API behavior.`
+            )
           }
 
           // Restore original API key
