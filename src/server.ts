@@ -6,7 +6,7 @@
 
 import { fromBinary } from '@bufbuild/protobuf'
 import cors from 'cors'
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Stream } from 'effect'
 import express from 'express'
 import { AIAnalyzerService, AIAnalyzerMockLayer } from './ai-analyzer/index.js'
 import type {
@@ -54,7 +54,11 @@ import {
   OtlpReplayServiceLive,
   RetentionServiceTag,
   RetentionServiceLive,
-  type RetentionPolicy
+  TrainingDataReaderTag,
+  TrainingDataReaderLive,
+  type RetentionPolicy,
+  type TrainingSessionConfig,
+  type Phase
 } from './otlp-capture/index.js'
 import { S3StorageTag, S3StorageLive } from './storage/s3.js'
 import {
@@ -157,6 +161,9 @@ const S3StorageLayer = S3StorageLive
 const OtlpCaptureLayer = OtlpCaptureServiceLive.pipe(Layer.provide(S3StorageLayer))
 const OtlpReplayLayer = OtlpReplayServiceLive.pipe(Layer.provide(S3StorageLayer))
 const RetentionServiceLayer = RetentionServiceLive.pipe(Layer.provide(S3StorageLayer))
+const TrainingDataReaderLayer = TrainingDataReaderLive.pipe(
+  Layer.provide(Layer.mergeAll(S3StorageLayer, StorageWithConfig))
+)
 
 // Create the base dependencies
 const BaseDependencies = Layer.mergeAll(
@@ -179,7 +186,8 @@ const BaseDependencies = Layer.mergeAll(
   S3StorageLayer, // S3 storage for OTLP capture
   OtlpCaptureLayer, // OTLP capture service
   OtlpReplayLayer, // OTLP replay service
-  RetentionServiceLayer // Retention service for cleanup policies
+  RetentionServiceLayer, // Retention service for cleanup policies
+  TrainingDataReaderLayer // Training data reader for AI model training
 )
 
 // Create the composed application layer with all services
@@ -206,6 +214,7 @@ type AppServices =
   | OtlpReplayServiceTag
   | S3StorageTag
   | RetentionServiceTag
+  | TrainingDataReaderTag
 
 const runWithServices = <A, E>(effect: Effect.Effect<A, E, AppServices>): Promise<A> => {
   // TEMPORARY: Add type assertion back to enable compilation while debugging
@@ -912,6 +921,103 @@ app.get('/api/diagnostics/sessions/:sessionId/annotations', async (req, res) => 
       error: 'Failed to get session annotations',
       message: error instanceof Error ? error.message : 'Unknown error'
     })
+  }
+})
+
+// Training Data API Endpoints
+app.post('/api/diagnostics/training/capture', async (req, res) => {
+  try {
+    const config = req.body as TrainingSessionConfig
+
+    const sessionId = await runWithServices(
+      Effect.gen(function* () {
+        const manager = yield* DiagnosticsSessionManager
+        return yield* manager.runTrainingSession(config)
+      })
+    )
+
+    res.json({
+      sessionId,
+      message: 'Training session started successfully',
+      config
+    })
+  } catch (error) {
+    console.error('❌ Error starting training session:', error)
+    res.status(500).json({
+      error: 'Failed to start training session',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+app.get('/api/diagnostics/training/sessions/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params
+
+    const dataset = await runWithServices(
+      Effect.gen(function* () {
+        const reader = yield* TrainingDataReaderTag
+        return yield* reader.getTrainingData(sessionId)
+      })
+    )
+
+    res.json({
+      sessionId,
+      phases: dataset.phases,
+      dataLocation: `s3://otel-data/${dataset.s3Prefix}`,
+      totalFiles:
+        dataset.otlpFiles.baseline.length +
+        dataset.otlpFiles.anomaly.length +
+        dataset.otlpFiles.recovery.length,
+      startTime: dataset.startTime,
+      endTime: dataset.endTime
+    })
+  } catch (error) {
+    console.error('❌ Error getting training dataset:', error)
+    res.status(500).json({
+      error: 'Failed to get training dataset',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+app.get('/api/diagnostics/training/sessions/:sessionId/stream/:phase', async (req, res) => {
+  try {
+    const { sessionId, phase } = req.params
+
+    if (phase !== 'baseline' && phase !== 'anomaly' && phase !== 'recovery') {
+      res.status(400).json({ error: 'Invalid phase. Must be baseline, anomaly, or recovery' })
+      return
+    }
+
+    // Set streaming headers
+    res.setHeader('Content-Type', 'application/octet-stream')
+    res.setHeader('Content-Disposition', `attachment; filename="${sessionId}-${phase}.otlp"`)
+
+    await runWithServices(
+      Effect.gen(function* () {
+        const reader = yield* TrainingDataReaderTag
+        const stream = reader.streamOtlpData(sessionId, phase as Phase)
+
+        yield* stream.pipe(
+          Stream.runForEach((chunk) =>
+            Effect.sync(() => {
+              res.write(chunk)
+            })
+          )
+        )
+
+        res.end()
+      })
+    )
+  } catch (error) {
+    console.error('❌ Error streaming training data:', error)
+    if (!res.headersSent) {
+      res.status(500).json({
+        error: 'Failed to stream training data',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      })
+    }
   }
 })
 
@@ -1888,6 +1994,7 @@ app.listen(PORT, async () => {
   console.log(`🔧 MIDDLEWARE DEBUG BUILD v2.0 - GLOBAL MIDDLEWARE ACTIVE`)
   console.log(`🎯 Diagnostics API: http://localhost:${PORT}/api/diagnostics/flags`)
   console.log(`📝 Session Management: http://localhost:${PORT}/api/diagnostics/sessions`)
+  console.log(`🎓 Training Data API: http://localhost:${PORT}/api/diagnostics/training/capture`)
   console.log(`🎬 OTLP Capture & Replay: http://localhost:${PORT}/api/capture/sessions`)
   console.log(`🗄️ Retention Management: http://localhost:${PORT}/api/retention/usage`)
 

@@ -295,6 +295,13 @@ describe('DiagnosticsSessionManager', () => {
             reason: 'OrchestrationFailure',
             message: 'Cannot retrieve annotations'
           })
+        ),
+      runTrainingSession: () =>
+        Effect.fail(
+          new DiagnosticsSessionError({
+            reason: 'OrchestrationFailure',
+            message: 'Training session failed'
+          })
         )
     })
 

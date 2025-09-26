@@ -12,6 +12,7 @@ import {
   FeatureFlagControllerLive
 } from '../../feature-flag-controller.js'
 import { StorageServiceLive, ConfigServiceLive } from '../../../storage/services.js'
+import { OtlpCaptureServiceTag } from '../../../otlp-capture/index.js'
 
 describe('DiagnosticsSession Integration Tests', () => {
   // Live integration tests with ClickHouse and flagd
@@ -48,10 +49,60 @@ describe('DiagnosticsSession Integration Tests', () => {
       // 4. Feature flag controller is self-contained
       const flagLayer = FeatureFlagControllerLive
 
-      // 5. Combine all layers for DiagnosticsSessionManager
-      const combinedLayers = Layer.merge(annotationLayer, flagLayer)
+      // 5. Mock OTLP capture service for testing
+      const mockCaptureLayer = Layer.succeed(OtlpCaptureServiceTag, {
+        startCapture: () => Effect.succeed({
+          sessionId: 'mock-capture-session',
+          startTime: new Date(),
+          status: 'active',
+          enabledFlags: [],
+          capturedTraces: 0,
+          capturedMetrics: 0,
+          capturedLogs: 0,
+          totalSizeBytes: 0,
+          s3Prefix: 'mock/prefix',
+          createdBy: 'test'
+        }),
+        stopCapture: () => Effect.succeed({
+          sessionId: 'mock-capture-session',
+          startTime: new Date(),
+          endTime: new Date(),
+          status: 'completed',
+          enabledFlags: [],
+          capturedTraces: 0,
+          capturedMetrics: 0,
+          capturedLogs: 0,
+          totalSizeBytes: 0,
+          s3Prefix: 'mock/prefix',
+          createdBy: 'test'
+        }),
+        captureOTLPData: () => Effect.succeed({
+          key: 'mock/key.otlp.gz',
+          signalType: 'traces' as const,
+          timestamp: new Date(),
+          sizeBytes: 1024,
+          recordCount: 10,
+          compressed: true
+        }),
+        getCaptureStatus: () => Effect.succeed({
+          sessionId: 'mock-capture-session',
+          startTime: new Date(),
+          status: 'active',
+          enabledFlags: [],
+          capturedTraces: 0,
+          capturedMetrics: 0,
+          capturedLogs: 0,
+          totalSizeBytes: 0,
+          s3Prefix: 'mock/prefix',
+          createdBy: 'test'
+        }),
+        listCaptureSessions: () => Effect.succeed([])
+      })
 
-      // 6. Provide DiagnosticsSessionManager with all its dependencies
+      // 6. Combine all layers for DiagnosticsSessionManager
+      const combinedLayers = Layer.merge(annotationLayer, Layer.merge(flagLayer, mockCaptureLayer))
+
+      // 7. Provide DiagnosticsSessionManager with all its dependencies
       return Layer.provide(DiagnosticsSessionManagerLive, combinedLayers)
     }
 
@@ -270,6 +321,54 @@ describe('DiagnosticsSession Integration Tests', () => {
               reason: 'DISABLED',
               variant: 'off'
             })
+          })),
+          Effect.provide(Layer.succeed(OtlpCaptureServiceTag, {
+            startCapture: () => Effect.succeed({
+              sessionId: 'mock-capture-session',
+              startTime: new Date(),
+              status: 'active',
+              enabledFlags: [],
+              capturedTraces: 0,
+              capturedMetrics: 0,
+              capturedLogs: 0,
+              totalSizeBytes: 0,
+              s3Prefix: 'mock/prefix',
+              createdBy: 'test'
+            }),
+            stopCapture: () => Effect.succeed({
+              sessionId: 'mock-capture-session',
+              startTime: new Date(),
+              endTime: new Date(),
+              status: 'completed',
+              enabledFlags: [],
+              capturedTraces: 0,
+              capturedMetrics: 0,
+              capturedLogs: 0,
+              totalSizeBytes: 0,
+              s3Prefix: 'mock/prefix',
+              createdBy: 'test'
+            }),
+            captureOTLPData: () => Effect.succeed({
+              key: 'mock/key.otlp.gz',
+              signalType: 'traces' as const,
+              timestamp: new Date(),
+              sizeBytes: 1024,
+              recordCount: 10,
+              compressed: true
+            }),
+            getCaptureStatus: () => Effect.succeed({
+              sessionId: 'mock-capture-session',
+              startTime: new Date(),
+              status: 'active',
+              enabledFlags: [],
+              capturedTraces: 0,
+              capturedMetrics: 0,
+              capturedLogs: 0,
+              totalSizeBytes: 0,
+              s3Prefix: 'mock/prefix',
+              createdBy: 'test'
+            }),
+            listCaptureSessions: () => Effect.succeed([])
           })),
           // Use proper mock storage service
           Effect.provide(MockStorageServiceLive),
