@@ -1,8 +1,8 @@
 /**
- * CLAUDE CODE VALIDATION - INLINE COMMENTS TEST
+ * CLAUDE CODE VALIDATION - HAIKU WITH TOKEN LIMIT
  *
- * Testing with --allowedTools mcp__github_inline_comment__create_inline_comment
- * Should now post inline comments on specific lines
+ * Using Haiku with max_tokens=4096 limit
+ * Should post inline comments without API errors
  */
 
 // HIGH CONFIDENCE: Direct ClickHouse import
