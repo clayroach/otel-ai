@@ -29,3 +29,4 @@ TODOs:
 * Demo SITE!
 * DRY-NESS agent daily scan to look for optimizations
 * ai-analyzer is really just the static analyzer?
+* reenable main protection
