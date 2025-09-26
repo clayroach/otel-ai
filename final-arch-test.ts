@@ -8,7 +8,7 @@
  */
 
 // 🚨 HIGH CONFIDENCE VIOLATION: Direct ClickHouse import outside storage package
-import { createClient } from '@clickhouse/client';
+import { createClient } from '@clickhouse/client'
 
 export class FinalArchitecturalTest {
   // 🚨 HIGH CONFIDENCE VIOLATION: Direct client instantiation bypassing StorageServiceTag
@@ -16,20 +16,20 @@ export class FinalArchitecturalTest {
     host: 'localhost:8123',
     username: 'otel',
     password: 'otel123'
-  });
+  })
 
   // 🚨 HIGH CONFIDENCE VIOLATION: Raw SQL outside storage service
   async queryDatabase() {
-    const rawSQL = 'SELECT * FROM otel.traces WHERE service_name = ? LIMIT 50';
+    const rawSQL = 'SELECT * FROM otel.traces WHERE service_name = ? LIMIT 50'
 
     return await this.dbClient.query({
       query: rawSQL,
       query_params: ['my-service']
-    });
+    })
   }
 }
 
 // 🚨 TypeScript error to test Slack notification content
 export function typeError(x: number): string {
-  return x; // Error: number not assignable to string
+  return x // Error: number not assignable to string
 }
