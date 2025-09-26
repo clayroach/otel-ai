@@ -142,6 +142,19 @@ runs:
           TITLE_LINK="$RUN_URL"
         fi
 
+        # Construct GitHub URLs for clickable links
+        REPO_BASE_URL="https://github.com/$REPOSITORY"
+        REPO_LINK="$REPO_BASE_URL"
+        BRANCH_LINK="$REPO_BASE_URL/tree/$BRANCH"
+        JOB_LINK="$RUN_URL"
+
+        # For commit link, use PR commit URL if available, otherwise regular commit URL
+        if [ -n "$PR_URL" ]; then
+          COMMIT_LINK="$PR_URL/commits/$COMMIT_SHA"
+        else
+          COMMIT_LINK="$REPO_BASE_URL/commit/$COMMIT_SHA"
+        fi
+
         # Construct the Slack message payload
         PAYLOAD=$(cat <<EOF
         {
@@ -156,22 +169,22 @@ runs:
               "fields": [
                 {
                   "title": "Repository",
-                  "value": "\`$REPOSITORY\`",
+                  "value": "\`$REPOSITORY\` <$REPO_LINK|[link]>",
                   "short": true
                 },
                 {
                   "title": "Branch",
-                  "value": "\`$BRANCH\`",
+                  "value": "\`$BRANCH\` <$BRANCH_LINK|[link]>",
                   "short": true
                 },
                 {
                   "title": "Job",
-                  "value": "\`$JOB_NAME\`",
+                  "value": "\`$JOB_NAME\` <$JOB_LINK|[link]>",
                   "short": true
                 },
                 {
                   "title": "Commit",
-                  "value": "\`$COMMIT_SHA\`",
+                  "value": "\`$COMMIT_SHA\` <$COMMIT_LINK|[link]>",
                   "short": true
                 },
                 {
