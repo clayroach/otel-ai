@@ -162,29 +162,29 @@ jobs:
           claude_args: |
             --max-turns 30
             --model claude-3-5-haiku-20241022
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(grep:*),Bash(find:*),Read"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh:*),Bash(grep:*),Read"
           prompt: |
-            You are performing an architectural code review. Your ONLY job is to find violations and post inline comments.
+            You are performing an architectural code review on PR #${{ github.event.pull_request.number }}.
 
-            FILES TO CHECK:
-            - src/test-violations/violation-examples.ts
-            - src/test-violations/sql-violations.ts
-            - src/test-violations/wrong-location.test.ts
+            CRITICAL: Only comment on files that are part of this PR's changes.
+
+            First, get the PR diff to see what files changed:
+            Use Bash: gh pr diff ${{ github.event.pull_request.number }} --name-only
+
+            Then for each changed file, read it and look for violations:
 
             VIOLATIONS TO DETECT:
-            1. Lines containing "from '@clickhouse/client'" → Post comment: "🚨 HIGH: Direct ClickHouse import. Use StorageServiceTag from storage/services instead."
-            2. Lines containing "createClient" → Post comment: "🚨 HIGH: Direct client creation. Use StorageServiceTag dependency injection."
-            3. Lines containing SQL keywords (SELECT, INSERT, UPDATE, DELETE, CREATE TABLE) → Post comment: "🚨 HIGH: Raw SQL outside storage. Use storage service methods."
-            4. Files ending in .test.ts outside /test/ directories → Post comment: "⚠️ MEDIUM: Test file in wrong location. Move to test/ subdirectory."
+            1. Line with "from '@clickhouse/client'" → Comment: "🚨 HIGH: Direct ClickHouse import. Use StorageServiceTag from storage/services instead."
+            2. Line with "createClient" → Comment: "🚨 HIGH: Direct client creation. Use StorageServiceTag dependency injection."
+            3. Line with SQL keywords (SELECT, INSERT, UPDATE, DELETE, CREATE TABLE) → Comment: "🚨 HIGH: Raw SQL outside storage. Use storage service methods."
+            4. File ending in .test.ts outside /test/ directories → Comment: "⚠️ MEDIUM: Test file in wrong location. Move to test/ subdirectory."
 
-            PROCESS:
-            1. Use Read tool to check each file
-            2. For EACH violation found, immediately use mcp__github_inline_comment__create_inline_comment with:
-               - path: The file path (e.g., "src/test-violations/violation-examples.ts")
-               - line: The line number where violation occurs
-               - body: The appropriate comment from above
+            For EACH violation, use mcp__github_inline_comment__create_inline_comment:
+            - path: MUST match exactly from PR diff (no leading slash)
+            - line: The exact line number from the file
+            - body: Use the comment text above
 
-            Start by reading src/test-violations/violation-examples.ts and post comments for violations found.
+            IMPORTANT: The path must be exactly as shown in the PR diff, not with src/ prefix if not shown.
 
       - name: Slack Architectural Review Notification
         if: github.event_name == 'pull_request'
