@@ -46,7 +46,7 @@
     "playwright.config.ts",
     "vitest.config.ts",
     "vitest.integration.config.ts",
-    "claude-test-final.ts"
+    "claude-validation.ts"
   ],
   "exclude": [
     "node_modules",
