@@ -489,6 +489,45 @@ if (diagnosticState.activeSession && captureService) {
 }
 ```
 
+### Training Data Pipeline (Feature-005c)
+
+**CRITICAL: Training datasets reuse existing infrastructure via sessionId linkage**
+
+Training data is created by linking existing components without duplication:
+
+1. **Capture Session** stores metadata.json and raw OTLP data in MinIO
+2. **Phase Annotations** (`test.phase.*`) mark timeline transitions in ClickHouse
+3. **TrainingDataReader** queries both sources using sessionId as the linking key
+4. **Model Training** consumes raw OTLP streams grouped by phase
+
+```typescript
+// Training data flow
+const sessionId = "training-abc123"
+
+// 1. Session metadata (existing infrastructure)
+const metadata = await s3.get(`sessions/${sessionId}/metadata.json`)
+
+// 2. Phase annotations (new for training)
+const phases = await clickhouse.query(`
+  SELECT annotation_key, annotation_value, time_range_start
+  FROM annotations
+  WHERE annotation_value LIKE '%${sessionId}%'
+  AND annotation_key LIKE 'test.phase.%'
+`)
+
+// 3. Raw OTLP files (existing infrastructure)
+const files = await s3.list(`${metadata.s3Prefix}/raw/`)
+
+// 4. Stream training data (no duplication)
+const trainingData = groupFilesByPhase(files, phases)
+```
+
+**Benefits of this approach**:
+- ❌ **NO data duplication** - reuse existing OTLP files
+- ❌ **NO export formats** - training consumes raw OTLP directly
+- ❌ **NO manifest files** - metadata.json + annotations provide all linkage
+- ✅ **sessionId links everything** - simple, reliable, efficient
+
 ## Change Log
 
 ### v0.1.0 (2025-01-26)

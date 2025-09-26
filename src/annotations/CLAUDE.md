@@ -95,6 +95,48 @@ const filter: AnnotationFilter = {
 }
 ```
 
+## Training Data Linkage Pattern
+
+🔑 **CRITICAL: Phase annotations link training data to OTLP captures via sessionId**
+
+Training sessions use the sessionId linkage pattern to connect timeline phases with captured telemetry data:
+
+```typescript
+// Training phase annotations link to MinIO capture sessions
+yield* annotations.annotate({
+  signalType: 'any',
+  timeRangeStart: new Date(),
+  annotationType: 'test',
+  annotationKey: 'test.phase.baseline',
+  annotationValue: JSON.stringify({
+    sessionId: 'training-abc123',     // Links to MinIO sessions/training-abc123/
+    flagName: 'paymentServiceFailure',
+    flagValue: 0.0                    // Ground truth label
+  }),
+  createdBy: 'system:training'
+})
+
+// Training data reader queries by sessionId
+const phases = yield* clickhouse.query(`
+  SELECT annotation_key, annotation_value, time_range_start
+  FROM annotations
+  WHERE annotation_value LIKE '%training-abc123%'
+  AND annotation_key LIKE 'test.phase.%'
+  ORDER BY time_range_start
+`)
+```
+
+**Phase Annotation Pattern**:
+- `test.phase.baseline` - Flag off period (ground truth: normal)
+- `test.phase.anomaly` - Flag enabled period (ground truth: anomaly)
+- `test.phase.recovery` - Flag off again (ground truth: normal)
+
+**Key Benefits**:
+- ❌ **NO data duplication** - raw OTLP stays in MinIO
+- ❌ **NO export formats** - annotations provide timeline + labels
+- ✅ **sessionId links everything** - annotations → MinIO sessions
+- ✅ **Ground truth labels** - flagValue in annotation_value
+
 ## Database Schema
 
 Single optimized table for all signal types:
