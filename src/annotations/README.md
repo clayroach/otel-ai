@@ -152,8 +152,54 @@ The annotation system integrates with:
 
 - **Feature-005**: Diagnostics UI for feature flag control and session management
 - **Feature-005a**: OTLP capture/replay sessions with annotation markers
+- **Feature-005c**: Training data pipeline using sessionId linkage pattern
 - **Feature-012**: Model fine-tuning pipeline using labeled data
 - **Storage**: Direct ClickHouse access for high-performance queries
+
+### Training Data Integration (Feature-005c)
+
+**CRITICAL: Phase annotations link training timelines to captured OTLP data via sessionId**
+
+The annotation system provides the linkage mechanism for training data without requiring data duplication:
+
+```typescript
+// Phase annotations mark timeline transitions
+const phaseAnnotations = [
+  {
+    annotationType: 'test',
+    annotationKey: 'test.phase.baseline',
+    annotationValue: JSON.stringify({
+      sessionId: 'training-abc123',    // Links to MinIO sessions/training-abc123/
+      flagName: 'paymentServiceFailure',
+      flagValue: 0.0                   // Ground truth: normal
+    })
+  },
+  {
+    annotationType: 'test',
+    annotationKey: 'test.phase.anomaly',
+    annotationValue: JSON.stringify({
+      sessionId: 'training-abc123',
+      flagName: 'paymentServiceFailure',
+      flagValue: 0.5                   // Ground truth: 50% failure rate
+    })
+  }
+]
+
+// Training data reader queries annotations by sessionId
+const trainingPhases = await clickhouse.query(`
+  SELECT annotation_key, annotation_value, time_range_start
+  FROM annotations
+  WHERE annotation_value LIKE '%training-abc123%'
+  AND annotation_key LIKE 'test.phase.%'
+  ORDER BY time_range_start
+`)
+```
+
+**Benefits**:
+- Enables training data creation without duplicating raw OTLP files
+- Provides ground truth labels through flag values in annotation_value
+- Links timeline phases to specific MinIO capture sessions
+- Supports streaming access to large training datasets
 
 ## Performance
 
