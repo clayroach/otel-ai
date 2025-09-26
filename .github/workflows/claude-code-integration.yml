@@ -159,11 +159,14 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          use_sticky_comment: true
+          claude_args: |
+            --max-turns 5
+            --model claude-3-haiku-20240307
+            --allowedTools "mcp__github_inline_comment__create_inline_comment"
           prompt: |
-            Review this pull request for architectural violations and post review comments on any violations found.
+            Review this pull request for architectural violations and post inline comments on any violations found.
 
-            **CRITICAL: Use GitHub's PR review comment feature to comment directly on the problematic lines of code.**
+            **CRITICAL: Use the mcp__github_inline_comment__create_inline_comment tool to comment directly on problematic lines.**
 
             **Priority Violations to Detect:**
             1. Direct @clickhouse/client imports outside storage package (HIGH confidence)
@@ -193,7 +196,6 @@ jobs:
             yield* storage.queryTraces(params)
             ```
             ```
-          claude_args: "--max-turns 5"
 
       - name: Slack Architectural Review Notification
         if: github.event_name == 'pull_request'
