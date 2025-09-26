@@ -46,6 +46,12 @@ const MockS3Storage = Layer.succeed(
       }
       return Effect.succeed([])
     },
+    getObjectsCount: (prefix?: string, _maxKeys?: number) => {
+      if (prefix === 'sessions/') {
+        return Effect.succeed({objects: ['sessions/test-session-001/metadata.json'], totalCount: 1, isTruncated: false})
+      }
+      return Effect.succeed({objects: [], totalCount: 0, isTruncated: false})
+    },
     healthCheck: () => Effect.succeed(true)
   })
 )

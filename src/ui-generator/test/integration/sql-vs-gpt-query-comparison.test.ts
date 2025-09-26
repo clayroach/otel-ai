@@ -356,7 +356,7 @@ GROUP BY service_name`,
   })
   
   it("should execute and compare query results", async () => {
-    
+
     const program = Effect.gen(function* () {
       const clickHouseAI = yield* CriticalPathQueryGeneratorClickHouseAI
       
@@ -465,8 +465,8 @@ GROUP BY service_name`,
     expect(executionResult.sqlQuery.result).toBeDefined()
     expect(executionResult.gptQuery.result.rowCount).toBeGreaterThanOrEqual(0)
     expect(executionResult.sqlQuery.result.rowCount).toBeGreaterThanOrEqual(0)
-  })
-  
+  }, { timeout: 180000 })  // 3 minutes timeout for LLM operations
+
   it("should validate unified diagnostic instructions are being used", async () => {
     // This test ensures both query generators use the same unified instructions
     const testPath: CriticalPath = {

@@ -2,17 +2,17 @@
  * S3/MinIO storage implementation for raw data archival and retention
  */
 
-import { Effect, Schedule, Context, Layer } from 'effect'
 import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
   DeleteObjectCommand,
-  ListObjectsV2Command
+  GetObjectCommand,
+  ListObjectsV2Command,
+  PutObjectCommand,
+  S3Client
 } from '@aws-sdk/client-s3'
-import { type S3Config, type RetentionConfig } from './config.js'
-import { type OTLPData } from './schemas.js'
+import { Context, Effect, Layer, Schedule } from 'effect'
+import { type RetentionConfig, type S3Config } from './config.js'
 import { type StorageError, StorageErrorConstructors } from './errors.js'
+import { type OTLPData } from './schemas.js'
 
 export interface S3Storage {
   readonly storeRawData: (data: Uint8Array, key: string) => Effect.Effect<void, StorageError>
@@ -21,6 +21,10 @@ export interface S3Storage {
   readonly archiveOTLPData: (data: OTLPData, timestamp: number) => Effect.Effect<void, StorageError>
   readonly applyRetentionPolicy: (retention: RetentionConfig) => Effect.Effect<void, StorageError>
   readonly listObjects: (prefix?: string) => Effect.Effect<string[], StorageError>
+  readonly getObjectsCount: (
+    prefix?: string,
+    maxKeys?: number
+  ) => Effect.Effect<{ objects: string[]; totalCount: number; isTruncated: boolean }, StorageError>
   readonly healthCheck: () => Effect.Effect<boolean, StorageError>
 }
 
@@ -261,10 +265,14 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
     const listObjects = (prefix?: string): Effect.Effect<string[], StorageError> =>
       Effect.tryPromise({
         try: async () => {
+          console.log(`[S3Storage] Starting listObjects for prefix: ${prefix || 'all'}`)
+          const startTime = Date.now()
           const keys: string[] = []
           let continuationToken: string | undefined
 
           do {
+            console.log(`[S3Storage] Sending ListObjectsV2Command...`)
+            const cmdStart = Date.now()
             const response = await client.send(
               new ListObjectsV2Command({
                 Bucket: config.bucket,
@@ -272,6 +280,7 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
                 ContinuationToken: continuationToken
               })
             )
+            console.log(`[S3Storage] ListObjectsV2Command completed in ${Date.now() - cmdStart}ms`)
 
             if (response.Contents) {
               keys.push(...(response.Contents.map((obj) => obj.Key).filter(Boolean) as string[]))
@@ -280,12 +289,60 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
             continuationToken = response.NextContinuationToken
           } while (continuationToken)
 
+          const totalTime = Date.now() - startTime
+          console.log(
+            `[S3Storage] listObjects completed in ${totalTime}ms, found ${keys.length} objects`
+          )
           return keys
         },
         catch: (error) =>
           StorageErrorConstructors.QueryError(
             `Failed to list objects: ${error}`,
             `LIST ${prefix || 'all'}`,
+            error
+          )
+      })
+
+    const getObjectsCount = (
+      prefix?: string,
+      maxKeys: number = 100
+    ): Effect.Effect<
+      { objects: string[]; totalCount: number; isTruncated: boolean },
+      StorageError
+    > =>
+      Effect.tryPromise({
+        try: async () => {
+          console.log(
+            `[S3Storage] Getting objects count for prefix: ${prefix || 'all'}, maxKeys: ${maxKeys}`
+          )
+          const startTime = Date.now()
+
+          const response = await client.send(
+            new ListObjectsV2Command({
+              Bucket: config.bucket,
+              Prefix: prefix,
+              MaxKeys: maxKeys
+            })
+          )
+
+          const objects =
+            (response.Contents?.map((obj) => obj.Key).filter(Boolean) as string[]) || []
+          const totalTime = Date.now() - startTime
+
+          console.log(
+            `[S3Storage] getObjectsCount completed in ${totalTime}ms, found ${objects.length} objects, isTruncated: ${response.IsTruncated}`
+          )
+
+          return {
+            objects,
+            totalCount: objects.length,
+            isTruncated: response.IsTruncated || false
+          }
+        },
+        catch: (error) =>
+          StorageErrorConstructors.QueryError(
+            `Failed to get objects count: ${error}`,
+            `COUNT ${prefix || 'all'}`,
             error
           )
       })
@@ -315,6 +372,7 @@ export const makeS3Storage = (config: S3Config): Effect.Effect<S3Storage, Storag
       archiveOTLPData,
       applyRetentionPolicy,
       listObjects,
+      getObjectsCount,
       healthCheck
     }
   })

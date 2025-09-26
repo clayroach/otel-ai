@@ -93,9 +93,9 @@ export const RetentionServiceLive = Layer.effect(
         const cutoffDate = new Date()
         cutoffDate.setDate(cutoffDate.getDate() - olderThanDays)
 
-        // List all objects in continuous path
-        const allObjects = yield* s3Storage
-          .listObjects('continuous/')
+        // List objects in continuous path (with reasonable limit for cleanup)
+        const objectsResult = yield* s3Storage
+          .getObjectsCount('continuous/', 5000) // Limit to 5000 objects for cleanup batch
           .pipe(
             Effect.mapError((error) =>
               CaptureErrorConstructors.StorageFailure(
@@ -105,6 +105,7 @@ export const RetentionServiceLive = Layer.effect(
               )
             )
           )
+        const allObjects = objectsResult.objects
 
         // Filter objects older than cutoff
         const objectsToDelete: { key: string; size: number }[] = []
@@ -239,26 +240,30 @@ export const RetentionServiceLive = Layer.effect(
 
     const getStorageUsage = (): Effect.Effect<StorageMetrics, CaptureError> =>
       Effect.gen(function* () {
-        // Get continuous path metrics
-        const continuousObjects = yield* s3Storage
-          .listObjects('continuous/')
-          .pipe(Effect.orElse(() => Effect.succeed([])))
+        // Get continuous path metrics (limited sample for performance)
+        const continuousResult = yield* s3Storage
+          .getObjectsCount('continuous/', 1000) // Only sample first 1000 objects
+          .pipe(
+            Effect.orElse(() => Effect.succeed({ objects: [], totalCount: 0, isTruncated: false }))
+          )
 
-        // Get sessions path metrics
-        const sessionObjects = yield* s3Storage
-          .listObjects('sessions/')
-          .pipe(Effect.orElse(() => Effect.succeed([])))
+        // Get sessions path metrics (limited sample)
+        const sessionResult = yield* s3Storage
+          .getObjectsCount('sessions/', 1000) // Only sample first 1000 objects
+          .pipe(
+            Effect.orElse(() => Effect.succeed({ objects: [], totalCount: 0, isTruncated: false }))
+          )
 
         // Calculate metrics (simplified - in production would get actual sizes)
         const continuousMetrics = {
-          totalObjects: continuousObjects.length,
-          totalSizeBytes: continuousObjects.length * 1024, // Placeholder
-          oldestObjectDate: continuousObjects.length > 0 ? new Date() : undefined,
-          newestObjectDate: continuousObjects.length > 0 ? new Date() : undefined
+          totalObjects: continuousResult.totalCount,
+          totalSizeBytes: continuousResult.totalCount * 1024, // Placeholder
+          oldestObjectDate: continuousResult.totalCount > 0 ? new Date() : undefined,
+          newestObjectDate: continuousResult.totalCount > 0 ? new Date() : undefined
         }
 
         // Count active vs completed sessions
-        const metadataFiles = sessionObjects.filter((key) => key.endsWith('/metadata.json'))
+        const metadataFiles = sessionResult.objects.filter((key) => key.endsWith('/metadata.json'))
         let activeSessions = 0
         let completedSessions = 0
 
@@ -268,8 +273,8 @@ export const RetentionServiceLive = Layer.effect(
         completedSessions = metadataFiles.length - activeSessions
 
         const sessionsMetrics = {
-          totalObjects: sessionObjects.length,
-          totalSizeBytes: sessionObjects.length * 2048, // Placeholder
+          totalObjects: sessionResult.totalCount,
+          totalSizeBytes: sessionResult.totalCount * 2048, // Placeholder
           activeSessions,
           completedSessions
         }

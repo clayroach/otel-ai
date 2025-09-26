@@ -60,6 +60,23 @@ describe('RetentionService Unit Tests', () => {
       }
       return Effect.succeed([])
     },
+    getObjectsCount: (prefix?: string, _maxKeys?: number) => {
+      if (prefix?.startsWith('continuous/')) {
+        return Effect.succeed({
+          objects: ['continuous/2024-12-01/traces-old.otlp.gz', 'continuous/2025-01-20/traces-recent.otlp.gz'],
+          totalCount: 2,
+          isTruncated: false
+        })
+      }
+      if (prefix?.startsWith('sessions/')) {
+        return Effect.succeed({
+          objects: ['sessions/test-session-1/metadata.json', 'sessions/test-session-2/metadata.json'],
+          totalCount: 3,
+          isTruncated: false
+        })
+      }
+      return Effect.succeed({objects: [], totalCount: 0, isTruncated: false})
+    },
     healthCheck: () => Effect.succeed(true)
   }
 
