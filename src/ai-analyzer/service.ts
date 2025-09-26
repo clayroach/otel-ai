@@ -801,10 +801,9 @@ export const AIAnalyzerLayer = (config: AnalyzerConfig = defaultAnalyzerConfig) 
  * Not exported - use AIAnalyzerMockLayer instead
  */
 const makeAIAnalyzerMockService = (_config: AnalyzerConfig = defaultAnalyzerConfig) =>
-  Effect.gen(function* (_) {
+  Effect.succeed({
     // Mock implementation that works without external dependencies
-    yield* _(Effect.succeed(void 0)) // Satisfy generator requirement
-    const analyzeArchitecture = (
+    analyzeArchitecture: (
       request: AnalysisRequest
     ): Effect.Effect<AnalysisResult, AnalysisError, never> =>
       Effect.gen(function* (_) {
@@ -926,9 +925,9 @@ const makeAIAnalyzerMockService = (_config: AnalyzerConfig = defaultAnalyzerConf
         }
 
         return result
-      })
+      }),
 
-    const getServiceTopology = (_timeRange: {
+    getServiceTopology: (_timeRange: {
       startTime: Date
       endTime: Date
     }): Effect.Effect<readonly ServiceTopology[], AnalysisError, never> =>
@@ -986,11 +985,9 @@ const makeAIAnalyzerMockService = (_config: AnalyzerConfig = defaultAnalyzerConf
             }
           }
         ] as const
-      })
+      }),
 
-    const streamAnalysis = (
-      _request: AnalysisRequest
-    ): Stream.Stream<string, AnalysisError, never> => {
+    streamAnalysis: (_request: AnalysisRequest): Stream.Stream<string, AnalysisError, never> => {
       const words = [
         'Mock',
         'analyzing',
@@ -1003,21 +1000,14 @@ const makeAIAnalyzerMockService = (_config: AnalyzerConfig = defaultAnalyzerConf
         'traces.'
       ]
       return Stream.fromIterable(words).pipe(Stream.map((word) => word + ' '))
-    }
+    },
 
-    const generateDocumentationMethod = (
+    generateDocumentation: (
       architecture: ApplicationArchitecture
     ): Effect.Effect<string, AnalysisError, never> =>
       Effect.succeed(
         `# ${architecture.applicationName}\n\n${architecture.description}\n\nMock analysis discovered ${architecture.services.length} services.`
       )
-
-    return {
-      analyzeArchitecture,
-      streamAnalysis,
-      getServiceTopology,
-      generateDocumentation: generateDocumentationMethod
-    }
   })
 
 /**

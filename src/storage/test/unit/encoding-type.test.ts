@@ -51,6 +51,7 @@ describe('StorageAPIClient Encoding Type', () => {
         queryLogs: () => Effect.succeed([]),
         queryAI: () => Effect.succeed([]),
         queryRaw: () => Effect.succeed([]),
+        insertRaw: () => Effect.succeed(undefined),
         healthCheck: () => Effect.succeed({ clickhouse: true, s3: false })
       })
     )
@@ -80,6 +81,7 @@ describe('StorageAPIClient Encoding Type', () => {
         queryLogs: () => Effect.succeed([]),
         queryAI: () => Effect.succeed([]),
         queryRaw: () => Effect.succeed([]),
+        insertRaw: () => Effect.succeed(undefined),
         healthCheck: () => Effect.succeed({ clickhouse: true, s3: false })
       })
     )
@@ -109,6 +111,7 @@ describe('StorageAPIClient Encoding Type', () => {
         queryLogs: () => Effect.succeed([]),
         queryAI: () => Effect.succeed([]),
         queryRaw: () => Effect.succeed([]),
+        insertRaw: () => Effect.succeed(undefined),
         healthCheck: () => Effect.succeed({ clickhouse: true, s3: false })
       })
     )

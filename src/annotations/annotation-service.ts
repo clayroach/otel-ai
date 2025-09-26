@@ -98,17 +98,28 @@ export const AnnotationServiceLive = Layer.effect(
         console.log('DEBUG: Values for annotation insert:', values)
         console.log('DEBUG: Generated SQL for annotation insert:', insertSQL)
 
-        // Execute the insert using the storage service
-        yield* storage.queryRaw(insertSQL).pipe(
-          Effect.catchAll((error) =>
-            Effect.fail(
+        // Execute the insert using the storage service insertRaw for INSERT statements
+        yield* storage.insertRaw(insertSQL).pipe(
+          Effect.catchAll((error: unknown) => {
+            // Handle StorageError with proper message extraction
+            const errorMessage =
+              error && typeof error === 'object' && 'message' in error
+                ? String((error as { message: unknown }).message)
+                : error instanceof Error
+                  ? error.message
+                  : typeof error === 'string'
+                    ? error
+                    : JSON.stringify(error)
+            console.error('DEBUG: Raw error from storage.queryRaw:', error)
+            console.error('DEBUG: Processed error message:', errorMessage)
+            return Effect.fail(
               new AnnotationError({
                 reason: 'StorageFailure',
-                message: `Failed to insert annotation: ${error}`,
+                message: `Failed to insert annotation: ${errorMessage}`,
                 retryable: true
               })
             )
-          )
+          })
         )
 
         return annotationId

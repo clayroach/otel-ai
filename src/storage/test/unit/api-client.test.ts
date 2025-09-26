@@ -33,6 +33,9 @@ const MockStorageServiceLive = Layer.succeed(StorageServiceTag, {
   queryRaw: (_sql: string): Effect.Effect<unknown[], never> =>
     Effect.succeed([]),
 
+  insertRaw: (_sql: string): Effect.Effect<void, never> =>
+    Effect.succeed(undefined),
+
   queryText: (_sql: string): Effect.Effect<string, never> =>
     Effect.succeed(''),
 
@@ -164,6 +167,9 @@ const MockAPIClientLive = Layer.succeed(StorageAPIClientTag, {
   
   queryRaw: (_sql: string): Effect.Effect<unknown[], StorageError> =>
     Effect.succeed([]),
+
+  insertRaw: (_sql: string): Effect.Effect<void, StorageError> =>
+    Effect.succeed(undefined),
 
   healthCheck: (): Effect.Effect<{ clickhouse: boolean; s3: boolean }, StorageError> =>
     Effect.succeed({ clickhouse: true, s3: true })
@@ -577,6 +583,7 @@ describe('Storage Service with API Client (Effect-TS)', () => {
         queryLogs: (_params: QueryParams) => Effect.succeed([]),
         queryAI: (_params: AIQueryParams) => Effect.succeed([]),
         queryRaw: (_sql: string) => Effect.succeed([]),
+        insertRaw: (_sql: string) => Effect.succeed(undefined),
         healthCheck: () => Effect.succeed({ clickhouse: false, s3: false })
       } as StorageAPIClient)
 
@@ -627,6 +634,7 @@ describe('Storage Service with API Client (Effect-TS)', () => {
           sampleCount: 0
         } as AIDataset),
         queryRaw: (_sql: string) => Effect.succeed([]),
+        insertRaw: (_sql: string) => Effect.succeed(undefined),
         queryText: (_sql: string) => Effect.succeed(''),
         archiveData: (_data: OTLPData, _timestamp: number) => Effect.succeed(undefined),
         applyRetentionPolicies: () => Effect.succeed(undefined),

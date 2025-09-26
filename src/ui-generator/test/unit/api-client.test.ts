@@ -29,6 +29,7 @@ const createMockStorageLayer = () => {
       sampleCount: 0
     }),
     queryRaw: () => Effect.succeed([]),
+    insertRaw: () => Effect.succeed(undefined),
     queryText: () => Effect.succeed(''),
     archiveData: () => Effect.succeed(undefined),
     applyRetentionPolicies: () => Effect.succeed(undefined),

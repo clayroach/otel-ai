@@ -404,6 +404,19 @@ const makeSessionManager = Effect.gen(function* () {
       Effect.gen(function* () {
         const sessionId = `training-${Date.now()}-${uuidv4().slice(0, 8)}`
 
+        // Register the session in the sessions map
+        const session: DiagnosticsSession = {
+          id: sessionId,
+          name: `Training: ${config.flagName}`,
+          flagName: config.flagName,
+          phase: 'created',
+          startTime: new Date(),
+          captureInterval: 30000,
+          annotations: [],
+          metadata: { trainingConfig: config }
+        }
+        sessions.set(sessionId, session)
+
         // Start OTLP capture session
         yield* captureService
           .startCapture({
@@ -430,21 +443,46 @@ const makeSessionManager = Effect.gen(function* () {
         console.log(`Started training capture session: ${sessionId}`)
 
         // Phase 1: Baseline
-        yield* createAnnotation(sessionId, 'test.phase.baseline', {
-          sessionId,
-          flagName: config.flagName,
-          flagValue: config.flagValues.baseline
-        }).pipe(
-          Effect.catchAll((error) =>
-            Effect.fail(
-              new DiagnosticsSessionError({
-                reason: 'OrchestrationFailure',
-                message: `Failed to create baseline annotation: ${error.message || String(error)}`,
-                sessionId
-              })
-            )
-          )
+        yield* updateSession(sessionId, { phase: 'started' })
+        const baselineStart = new Date()
+        const baselineEnd = new Date(
+          baselineStart.getTime() + config.phaseDurations.baseline * 1000
         )
+
+        yield* annotationService
+          .annotate({
+            signalType: 'any',
+            timeRangeStart: baselineStart,
+            timeRangeEnd: baselineEnd,
+            annotationType: 'test',
+            annotationKey: 'test.phase.baseline',
+            annotationValue: JSON.stringify({
+              sessionId,
+              flagName: config.flagName,
+              flagValue: config.flagValues.baseline
+            }),
+            createdBy: 'system:training'
+          })
+          .pipe(
+            Effect.catchAll((error: unknown) => {
+              const errorMessage =
+                error instanceof Error
+                  ? error.message
+                  : error && typeof error === 'object' && 'message' in error
+                    ? String((error as { message: unknown }).message)
+                    : typeof error === 'string'
+                      ? error
+                      : JSON.stringify(error)
+              console.error('DEBUG: Error creating baseline annotation:', error)
+              return Effect.fail(
+                new DiagnosticsSessionError({
+                  reason: 'OrchestrationFailure',
+                  message: `Failed to create baseline annotation: ${errorMessage}`,
+                  sessionId
+                })
+              )
+            })
+          )
         // For baseline, disable flag if value is 0, enable if > 0
         if (config.flagValues.baseline === 0) {
           yield* flagController
@@ -459,21 +497,41 @@ const makeSessionManager = Effect.gen(function* () {
         yield* Effect.sleep(Duration.seconds(config.phaseDurations.baseline))
 
         // Phase 2: Anomaly
-        yield* createAnnotation(sessionId, 'test.phase.anomaly', {
-          sessionId,
-          flagName: config.flagName,
-          flagValue: config.flagValues.anomaly
-        }).pipe(
-          Effect.catchAll((error) =>
-            Effect.fail(
-              new DiagnosticsSessionError({
-                reason: 'OrchestrationFailure',
-                message: `Failed to create anomaly annotation: ${error.message || String(error)}`,
-                sessionId
-              })
-            )
+        const anomalyStart = new Date()
+        yield* annotationService
+          .annotate({
+            signalType: 'any',
+            timeRangeStart: anomalyStart,
+            timeRangeEnd: new Date(anomalyStart.getTime() + config.phaseDurations.anomaly * 1000),
+            annotationType: 'test',
+            annotationKey: 'test.phase.anomaly',
+            annotationValue: JSON.stringify({
+              sessionId,
+              flagName: config.flagName,
+              flagValue: config.flagValues.anomaly
+            }),
+            createdBy: 'system:training'
+          })
+          .pipe(
+            Effect.catchAll((error: unknown) => {
+              const errorMessage =
+                error instanceof Error
+                  ? error.message
+                  : error && typeof error === 'object' && 'message' in error
+                    ? String((error as { message: unknown }).message)
+                    : typeof error === 'string'
+                      ? error
+                      : JSON.stringify(error)
+              console.error('DEBUG: Error creating anomaly annotation:', error)
+              return Effect.fail(
+                new DiagnosticsSessionError({
+                  reason: 'OrchestrationFailure',
+                  message: `Failed to create anomaly annotation: ${errorMessage}`,
+                  sessionId
+                })
+              )
+            })
           )
-        )
         // For anomaly, typically enable the flag
         if (config.flagValues.anomaly > 0) {
           yield* flagController
@@ -488,21 +546,41 @@ const makeSessionManager = Effect.gen(function* () {
         yield* Effect.sleep(Duration.seconds(config.phaseDurations.anomaly))
 
         // Phase 3: Recovery
-        yield* createAnnotation(sessionId, 'test.phase.recovery', {
-          sessionId,
-          flagName: config.flagName,
-          flagValue: config.flagValues.recovery
-        }).pipe(
-          Effect.catchAll((error) =>
-            Effect.fail(
-              new DiagnosticsSessionError({
-                reason: 'OrchestrationFailure',
-                message: `Failed to create recovery annotation: ${error.message || String(error)}`,
-                sessionId
-              })
-            )
+        const recoveryStart = new Date()
+        yield* annotationService
+          .annotate({
+            signalType: 'any',
+            timeRangeStart: recoveryStart,
+            timeRangeEnd: new Date(recoveryStart.getTime() + config.phaseDurations.recovery * 1000),
+            annotationType: 'test',
+            annotationKey: 'test.phase.recovery',
+            annotationValue: JSON.stringify({
+              sessionId,
+              flagName: config.flagName,
+              flagValue: config.flagValues.recovery
+            }),
+            createdBy: 'system:training'
+          })
+          .pipe(
+            Effect.catchAll((error: unknown) => {
+              const errorMessage =
+                error instanceof Error
+                  ? error.message
+                  : error && typeof error === 'object' && 'message' in error
+                    ? String((error as { message: unknown }).message)
+                    : typeof error === 'string'
+                      ? error
+                      : JSON.stringify(error)
+              console.error('DEBUG: Error creating recovery annotation:', error)
+              return Effect.fail(
+                new DiagnosticsSessionError({
+                  reason: 'OrchestrationFailure',
+                  message: `Failed to create recovery annotation: ${errorMessage}`,
+                  sessionId
+                })
+              )
+            })
           )
-        )
         // For recovery, typically disable flag
         if (config.flagValues.recovery === 0) {
           yield* flagController
@@ -528,6 +606,9 @@ const makeSessionManager = Effect.gen(function* () {
             )
           )
         )
+
+        // Mark session as completed
+        yield* updateSession(sessionId, { phase: 'completed', endTime: new Date() })
 
         console.log(`Training session ${sessionId} completed`)
         return sessionId

@@ -36,6 +36,7 @@ export interface StorageAPIClient {
   readonly queryLogs: (params: QueryParams) => Effect.Effect<LogData[], StorageError>
   readonly queryAI: (params: AIQueryParams) => Effect.Effect<readonly unknown[], StorageError>
   readonly queryRaw: (sql: string) => Effect.Effect<unknown[], StorageError>
+  readonly insertRaw: (sql: string) => Effect.Effect<void, StorageError>
   readonly healthCheck: () => Effect.Effect<{ clickhouse: boolean; s3: boolean }, StorageError>
 }
 
@@ -190,7 +191,11 @@ const makeStorageAPIClient: Effect.Effect<StorageAPIClient, StorageError, ClickH
 
       queryRaw: (sql: string) =>
         // Delegate to clickhouse storage for raw query execution
-        clickhouseStorage.queryRaw(sql)
+        clickhouseStorage.queryRaw(sql),
+
+      insertRaw: (sql: string) =>
+        // Delegate to clickhouse storage for raw insert execution
+        clickhouseStorage.insertRaw(sql)
     }
   })
 

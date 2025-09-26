@@ -162,7 +162,7 @@ const OtlpCaptureLayer = OtlpCaptureServiceLive.pipe(Layer.provide(S3StorageLaye
 const OtlpReplayLayer = OtlpReplayServiceLive.pipe(Layer.provide(S3StorageLayer))
 const RetentionServiceLayer = RetentionServiceLive.pipe(Layer.provide(S3StorageLayer))
 const TrainingDataReaderLayer = TrainingDataReaderLive.pipe(
-  Layer.provide(Layer.mergeAll(S3StorageLayer, StorageWithConfig))
+  Layer.provide(Layer.mergeAll(S3StorageLayer, StorageAPIClientLayerWithConfig))
 )
 
 // Create the base dependencies
@@ -179,7 +179,8 @@ const BaseDependencies = Layer.mergeAll(
     Layer.provide(
       Layer.mergeAll(
         AnnotationServiceLive.pipe(Layer.provide(StorageWithConfig)),
-        FeatureFlagControllerLive.pipe(Layer.provide(FeatureFlagConfigLayer))
+        FeatureFlagControllerLive.pipe(Layer.provide(FeatureFlagConfigLayer)),
+        OtlpCaptureServiceLive.pipe(Layer.provide(S3StorageLayer))
       )
     )
   ), // Diagnostics Session Manager
