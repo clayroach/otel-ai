@@ -1,11 +1,11 @@
-name: Claude Code CI/CD Integration
+name: Claude Code Architectural Review
 
 on:
   # Trigger on PR comments for @claude mentions
   issue_comment:
     types: [created]
-  
-  # Trigger on pull requests for automated review
+
+  # Trigger on pull requests for automated architectural review
   pull_request:
     types: [opened, synchronize, reopened]
     branches: [main]
@@ -14,17 +14,8 @@ on:
       - 'blog/**'
       - '*.md'
       - 'docs/**'
-  
-  # Trigger on pushes to main for deployment validation
-  push:
-    branches: [main]
-    paths-ignore:
-      - 'notes/**'
-      - 'blog/**'
-      - '*.md'
-      - 'docs/**'
-  
-  # Manual workflow dispatch for testing
+
+  # Manual workflow dispatch for Claude commands
   workflow_dispatch:
     inputs:
       claude_command:
@@ -37,101 +28,6 @@ env:
   PNPM_VERSION: '8.15.0'
 
 jobs:
-  # Automated testing pipeline
-  test-pipeline:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-        
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-          
-      - name: Get pnpm store directory
-        shell: bash
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-        
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-            
-      - name: Setup environment variables
-        run: |
-          # Copy GitHub CI environment file
-          cp .env.github .env
-          
-          # Override sensitive values from GitHub secrets
-          if [ -n "${{ secrets.OPENAI_API_KEY }}" ]; then
-            sed -i "s/OPENAI_API_KEY=placeholder_will_be_replaced_by_github_secret/OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}/g" .env
-          fi
-          
-          if [ -n "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
-            sed -i "s/ANTHROPIC_API_KEY=placeholder_will_be_replaced_by_github_secret/ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}/g" .env
-          fi
-          
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-        
-      - name: TypeScript type checking
-        run: pnpm typecheck:all
-        
-      - name: ESLint code quality
-        run: pnpm lint
-        
-      - name: Prettier format checking
-        run: pnpm format:check
-        
-      - name: Unit tests
-        run: pnpm test
-        
-      - name: Setup Docker for integration tests
-        run: |
-          docker compose --profile dev up -d
-          # Wait for services to be ready
-          sleep 30
-          
-      - name: Setup OpenTelemetry Demo
-        run: pnpm demo:setup
-          
-      - name: Start OpenTelemetry Demo
-        run: pnpm demo:up
-          
-      - name: Integration tests
-        run: pnpm test:integration
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        
-      - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps
-        
-      - name: E2E tests
-        run: pnpm test:e2e
-        
-      - name: Cleanup Demo services
-        if: always()
-        run: pnpm demo:down
-        
-      - name: Cleanup Docker services
-        if: always()
-        run: docker compose --profile dev down -v
-
   # Claude Code integration for PR review and assistance
   claude-assistant:
     runs-on: ubuntu-latest
@@ -142,7 +38,7 @@ jobs:
       id-token: write  # Required for OIDC authentication
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')) ||
+      (github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize' || github.event.action == 'reopened')) ||
       github.event_name == 'workflow_dispatch'
     
     steps:
@@ -229,75 +125,4 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: ${{ github.event.inputs.claude_command }}
-          claude_args: "--max-turns 3"
-
-  # Prevent breaking main branch
-  protect-main:
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    needs: [test-pipeline]
-    
-    steps:
-      - name: Verify all tests passed
-        run: |
-          echo "✅ All tests passed - main branch protection successful"
-          echo "Ready for deployment or further automation"
-          
-      - name: Deployment validation
-        run: |
-          echo "🚀 Main branch updated successfully"
-          echo "Automated checks completed:"
-          echo "  - TypeScript compilation: ✅"
-          echo "  - Code quality (ESLint): ✅" 
-          echo "  - Code formatting: ✅"
-          echo "  - Unit tests: ✅"
-          echo "  - Integration tests: ✅"
-          echo "  - E2E tests: ✅"
-
-  # Agent-driven automation workflows
-  agent-workflows:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [test-pipeline, protect-main]
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-        
-      - name: Setup Node.js for agents
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          
-      - name: Trigger documentation sync agent
-        if: contains(github.event.head_commit.message, 'feat:') || contains(github.event.head_commit.message, 'fix:')
-        uses: anthropics/claude-code-action@v1
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: |
-            Use the code-to-docs-sync-agent to ensure documentation stays aligned with code changes.
-            Review the latest commit and update any relevant README.md files or package documentation.
-            Focus on maintaining bidirectional sync between implementation and documentation.
-          claude_args: "--max-turns 2"
-          
-      - name: Trigger visual content updates
-        if: contains(github.event.head_commit.message, 'feat:') || contains(github.event.head_commit.message, 'ui:')
-        uses: anthropics/claude-code-action@v1
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: |
-            Use the visual-content-agent to update any relevant screenshots or visual documentation
-            based on the latest UI or feature changes. Organize screenshots and update README files
-            with current visual representations.
-          claude_args: "--max-turns 2"
-          
-      - name: Generate end-of-day summary
-        if: contains(github.event.head_commit.message, 'day-') || contains(github.event.head_commit.message, 'milestone')
-        uses: anthropics/claude-code-action@v1
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: |
-            Use the end-day-agent to generate a progress summary and create blog content
-            for this milestone or daily update. Review the changes and create appropriate
-            content for the 30-Day AI-Native Observability Platform series.
           claude_args: "--max-turns 3"
