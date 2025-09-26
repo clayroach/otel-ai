@@ -59,6 +59,10 @@ jobs:
                 
       - name: Unit tests
         run: pnpm test
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_LOW_TOKENS_API_KEY: ${{ secrets.ANTHROPIC_LOW_TOKENS_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
   ui-dependency-validation:
     name: UI Dependency Validation
@@ -208,3 +212,7 @@ jobs:
           echo "🧪 Running minimal unit tests as safety check..."
           pnpm test --reporter=dot
           echo "✅ Basic unit tests pass - no accidental code changes detected"
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_LOW_TOKENS_API_KEY: ${{ secrets.ANTHROPIC_LOW_TOKENS_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

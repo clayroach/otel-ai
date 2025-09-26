@@ -102,6 +102,10 @@ jobs:
             echo "❌ Unit tests failed"
             exit 1
           fi
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_LOW_TOKENS_API_KEY: ${{ secrets.ANTHROPIC_LOW_TOKENS_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
       - name: Send Quick Validation Failure Notification
         if: failure() && (env.typescript_failed == 'true' || env.eslint_failed == 'true' || env.tests_failed == 'true')
@@ -204,6 +208,10 @@ jobs:
         run: |
           echo "🧪 Running unit tests with established pnpm commands..."
           pnpm test:coverage
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_LOW_TOKENS_API_KEY: ${{ secrets.ANTHROPIC_LOW_TOKENS_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           
       - name: Coverage Report
         uses: davelosert/vitest-coverage-report-action@v2
