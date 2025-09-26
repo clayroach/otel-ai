@@ -142,7 +142,7 @@ jobs:
       id-token: write  # Required for OIDC authentication
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request' && github.event.action == 'opened') ||
+      (github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')) ||
       github.event_name == 'workflow_dispatch'
     
     steps:
@@ -160,28 +160,28 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
-            Use the enhanced code-review-agent to analyze this pull request with focus on:
+            CRITICAL: Use the Task tool to invoke the code-review-agent with the following task:
 
-            **PRIORITY 1 - Architectural Validation:**
-            - Scan for direct ClickHouse client usage outside storage package
-            - Detect @clickhouse/client imports in non-storage packages
-            - Flag raw SQL strings outside storage service
-            - Verify StorageServiceTag usage instead of direct database access
+            Analyze this pull request for architectural violations and generate PR comments with confidence levels.
 
-            **PRIORITY 2 - Code Standards:**
-            1. Code quality and adherence to project standards in CLAUDE.md
-            2. Testing coverage and quality (tests in test/ subdirectories)
-            3. Documentation updates (README.md files match implementation)
-            4. AI-native development patterns and Effect-TS usage
-            5. Security considerations and best practices
+            Focus on detecting:
+            1. **HIGH Confidence Violations**:
+               - Direct @clickhouse/client imports outside storage package
+               - Raw SQL strings outside storage service
+               - Direct database client usage bypassing StorageServiceTag
 
-            **Output Format:**
-            - Generate PR comments for architectural violations
+            2. **Code Standards**:
+               - Effect-TS pattern compliance
+               - Test structure (test/ subdirectories)
+               - Documentation linking
+
+            **Required Output**:
+            - Generate specific PR comments for each violation found
             - Include confidence levels (HIGH/MEDIUM/LOW)
-            - Provide specific fix recommendations with code examples
-            - Format findings for potential Slack notification integration
+            - Provide code examples and fix recommendations
+            - Use the exact file paths and line numbers
 
-            Focus on being helpful and educational, not blocking development.
+            The test file claude-verification-test.ts contains intentional violations that MUST be detected and commented on.
           claude_args: "--max-turns 5 --timeout 600"
 
       - name: Slack Architectural Review Notification
