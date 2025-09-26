@@ -16,5 +16,5 @@ export class Validation {
   query = 'SELECT COUNT(*) FROM otel.traces'
 }
 
-// TypeScript error for testing
-export const err = (x: number): string => x
+// Fixed TypeScript compliance - still has architectural violations
+export const err = (x: number): string => x.toString()
