@@ -196,6 +196,7 @@ jobs:
           commit-author: ${{ github.event.pull_request.user.login || github.actor }}
           pr-number: ${{ github.event.pull_request.number }}
           pr-title: ${{ github.event.pull_request.title }}
+          pr-url: ${{ github.event.pull_request.html_url }}
           error-details: |
             🔍 **Architectural Review Analysis**
 

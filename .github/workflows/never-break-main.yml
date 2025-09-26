@@ -44,6 +44,7 @@ jobs:
           branch: ${{ github.head_ref || github.ref_name }}
           pr-number: ${{ github.event.pull_request.number }}
           pr-title: ${{ github.event.pull_request.title }}
+          pr-url: ${{ github.event.pull_request.html_url }}
           error-details: "Main branch protection workflow started. Event: ${{ github.event_name }}. Branch: ${{ github.head_ref || github.ref_name }}. Author: ${{ github.actor }}. Commit: ${{ github.event.pull_request.head.sha || github.sha }}."
 
   # Fast feedback - basic checks
@@ -113,6 +114,7 @@ jobs:
           branch: ${{ github.head_ref || github.ref_name }}
           pr-number: ${{ github.event.pull_request.number }}
           pr-title: ${{ github.event.pull_request.title }}
+          pr-url: ${{ github.event.pull_request.html_url }}
           error-details: |
             🚨 **Quick Validation Failed**
 
@@ -290,6 +292,7 @@ jobs:
           branch: ${{ github.head_ref || github.ref_name }}
           pr-number: ${{ github.event.pull_request.number }}
           pr-title: ${{ github.event.pull_request.title }}
+          pr-url: ${{ github.event.pull_request.html_url }}
           test-results: ${{ steps.e2e-tests.outputs.e2e_errors }}
           error-details: "🚨 E2E tests failed on main branch protection. View test artifacts: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. Test results and screenshots have been uploaded as artifacts."
                     
@@ -460,6 +463,7 @@ jobs:
           branch: ${{ github.head_ref || github.ref_name }}
           pr-number: ${{ github.event.pull_request.number }}
           pr-title: ${{ github.event.pull_request.title }}
+          pr-url: ${{ github.event.pull_request.html_url }}
           error-details: |
             🛡️ **Main Branch Protection ${{ (needs.quick-validation.result == 'success' && needs.full-validation.result == 'success') && '✅ PASSED' || '❌ FAILED' }}**
 

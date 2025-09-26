@@ -56,6 +56,10 @@ inputs:
     description: 'Pull request title (when applicable)'
     required: false
     default: ''
+  pr-url:
+    description: 'Pull request URL (when applicable)'
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
@@ -125,14 +129,17 @@ runs:
         SLACK_WEBHOOK_URL: ${{ inputs.webhook-url }}
         PR_NUMBER: ${{ inputs.pr-number }}
         PR_TITLE: ${{ inputs.pr-title }}
+        PR_URL: ${{ inputs.pr-url }}
       run: |
-        # Construct the title based on whether this is a PR or branch push
+        # Construct the title and link based on whether this is a PR or branch push
         if [ -n "$PR_NUMBER" ] && [ -n "$PR_TITLE" ]; then
           TITLE="$STATUS_EMOJI PR #$PR_NUMBER: $PR_TITLE - $WORKFLOW_NAME"
           FALLBACK="$STATUS_EMOJI PR #$PR_NUMBER: $PR_TITLE - $WORKFLOW_NAME - $JOB_NAME"
+          TITLE_LINK="${PR_URL:-$RUN_URL}"
         else
           TITLE="$STATUS_EMOJI [$BRANCH] Build $INPUT_STATUS: $WORKFLOW_NAME"
           FALLBACK="$STATUS_EMOJI [$BRANCH] Build $INPUT_STATUS: $WORKFLOW_NAME - $JOB_NAME"
+          TITLE_LINK="$RUN_URL"
         fi
 
         # Construct the Slack message payload
@@ -145,7 +152,7 @@ runs:
               "color": "$STATUS_COLOR",
               "fallback": "$FALLBACK",
               "title": "$TITLE",
-              "title_link": "$RUN_URL",
+              "title_link": "$TITLE_LINK",
               "fields": [
                 {
                   "title": "Repository",
