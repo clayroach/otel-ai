@@ -107,7 +107,6 @@ jobs:
 
             📋 **Check PR comments for any architectural findings and recommendations.**
           test-results: 'Architectural review completed - check PR comments for findings'
-          run-url: ${{ github.event.pull_request.html_url }}
 
           
       - name: Claude Code Comment Response
