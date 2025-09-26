@@ -160,11 +160,10 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           use_sticky_comment: true
-          track_progress: true
           prompt: |
-            Review this pull request for architectural violations and code quality issues.
+            Review this pull request for architectural violations. Analyze the file claude-validation.ts and post review comments on any violations found.
 
-            **CRITICAL: You must post PR comments directly for any violations found.**
+            **CRITICAL: Use GitHub's PR review comment feature to comment directly on the problematic lines of code.**
 
             **Priority Violations to Detect:**
             1. Direct @clickhouse/client imports outside storage package (HIGH confidence)
