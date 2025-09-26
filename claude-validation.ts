@@ -1,8 +1,8 @@
 /**
- * CLAUDE CODE VALIDATION - REVIEW COMMENTS FIX
+ * CLAUDE CODE VALIDATION - INLINE COMMENTS TEST
  *
- * Removed track_progress to enable actual PR review comments
- * Should post line-specific violation findings
+ * Testing with --allowedTools mcp__github_inline_comment__create_inline_comment
+ * Should now post inline comments on specific lines
  */
 
 // HIGH CONFIDENCE: Direct ClickHouse import
