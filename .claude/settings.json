@@ -32,7 +32,8 @@
       "Bash(timeout:*)",
       "WebSearch",
       "mcp__github",
-      "mcp__github-minimal"
+      "mcp__github-minimal",
+      "Bash(yq eval:*)"
     ],
     "deny": [],
     "ask": [],

@@ -48,6 +48,18 @@ inputs:
     description: 'URL to the GitHub Actions run'
     required: false
     default: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  pr-number:
+    description: 'Pull request number (when applicable)'
+    required: false
+    default: ''
+  pr-title:
+    description: 'Pull request title (when applicable)'
+    required: false
+    default: ''
+  pr-url:
+    description: 'Pull request URL (when applicable)'
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
@@ -115,7 +127,36 @@ runs:
         COMMIT_SHA: ${{ steps.format-refs.outputs.short_sha }}
         COMMIT_AUTHOR: ${{ inputs.commit-author }}
         SLACK_WEBHOOK_URL: ${{ inputs.webhook-url }}
+        PR_NUMBER: ${{ inputs.pr-number }}
+        PR_TITLE: ${{ inputs.pr-title }}
+        PR_URL: ${{ inputs.pr-url }}
       run: |
+        # Construct the title and link based on whether this is a PR or branch push
+        if [ -n "$PR_NUMBER" ] && [ -n "$PR_TITLE" ]; then
+          TITLE="$STATUS_EMOJI PR #$PR_NUMBER: $PR_TITLE - $WORKFLOW_NAME"
+          FALLBACK="$STATUS_EMOJI PR #$PR_NUMBER: $PR_TITLE - $WORKFLOW_NAME - $JOB_NAME"
+          TITLE_LINK="${PR_URL:-$RUN_URL}"
+        else
+          TITLE="$STATUS_EMOJI [$BRANCH] Build $INPUT_STATUS: $WORKFLOW_NAME"
+          FALLBACK="$STATUS_EMOJI [$BRANCH] Build $INPUT_STATUS: $WORKFLOW_NAME - $JOB_NAME"
+          TITLE_LINK="$RUN_URL"
+        fi
+
+        # Construct GitHub URLs for clickable links
+        REPO_BASE_URL="https://github.com/$REPOSITORY"
+        REPO_LINK="$REPO_BASE_URL"
+        BRANCH_LINK="$REPO_BASE_URL/tree/$BRANCH"
+        # Note: GitHub doesn't provide job_id in context, so we link to the workflow run
+        # Users can find the specific job by name in the workflow run page
+        JOB_LINK="$RUN_URL"
+
+        # For commit link, use PR commit URL if available, otherwise regular commit URL
+        if [ -n "$PR_URL" ]; then
+          COMMIT_LINK="$PR_URL/commits/$COMMIT_SHA"
+        else
+          COMMIT_LINK="$REPO_BASE_URL/commit/$COMMIT_SHA"
+        fi
+
         # Construct the Slack message payload
         PAYLOAD=$(cat <<EOF
         {
@@ -124,28 +165,28 @@ runs:
           "attachments": [
             {
               "color": "$STATUS_COLOR",
-              "fallback": "$STATUS_EMOJI Build $INPUT_STATUS: $WORKFLOW_NAME - $JOB_NAME",
-              "title": "$STATUS_EMOJI Build $INPUT_STATUS: $WORKFLOW_NAME",
-              "title_link": "$RUN_URL",
+              "fallback": "$FALLBACK",
+              "title": "$TITLE",
+              "title_link": "$TITLE_LINK",
               "fields": [
                 {
                   "title": "Repository",
-                  "value": "\`$REPOSITORY\`",
+                  "value": "\`$REPOSITORY\` <$REPO_LINK|[link]>",
                   "short": true
                 },
                 {
                   "title": "Branch",
-                  "value": "\`$BRANCH\`",
+                  "value": "\`$BRANCH\` <$BRANCH_LINK|[link]>",
                   "short": true
                 },
                 {
                   "title": "Job",
-                  "value": "\`$JOB_NAME\`",
+                  "value": "\`$JOB_NAME\` <$JOB_LINK|[workflow]>",
                   "short": true
                 },
                 {
                   "title": "Commit",
-                  "value": "\`$COMMIT_SHA\`",
+                  "value": "\`$COMMIT_SHA\` <$COMMIT_LINK|[link]>",
                   "short": true
                 },
                 {
