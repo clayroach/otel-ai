@@ -1,8 +1,8 @@
 /**
- * CLAUDE CODE WORKING VALIDATION - FINAL TEST
+ * CLAUDE CODE VALIDATION - REVIEW COMMENTS FIX
  *
- * Enhanced workflow with use_sticky_comment + track_progress now on main!
- * Testing autonomous PR comment generation.
+ * Removed track_progress to enable actual PR review comments
+ * Should post line-specific violation findings
  */
 
 // HIGH CONFIDENCE: Direct ClickHouse import
