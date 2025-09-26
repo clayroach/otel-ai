@@ -180,8 +180,6 @@ jobs:
             - Include confidence levels (HIGH/MEDIUM/LOW)
             - Provide code examples and fix recommendations
             - Use the exact file paths and line numbers
-
-            The test file claude-test-final.ts contains intentional violations that MUST be detected and commented on.
           claude_args: "--max-turns 5"
 
       - name: Slack Architectural Review Notification
