@@ -159,27 +159,41 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          use_sticky_comment: true
+          track_progress: true
           prompt: |
-            CRITICAL: Use the Task tool to invoke the code-review-agent with the following task:
+            Review this pull request for architectural violations and code quality issues.
 
-            Analyze this pull request for architectural violations and generate PR comments with confidence levels.
+            **CRITICAL: You must post PR comments directly for any violations found.**
 
-            Focus on detecting:
-            1. **HIGH Confidence Violations**:
-               - Direct @clickhouse/client imports outside storage package
-               - Raw SQL strings outside storage service
-               - Direct database client usage bypassing StorageServiceTag
+            **Priority Violations to Detect:**
+            1. Direct @clickhouse/client imports outside storage package (HIGH confidence)
+            2. Raw SQL strings outside storage service (HIGH confidence)
+            3. Direct database client usage bypassing StorageServiceTag (HIGH confidence)
+            4. Test files outside test/ subdirectories (MEDIUM confidence)
+            5. Missing Dendron documentation links in README files (LOW confidence)
 
-            2. **Code Standards**:
-               - Effect-TS pattern compliance
-               - Test structure (test/ subdirectories)
-               - Documentation linking
+            **For each violation found:**
+            - Post a specific PR comment on the exact line
+            - Include confidence level: HIGH/MEDIUM/LOW
+            - Provide concrete fix recommendations
+            - Include code examples showing the correct approach
 
-            **Required Output**:
-            - Generate specific PR comments for each violation found
-            - Include confidence levels (HIGH/MEDIUM/LOW)
-            - Provide code examples and fix recommendations
-            - Use the exact file paths and line numbers
+            **Example PR comment format:**
+            ```
+            🚨 **HIGH Confidence Architectural Violation**
+
+            Direct ClickHouse client import detected outside storage package.
+
+            **Issue**: This bypasses the StorageServiceTag abstraction layer.
+            **Fix**: Use StorageServiceTag dependency injection instead.
+
+            **Correct approach:**
+            ```typescript
+            const storage = yield* StorageServiceTag
+            yield* storage.queryTraces(params)
+            ```
+            ```
           claude_args: "--max-turns 5"
 
       - name: Slack Architectural Review Notification
