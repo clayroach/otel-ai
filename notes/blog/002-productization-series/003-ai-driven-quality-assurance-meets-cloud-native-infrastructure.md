@@ -31,7 +31,43 @@ We needed an approach that could capture actual production OTLP data, replay it 
 
 The OTLP capture and replay system creates a comprehensive quality assurance pipeline that handles real production telemetry data with intelligent storage and replay capabilities.
 
-![OTLP System Overview](../../../notes/screenshots/2025-09-26/otlp-system-overview.png)
+```mermaid
+graph TB
+    subgraph "OTLP Sources"
+        A[OTel Demo Services] --> D[OTLP Collector]
+        B[Platform Services] --> D
+        C[Test Generators] --> D
+    end
+
+    subgraph "Capture System"
+        D --> E[OtlpCaptureService]
+        E --> F[Gzip Compression]
+        F --> G[S3StorageTag]
+        G --> H[MinIO Storage]
+    end
+
+    subgraph "Session & Training"
+        H --> I[Session Metadata]
+        I --> J[AnnotationService]
+        J --> K[Phase Annotations]
+        K --> L[Training Data Linkage]
+    end
+
+    subgraph "Replay System"
+        H --> M[OtlpReplayService]
+        M --> N[Timestamp Adjustment]
+        N --> O[Stream Processing]
+        O --> D[OTLP Collector]
+    end
+
+    subgraph "Quality Assurance"
+        M --> Q[RetentionService]
+        Q --> R[Lifecycle Management]
+        D --> S[Validation Results]
+    end
+```
+
+<!-- For Dev.to: ![OTLP System Overview](https://raw.githubusercontent.com/clayroach/otel-ai/main/notes/screenshots/2025-09-26/otlp-system-overview-accurate.png) -->
 
 ### Real-Time Telemetry Capture
 
@@ -163,7 +199,44 @@ The storage system automatically organizes captured OTLP data by date and hour, 
 
 The replay system orchestrates complex data flows that preserve temporal relationships while enabling controlled modifications for comprehensive testing scenarios.
 
-![OTLP Replay Sequence Flow](../../../notes/screenshots/2025-09-26/otlp-replay-sequence.png)
+```mermaid
+sequenceDiagram
+    participant User as User/CI
+    participant RS as OtlpReplayService
+    participant S3 as S3StorageTag
+    participant MinIO as MinIO Storage
+    participant TS as Timestamp Adjuster
+    participant OC as OTLP Collector
+
+    User->>RS: startReplay(config)
+    RS->>S3: retrieveRawData(metadataKey)
+    S3->>MinIO: Get metadata.json
+    MinIO-->>S3: Return metadata
+    S3-->>RS: Session metadata
+
+    RS->>S3: listObjects(sessionPrefix/raw/)
+    S3->>MinIO: List OTLP files
+    MinIO-->>S3: File list
+    S3-->>RS: Available files
+
+    loop For each OTLP file
+        RS->>S3: retrieveRawData(file)
+        S3->>MinIO: Get compressed OTLP
+        MinIO-->>S3: Gzipped data
+        S3-->>RS: Compressed OTLP
+
+        RS->>RS: gunzip(data)
+        RS->>TS: adjustOtlpTimestamps(data, mode)
+        TS-->>RS: Adjusted OTLP
+
+        RS->>OC: POST /v1/traces (adjusted OTLP)
+        OC-->>RS: 200 OK
+    end
+
+    RS-->>User: ReplayStatus(completed)
+```
+
+<!-- For Dev.to: ![OTLP Replay Sequence](https://raw.githubusercontent.com/clayroach/otel-ai/main/notes/screenshots/2025-09-26/otlp-replay-sequence-accurate.png) -->
 
 ### Intelligent Session Routing
 
@@ -316,6 +389,48 @@ The timestamp adjustment preserves span durations and relative timing relationsh
 ### SessionId Linkage Pattern for AI Training
 
 Feature-005c integrates OTLP capture with the annotations system to create comprehensive training datasets. This uses the sessionId linkage pattern to connect MinIO storage with ClickHouse annotations, enabling efficient AI model training without data duplication.
+
+```mermaid
+graph TB
+    subgraph "Training Session Creation"
+        A[Diagnostic Session] --> B[OtlpCaptureService]
+        B --> C["S3: sessions/training-abc123/"]
+        C --> D[metadata.json]
+        C --> E["raw/YYYY-MM-DD/HH/"]
+        E --> F["traces-timestamp.otlp.gz"]
+        E --> G["metrics-timestamp.otlp.gz"]
+    end
+
+    subgraph "Phase Annotation System"
+        A --> H[AnnotationService]
+        H --> I[ClickHouse annotations table]
+        I --> J[test.phase.baseline]
+        I --> K[test.phase.anomaly]
+        I --> L[test.phase.recovery]
+    end
+
+    subgraph "SessionId Linkage"
+        M["sessionId: training-abc123"]
+        D -.-> M
+        J -.-> M
+        K -.-> M
+        L -.-> M
+    end
+
+    subgraph "Training Data Reader"
+        N[TrainingDataReader] --> O[Query by sessionId]
+        O --> P[Load MinIO metadata]
+        O --> Q[Query ClickHouse phases]
+        P --> R[Raw OTLP Files]
+        Q --> S[Ground Truth Labels]
+        R --> T[Training Dataset]
+        S --> T
+    end
+
+    M -.-> O
+```
+
+<!-- For Dev.to: ![Training Data SessionId Linkage](https://raw.githubusercontent.com/clayroach/otel-ai/main/notes/screenshots/2025-09-26/training-data-linkage.png) -->
 
 ```typescript
 // From: src/annotations/diagnostics-session.ts

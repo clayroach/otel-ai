@@ -29,7 +29,7 @@ Our Claude Code architectural reviewer fills this gap by:
 
 The architectural reviewer is actively working in our CI/CD pipeline. Here's proof of the system successfully analyzing code and providing inline comments:
 
-![Claude Code Architectural Analysis](../../../notes/screenshots/2025-09-26/claude-arch-analysis-sql.png)
+![Claude Code Architectural Analysis](https://raw.githubusercontent.com/clayroach/otel-ai/main/notes/screenshots/2025-09-26/claude-arch-analysis-sql.png)
 
 This screenshot demonstrates the Claude Code bot successfully:
 - **Analyzing SQL query patterns** in a pull request
