@@ -54,6 +54,123 @@ This project uses **documentation-driven development** with **AI subagent orches
 3. **Generate code** using AI assistance and Claude code integration
 4. **Keep documentation in sync** with implementation changes
 
+## Feature Implementation Workflow - Plan Mode Standard
+
+### **CRITICAL: Always Use Plan Mode for ALL Development Work**
+
+**Every piece of work requires a GitHub issue and documented plan** - this ensures context recovery if Claude sessions are lost.
+
+#### Step 1: Ensure GitHub Issue Exists
+```bash
+# For features: Use existing feature issue
+# For refactors: Create a refactor issue first
+# For bugs: Use existing bug issue
+# For improvements: Create improvement issue first
+```
+**NO WORK WITHOUT AN ISSUE** - This is critical for context recovery
+
+#### Step 2: Enter Plan Mode
+```
+# Start in plan mode to research and understand requirements
+claude-code --plan
+```
+
+#### Step 3: Research & Analysis Phase
+In plan mode, Claude will:
+1. **Analyze the GitHub issue** thoroughly
+2. **Examine existing codebase** for context and patterns
+3. **Research dependencies** and integration points
+4. **Create comprehensive implementation plan with checklist**
+5. **DO NOT make any changes** during planning phase
+
+#### Step 4: Document Plan as GitHub Comment
+Once the plan is ready:
+1. **Add plan as comment** to the GitHub issue
+2. **Include mandatory checklist** with all implementation steps
+3. **Use structured markdown** with phases and technical details
+4. **Include success metrics** and key decisions
+5. **Link to relevant code** and documentation
+
+#### Step 5: Exit Plan Mode & Implement
+After plan is documented:
+1. **Exit plan mode** to begin implementation
+2. **Follow the checklist** - check off each item as completed
+3. **Update GitHub issue** with progress
+4. **Create PR** referencing the plan comment
+
+### Example Workflows
+
+#### Feature Implementation
+```bash
+# 1. Start with plan mode for existing feature issue
+claude-code --plan
+> "I'd like to implement issue #119"
+# Claude researches, analyzes, creates plan with checklist
+
+# 2. Add plan to GitHub
+> "Please add this plan as a comment to the GitHub feature"
+# Plan with checklist is documented on issue
+
+# 3. Exit plan mode and implement
+> "Let's implement this plan"
+# Claude follows checklist systematically
+```
+
+#### Refactor or Ad-hoc Work
+```bash
+# 1. Create GitHub issue first
+> "Create a GitHub issue for refactoring the storage layer"
+# Claude creates issue #150
+
+# 2. Enter plan mode
+claude-code --plan
+> "I need to refactor the storage layer - issue #150"
+# Claude analyzes and creates refactor plan
+
+# 3. Document plan
+> "Add this refactor plan to issue #150"
+# Plan becomes permanent record
+
+# 4. Implement with checklist
+> "Let's proceed with the refactor"
+# Claude follows documented checklist
+```
+
+### Mandatory Plan Components
+
+Every plan MUST include:
+1. **Implementation Checklist** - Step-by-step tasks that can be checked off
+2. **Success Metrics** - Clear criteria for completion
+3. **Technical Decisions** - Key architecture and design choices
+4. **File References** - Links to relevant code locations
+5. **Dependencies** - External packages or services required
+
+Example Checklist Format:
+```markdown
+## Implementation Checklist
+
+- [ ] Create component structure in ui/src/views/TraceView/
+- [ ] Add route to App.tsx for /traces/:traceId
+- [ ] Implement data fetching hook with React Query
+- [ ] Create span tree builder utility
+- [ ] Implement ECharts timeline visualization
+- [ ] Add interactive controls (zoom, pan, filter)
+- [ ] Create span details panel
+- [ ] Add minimap navigation
+- [ ] Write unit tests for utilities
+- [ ] Write integration tests for components
+- [ ] Update documentation
+```
+
+### Benefits of Plan Mode Workflow
+- **Context Recovery** - GitHub issues preserve all context if sessions are lost
+- **No premature implementation** - Research first, code second
+- **Clear documentation** - Plans become part of issue history
+- **Better architecture** - Comprehensive analysis before coding
+- **Traceable decisions** - Plans document technical choices
+- **Consistent approach** - Standardized across all work
+- **100% completion** - Checklists ensure no steps are missed
+
 ### ⚠️ CRITICAL: Development Memory - NEVER Declare Early Success
 
 **NEVER declare success while known issues exist:**
@@ -224,9 +341,36 @@ Use the code-implementation-planning-agent when you have a design document or sp
 
 **Quality Assurance Workflow**:
 1. `testing-agent` → comprehensive validation
-2. `code-review-agent` → quality and convention check  
+2. `code-review-agent` → quality and convention check
 3. `code-to-docs-sync-agent` → documentation alignment
 4. Ready for commit/PR
+
+### Plan Mode Integration Pattern
+
+**For Feature Implementation from GitHub Issues**:
+1. User requests feature → **Enter plan mode first**
+2. Research phase → Analyze issue, codebase, dependencies
+3. Planning phase → Create structured implementation plan
+4. Documentation → **Add plan as GitHub issue comment**
+5. Implementation → Exit plan mode and follow plan
+
+**Example**:
+```bash
+# User wants to implement trace view feature
+User: "I'd like to implement issue #119"
+Claude: [Enters plan mode, researches, creates plan]
+Claude: "I've created a comprehensive implementation plan. Shall I add it to the issue?"
+User: "Yes, please add this plan as a comment to the GitHub feature"
+Claude: [Adds plan to GitHub using gh issue comment]
+User: "Great, now let's implement it"
+Claude: [Exits plan mode, begins implementation following the plan]
+```
+
+**Benefits**:
+- Plans become permanent documentation in issue history
+- Technical decisions are traceable
+- No premature implementation before understanding
+- Consistent approach across all features
 
 **Feature Implementation Workflow**:
 1. `code-implementation-planning-agent` → transform design doc to Effect-TS code
