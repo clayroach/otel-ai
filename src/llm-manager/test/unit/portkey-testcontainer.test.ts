@@ -57,14 +57,16 @@ describe('Portkey Gateway Integration with Testcontainer', () => {
           console.log('✅ OPENAI_API_KEY loaded from environment')
         }
 
-        if (process.env.ANTHROPIC_API_KEY) {
-          containerEnv.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
-          console.log('✅ ANTHROPIC_API_KEY loaded from environment')
-        }
-
+        // Use ANTHROPIC_LOW_TOKENS_API_KEY as the primary key for rate limit testing
         if (process.env.ANTHROPIC_LOW_TOKENS_API_KEY) {
-          containerEnv.ANTHROPIC_LOW_TOKENS_API_KEY = process.env.ANTHROPIC_LOW_TOKENS_API_KEY
-          console.log('✅ ANTHROPIC_LOW_TOKENS_API_KEY loaded from environment')
+          containerEnv.ANTHROPIC_API_KEY = process.env.ANTHROPIC_LOW_TOKENS_API_KEY
+          console.log('✅ ANTHROPIC_LOW_TOKENS_API_KEY loaded as ANTHROPIC_API_KEY for rate limit testing')
+        } else {
+          // Fallback to regular key if low-tokens key not available
+          if (process.env.ANTHROPIC_API_KEY) {
+            containerEnv.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
+            console.log('✅ ANTHROPIC_API_KEY loaded from environment (fallback)')
+          }
         }
 
         // Add local model endpoints
@@ -131,7 +133,7 @@ describe('Portkey Gateway Integration with Testcontainer', () => {
         )
       })
     )
-  }, 60000) // Increase timeout for container startup
+  }, 20000) // Increase timeout for container startup
 
   afterAll(() => {
     if (!container) return
@@ -594,10 +596,8 @@ describe('Portkey Gateway Integration with Testcontainer', () => {
         readonly tokensUsed: number
       }
 
-      // Set up API key for rate limit testing - use ONLY the low-tokens key
-      const originalApiKey = process.env.ANTHROPIC_API_KEY
-      console.log('🔑 Using ANTHROPIC_LOW_TOKENS_API_KEY for rate limit testing')
-      process.env.ANTHROPIC_API_KEY = process.env.ANTHROPIC_LOW_TOKENS_API_KEY
+      // Note: Container is already configured to use ANTHROPIC_LOW_TOKENS_API_KEY
+      console.log('🔑 Container already configured with ANTHROPIC_LOW_TOKENS_API_KEY for rate limit testing')
 
       // Pre-flight validation: test if the API key works
       const validateApiKey = Effect.gen(function* () {
@@ -841,10 +841,7 @@ describe('Portkey Gateway Integration with Testcontainer', () => {
             )
           }
 
-          // Restore original API key
-          if (originalApiKey) {
-            process.env.ANTHROPIC_API_KEY = originalApiKey
-          }
+          // No need to restore API key - container was configured correctly from start
         })
       )
     }, 120000) // 120 second timeout for this test to allow for retries
