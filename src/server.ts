@@ -309,6 +309,87 @@ app.get('/health', async (_req, res) => {
   }
 })
 
+// Get all spans for a specific trace
+app.get('/api/traces/:traceId/spans', async (req, res) => {
+  try {
+    const { traceId } = req.params
+
+    if (!traceId) {
+      return res.status(400).json({ error: 'Trace ID is required' })
+    }
+
+    // Query all spans for this trace
+    const query = `
+      SELECT
+        trace_id,
+        span_id,
+        parent_span_id,
+        service_name,
+        operation_name,
+        toUnixTimestamp64Nano(start_time) AS start_time_unix_nano,
+        toUnixTimestamp64Nano(end_time) AS end_time_unix_nano,
+        duration_ns,
+        status_code,
+        status_message,
+        span_kind,
+        attributes,
+        resource_attributes
+      FROM otel.traces
+      WHERE trace_id = '${traceId}'
+      ORDER BY start_time ASC
+    `
+
+    const queryResponse = await queryWithResults(query)
+    const spans = queryResponse.data
+
+    if (!spans || spans.length === 0) {
+      return res.status(404).json({ error: 'Trace not found' })
+    }
+
+    // Calculate metadata
+    const startTimes = spans.map((s: any) => BigInt(s.start_time_unix_nano))
+    const endTimes = spans.map((s: any) => BigInt(s.end_time_unix_nano))
+    const minStartTime = startTimes.reduce((a: bigint, b: bigint) => (a < b ? a : b))
+    const maxEndTime = endTimes.reduce((a: bigint, b: bigint) => (a > b ? a : b))
+    const durationNs = maxEndTime - minStartTime
+    const durationMs = Number(durationNs) / 1_000_000
+
+    // Find root span
+    const rootSpan = spans.find((s: any) => !s.parent_span_id || s.parent_span_id === '')
+    const services = [...new Set(spans.map((s: any) => s.service_name))]
+
+    return res.json({
+      spans: spans.map((span: any) => ({
+        traceId: span.trace_id,
+        spanId: span.span_id,
+        parentSpanId: span.parent_span_id,
+        serviceName: span.service_name,
+        operationName: span.operation_name,
+        startTimeUnixNano: span.start_time_unix_nano,
+        endTimeUnixNano: span.end_time_unix_nano,
+        durationNs: span.duration_ns,
+        statusCode: span.status_code,
+        statusMessage: span.status_message,
+        spanKind: span.span_kind,
+        attributes: span.attributes,
+        resourceAttributes: span.resource_attributes
+      })),
+      metadata: {
+        traceId,
+        totalSpans: spans.length,
+        rootSpanId: rootSpan?.span_id || spans[0]?.span_id,
+        services,
+        durationMs,
+        startTime: Number(minStartTime) / 1_000_000,
+        endTime: Number(maxEndTime) / 1_000_000
+      }
+    })
+  } catch (error) {
+    console.error('Error fetching trace spans:', error)
+    return res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
 // Query traces endpoint for real-time updates
 app.get('/api/traces', async (req, res) => {
   try {
