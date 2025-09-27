@@ -247,9 +247,161 @@ export const validateSQLSyntax = <E = Error>(
 }
 
 /**
- * Evaluates SQL by executing it against ClickHouse
+ * Validates SQL semantics using EXPLAIN PLAN to catch aggregation and semantic errors
+ * without executing the query. This catches ILLEGAL_AGGREGATION, NOT_AN_AGGREGATE, etc.
  */
-export const evaluateSQL = <E = Error>(
+export const validateSQLSemantics = <E = Error>(
+  sql: string,
+  clickhouseClient: ClickHouseClient<E>
+): Effect.Effect<SQLEvaluationResult, E> => {
+  console.log(
+    `🔧 [SQL-SEMANTIC-VALIDATOR] validateSQLSemantics called with SQL length: ${sql.length}`
+  )
+  console.log(
+    `🔧 [SQL-SEMANTIC-VALIDATOR] validateSQLSemantics SQL preview: ${sql.substring(0, 100)}...`
+  )
+
+  return Effect.gen(function* () {
+    const startTime = Date.now()
+
+    // Use EXPLAIN PLAN to validate query semantics without execution
+    const explainQuery = `EXPLAIN PLAN ${sql.replace(/;?\s*$/, '')}`
+
+    console.log('🔍 [SQL-SEMANTIC-VALIDATOR] validateSQLSemantics executing EXPLAIN PLAN query')
+    console.log(
+      '🔍 [SQL-SEMANTIC-VALIDATOR] validateSQLSemantics EXPLAIN query:',
+      explainQuery.substring(0, 150) + '...'
+    )
+
+    const result = yield* pipe(
+      clickhouseClient.queryText(explainQuery),
+      Effect.map((_planText) => {
+        const executionTimeMs = Date.now() - startTime
+
+        console.log(
+          '✅ [SQL-SEMANTIC-VALIDATOR] validateSQLSemantics semantics are VALID - no errors found'
+        )
+        console.log(
+          '✅ [SQL-SEMANTIC-VALIDATOR] EXPLAIN PLAN returned successfully, query is semantically correct'
+        )
+
+        const result: SQLEvaluationResult = {
+          sql,
+          isValid: true,
+          executionTimeMs,
+          // No row data since we only validated semantics
+          rowCount: 0,
+          columns: []
+        }
+        return result
+      }),
+      Effect.catchAll((error) => {
+        const executionTimeMs = Date.now() - startTime
+        const errorMessage = error instanceof Error ? error.message : String(error)
+
+        console.log(
+          '❌ [SQL-SEMANTIC-VALIDATOR] validateSQLSemantics semantic validation FAILED:',
+          errorMessage
+        )
+        console.log(
+          '❌ [SQL-SEMANTIC-VALIDATOR] validateSQLSemantics this error should trigger optimization attempts'
+        )
+
+        // Parse ClickHouse error - enhanced for semantic errors
+        let errorCode = 'SEMANTIC_ERROR'
+        let errorCodeNumber = ClickHouseErrorCode.UNKNOWN
+        let position: number | undefined
+
+        // Extract error code from ClickHouse error message
+        const codeMatch = errorMessage.match(/Code:\s*(\d+)/i)
+        if (codeMatch && codeMatch[1]) {
+          const numericCode = parseInt(codeMatch[1], 10)
+          errorCodeNumber = numericCode
+
+          // Map numeric code to our enum
+          for (const [name, value] of Object.entries(ErrorCodeNames)) {
+            if (value === numericCode) {
+              errorCode = name
+              break
+            }
+          }
+        }
+
+        // Enhanced pattern matching for semantic errors
+        if (errorCode === 'SEMANTIC_ERROR' || errorCode === 'UNKNOWN') {
+          if (
+            errorMessage.includes('ILLEGAL_AGGREGATION') ||
+            errorMessage.includes('Aggregate function') ||
+            errorMessage.includes('nested aggregate functions')
+          ) {
+            errorCode = 'ILLEGAL_AGGREGATION'
+            errorCodeNumber = ClickHouseErrorCode.ILLEGAL_AGGREGATION
+          } else if (
+            errorMessage.includes('NOT_AN_AGGREGATE') ||
+            errorMessage.includes('not under aggregate function and not in GROUP BY')
+          ) {
+            errorCode = 'NOT_AN_AGGREGATE'
+            errorCodeNumber = ClickHouseErrorCode.NOT_AN_AGGREGATE
+          } else if (
+            errorMessage.includes('Unknown expression identifier') ||
+            errorMessage.includes('UNKNOWN_IDENTIFIER')
+          ) {
+            errorCode = 'UNKNOWN_IDENTIFIER'
+            errorCodeNumber = ClickHouseErrorCode.UNKNOWN_IDENTIFIER
+          } else if (
+            errorMessage.includes('TYPE_MISMATCH') ||
+            errorMessage.includes('Cannot convert type')
+          ) {
+            errorCode = 'TYPE_MISMATCH'
+            errorCodeNumber = ClickHouseErrorCode.TYPE_MISMATCH
+          } else if (
+            errorMessage.includes('UNKNOWN_TABLE') ||
+            errorMessage.includes("Table .* doesn't exist")
+          ) {
+            errorCode = 'UNKNOWN_TABLE'
+            errorCodeNumber = ClickHouseErrorCode.UNKNOWN_TABLE
+          } else if (errorMessage.includes('Unknown aggregate function')) {
+            errorCode = 'UNKNOWN_AGGREGATE_FUNCTION'
+            errorCodeNumber = ClickHouseErrorCode.UNKNOWN_AGGREGATE_FUNCTION
+          }
+        }
+
+        // Try to extract position if available
+        const positionMatch = errorMessage.match(/at position (\d+)/i)
+        if (positionMatch && positionMatch[1]) {
+          position = parseInt(positionMatch[1], 10)
+        }
+
+        // Extract line information if available
+        const lineMatch = errorMessage.match(/at line (\d+)/i)
+        let lineInfo = ''
+        if (lineMatch && lineMatch[1]) {
+          lineInfo = ` at line ${lineMatch[1]}`
+        }
+
+        const result: SQLEvaluationResult = {
+          sql,
+          isValid: false,
+          executionTimeMs,
+          error: {
+            code: errorCode,
+            codeNumber: errorCodeNumber,
+            message: errorMessage + lineInfo,
+            ...(position !== undefined && { position })
+          }
+        }
+        return Effect.succeed(result)
+      })
+    )
+
+    return result
+  })
+}
+
+/**
+ * Evaluates SQL by executing it against ClickHouse (Stage 3: Execution Test)
+ */
+export const evaluateSQLExecution = <E = Error>(
   sql: string,
   clickhouseClient: ClickHouseClient<E>
 ): Effect.Effect<SQLEvaluationResult, E> => {
@@ -472,11 +624,20 @@ function getErrorSpecificGuidance(errorCode: string): string {
 1. Aggregate functions (COUNT, SUM, AVG, etc.) CANNOT be used in WHERE clauses
 2. To filter on aggregates, use HAVING clause after GROUP BY
 3. Column aliases with aggregates cannot be used in WHERE
+4. CANNOT use aggregates INSIDE other aggregates (e.g., sum(column * count()) is illegal)
+5. CANNOT multiply by aggregate aliases in aggregate functions
+
+Common illegal patterns:
+- sum(duration_ns/1000000 * request_count) where request_count is count()
+- sum(column * count())
+- avg(field * aggregated_alias)
 
 Fix by:
 - Moving aggregate conditions from WHERE to HAVING
 - Ensuring GROUP BY is present when using aggregates
-- Using HAVING for filtering aggregate results`
+- Using HAVING for filtering aggregate results
+- Removing multiplication by aggregate functions: sum(col * count()) → sum(col)
+- Using separate calculations for totals instead of nested aggregates`
 
     case 'UNKNOWN_IDENTIFIER':
       return `UNKNOWN_IDENTIFIER Error - Column or alias not found:
@@ -691,11 +852,84 @@ export const evaluateAndOptimizeSQLWithLLM = <E = Error>(
         continue // Skip execution test since syntax is invalid
       }
 
-      console.log('✅ [SQL Evaluator] Syntax is valid, now testing execution with LIMIT 1')
+      console.log('✅ [SQL Evaluator] Syntax is valid, now validating semantics with EXPLAIN PLAN')
 
-      // If syntax is valid, test execution with LIMIT 1
+      // If syntax is valid, validate semantics using EXPLAIN PLAN
+      const semanticValidation = yield* pipe(
+        validateSQLSemantics(currentSql, clickhouseClient),
+        Effect.mapError(
+          (error) =>
+            new NetworkError({
+              model: 'clickhouse',
+              message: `Semantic validation failed: ${error}`
+            })
+        )
+      )
+
+      // If semantics are invalid, try to fix before execution
+      if (!semanticValidation.isValid) {
+        console.log(`❌ [SQL Evaluator] Semantics invalid: ${semanticValidation.error?.message}`)
+        attempts.push(semanticValidation)
+
+        // If we have attempts left, optimize with LLM
+        if (i < maxAttempts - 1 && semanticValidation.error) {
+          console.log(`🔧 [SQL Optimizer] Fixing semantic error: ${semanticValidation.error.code}`)
+
+          const optimizationRequest: SQLOptimizationRequest = {
+            originalSql: currentSql,
+            error: {
+              code: semanticValidation.error.code,
+              message: semanticValidation.error.message
+            },
+            ...(context && { context })
+          }
+
+          const optimization = yield* pipe(
+            optimizeSQLWithLLM(optimizationRequest),
+            Effect.map((result) => {
+              // If LLM returned empty SQL, use rule-based optimization
+              if (!result.optimizedSql || result.optimizedSql.trim() === '') {
+                return {
+                  optimizedSql: applyRuleBasedOptimization(
+                    currentSql,
+                    semanticValidation.error?.code || 'UNKNOWN'
+                  ),
+                  explanation: `LLM returned empty result, using rule-based optimization`,
+                  changes: [
+                    `Applied rule-based optimization for ${semanticValidation.error?.code || 'UNKNOWN'}`
+                  ]
+                }
+              }
+              return result
+            }),
+            Effect.catchAll((_error) => {
+              // If LLM optimization fails, use rule-based approach
+              console.log('⚠️ [SQL Optimizer] LLM optimization failed, using rule-based approach')
+              return Effect.succeed({
+                optimizedSql: applyRuleBasedOptimization(
+                  currentSql,
+                  semanticValidation.error?.code || 'UNKNOWN'
+                ),
+                explanation: 'LLM optimization failed, using rule-based optimization',
+                changes: ['Applied rule-based optimization']
+              })
+            })
+          )
+
+          optimizations.push(optimization)
+          currentSql = optimization.optimizedSql
+          console.log(`🔄 [SQL Optimizer] Applied optimization: ${optimization.changes.join(', ')}`)
+        }
+        continue // Skip execution test since semantics are invalid
+      }
+
+      console.log(
+        '✅ [SQL Evaluator] Syntax and semantics are valid, now testing execution with LIMIT 1'
+      )
+
+      // If syntax and semantics are valid, test execution with LIMIT 1
       const evaluation = yield* pipe(
-        evaluateSQL(currentSql, clickhouseClient),
+        evaluateSQLExecution(currentSql, clickhouseClient),
         Effect.mapError(
           (error) =>
             new NetworkError({
@@ -797,7 +1031,8 @@ export const evaluateAndOptimizeSQL = <E = Error>(
   maxAttempts: number = 3
 ): Effect.Effect<
   { finalSql: string; attempts: SQLEvaluationResult[]; optimizations: SQLOptimizationResult[] },
-  E
+  E,
+  never
 > => {
   return Effect.gen(function* () {
     const attempts: SQLEvaluationResult[] = []
@@ -808,7 +1043,7 @@ export const evaluateAndOptimizeSQL = <E = Error>(
       console.log(`🔄 [SQL Evaluator] Attempt ${i + 1}/${maxAttempts}`)
 
       // Evaluate the SQL
-      const evaluation = yield* evaluateSQL(currentSql, clickhouseClient)
+      const evaluation = yield* evaluateSQLExecution(currentSql, clickhouseClient)
       attempts.push(evaluation)
 
       if (evaluation.isValid) {
@@ -862,6 +1097,8 @@ export function applyRuleBasedOptimization(sql: string, errorCode: string): stri
     case 'ILLEGAL_AGGREGATION':
       // Move aggregates from WHERE to HAVING
       optimized = moveAggregatesToHaving(optimized)
+      // Fix nested aggregates (e.g., sum(column * count()) -> sum(column))
+      optimized = fixNestedAggregates(optimized)
       break
 
     case 'UNKNOWN_TABLE':
@@ -932,6 +1169,30 @@ function moveAggregatesToHaving(sql: string): string {
       return match
     })
   }
+
+  return sql
+}
+
+function fixNestedAggregates(sql: string): string {
+  // Fix the specific pattern: sum(column * count()) or sum(column/number * count())
+  // This pattern creates illegal aggregation in ClickHouse
+
+  // Pattern 1: sum(duration_ns/1000000 * request_count) where request_count is count()
+  // Replace with: sum(duration_ns/1000000) (removes the multiplication by count)
+  sql = sql.replace(/sum\(([^*]+)\s*\*\s*request_count\)/gi, 'sum($1)')
+
+  // Pattern 2: sum(column * count()) - generic pattern
+  sql = sql.replace(/sum\(([^*]+)\s*\*\s*count\(\)\)/gi, 'sum($1)')
+
+  // Pattern 3: sum(count() * column) - reversed pattern
+  sql = sql.replace(/sum\(count\(\)\s*\*\s*([^)]+)\)/gi, 'sum($1)')
+
+  // Pattern 4: avg(column * count()) -> avg(column)
+  sql = sql.replace(/avg\(([^*]+)\s*\*\s*count\(\)\)/gi, 'avg($1)')
+
+  // Pattern 5: sum(column * aggregateAlias) where aggregateAlias might be count/sum/etc
+  // Look for patterns where we multiply by an alias that's likely an aggregate
+  sql = sql.replace(/sum\(([^*]+)\s*\*\s*(request_count|error_count|total_count)\)/gi, 'sum($1)')
 
   return sql
 }

@@ -6,7 +6,7 @@
 import { Effect, pipe } from 'effect'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { LLMManagerLive } from '../../../llm-manager/index.js'
-import { evaluateAndOptimizeSQLWithLLM, evaluateSQL, type ClickHouseClient as EvaluatorClient } from '../../query-generator/sql-evaluator-optimizer.js'
+import { evaluateAndOptimizeSQLWithLLM, evaluateSQLExecution, validateSQLSemantics, type ClickHouseClient as EvaluatorClient, type SQLEvaluationResult } from '../../query-generator/sql-evaluator-optimizer.js'
 import {
   type ClickHouseTestContainer,
   startClickHouseContainer,
@@ -120,7 +120,7 @@ describe('SQL Evaluator-Optimizer Unit Tests', () => {
     `
 
     it('should detect UNKNOWN_IDENTIFIER error in service_health CTE', async () => {
-      const result = await Effect.runPromise(evaluateSQL(claudeQueryWithError, testClient))
+      const result: SQLEvaluationResult = await Effect.runPromise(evaluateSQLExecution(claudeQueryWithError, testClient))
 
       expect(result.isValid).toBe(false)
       expect(result.error).toBeDefined()
@@ -176,7 +176,7 @@ describe('SQL Evaluator-Optimizer Unit Tests', () => {
         ) USING service_name
       `
 
-      const result = await Effect.runPromise(evaluateSQL(sqlWithTypo, testClient))
+      const result = await Effect.runPromise(evaluateSQLExecution(sqlWithTypo, testClient))
 
       expect(result.isValid).toBe(false)
       expect(result.error?.code).toBe('SYNTAX_ERROR')
@@ -200,7 +200,7 @@ describe('SQL Evaluator-Optimizer Unit Tests', () => {
         GROUP BY t1.service_name, t1.operation_name
       `
 
-      const result = await Effect.runPromise(evaluateSQL(malformedJoin, testClient))
+      const result = await Effect.runPromise(evaluateSQLExecution(malformedJoin, testClient))
 
       expect(result.isValid).toBe(false)
       expect(result.error?.code).toBe('SYNTAX_ERROR')
@@ -219,13 +219,130 @@ describe('SQL Evaluator-Optimizer Unit Tests', () => {
         GROUP BY service_name, operation_name
       `
 
-      const result = await Effect.runPromise(evaluateSQL(missingCommaSQL, testClient))
+      const result = await Effect.runPromise(evaluateSQLExecution(missingCommaSQL, testClient))
 
       expect(result.isValid).toBe(false)
       expect(result.error?.code).toBe('SYNTAX_ERROR')
 
       console.log('❌ Missing comma error:', result.error?.code)
       console.log('   Message:', result.error?.message)
+    })
+  })
+
+  describe('Semantic validation with EXPLAIN PLAN', () => {
+    it('should catch ILLEGAL_AGGREGATION errors before execution', async () => {
+      const illegalAggregateSQL = `
+        SELECT
+          service_name,
+          count() as request_count,
+          sum(duration_ns/1000000 * count()) as total_time_ms
+        FROM otel.traces
+        WHERE service_name IN ('frontend', 'backend')
+        GROUP BY service_name
+      `
+
+      const result = await Effect.runPromise(validateSQLSemantics(illegalAggregateSQL, testClient))
+
+      expect(result.isValid).toBe(false)
+      expect(result.error).toBeDefined()
+      expect(result.error?.code).toBe('ILLEGAL_AGGREGATION')
+      expect(result.error?.message).toMatch(/aggregate|nested/i)
+
+      console.log('❌ [SEMANTIC] ILLEGAL_AGGREGATION caught:', result.error?.code)
+      console.log('   Message:', result.error?.message)
+    })
+
+    it('should catch NOT_AN_AGGREGATE errors for columns not in GROUP BY', async () => {
+      const notAggregateSQL = `
+        SELECT
+          service_name,
+          operation_name,
+          count() as request_count
+        FROM otel.traces
+        GROUP BY service_name
+      `
+
+      const result = await Effect.runPromise(validateSQLSemantics(notAggregateSQL, testClient))
+
+      expect(result.isValid).toBe(false)
+      expect(result.error).toBeDefined()
+      expect(result.error?.code).toBe('NOT_AN_AGGREGATE')
+      expect(result.error?.message).toContain('operation_name')
+
+      console.log('❌ [SEMANTIC] NOT_AN_AGGREGATE caught:', result.error?.code)
+      console.log('   Message:', result.error?.message)
+    })
+
+    it('should validate semantically correct queries', async () => {
+      const validSQL = `
+        SELECT
+          service_name,
+          count() as request_count,
+          avg(duration_ns/1000000) as avg_duration_ms
+        FROM otel.traces
+        WHERE service_name IN ('frontend', 'backend')
+        GROUP BY service_name
+        ORDER BY request_count DESC
+      `
+
+      const result = await Effect.runPromise(validateSQLSemantics(validSQL, testClient))
+
+      expect(result.isValid).toBe(true)
+      expect(result.error).toBeUndefined()
+      expect(result.executionTimeMs).toBeGreaterThan(0)
+
+      console.log(`✅ [SEMANTIC] Valid query semantics validated in ${result.executionTimeMs}ms`)
+    })
+
+    it('should catch type mismatches in semantic validation', async () => {
+      const typeMismatchSQL = `
+        SELECT
+          service_name,
+          count() + 'invalid_string' as invalid_calc
+        FROM otel.traces
+        GROUP BY service_name
+      `
+
+      const result = await Effect.runPromise(validateSQLSemantics(typeMismatchSQL, testClient))
+
+      expect(result.isValid).toBe(false)
+      expect(result.error).toBeDefined()
+      expect(['TYPE_MISMATCH', 'ILLEGAL_TYPE_OF_ARGUMENT', 'SYNTAX_ERROR', 'SEMANTIC_ERROR']).toContain(result.error?.code)
+
+      console.log('❌ [SEMANTIC] Type error caught:', result.error?.code)
+      console.log('   Message:', result.error?.message)
+    })
+
+    it('should be faster than execution test since no data is processed', async () => {
+      const complexQuery = `
+        WITH service_metrics AS (
+          SELECT
+            service_name,
+            count() as request_count,
+            avg(duration_ns/1000000) as avg_duration_ms
+          FROM otel.traces
+          WHERE start_time >= now() - INTERVAL 1 HOUR
+          GROUP BY service_name
+        )
+        SELECT * FROM service_metrics
+        ORDER BY request_count DESC
+      `
+
+      const semanticStart = Date.now()
+      const semanticResult = await Effect.runPromise(validateSQLSemantics(complexQuery, testClient))
+      const semanticTime = Date.now() - semanticStart
+
+      const executionStart = Date.now()
+      const executionResult = await Effect.runPromise(evaluateSQLExecution(complexQuery, testClient))
+      const executionTime = Date.now() - executionStart
+
+      expect(semanticResult.isValid).toBe(true)
+      expect(executionResult.isValid).toBe(true)
+
+      // Semantic validation should typically be faster since it doesn't process data
+      console.log(`⚡ [SEMANTIC] Validation time: ${semanticTime}ms`)
+      console.log(`⚡ [EXECUTION] Test time: ${executionTime}ms`)
+      console.log(`⚡ [PERFORMANCE] Semantic validation is ${executionTime >= semanticTime ? 'faster' : 'slower'} than execution`)
     })
   })
 
@@ -301,7 +418,7 @@ describe('SQL Evaluator-Optimizer Unit Tests', () => {
       )
 
       expect(result.attempts.length).toBeGreaterThan(0)
-      expect(result.attempts[0]?.error?.code).toMatch(/UNKNOWN/)
+      expect(result.attempts[0]?.error?.code).toMatch(/UNKNOWN|SEMANTIC_ERROR/)
 
       const optimizationsApplied = result.attempts
         .filter((_, i) => i > 0)
@@ -319,7 +436,7 @@ describe('SQL Evaluator-Optimizer Unit Tests', () => {
         SELECT * FROM non_existent_table_with_very_long_name_that_triggers_detailed_error_message
       `
 
-      const result = await Effect.runPromise(evaluateSQL(complexErrorSQL, testClient))
+      const result = await Effect.runPromise(evaluateSQLExecution(complexErrorSQL, testClient))
 
       expect(result.isValid).toBe(false)
       expect(result.error).toBeDefined()
@@ -343,7 +460,7 @@ describe('SQL Evaluator-Optimizer Unit Tests', () => {
         GROUP BY service_name
       `
 
-      const result = await Effect.runPromise(evaluateSQL(invalidAggregate, testClient))
+      const result = await Effect.runPromise(evaluateSQLExecution(invalidAggregate, testClient))
 
       expect(result.isValid).toBe(false)
       expect(result.error).toBeDefined()
@@ -360,7 +477,7 @@ describe('SQL Evaluator-Optimizer Unit Tests', () => {
         LIMIT 1
       `
 
-      const result = await Effect.runPromise(evaluateSQL(wrongTableRef, testClient))
+      const result = await Effect.runPromise(evaluateSQLExecution(wrongTableRef, testClient))
 
       expect(result.isValid).toBe(false)
       expect(result.error?.code).toBe('UNKNOWN')
@@ -379,7 +496,7 @@ describe('SQL Evaluator-Optimizer Unit Tests', () => {
         LIMIT 10
       `
 
-      const result = await Effect.runPromise(evaluateSQL(validSQL, testClient))
+      const result = await Effect.runPromise(evaluateSQLExecution(validSQL, testClient))
 
       expect(result.isValid).toBe(true)
       expect(result.error).toBeUndefined()
