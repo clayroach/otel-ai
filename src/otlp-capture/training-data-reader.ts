@@ -43,17 +43,6 @@ export class TrainingDataReaderTag extends Context.Tag('TrainingDataReader')<
   TrainingDataReader
 >() {}
 
-// Helper to parse phase annotation
-const parsePhaseAnnotation = (
-  annotationValue: string
-): { sessionId: string; flagName: string; flagValue: number } => {
-  try {
-    return JSON.parse(annotationValue)
-  } catch {
-    return { sessionId: '', flagName: '', flagValue: 0 }
-  }
-}
-
 // Helper to extract anomaly type from flag name
 const extractAnomalyType = (flagName: string): string => {
   // Extract the service or component name from the flag
@@ -137,16 +126,17 @@ export const TrainingDataReaderLive = Layer.effect(
           )
         )
 
-        // 2. Query phase annotations from ClickHouse
+        // 2. Query phase annotations from ClickHouse (structured approach)
         const phaseQuery = `
           SELECT
             annotation_key,
             annotation_value,
+            confidence,
             time_range_start,
             annotation_id
           FROM annotations
           WHERE annotation_key LIKE 'test.phase.%'
-            AND annotation_value LIKE '%${sessionId}%'
+            AND session_id = '${sessionId}'
           ORDER BY time_range_start
         `
 
@@ -156,6 +146,7 @@ export const TrainingDataReaderLive = Layer.effect(
               results as Array<{
                 annotation_key: string
                 annotation_value: string
+                confidence: number | null
                 time_range_start: Date
                 annotation_id: string
               }>
@@ -163,12 +154,15 @@ export const TrainingDataReaderLive = Layer.effect(
           Effect.mapError(() => ReplayErrorConstructors.SessionNotFound(sessionId))
         )
 
-        // Parse phase annotations
+        // Parse phase annotations (structured approach)
         const phases: Record<string, PhaseInfo> = {}
 
         for (const row of phaseResults) {
           const phaseType = row.annotation_key.split('.').pop() as Phase
-          const annotation = parsePhaseAnnotation(row.annotation_value)
+
+          // Structured approach: flagName in annotation_value, flagValue in confidence
+          const flagName = row.annotation_value
+          const flagValue = row.confidence ?? 0
 
           // Calculate phase end time (start of next phase or session end)
           const phaseIndex = phaseResults.indexOf(row)
@@ -181,8 +175,8 @@ export const TrainingDataReaderLive = Layer.effect(
           phases[phaseType] = {
             startTime: row.time_range_start,
             endTime,
-            flagName: annotation.flagName,
-            flagValue: annotation.flagValue,
+            flagName: flagName,
+            flagValue: flagValue,
             annotationId: row.annotation_id
           }
         }

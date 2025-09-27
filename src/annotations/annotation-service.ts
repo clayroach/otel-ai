@@ -61,7 +61,7 @@ export const AnnotationServiceLive = Layer.effect(
           annotation_type: annotation.annotationType,
           annotation_key: annotation.annotationKey,
           annotation_value: annotation.annotationValue,
-          confidence: annotation.confidence || null,
+          confidence: annotation.confidence !== undefined ? annotation.confidence : null,
           created_at: annotation.createdAt ? annotation.createdAt.getTime() : Date.now(),
           created_by: annotation.createdBy,
           session_id: annotation.sessionId || null,
@@ -74,8 +74,8 @@ export const AnnotationServiceLive = Layer.effect(
           INSERT INTO otel.annotations (
             annotation_id, signal_type, trace_id, span_id, metric_name,
             time_range_start, time_range_end, service_name,
-            annotation_type, annotation_key, annotation_value, created_by,
-            created_at, session_id, expires_at
+            annotation_type, annotation_key, annotation_value, confidence,
+            created_by, created_at, session_id, expires_at
           ) VALUES (
             '${values.annotation_id}',
             '${values.signal_type}',
@@ -88,6 +88,7 @@ export const AnnotationServiceLive = Layer.effect(
             '${values.annotation_type}',
             '${values.annotation_key}',
             '${values.annotation_value}',
+            ${values.confidence !== null ? values.confidence : 'NULL'},
             '${values.created_by}',
             ${values.created_at},
             ${values.session_id ? `'${values.session_id}'` : 'NULL'},

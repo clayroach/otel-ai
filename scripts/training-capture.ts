@@ -121,13 +121,15 @@ async function captureTrainingSession() {
     // 1. Start OTLP capture session via API
     console.log('\n📡 Phase 0: Starting OTLP capture session')
     await callAPI('/api/capture/sessions', 'POST', {
-      sessionId,
-      description: `Training session for ${options.flag}`,
-      enabledFlags: [options.flag],
-      captureTraces: true,
-      captureMetrics: true,
-      captureLogs: false,
-      compressionEnabled: true
+      name: sessionId, // This becomes the sessionId
+      config: {
+        description: `Training session for ${options.flag}`,
+        enabledFlags: [options.flag],
+        captureTraces: true,
+        captureMetrics: true,
+        captureLogs: false,
+        compressionEnabled: true
+      }
     })
     console.log(`   ✅ OTLP capture started for session: ${sessionId}`)
 
@@ -138,18 +140,16 @@ async function captureTrainingSession() {
     // Set flag to baseline value
     await setFlagValue(options.flag, options.baselineValue)
 
-    // Create baseline annotation via API
+    // Create baseline annotation via API (structured approach)
     await callAPI('/api/annotations', 'POST', {
       signalType: 'any',
-      timeRangeStart: baselineStart,
-      timeRangeEnd: new Date(baselineStart.getTime() + options.phaseDuration * 1000),
+      timeRangeStart: baselineStart.toISOString(),
+      timeRangeEnd: new Date(baselineStart.getTime() + options.phaseDuration * 1000).toISOString(),
       annotationType: 'test',
       annotationKey: 'test.phase.baseline',
-      annotationValue: JSON.stringify({
-        sessionId,
-        flagName: options.flag,
-        flagValue: options.baselineValue
-      }),
+      annotationValue: options.flag, // Flag name as simple string
+      confidence: options.baselineValue, // Flag value in confidence field (0.0-1.0)
+      sessionId: sessionId, // Top-level session linkage
       createdBy: 'system:training'
     })
     console.log(`   ✅ Baseline annotation created`)
@@ -163,18 +163,16 @@ async function captureTrainingSession() {
     // Set flag to anomaly value
     await setFlagValue(options.flag, options.anomalyValue)
 
-    // Create anomaly annotation via API
+    // Create anomaly annotation via API (structured approach)
     await callAPI('/api/annotations', 'POST', {
       signalType: 'any',
-      timeRangeStart: anomalyStart,
-      timeRangeEnd: new Date(anomalyStart.getTime() + options.phaseDuration * 1000),
+      timeRangeStart: anomalyStart.toISOString(),
+      timeRangeEnd: new Date(anomalyStart.getTime() + options.phaseDuration * 1000).toISOString(),
       annotationType: 'test',
       annotationKey: 'test.phase.anomaly',
-      annotationValue: JSON.stringify({
-        sessionId,
-        flagName: options.flag,
-        flagValue: options.anomalyValue
-      }),
+      annotationValue: options.flag, // Flag name as simple string
+      confidence: options.anomalyValue, // Flag value in confidence field (0.0-1.0)
+      sessionId: sessionId, // Top-level session linkage
       createdBy: 'system:training'
     })
     console.log(`   ✅ Anomaly annotation created`)
@@ -188,18 +186,16 @@ async function captureTrainingSession() {
     // Set flag to recovery value
     await setFlagValue(options.flag, options.recoveryValue)
 
-    // Create recovery annotation via API
+    // Create recovery annotation via API (structured approach)
     await callAPI('/api/annotations', 'POST', {
       signalType: 'any',
-      timeRangeStart: recoveryStart,
-      timeRangeEnd: new Date(recoveryStart.getTime() + options.phaseDuration * 1000),
+      timeRangeStart: recoveryStart.toISOString(),
+      timeRangeEnd: new Date(recoveryStart.getTime() + options.phaseDuration * 1000).toISOString(),
       annotationType: 'test',
       annotationKey: 'test.phase.recovery',
-      annotationValue: JSON.stringify({
-        sessionId,
-        flagName: options.flag,
-        flagValue: options.recoveryValue
-      }),
+      annotationValue: options.flag, // Flag name as simple string
+      confidence: options.recoveryValue, // Flag value in confidence field (0.0-1.0)
+      sessionId: sessionId, // Top-level session linkage
       createdBy: 'system:training'
     })
     console.log(`   ✅ Recovery annotation created`)

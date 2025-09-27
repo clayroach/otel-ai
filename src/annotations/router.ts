@@ -4,8 +4,10 @@
  */
 
 import { Context, Effect, Layer } from 'effect'
+import * as Schema from '@effect/schema/Schema'
 import express from 'express'
 import { AnnotationService, DiagnosticsSessionManager, type DiagnosticsSession } from './index.js'
+import { AnnotationSchema } from './annotation.schema.js'
 import { TrainingDataReaderTag } from '../otlp-capture/index.js'
 
 export interface AnnotationsRouter {
@@ -37,23 +39,19 @@ export const AnnotationsRouterLive = Layer.effect(
       try {
         const rawAnnotation = req.body
 
-        // Convert date strings to Date objects (JSON serialization converts dates to strings)
-        const annotation = {
-          ...rawAnnotation,
-          timeRangeStart: new Date(rawAnnotation.timeRangeStart),
-          timeRangeEnd: rawAnnotation.timeRangeEnd
-            ? new Date(rawAnnotation.timeRangeEnd)
-            : undefined,
-          logTimestamp: rawAnnotation.logTimestamp
-            ? new Date(rawAnnotation.logTimestamp)
-            : undefined
-        }
-
-        const annotationId = await Effect.runPromise(annotationService.annotate(annotation))
+        // Use proper schema validation and decoding
+        const annotationResult = await Effect.runPromise(
+          Effect.gen(function* () {
+            // Decode using schema (handles date conversion automatically)
+            const annotation = yield* Schema.decodeUnknown(AnnotationSchema)(rawAnnotation)
+            // Create annotation
+            return yield* annotationService.annotate(annotation)
+          })
+        )
 
         res.json({
           success: true,
-          annotationId,
+          annotationId: annotationResult,
           message: 'Annotation created successfully'
         })
       } catch (error) {
