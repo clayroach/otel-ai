@@ -280,19 +280,60 @@ export const validateSQLSemantics = <E = Error>(
       Effect.map((_planText) => {
         const executionTimeMs = Date.now() - startTime
 
-        // Check for potentially expensive aggregation patterns
-        const hasComplexAggregation =
-          sql.toLowerCase().includes('count()') && sql.toLowerCase().includes('avg(')
+        // UNIVERSAL AGGRESSIVE PROTECTION - Apply LIMIT 0 to all complex queries
+        // This prevents ClickHouse crashes by using minimal memory for validation
 
-        // Detect nested aggregation patterns that cause ILLEGAL_AGGREGATION
-        const hasNestedAggregation =
+        // 1. Multiple aggregates detection (most reliable)
+        const hasMultipleAggregates =
+          (sql.toLowerCase().match(/\b(count|sum|avg|max|min)\(/g) || []).length > 1
+
+        // 2. Any arithmetic with aggregates (catches the crash-causing pattern)
+        const hasAggregateArithmetic =
+          /\b(count|sum|avg|max|min)\s*\([^)]*\)\s*[\s\S]*[+\-*/][\s\S]*\w+/i.test(sql) ||
+          /\w+[\s\S]*[+\-*/][\s\S]*\b(count|sum|avg|max|min)\s*\(/i.test(sql) ||
+          /\b(sum|avg|max|min)\([^)]*[+\-*/][^)]*\b(count|sum|avg|max|min)/i.test(sql)
+
+        // 3. Complex aggregation patterns
+        const hasComplexAggregation =
+          /\bcount\s*\(\s*\)[\s\S]*\bavg\s*\(/i.test(sql) ||
+          /\bavg\s*\([\s\S]*\bcount\s*\(\s*\)/i.test(sql)
+
+        // 4. Field-aggregate multiplication (the exact crash pattern!)
+        const hasFieldAggregateMultiplication =
+          /\w+[\s\S]*\*[\s\S]*\b(count|sum|avg|max|min)\s*\([^)]*\)/i.test(sql) ||
+          /\b(count|sum|avg|max|min)\s*\([^)]*\)[\s\S]*\*[\s\S]*\w+/i.test(sql) ||
           sql.toLowerCase().includes('* request_count') ||
           sql.toLowerCase().includes('* error_count') ||
-          (sql.toLowerCase().includes('count(') && sql.toLowerCase().includes('sum(')) ||
-          /\b(sum|avg|max|min)\([^)]*\*[^)]*count\b/i.test(sql) ||
-          /\bcount\([^)]*\*[^)]*\b(sum|avg|max|min)/i.test(sql)
+          /\bduration_ns[\s\S]*\*[\s\S]*[a-z_]+/i.test(sql)
 
-        if (hasComplexAggregation || hasNestedAggregation) {
+        // 5. CTE with aggregates
+        const hasComplexCTE =
+          /WITH\s+\w+\s+AS\s*\([^)]*\b(count|sum|avg|max|min)\b[^)]*\)[^;]*\b(count|sum|avg|max|min)\b/i.test(
+            sql
+          )
+
+        // 6. JOIN with multiple aggregates
+        const hasLargeJoinAggregation =
+          sql.toLowerCase().includes('join') &&
+          (sql.toLowerCase().match(/\b(count|sum|avg|max|min)\(/g) || []).length > 1
+
+        // 7. Subquery aggregations
+        const hasSubqueryAggregation =
+          /\(\s*SELECT[^)]*\b(count|sum|avg|max|min)\b[^)]*\)[^;]*\b(count|sum|avg|max|min)\b/i.test(
+            sql
+          ) ||
+          /\b(duration_ns|[a-z_]+)\s*\*\s*\(\s*SELECT[^)]*\b(count|sum|avg|max|min)\b/i.test(sql)
+
+        // Apply protection for truly dangerous patterns - avoid false positives for simple multiple aggregates
+        if (
+          hasAggregateArithmetic ||
+          hasComplexAggregation ||
+          hasFieldAggregateMultiplication ||
+          hasComplexCTE ||
+          hasLargeJoinAggregation ||
+          hasSubqueryAggregation ||
+          (hasMultipleAggregates && (hasAggregateArithmetic || hasFieldAggregateMultiplication))
+        ) {
           console.log(
             '⚠️  [SQL-SEMANTIC-VALIDATOR] Warning: Complex/nested aggregation patterns detected'
           )
@@ -431,21 +472,59 @@ export const evaluateSQLExecution = <E = Error>(
   return Effect.gen(function* () {
     const startTime = Date.now()
 
-    // Detect potentially memory-intensive queries
-    const hasComplexAggregation =
-      sql.toLowerCase().includes('count()') && sql.toLowerCase().includes('avg(')
+    // UNIVERSAL AGGRESSIVE PROTECTION - Apply LIMIT 0 to all complex queries
+    // This prevents ClickHouse crashes by using minimal memory for validation
+
+    // 1. Multiple aggregates detection (most reliable)
     const hasMultipleAggregates =
       (sql.toLowerCase().match(/\b(count|sum|avg|max|min)\(/g) || []).length > 1
 
-    // Detect nested aggregation patterns that cause ILLEGAL_AGGREGATION
-    const hasNestedAggregation =
+    // 2. Any arithmetic with aggregates (catches the crash-causing pattern)
+    const hasAggregateArithmetic =
+      /\b(count|sum|avg|max|min)\s*\([^)]*\)\s*[\s\S]*[+\-*/][\s\S]*\w+/i.test(sql) ||
+      /\w+[\s\S]*[+\-*/][\s\S]*\b(count|sum|avg|max|min)\s*\(/i.test(sql) ||
+      /\b(sum|avg|max|min)\([^)]*[+\-*/][^)]*\b(count|sum|avg|max|min)/i.test(sql)
+
+    // 3. Complex aggregation patterns
+    const hasComplexAggregation =
+      /\bcount\s*\(\s*\)[\s\S]*\bavg\s*\(/i.test(sql) ||
+      /\bavg\s*\([\s\S]*\bcount\s*\(\s*\)/i.test(sql)
+
+    // 4. Field-aggregate multiplication (the exact crash pattern!)
+    const hasFieldAggregateMultiplication =
+      /\w+[\s\S]*\*[\s\S]*\b(count|sum|avg|max|min)\s*\([^)]*\)/i.test(sql) ||
+      /\b(count|sum|avg|max|min)\s*\([^)]*\)[\s\S]*\*[\s\S]*\w+/i.test(sql) ||
       sql.toLowerCase().includes('* request_count') ||
       sql.toLowerCase().includes('* error_count') ||
-      (sql.toLowerCase().includes('count(') && sql.toLowerCase().includes('sum(')) ||
-      /\b(sum|avg|max|min)\([^)]*\*[^)]*count\b/i.test(sql) ||
-      /\bcount\([^)]*\*[^)]*\b(sum|avg|max|min)/i.test(sql)
+      /\bduration_ns[\s\S]*\*[\s\S]*[a-z_]+/i.test(sql)
 
-    if (hasComplexAggregation || hasMultipleAggregates || hasNestedAggregation) {
+    // 5. CTE with aggregates
+    const hasComplexCTE =
+      /WITH\s+\w+\s+AS\s*\([^)]*\b(count|sum|avg|max|min)\b[^)]*\)[^;]*\b(count|sum|avg|max|min)\b/i.test(
+        sql
+      )
+
+    // 6. JOIN with multiple aggregates
+    const hasLargeJoinAggregation =
+      sql.toLowerCase().includes('join') &&
+      (sql.toLowerCase().match(/\b(count|sum|avg|max|min)\(/g) || []).length > 1
+
+    // 7. Subquery aggregations
+    const hasSubqueryAggregation =
+      /\(\s*SELECT[^)]*\b(count|sum|avg|max|min)\b[^)]*\)[^;]*\b(count|sum|avg|max|min)\b/i.test(
+        sql
+      ) || /\b(duration_ns|[a-z_]+)\s*\*\s*\(\s*SELECT[^)]*\b(count|sum|avg|max|min)\b/i.test(sql)
+
+    // Apply protection for truly dangerous patterns - avoid false positives for simple multiple aggregates
+    if (
+      hasAggregateArithmetic ||
+      hasComplexAggregation ||
+      hasFieldAggregateMultiplication ||
+      hasComplexCTE ||
+      hasLargeJoinAggregation ||
+      hasSubqueryAggregation ||
+      (hasMultipleAggregates && (hasAggregateArithmetic || hasFieldAggregateMultiplication))
+    ) {
       console.log('⚠️  [SQL-EXECUTION] Warning: Complex aggregation query detected')
       console.log('⚠️  [SQL-EXECUTION] Using LIMIT 0 for safer execution to prevent memory issues')
 
