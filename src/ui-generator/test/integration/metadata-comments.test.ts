@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest'
 import { LLMManagerLive } from '../../../llm-manager/index.js'
 import { generateQueryWithLLM } from '../../query-generator/llm-query-generator.js'
 import type { CriticalPath } from '../../query-generator/types.js'
-import { shouldSkipLLMTests } from '../../../llm-manager/test/utils/llm-availability.js'
+import { shouldSkipExternalLLMTests } from '../../../llm-manager/test/utils/llm-availability.js'
 
-describe.skipIf(shouldSkipLLMTests())('Metadata Comments in Generated SQL', () => {
+describe.skipIf(shouldSkipExternalLLMTests())('Metadata Comments in Generated SQL', () => {
   it('should include comprehensive metadata in SQL comments', async () => {
     const testPath: CriticalPath = {
       id: 'test-metadata-path',

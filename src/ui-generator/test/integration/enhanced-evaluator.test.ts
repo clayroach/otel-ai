@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest'
 import { Effect } from 'effect'
 import { generateQueryWithLLM } from '../../query-generator/llm-query-generator.js'
 import { LLMManagerLive } from '../../../llm-manager/index.js'
+import { shouldSkipExternalLLMTests } from '../../../llm-manager/test/utils/llm-availability.js'
 
 interface QueryResult {
   sql: string
@@ -22,11 +23,10 @@ interface QueryResult {
   }>
 }
 
-// Skip LLM tests only in CI environment
-const skipInCI = process.env.CI === 'true'
+// Skip only if no external LLM API keys are available
 
 describe('Enhanced SQL Evaluator Integration', () => {
-  describe.skipIf(skipInCI)('With Real LLM and Evaluator', () => {
+  describe.skipIf(shouldSkipExternalLLMTests())('With Real LLM and Evaluator', () => {
     it('should generate query with comprehensive validation comments', async () => {
       const path = {
         id: 'test-enhanced',

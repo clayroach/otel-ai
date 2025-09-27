@@ -7,6 +7,7 @@ import { StorageAPIClientTag } from "../../../storage/api-client"
 import { LLMManagerServiceTag } from "../../../llm-manager"
 // Model metadata no longer needed - removed model-registry
 import { LLMManagerLive } from "../../../llm-manager/llm-manager-live"
+import { shouldSkipExternalLLMTests } from '../../../llm-manager/test/utils/llm-availability.js'
 
 // Test data representing a real critical path
 const testPath: CriticalPath = {
@@ -21,11 +22,9 @@ const testPath: CriticalPath = {
   }
 }
 
-// Check if we should skip tests in CI
-const isCI = Boolean(process.env.CI || process.env.GITHUB_ACTIONS)
-const shouldSkipTests = isCI
+// Skip only if no external LLM API keys available
 
-describe.skipIf(shouldSkipTests)("LLM Query Generator", () => {
+describe.skipIf(shouldSkipExternalLLMTests())("LLM Query Generator", () => {
   let llmAvailable = false
   let llmDetails: {
     endpoint?: string
