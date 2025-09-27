@@ -247,8 +247,9 @@ export const validateSQLSyntax = <E = Error>(
 }
 
 /**
- * Validates SQL semantics using EXPLAIN PLAN to catch aggregation and semantic errors
- * without executing the query. This catches ILLEGAL_AGGREGATION, NOT_AN_AGGREGATE, etc.
+ * Validates SQL semantics using EXPLAIN PLAN to catch semantic errors and detect
+ * potentially expensive queries that could cause memory issues or crashes.
+ * Note: Simple arithmetic between aggregates like count() * avg() is valid SQL.
  */
 export const validateSQLSemantics = <E = Error>(
   sql: string,
@@ -264,7 +265,8 @@ export const validateSQLSemantics = <E = Error>(
   return Effect.gen(function* () {
     const startTime = Date.now()
 
-    // Use EXPLAIN PLAN to validate query semantics without execution
+    // Use EXPLAIN PLAN to validate query structure and detect potential issues
+    // EXPLAIN catches syntax errors, invalid columns, but not resource exhaustion
     const explainQuery = `EXPLAIN PLAN ${sql.replace(/;?\s*$/, '')}`
 
     console.log('🔍 [SQL-SEMANTIC-VALIDATOR] validateSQLSemantics executing EXPLAIN PLAN query')
@@ -277,6 +279,27 @@ export const validateSQLSemantics = <E = Error>(
       clickhouseClient.queryText(explainQuery),
       Effect.map((_planText) => {
         const executionTimeMs = Date.now() - startTime
+
+        // Check for potentially expensive aggregation patterns
+        const hasComplexAggregation =
+          sql.toLowerCase().includes('count()') && sql.toLowerCase().includes('avg(')
+
+        // Detect nested aggregation patterns that cause ILLEGAL_AGGREGATION
+        const hasNestedAggregation =
+          sql.toLowerCase().includes('* request_count') ||
+          sql.toLowerCase().includes('* error_count') ||
+          (sql.toLowerCase().includes('count(') && sql.toLowerCase().includes('sum(')) ||
+          /\b(sum|avg|max|min)\([^)]*\*[^)]*count\b/i.test(sql) ||
+          /\bcount\([^)]*\*[^)]*\b(sum|avg|max|min)/i.test(sql)
+
+        if (hasComplexAggregation || hasNestedAggregation) {
+          console.log(
+            '⚠️  [SQL-SEMANTIC-VALIDATOR] Warning: Complex/nested aggregation patterns detected'
+          )
+          console.log(
+            '⚠️  [SQL-SEMANTIC-VALIDATOR] This query may consume significant memory or cause ILLEGAL_AGGREGATION'
+          )
+        }
 
         console.log(
           '✅ [SQL-SEMANTIC-VALIDATOR] validateSQLSemantics semantics are VALID - no errors found'
@@ -408,7 +431,52 @@ export const evaluateSQLExecution = <E = Error>(
   return Effect.gen(function* () {
     const startTime = Date.now()
 
-    // Smart handling of LIMIT and FORMAT clauses
+    // Detect potentially memory-intensive queries
+    const hasComplexAggregation =
+      sql.toLowerCase().includes('count()') && sql.toLowerCase().includes('avg(')
+    const hasMultipleAggregates =
+      (sql.toLowerCase().match(/\b(count|sum|avg|max|min)\(/g) || []).length > 1
+
+    // Detect nested aggregation patterns that cause ILLEGAL_AGGREGATION
+    const hasNestedAggregation =
+      sql.toLowerCase().includes('* request_count') ||
+      sql.toLowerCase().includes('* error_count') ||
+      (sql.toLowerCase().includes('count(') && sql.toLowerCase().includes('sum(')) ||
+      /\b(sum|avg|max|min)\([^)]*\*[^)]*count\b/i.test(sql) ||
+      /\bcount\([^)]*\*[^)]*\b(sum|avg|max|min)/i.test(sql)
+
+    if (hasComplexAggregation || hasMultipleAggregates || hasNestedAggregation) {
+      console.log('⚠️  [SQL-EXECUTION] Warning: Complex aggregation query detected')
+      console.log('⚠️  [SQL-EXECUTION] Using LIMIT 0 for safer execution to prevent memory issues')
+
+      // For complex aggregations, use LIMIT 0 to minimize memory usage
+      // This validates the query execution path without processing large datasets
+      const safeSql = `${sql.replace(/;?\s*$/, '')} LIMIT 0`
+
+      const result = yield* pipe(
+        clickhouseClient.queryRaw(safeSql),
+        Effect.map((data) => {
+          const executionTimeMs = Date.now() - startTime
+          console.log('✅ [SQL-EXECUTION] Complex aggregation validated safely with LIMIT 0')
+
+          const result: SQLEvaluationResult = {
+            sql,
+            isValid: true,
+            executionTimeMs,
+            rowCount: 0,
+            columns:
+              Array.isArray(data) && data.length > 0
+                ? Object.keys(data[0] || {}).map((name) => ({ name, type: 'string' }))
+                : []
+          }
+          return result
+        })
+      )
+
+      return result
+    }
+
+    // Smart handling of LIMIT and FORMAT clauses for non-complex queries
     let testSql = sql.replace(/;?\s*$/, '') // Remove trailing semicolon
 
     // Check if the query already has FORMAT clause

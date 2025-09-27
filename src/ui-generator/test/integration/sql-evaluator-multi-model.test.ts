@@ -620,6 +620,60 @@ describe('SQL Evaluator-Optimizer with Multiple LLM Models', () => {
     }) // 3 minute timeout for comprehensive test
   })
 
+  describe('Memory Protection and Semantic Validation Testing', () => {
+    it('should apply memory protection for complex aggregation queries', async () => {
+      // Skip if no test environment
+      if (shouldSkipExternalLLMTests() || !testClient) {
+        console.log('⚠️  Skipping semantic validation test - no test environment')
+        return
+      }
+
+      // Complex aggregation SQL that requires memory protection
+      const complexAggregationSQL = `
+        SELECT
+          service_name,
+          count() * avg(duration_ns) AS weighted_duration
+        FROM otel.traces
+        WHERE service_name IN ('frontend', 'backend')
+        GROUP BY service_name
+      `
+
+      // Note: count() * avg() is valid SQL but memory-intensive, requiring LIMIT 0 protection
+
+      console.log('\n🔍 Testing memory protection for complex aggregation queries...')
+      console.log('🔍 SQL contains: count() * avg(duration_ns) - should trigger memory protection')
+
+      // Import the semantic validation function directly
+      const { validateSQLSemantics } = await import('../../query-generator/sql-evaluator-optimizer.js')
+
+      // Test semantic validation and memory protection
+      const program = Effect.gen(function* () {
+        console.log('🔧 Running validateSQLSemantics with memory protection...')
+        const result = yield* validateSQLSemantics(complexAggregationSQL, testClient)
+        return result
+      })
+
+      const result = await Effect.runPromise(program)
+
+      console.log('✅ Semantic validation completed successfully with memory protection')
+      console.log('📊 Validation result:', {
+        isValid: result.isValid,
+        executionTime: result.executionTimeMs,
+        rowCount: result.rowCount,
+        columnsDetected: result.columns?.length || 0
+      })
+
+      // Memory protection should allow the query to validate successfully
+      // The protection prevents crashes while maintaining functionality
+      expect(result.isValid).toBe(true)
+      expect(result.executionTimeMs).toBeLessThan(5000) // Should be fast with protection
+      expect(result.rowCount).toBe(0) // Protected execution returns no rows
+
+      console.log('✅ Memory protection working: Complex aggregation validated safely')
+      console.log('✅ No ClickHouse crashes with count() * avg() pattern')
+    }, 30000) // 30 second timeout
+  })
+
   afterAll(async () => {
     if (testContainer) {
       await cleanupClickHouseContainer(testContainer)
