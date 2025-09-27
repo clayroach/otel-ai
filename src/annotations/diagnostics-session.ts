@@ -3,9 +3,6 @@ import * as Schema from '@effect/schema/Schema'
 import { v4 as uuidv4 } from 'uuid'
 import { AnnotationService } from './annotation-service.js'
 import { type Annotation } from './annotation.schema.js'
-import { FeatureFlagController } from './feature-flag-controller.js'
-import { type TrainingSessionConfig } from '../otlp-capture/schemas.js'
-import { OtlpCaptureServiceTag } from '../otlp-capture/index.js'
 
 // Error types
 export class DiagnosticsSessionError extends Data.TaggedError('DiagnosticsSessionError')<{
@@ -69,9 +66,6 @@ export interface DiagnosticsSessionManagerImpl {
   readonly getSessionAnnotations: (
     sessionId: string
   ) => Effect.Effect<readonly Annotation[], DiagnosticsSessionError, never>
-  readonly runTrainingSession: (
-    config: TrainingSessionConfig
-  ) => Effect.Effect<string, DiagnosticsSessionError, never>
 }
 
 export class DiagnosticsSessionManager extends Context.Tag('DiagnosticsSessionManager')<
@@ -82,8 +76,6 @@ export class DiagnosticsSessionManager extends Context.Tag('DiagnosticsSessionMa
 // Implementation
 const makeSessionManager = Effect.gen(function* () {
   const annotationService = yield* AnnotationService
-  const flagController = yield* FeatureFlagController
-  const captureService = yield* OtlpCaptureServiceTag
 
   // In-memory session store (in production, use persistent storage)
   const sessions = new Map<string, DiagnosticsSession>()
@@ -161,9 +153,10 @@ const makeSessionManager = Effect.gen(function* () {
         })
       )
 
-      // Phase 2: Enable flag
-      yield* Effect.logInfo(`Enabling flag ${config.flagName} for session ${sessionId}`)
-      yield* flagController.enableFlag(config.flagName)
+      // Phase 2: Flag management externalized to scripts
+      yield* Effect.logInfo(
+        `Flag management for ${config.flagName} handled externally for session ${sessionId}`
+      )
       yield* updateSession(sessionId, { phase: 'flag_enabled' })
       yield* createAnnotation(sessionId, `test.flag.${config.flagName}.enabled`, {
         timestamp: new Date(),
@@ -205,9 +198,8 @@ const makeSessionManager = Effect.gen(function* () {
       // Wait for test duration
       yield* Effect.sleep(testDuration)
 
-      // Phase 5: Disable flag
-      yield* Effect.logInfo(`Disabling flag ${config.flagName}`)
-      yield* flagController.disableFlag(config.flagName)
+      // Phase 5: Flag management externalized to scripts
+      yield* Effect.logInfo(`Flag management for ${config.flagName} handled externally`)
       yield* updateSession(sessionId, { phase: 'flag_disabled' })
       yield* createAnnotation(sessionId, `test.flag.${config.flagName}.disabled`, {
         timestamp: new Date(),
@@ -242,7 +234,7 @@ const makeSessionManager = Effect.gen(function* () {
 
       return finalSession
     }).pipe(
-      Effect.catchAll((error) =>
+      Effect.catchAll((error: unknown) =>
         pipe(
           updateSession(sessionId, {
             phase: 'failed',
@@ -351,12 +343,7 @@ const makeSessionManager = Effect.gen(function* () {
           )
         }
 
-        // If flag is still enabled, disable it
-        if (session.phase === 'flag_enabled' || session.phase === 'capturing') {
-          yield* flagController.disableFlag(session.flagName).pipe(
-            Effect.catchAll(() => Effect.succeed(undefined)) // Ignore flag errors during cleanup
-          )
-        }
+        // Flag management is external - session cleanup only handles internal state
 
         // Mark session as completed
         return yield* updateSession(sessionId, {
@@ -398,220 +385,6 @@ const makeSessionManager = Effect.gen(function* () {
           )
 
         return annotations as readonly Annotation[]
-      }),
-
-    runTrainingSession: (config: TrainingSessionConfig) =>
-      Effect.gen(function* () {
-        const sessionId = `training-${Date.now()}-${uuidv4().slice(0, 8)}`
-
-        // Register the session in the sessions map
-        const session: DiagnosticsSession = {
-          id: sessionId,
-          name: `Training: ${config.flagName}`,
-          flagName: config.flagName,
-          phase: 'created',
-          startTime: new Date(),
-          captureInterval: 30000,
-          annotations: [],
-          metadata: { trainingConfig: config }
-        }
-        sessions.set(sessionId, session)
-
-        // Start OTLP capture session
-        yield* captureService
-          .startCapture({
-            sessionId,
-            description: `Training session for ${config.flagName}`,
-            enabledFlags: [config.flagName],
-            captureTraces: true,
-            captureMetrics: true,
-            captureLogs: false,
-            compressionEnabled: true
-          })
-          .pipe(
-            Effect.catchAll((error) =>
-              Effect.fail(
-                new DiagnosticsSessionError({
-                  reason: 'OrchestrationFailure',
-                  message: `Failed to start capture: ${error.message || String(error)}`,
-                  sessionId
-                })
-              )
-            )
-          )
-
-        console.log(`Started training capture session: ${sessionId}`)
-
-        // Phase 1: Baseline
-        yield* updateSession(sessionId, { phase: 'started' })
-        const baselineStart = new Date()
-        const baselineEnd = new Date(
-          baselineStart.getTime() + config.phaseDurations.baseline * 1000
-        )
-
-        yield* annotationService
-          .annotate({
-            signalType: 'any',
-            timeRangeStart: baselineStart,
-            timeRangeEnd: baselineEnd,
-            annotationType: 'test',
-            annotationKey: 'test.phase.baseline',
-            annotationValue: JSON.stringify({
-              sessionId,
-              flagName: config.flagName,
-              flagValue: config.flagValues.baseline
-            }),
-            createdBy: 'system:training'
-          })
-          .pipe(
-            Effect.catchAll((error: unknown) => {
-              const errorMessage =
-                error instanceof Error
-                  ? error.message
-                  : error && typeof error === 'object' && 'message' in error
-                    ? String((error as { message: unknown }).message)
-                    : typeof error === 'string'
-                      ? error
-                      : JSON.stringify(error)
-              console.error('DEBUG: Error creating baseline annotation:', error)
-              return Effect.fail(
-                new DiagnosticsSessionError({
-                  reason: 'OrchestrationFailure',
-                  message: `Failed to create baseline annotation: ${errorMessage}`,
-                  sessionId
-                })
-              )
-            })
-          )
-        // For baseline, disable flag if value is 0, enable if > 0
-        if (config.flagValues.baseline === 0) {
-          yield* flagController
-            .disableFlag(config.flagName)
-            .pipe(Effect.catchAll(() => Effect.succeed(undefined)))
-        } else {
-          yield* flagController
-            .enableFlag(config.flagName)
-            .pipe(Effect.catchAll(() => Effect.succeed(undefined)))
-        }
-        console.log(`Phase 1: Baseline - flag set to ${config.flagValues.baseline}`)
-        yield* Effect.sleep(Duration.seconds(config.phaseDurations.baseline))
-
-        // Phase 2: Anomaly
-        const anomalyStart = new Date()
-        yield* annotationService
-          .annotate({
-            signalType: 'any',
-            timeRangeStart: anomalyStart,
-            timeRangeEnd: new Date(anomalyStart.getTime() + config.phaseDurations.anomaly * 1000),
-            annotationType: 'test',
-            annotationKey: 'test.phase.anomaly',
-            annotationValue: JSON.stringify({
-              sessionId,
-              flagName: config.flagName,
-              flagValue: config.flagValues.anomaly
-            }),
-            createdBy: 'system:training'
-          })
-          .pipe(
-            Effect.catchAll((error: unknown) => {
-              const errorMessage =
-                error instanceof Error
-                  ? error.message
-                  : error && typeof error === 'object' && 'message' in error
-                    ? String((error as { message: unknown }).message)
-                    : typeof error === 'string'
-                      ? error
-                      : JSON.stringify(error)
-              console.error('DEBUG: Error creating anomaly annotation:', error)
-              return Effect.fail(
-                new DiagnosticsSessionError({
-                  reason: 'OrchestrationFailure',
-                  message: `Failed to create anomaly annotation: ${errorMessage}`,
-                  sessionId
-                })
-              )
-            })
-          )
-        // For anomaly, typically enable the flag
-        if (config.flagValues.anomaly > 0) {
-          yield* flagController
-            .enableFlag(config.flagName)
-            .pipe(Effect.catchAll(() => Effect.succeed(undefined)))
-        } else {
-          yield* flagController
-            .disableFlag(config.flagName)
-            .pipe(Effect.catchAll(() => Effect.succeed(undefined)))
-        }
-        console.log(`Phase 2: Anomaly - flag set to ${config.flagValues.anomaly}`)
-        yield* Effect.sleep(Duration.seconds(config.phaseDurations.anomaly))
-
-        // Phase 3: Recovery
-        const recoveryStart = new Date()
-        yield* annotationService
-          .annotate({
-            signalType: 'any',
-            timeRangeStart: recoveryStart,
-            timeRangeEnd: new Date(recoveryStart.getTime() + config.phaseDurations.recovery * 1000),
-            annotationType: 'test',
-            annotationKey: 'test.phase.recovery',
-            annotationValue: JSON.stringify({
-              sessionId,
-              flagName: config.flagName,
-              flagValue: config.flagValues.recovery
-            }),
-            createdBy: 'system:training'
-          })
-          .pipe(
-            Effect.catchAll((error: unknown) => {
-              const errorMessage =
-                error instanceof Error
-                  ? error.message
-                  : error && typeof error === 'object' && 'message' in error
-                    ? String((error as { message: unknown }).message)
-                    : typeof error === 'string'
-                      ? error
-                      : JSON.stringify(error)
-              console.error('DEBUG: Error creating recovery annotation:', error)
-              return Effect.fail(
-                new DiagnosticsSessionError({
-                  reason: 'OrchestrationFailure',
-                  message: `Failed to create recovery annotation: ${errorMessage}`,
-                  sessionId
-                })
-              )
-            })
-          )
-        // For recovery, typically disable flag
-        if (config.flagValues.recovery === 0) {
-          yield* flagController
-            .disableFlag(config.flagName)
-            .pipe(Effect.catchAll(() => Effect.succeed(undefined)))
-        } else {
-          yield* flagController
-            .enableFlag(config.flagName)
-            .pipe(Effect.catchAll(() => Effect.succeed(undefined)))
-        }
-        console.log(`Phase 3: Recovery - flag set to ${config.flagValues.recovery}`)
-        yield* Effect.sleep(Duration.seconds(config.phaseDurations.recovery))
-
-        // Stop capture
-        yield* captureService.stopCapture(sessionId).pipe(
-          Effect.catchAll((error) =>
-            Effect.fail(
-              new DiagnosticsSessionError({
-                reason: 'OrchestrationFailure',
-                message: `Failed to stop capture: ${error.message || String(error)}`,
-                sessionId
-              })
-            )
-          )
-        )
-
-        // Mark session as completed
-        yield* updateSession(sessionId, { phase: 'completed', endTime: new Date() })
-
-        console.log(`Training session ${sessionId} completed`)
-        return sessionId
       })
   }
 })
@@ -675,7 +448,5 @@ export const DiagnosticsSessionManagerMock = Layer.succeed(DiagnosticsSessionMan
       annotations: []
     }),
 
-  getSessionAnnotations: () => Effect.succeed([]),
-
-  runTrainingSession: () => Effect.succeed('mock-training-session-id')
+  getSessionAnnotations: () => Effect.succeed([])
 })

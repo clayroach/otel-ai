@@ -30,3 +30,4 @@ TODOs:
 * DRY-NESS agent daily scan to look for optimizations
 * ai-analyzer is really just the static analyzer?
 * feature flags/flagd is a bit too much spread across the codebase and should only be associated with the demo app
+* remove continuous streaming to s3/minio by default

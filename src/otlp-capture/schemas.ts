@@ -92,7 +92,8 @@ export const TrainingSessionConfigSchema = Schema.Struct({
     baseline: Schema.Number, // seconds
     anomaly: Schema.Number, // seconds
     recovery: Schema.Number // seconds
-  })
+  }),
+  sessionId: Schema.optional(Schema.String) // Optional pre-assigned sessionId
 })
 
 export type TrainingSessionConfig = Schema.Schema.Type<typeof TrainingSessionConfigSchema>

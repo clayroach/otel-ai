@@ -29,9 +29,7 @@ import {
   AnnotationService,
   AnnotationServiceLive,
   DiagnosticsSessionManager,
-  DiagnosticsSessionManagerLive,
-  FeatureFlagController,
-  FeatureFlagControllerFilesystem
+  DiagnosticsSessionManagerLive
 } from './annotations/index.js'
 import {
   OtlpCaptureServiceTag,
@@ -187,12 +185,10 @@ const BaseDependencies = Layer.mergeAll(
   LLMManagerAPIClientLayer, // LLM Manager API client
   AIAnalyzerMockLayer(), // AI Analyzer (mock)
   AnnotationServiceLive.pipe(Layer.provide(StorageWithConfig)), // Annotation Service
-  FeatureFlagControllerFilesystem, // Feature Flag Controller using filesystem (no gRPC)
   DiagnosticsSessionManagerLive.pipe(
     Layer.provide(
       Layer.mergeAll(
         AnnotationServiceLive.pipe(Layer.provide(StorageWithConfig)),
-        FeatureFlagControllerFilesystem,
         OtlpCaptureServiceLive.pipe(Layer.provide(S3StorageLayer))
       )
     )
@@ -237,7 +233,6 @@ type AppServices =
   | LLMManagerServiceTag
   | StorageServiceTag
   | AnnotationService
-  | FeatureFlagController
   | DiagnosticsSessionManager
   | OtlpCaptureServiceTag
   | OtlpReplayServiceTag

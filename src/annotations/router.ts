@@ -1,16 +1,11 @@
 /**
  * Annotations Package Router
- * Handles diagnostics sessions, feature flags, and training data capture
+ * Handles diagnostics sessions and training data capture (flags managed externally)
  */
 
 import { Context, Effect, Layer } from 'effect'
 import express from 'express'
-import {
-  AnnotationService,
-  DiagnosticsSessionManager,
-  FeatureFlagController,
-  type DiagnosticsSession
-} from './index.js'
+import { AnnotationService, DiagnosticsSessionManager, type DiagnosticsSession } from './index.js'
 import { TrainingDataReaderTag } from '../otlp-capture/index.js'
 
 export interface AnnotationsRouter {
@@ -19,84 +14,52 @@ export interface AnnotationsRouter {
 
 export const AnnotationsRouterTag = Context.GenericTag<AnnotationsRouter>('AnnotationsRouter')
 
-// In-memory state for diagnostic sessions and feature flags
+// In-memory state for diagnostic sessions
 interface DiagnosticState {
   activeSession: DiagnosticsSession | null
-  enabledFlags: Set<string>
-  flagStates: Map<string, boolean>
 }
 
 const diagnosticState: DiagnosticState = {
-  activeSession: null,
-  enabledFlags: new Set(),
-  flagStates: new Map()
+  activeSession: null
 }
 
 export const AnnotationsRouterLive = Layer.effect(
   AnnotationsRouterTag,
   Effect.gen(function* () {
-    yield* AnnotationService // Ensure service is available
+    const annotationService = yield* AnnotationService
     const sessionManager = yield* DiagnosticsSessionManager
-    const flagController = yield* FeatureFlagController
     const trainingDataReader = yield* TrainingDataReaderTag
 
     const router = express.Router()
 
-    // Get feature flags
-    router.get('/api/diagnostics/flags', async (_req, res) => {
+    // Create annotation (for external orchestration)
+    router.post('/api/annotations', async (req, res) => {
       try {
-        const flags = await Effect.runPromise(flagController.listFlags())
+        const rawAnnotation = req.body
+
+        // Convert date strings to Date objects (JSON serialization converts dates to strings)
+        const annotation = {
+          ...rawAnnotation,
+          timeRangeStart: new Date(rawAnnotation.timeRangeStart),
+          timeRangeEnd: rawAnnotation.timeRangeEnd
+            ? new Date(rawAnnotation.timeRangeEnd)
+            : undefined,
+          logTimestamp: rawAnnotation.logTimestamp
+            ? new Date(rawAnnotation.logTimestamp)
+            : undefined
+        }
+
+        const annotationId = await Effect.runPromise(annotationService.annotate(annotation))
 
         res.json({
-          flags,
-          enabled: Array.from(diagnosticState.enabledFlags),
-          states: Object.fromEntries(diagnosticState.flagStates)
+          success: true,
+          annotationId,
+          message: 'Annotation created successfully'
         })
       } catch (error) {
-        console.error('❌ Error listing feature flags:', error)
+        console.error('❌ Error creating annotation:', error)
         res.status(500).json({
-          error: 'Failed to list feature flags',
-          message: error instanceof Error ? error.message : 'Unknown error'
-        })
-      }
-    })
-
-    // Toggle feature flag
-    router.post('/api/diagnostics/flags/:flagName', async (req, res) => {
-      try {
-        const { flagName } = req.params
-        const { enabled } = req.body
-
-        await Effect.runPromise(
-          Effect.gen(function* () {
-            if (enabled) {
-              yield* flagController.enableFlag(flagName)
-            } else {
-              yield* flagController.disableFlag(flagName)
-            }
-
-            // Update local state
-            if (enabled) {
-              diagnosticState.enabledFlags.add(flagName)
-            } else {
-              diagnosticState.enabledFlags.delete(flagName)
-            }
-            diagnosticState.flagStates.set(flagName, enabled)
-          })
-        )
-
-        console.log(`🎯 Feature flag ${flagName} ${enabled ? 'enabled' : 'disabled'}`)
-
-        res.json({
-          flag: flagName,
-          enabled,
-          message: `Feature flag ${flagName} ${enabled ? 'enabled' : 'disabled'}`,
-          timestamp: new Date().toISOString()
-        })
-      } catch (error) {
-        console.error('❌ Error setting feature flag:', error)
-        res.status(500).json({
-          error: 'Failed to set feature flag',
+          error: 'Failed to create annotation',
           message: error instanceof Error ? error.message : 'Unknown error'
         })
       }
@@ -211,42 +174,6 @@ export const AnnotationsRouterLive = Layer.effect(
         console.error('❌ Error getting session annotations:', error)
         res.status(500).json({
           error: 'Failed to get session annotations',
-          message: error instanceof Error ? error.message : 'Unknown error'
-        })
-      }
-    })
-
-    // Start training data capture
-    router.post('/api/diagnostics/training/capture', async (req, res) => {
-      try {
-        const { flagName, flagValues, phaseDurations } = req.body
-
-        // Validate request body
-        if (!flagName || !flagValues || !phaseDurations) {
-          res.status(400).json({
-            error: 'Invalid request',
-            message: 'flagName, flagValues, and phaseDurations are required'
-          })
-          return
-        }
-
-        const result = await Effect.runPromise(
-          sessionManager.runTrainingSession({
-            flagName,
-            flagValues,
-            phaseDurations
-          })
-        )
-
-        res.json({
-          success: true,
-          result,
-          message: 'Training data capture started'
-        })
-      } catch (error) {
-        console.error('❌ Error starting training data capture:', error)
-        res.status(500).json({
-          error: 'Failed to start training data capture',
           message: error instanceof Error ? error.message : 'Unknown error'
         })
       }
