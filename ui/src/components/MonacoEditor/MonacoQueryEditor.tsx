@@ -376,29 +376,31 @@ export const MonacoQueryEditor: React.FC<MonacoQueryEditorProps> = ({
   )
 
   return (
-    <Editor
-      height={height}
-      language={language}
-      theme={darkMode ? 'vs-dark' : 'vs'}
-      value={value}
-      onChange={handleChange}
-      onMount={handleEditorDidMount}
-      options={{
-        minimap: { enabled: false },
-        lineNumbers: 'on',
-        roundedSelection: false,
-        scrollBeyondLastLine: false,
-        readOnly: false,
-        fontSize: 14,
-        fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-        wordWrap: 'on',
-        tabSize: 2,
-        insertSpaces: true,
-        automaticLayout: true,
-        suggestOnTriggerCharacters: true,
-        acceptSuggestionOnEnter: 'on',
-        quickSuggestions: true
-      }}
-    />
+    <div data-testid="monaco-query-editor">
+      <Editor
+        height={height}
+        language={language}
+        theme={darkMode ? 'vs-dark' : 'vs'}
+        value={value}
+        onChange={handleChange}
+        onMount={handleEditorDidMount}
+        options={{
+          minimap: { enabled: false },
+          lineNumbers: 'on',
+          roundedSelection: false,
+          scrollBeyondLastLine: false,
+          readOnly: false,
+          fontSize: 14,
+          fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+          wordWrap: 'on',
+          tabSize: 2,
+          insertSpaces: true,
+          automaticLayout: true,
+          suggestOnTriggerCharacters: true,
+          acceptSuggestionOnEnter: 'on',
+          quickSuggestions: true
+        }}
+      />
+    </div>
   )
 }
