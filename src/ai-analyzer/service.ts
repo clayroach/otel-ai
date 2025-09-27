@@ -931,10 +931,8 @@ const makeAIAnalyzerMockService = (_config: AnalyzerConfig = defaultAnalyzerConf
       startTime: Date
       endTime: Date
     }): Effect.Effect<readonly ServiceTopology[], AnalysisError, never> =>
-      Effect.gen(function* (_) {
-        yield* _(Effect.logInfo('🚀 MOCK - Service topology request'))
-
-        return [
+      Effect.logInfo('🚀 MOCK - Service topology request').pipe(
+        Effect.as([
           {
             service: 'mock-frontend',
             type: 'frontend' as const,
@@ -984,8 +982,8 @@ const makeAIAnalyzerMockService = (_config: AnalyzerConfig = defaultAnalyzerConf
               totalSpans: 5000
             }
           }
-        ] as const
-      }),
+        ] as const)
+      ),
 
     streamAnalysis: (_request: AnalysisRequest): Stream.Stream<string, AnalysisError, never> => {
       const words = [

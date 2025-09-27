@@ -61,3 +61,17 @@ export { S3StorageTag, S3StorageLive } from './s3.js'
 // Router exports - Layer pattern for HTTP endpoints
 export type { StorageRouter } from './router.js'
 export { StorageRouterTag, StorageRouterLive } from './router.js'
+
+// Test Layers only - no utility functions exported from package index
+export {
+  MockStorageServiceLive,
+  MockConfigServiceLive,
+  MockClickHouseConfigLive,
+  MockStorageAPIClientLive,
+  TestStorageLayer,
+  FailingTestStorageLayer,
+  createMockStorageServiceLive,
+  createMockStorageAPIClientLive,
+  type MockStorageServiceOptions,
+  type MockAPIClientOptions
+} from './test-utils.js'

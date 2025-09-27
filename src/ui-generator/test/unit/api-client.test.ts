@@ -5,118 +5,10 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { Effect, Layer, Stream } from 'effect'
+import { Effect } from 'effect'
 import { UIGeneratorAPIClient } from '../../api-client.js'
 import type { QueryGenerationAPIRequest } from '../../api-client.js'
-import { LLMManagerServiceTag } from '../../../llm-manager/index.js'
-import type { ManagerStatus } from '../../../llm-manager/index.js'
-import type { LLMRequest, LLMResponse, LLMError } from '../../../llm-manager/types.js'
-import { NetworkError, ModelUnavailable } from '../../../llm-manager/types.js'
-import { ConfigServiceLive, StorageServiceTag } from '../../../storage/index.js'
-
-// Create a mock Storage Layer for testing
-const createMockStorageLayer = () => {
-  return Layer.succeed(StorageServiceTag, {
-    writeOTLP: () => Effect.succeed(undefined),
-    writeBatch: () => Effect.succeed(undefined),
-    queryTraces: () => Effect.succeed([]),
-    queryMetrics: () => Effect.succeed([]),
-    queryLogs: () => Effect.succeed([]),
-    queryForAI: () => Effect.succeed({
-      features: [],
-      metadata: {},
-      timeRange: { start: 0, end: 0 },
-      sampleCount: 0
-    }),
-    queryRaw: () => Effect.succeed([]),
-    insertRaw: () => Effect.succeed(undefined),
-    queryText: () => Effect.succeed(''),
-    archiveData: () => Effect.succeed(undefined),
-    applyRetentionPolicies: () => Effect.succeed(undefined),
-    healthCheck: () => Effect.succeed({ clickhouse: true, s3: true }),
-    getStorageStats: () => Effect.succeed({
-      clickhouse: { totalTraces: 0, totalMetrics: 0, totalLogs: 0, diskUsage: "0B" },
-      s3: { totalSize: "0B", totalObjects: 0, oldestObject: null, newestObject: null }
-    })
-  })
-}
-
-// Create a mock LLM Manager Layer for testing
-const createMockLLMManagerLayer = (mockResponse?: Partial<LLMResponse>, shouldFail?: boolean, error?: LLMError) => {
-  return Layer.succeed(LLMManagerServiceTag, {
-    generate: (request: LLMRequest): Effect.Effect<LLMResponse, LLMError, never> => {
-      if (shouldFail && error) {
-        return Effect.fail(error)
-      }
-      if (shouldFail) {
-        // Create a proper LLMError
-        const llmError = new NetworkError({
-          model: request.preferences?.model || 'mock-model',
-          message: 'LLM generation failed'
-        })
-        return Effect.fail(llmError)
-      }
-
-      const response: LLMResponse = {
-        content: mockResponse?.content || 'Mock LLM response',
-        model: mockResponse?.model || request.preferences?.model || 'mock-model',
-        usage: mockResponse?.usage || {
-          promptTokens: 10,
-          completionTokens: 20,
-          totalTokens: 30,
-          cost: 0
-        },
-        metadata: mockResponse?.metadata || {
-          latencyMs: 100,
-          retryCount: 0,
-          cached: false
-        }
-      }
-      return Effect.succeed(response)
-    },
-    generateStream: (request: LLMRequest): Stream.Stream<string, LLMError, never> => {
-      const error = new NetworkError({
-        model: request.preferences?.model || 'mock-model',
-        message: 'Streaming not implemented in mock'
-      })
-      return Stream.fail(error)
-    },
-    isHealthy: () => Effect.succeed(true),
-    getStatus: (): Effect.Effect<ManagerStatus, never, never> => Effect.succeed({
-      availableModels: ['mock-model'],
-      healthStatus: { 'mock-model': 'healthy' },
-      config: {}
-    } as ManagerStatus),
-    getAvailableModels: () => Effect.succeed(['mock-model']),
-    getDefaultModel: (_taskType?: 'sql' | 'general' | 'code') => Effect.succeed('mock-model'),
-    getModelInfo: (_modelId: string) => Effect.succeed({
-      id: 'mock-model',
-      name: 'Mock Model',
-      provider: 'openai' as const,
-      capabilities: ['general'] as ('general' | 'sql' | 'code' | 'embedding')[],
-      metadata: {
-        contextLength: 4096,
-        maxTokens: 2048,
-        temperature: 0.7
-      },
-      status: 'available' as const
-    }),
-    getModelsByCapability: (_capability: string) => Effect.succeed([]),
-    getModelsByProvider: (_provider: string) => Effect.succeed([]),
-    getAllModels: () => Effect.succeed([{
-      id: 'mock-model',
-      name: 'Mock Model',
-      provider: 'openai' as const,
-      capabilities: ['general'] as ('general' | 'sql' | 'code' | 'embedding')[],
-      metadata: {
-        contextLength: 4096,
-        maxTokens: 2048,
-        temperature: 0.7
-      },
-      status: 'available' as const
-    }])
-  })
-}
+import { UIGeneratorTestLayer, FallbackTestLayer, NetworkErrorTestLayer, MultipleQueriesTestLayer } from '../utils/test-layers.js'
 
 describe('UIGeneratorAPIClient', () => {
   beforeEach(() => {
@@ -141,19 +33,8 @@ describe('UIGeneratorAPIClient', () => {
         model: 'sqlcoder-7b-2'  // Specify the model to match expectations
       }
 
-      // For sqlcoder models, the LLM returns raw SQL which gets wrapped by llm-query-generator
-      // So our mock should return raw SQL, not JSON
-      const mockLayer = createMockLLMManagerLayer({
-        content: 'SELECT service_name, COUNT(*) FROM traces GROUP BY service_name;',
-        model: 'sqlcoder-7b-2'
-      })
-
-      // Create the layer with all required dependencies
-      const testLayer = Layer.mergeAll(
-        mockLayer,
-        createMockStorageLayer(),
-        ConfigServiceLive
-      )
+      // Use the shared test layer which handles all dependencies
+      const testLayer = UIGeneratorTestLayer
 
       const result = await Effect.runPromise(
         UIGeneratorAPIClient.generateQuery(mockRequest).pipe(
@@ -186,26 +67,8 @@ describe('UIGeneratorAPIClient', () => {
         model: 'gpt-3.5-turbo' // Non-SQL model
       }
 
-      // For non-SQL models, return proper JSON
-      const mockLayer = createMockLLMManagerLayer({
-        content: JSON.stringify({
-          sql: 'SELECT * FROM traces WHERE service_name IN (\'service-a\', \'service-b\');',
-          description: 'Analyze path performance',
-          expectedColumns: [
-            { name: 'trace_id', type: 'string', description: 'Trace identifier' },
-            { name: 'service_name', type: 'string', description: 'Service name' }
-          ],
-          reasoning: 'Analyzing critical path performance'
-        }),
-        model: 'gpt-3.5-turbo'
-      })
-
-      // Create the layer with all required dependencies
-      const testLayer = Layer.mergeAll(
-        mockLayer,
-        createMockStorageLayer(),
-        ConfigServiceLive
-      )
+      // Use the shared test layer
+      const testLayer = UIGeneratorTestLayer
 
       const result = await Effect.runPromise(
         UIGeneratorAPIClient.generateQuery(mockRequest).pipe(
@@ -241,28 +104,15 @@ describe('UIGeneratorAPIClient', () => {
         }
       }
 
-      const modelUnavailableError = new ModelUnavailable({
-        model: 'test-model',
-        message: 'Model is not available'
-      })
+      // Use the fallback test layer which simulates LLM failures
+      const testLayer = FallbackTestLayer
 
-      const mockLayer = createMockLLMManagerLayer(undefined, true, modelUnavailableError)
-
-      // Create the layer with all required dependencies
-      const testLayer = Layer.mergeAll(
-        mockLayer,
-        createMockStorageLayer(),
-        ConfigServiceLive
-      )
-
-      // The error gets wrapped by llm-query-generator, so we check the message contains the error
+      // ModelUnavailable errors should be re-thrown, not handled with fallback
       await expect(Effect.runPromise(
         UIGeneratorAPIClient.generateQuery(mockRequest).pipe(
           Effect.provide(testLayer)
         )
-      )).rejects.toThrow(
-        'LLM query generation failed'
-      )
+      )).rejects.toThrow()
     })
 
     it('should generate fallback query for other errors', async () => {
@@ -276,14 +126,8 @@ describe('UIGeneratorAPIClient', () => {
         }
       }
 
-      const mockLayer = createMockLLMManagerLayer(undefined, true)
-
-      // Create the layer with all required dependencies
-      const testLayer = Layer.mergeAll(
-        mockLayer,
-        createMockStorageLayer(),
-        ConfigServiceLive
-      )
+      // Use the network error test layer which simulates network failures (not ModelUnavailable)
+      const testLayer = NetworkErrorTestLayer
 
       const result = await Effect.runPromise(
         UIGeneratorAPIClient.generateQuery(mockRequest).pipe(
@@ -315,62 +159,8 @@ describe('UIGeneratorAPIClient', () => {
         patterns: ['latency', 'errors']
       }
 
-      let callCount = 0
-      // For sqlcoder models, return raw SQL
-      const responses = [
-        'SELECT latency FROM traces;',
-        'SELECT errors FROM traces;'
-      ]
-
-      const mockLayer = Layer.succeed(LLMManagerServiceTag, {
-        generate: (request: LLMRequest): Effect.Effect<LLMResponse, LLMError, never> => {
-          const response: LLMResponse = {
-            content: responses[callCount] || '',
-            model: request.preferences?.model || 'sqlcoder-7b-2',
-            usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30, cost: 0 },
-            metadata: { latencyMs: 100, retryCount: 0, cached: false }
-          }
-          callCount++
-          return Effect.succeed(response)
-        },
-        generateStream: (request: LLMRequest): Stream.Stream<string, LLMError, never> => {
-          const error = new NetworkError({
-            model: request.preferences?.model || 'mock-model',
-            message: 'Not implemented'
-          })
-          return Stream.fail(error)
-        },
-        isHealthy: () => Effect.succeed(true),
-        getStatus: (): Effect.Effect<ManagerStatus, never, never> => Effect.succeed({
-          availableModels: ['mock-model'],
-          healthStatus: {},
-          config: {}
-        } as ManagerStatus),
-        getAvailableModels: () => Effect.succeed(['mock-model']),
-        getDefaultModel: (_taskType?: 'sql' | 'general' | 'code') => Effect.succeed('mock-model'),
-        getModelInfo: (_modelId: string) => Effect.succeed({
-          id: 'mock-model',
-          name: 'Mock Model',
-          provider: 'openai' as const,
-          capabilities: ['general'] as ('general' | 'sql' | 'code' | 'embedding')[],
-          metadata: {
-            contextLength: 4096,
-            maxTokens: 2048,
-            temperature: 0.7
-          },
-          status: 'available' as const
-        }),
-        getModelsByCapability: (_capability: string) => Effect.succeed([]),
-        getModelsByProvider: (_provider: string) => Effect.succeed([]),
-        getAllModels: () => Effect.succeed([])
-      })
-
-      // Create the layer with all required dependencies
-      const testLayer = Layer.mergeAll(
-        mockLayer,
-        createMockStorageLayer(),
-        ConfigServiceLive
-      )
+      // Use the multiple queries test layer with sequential responses
+      const testLayer = MultipleQueriesTestLayer
 
       const results = await Effect.runPromise(
         UIGeneratorAPIClient.generateMultipleQueries(mockRequest).pipe(

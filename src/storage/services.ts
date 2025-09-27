@@ -102,14 +102,13 @@ const makeStorageService = (
     Effect.void,
 
   healthCheck: () =>
-    Effect.gen(function* (_) {
-      const clickhouseHealth = yield* _(clickhouse.healthCheck().pipe(Effect.option))
-
-      return {
+    clickhouse.healthCheck().pipe(
+      Effect.option,
+      Effect.map((clickhouseHealth) => ({
         clickhouse: clickhouseHealth._tag === 'Some' ? clickhouseHealth.value : false,
         s3: true // Always report S3 as healthy since we're not using it
-      }
-    }),
+      }))
+    ),
 
   getStorageStats: () =>
     Effect.gen(function* (_) {
