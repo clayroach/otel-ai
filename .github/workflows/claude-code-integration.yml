@@ -59,9 +59,11 @@ jobs:
           claude_args: |
             --max-turns 5
             --model claude-3-5-haiku-20241022
-            --no-plan
+            --permission-mode auto-accept
             --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh:*),Bash(grep:*),Read"
           prompt: |
+            EXECUTE IMMEDIATELY - DO NOT ENTER PLAN MODE. Take action directly.
+
             Review PR #${{ github.event.pull_request.number }} and post inline comments for violations.
 
             TASK: Post inline comments for these specific violations ONLY, then STOP:
