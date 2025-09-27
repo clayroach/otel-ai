@@ -88,9 +88,46 @@ export const checkLLMAvailabilityEffect = Effect.sync(() => {
 })
 
 /**
+ * Check if a model requires local hosting (LM Studio, Ollama, etc.)
+ */
+export const isLocalModel = (modelName: string): boolean => {
+  return (
+    modelName.includes('codellama') ||
+    modelName.includes('deepseek') ||
+    modelName.includes('sqlcoder') ||
+    modelName.includes('ollama') ||
+    modelName.includes('lm-studio')
+  )
+}
+
+/**
+ * Filter models to only include those available in CI (external APIs)
+ */
+export const filterExternalModels = (
+  models: Array<{ name: string; provider: string }>
+): Array<{ name: string; provider: string }> => {
+  return models.filter((model) => !isLocalModel(model.name))
+}
+
+/**
  * Check if tests should be skipped due to missing LLM keys
  */
 export const shouldSkipLLMTests = () => {
+  const availability = checkLLMAvailability()
+  return !availability.hasAnyLLM
+}
+
+/**
+ * Check if local model tests should be skipped (always skip in CI)
+ */
+export const shouldSkipLocalModels = (): boolean => {
+  return isCI
+}
+
+/**
+ * Check if external LLM tests should be skipped (skip only if no API keys)
+ */
+export const shouldSkipExternalLLMTests = (): boolean => {
   const availability = checkLLMAvailability()
   return !availability.hasAnyLLM
 }
@@ -124,6 +161,10 @@ export default {
   getTestApiKeys,
   checkLLMAvailabilityEffect,
   shouldSkipLLMTests,
+  shouldSkipLocalModels,
+  shouldSkipExternalLLMTests,
+  isLocalModel,
+  filterExternalModels,
   logAvailabilityStatus,
   hasOpenAIKey,
   hasClaudeKey,
