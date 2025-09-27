@@ -274,10 +274,12 @@ jobs:
             echo "e2e_errors<<EOF" >> $GITHUB_OUTPUT
             tail -n 100 e2e-output.log >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
+            echo "❌ E2E tests failed with exit code $E2E_EXIT_CODE"
           fi
 
+          # Store exit code for cleanup job but let this step fail if E2E fails
+          echo "e2e_exit_code=$E2E_EXIT_CODE" >> $GITHUB_OUTPUT
           exit $E2E_EXIT_CODE
-        continue-on-error: true
 
       - name: Upload E2E Test Artifacts
         if: failure() && steps.e2e-tests.outcome == 'failure'
