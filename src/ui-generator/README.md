@@ -62,6 +62,33 @@ const main = program.pipe(Effect.provide(UIGeneratorClientLive))
 Effect.runPromise(main).then(console.log)
 ```
 
+## HTTP Router
+
+The ui-generator package exports an HTTP router for SQL-to-UI generation and query endpoints:
+
+```typescript
+import { UIGeneratorRouterLive, UIGeneratorRouterTag } from '@otel-ai/ui-generator/router'
+import { Effect } from 'effect'
+
+// Mount the router in your Express app
+const program = Effect.gen(function* () {
+  const uiGeneratorRouter = yield* UIGeneratorRouterTag
+  app.use(uiGeneratorRouter.router)
+})
+
+// Provide the router layer
+const main = program.pipe(
+  Effect.provide(UIGeneratorRouterLive),
+  Effect.provide(UIGeneratorAPIClientLayer), // Required dependency
+  Effect.provide(LLMManagerAPIClientLayer)   // Required dependency
+)
+```
+
+**Router Endpoints:**
+- `POST /api/ui-generator/from-sql` - Generate UI components from SQL results
+- `POST /api/ui-generator/generate-query` - Generate ClickHouse queries from path analysis
+- `GET /api/ui-generator/models` - Get available LLM models for generation
+
 ## Usage
 
 ### Component Generation

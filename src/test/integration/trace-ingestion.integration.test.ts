@@ -15,7 +15,7 @@ import {
 // Test configuration
 const testConfig = {
   host: process.env.CLICKHOUSE_HOST || 'localhost',
-  port: parseInt(process.env.CLICKHOUSE_PORT || '8123'),
+  port: parseInt(process.env.CLICKHOUSE_PORT || '8124'),
   database: process.env.CLICKHOUSE_DATABASE || 'otel',
   username: process.env.CLICKHOUSE_USERNAME || 'otel',
   password: process.env.CLICKHOUSE_PASSWORD || 'otel123'

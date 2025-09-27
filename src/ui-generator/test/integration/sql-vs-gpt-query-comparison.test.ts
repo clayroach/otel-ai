@@ -134,6 +134,7 @@ describe.skipIf(shouldSkipLLMTests())("SQL Model vs GPT Model Query Generation C
           ])
         }
       },
+      insertRaw: () => Effect.succeed(undefined),
       healthCheck: () => Effect.succeed({ clickhouse: true, s3: true })
     }
   )

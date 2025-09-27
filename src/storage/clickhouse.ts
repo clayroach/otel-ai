@@ -33,6 +33,7 @@ export interface ClickHouseStorage {
   readonly queryForAI: (params: AIQueryParams) => Effect.Effect<AIDataset, StorageError>
   readonly queryRaw: (sql: string) => Effect.Effect<unknown[], StorageError>
   readonly queryText: (sql: string) => Effect.Effect<string, StorageError>
+  readonly insertRaw: (sql: string) => Effect.Effect<void, StorageError>
   readonly healthCheck: () => Effect.Effect<boolean, StorageError>
   readonly close: () => Effect.Effect<void, never>
 }
@@ -518,6 +519,16 @@ export const makeClickHouseStorage = (
           StorageErrorConstructors.QueryError(`Text query failed: ${String(error)}`, sql, error)
       })
 
+    const insertRaw = (sql: string): Effect.Effect<void, StorageError> =>
+      Effect.tryPromise({
+        try: async () => {
+          // For INSERT statements, use client.command which doesn't expect JSON output
+          await client.command({ query: sql })
+        },
+        catch: (error) =>
+          StorageErrorConstructors.QueryError(`Raw insert failed: ${String(error)}`, sql, error)
+      })
+
     // Helper function to clean protobuf JSON strings
     const cleanProtobufStrings = (obj: unknown): unknown => {
       if (typeof obj === 'string') {
@@ -593,6 +604,7 @@ export const makeClickHouseStorage = (
       queryForAI,
       queryRaw,
       queryText,
+      insertRaw,
       healthCheck,
       close
     }

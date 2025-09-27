@@ -35,18 +35,9 @@ export {
   AntiContaminationServiceLive
 } from './anti-contamination-service.js'
 
-// Export Feature Flag Controller
-export {
-  type FeatureFlag,
-  type FlagEvaluation,
-  type FeatureFlagConfig,
-  type FeatureFlagControllerImpl,
-  FeatureFlagError,
-  FeatureFlagController,
-  FeatureFlagControllerLive,
-  FeatureFlagControllerMock,
-  FeatureFlagConfigTag
-} from './feature-flag-controller.js'
+// Export Annotations Router
+export type { AnnotationsRouter } from './router.js'
+export { AnnotationsRouterTag, AnnotationsRouterLive } from './router.js'
 
 // Export Diagnostics Session Manager
 export {

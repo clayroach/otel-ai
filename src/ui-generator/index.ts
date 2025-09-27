@@ -73,3 +73,21 @@ export type {
   ResultAnalysis,
   ChartAnalysisInput
 } from './services/index.js'
+
+// Router exports - Layer pattern for HTTP endpoints
+export type { UIGeneratorRouter } from './router.js'
+export { UIGeneratorRouterTag, UIGeneratorRouterLive } from './router.js'
+
+// Test Layers only - no utility functions exported from package index
+export {
+  MockLLMManagerLive,
+  FailingLLMManagerLive,
+  SQLvsGPTMockLLMManagerLive,
+  UIGeneratorTestLayer,
+  DiagnosticQueryTestLayer,
+  SQLvsGPTTestLayer,
+  ErrorTestingLayer,
+  FallbackTestLayer,
+  NetworkErrorTestLayer,
+  MultipleQueriesTestLayer
+} from './test/utils/test-layers.js'

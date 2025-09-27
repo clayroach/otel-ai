@@ -79,3 +79,78 @@ export const ReplayStatusSchema = Schema.Struct({
 })
 
 export type ReplayStatus = Schema.Schema.Type<typeof ReplayStatusSchema>
+
+// Training session configuration
+export const TrainingSessionConfigSchema = Schema.Struct({
+  flagName: Schema.String,
+  flagValues: Schema.Struct({
+    baseline: Schema.Number,
+    anomaly: Schema.Number,
+    recovery: Schema.Number
+  }),
+  phaseDurations: Schema.Struct({
+    baseline: Schema.Number, // seconds
+    anomaly: Schema.Number, // seconds
+    recovery: Schema.Number // seconds
+  }),
+  sessionId: Schema.optional(Schema.String) // Optional pre-assigned sessionId
+})
+
+export type TrainingSessionConfig = Schema.Schema.Type<typeof TrainingSessionConfigSchema>
+
+// Phase information
+export const PhaseInfoSchema = Schema.Struct({
+  startTime: Schema.Date,
+  endTime: Schema.Date,
+  flagName: Schema.String,
+  flagValue: Schema.Number,
+  annotationId: Schema.String
+})
+
+export type PhaseInfo = Schema.Schema.Type<typeof PhaseInfoSchema>
+
+// Training dataset
+export const TrainingDatasetSchema = Schema.Struct({
+  sessionId: Schema.String,
+  startTime: Schema.Date,
+  endTime: Schema.Date,
+  enabledFlags: Schema.Array(Schema.String),
+  s3Prefix: Schema.String,
+  phases: Schema.Struct({
+    baseline: PhaseInfoSchema,
+    anomaly: PhaseInfoSchema,
+    recovery: PhaseInfoSchema
+  }),
+  otlpFiles: Schema.Struct({
+    baseline: Schema.Array(Schema.String),
+    anomaly: Schema.Array(Schema.String),
+    recovery: Schema.Array(Schema.String)
+  })
+})
+
+export type TrainingDataset = Schema.Schema.Type<typeof TrainingDatasetSchema>
+
+// Phase labels for training
+export const PhaseLabelsSchema = Schema.Struct({
+  baseline: Schema.Struct({
+    has_anomaly: Schema.Boolean,
+    anomaly_severity: Schema.Number,
+    flag_value: Schema.Number
+  }),
+  anomaly: Schema.Struct({
+    has_anomaly: Schema.Boolean,
+    anomaly_severity: Schema.Number,
+    flag_value: Schema.Number,
+    anomaly_type: Schema.optional(Schema.String)
+  }),
+  recovery: Schema.Struct({
+    has_anomaly: Schema.Boolean,
+    anomaly_severity: Schema.Number,
+    flag_value: Schema.Number
+  })
+})
+
+export type PhaseLabels = Schema.Schema.Type<typeof PhaseLabelsSchema>
+
+// Phase type
+export type Phase = 'baseline' | 'anomaly' | 'recovery'

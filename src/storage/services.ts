@@ -21,7 +21,10 @@ import { type ClickHouseStorage, makeClickHouseStorage } from './clickhouse.js'
 // Main storage service interface
 export interface StorageService {
   // Write operations
-  readonly writeOTLP: (data: OTLPData) => Effect.Effect<void, StorageError>
+  readonly writeOTLP: (
+    data: OTLPData,
+    encodingType?: 'protobuf' | 'json'
+  ) => Effect.Effect<void, StorageError>
   readonly writeBatch: (data: OTLPData[]) => Effect.Effect<void, StorageError>
 
   // Read operations
@@ -31,6 +34,7 @@ export interface StorageService {
   readonly queryForAI: (params: AIQueryParams) => Effect.Effect<AIDataset, StorageError>
   readonly queryRaw: (sql: string) => Effect.Effect<unknown[], StorageError>
   readonly queryText: (sql: string) => Effect.Effect<string, StorageError>
+  readonly insertRaw: (sql: string) => Effect.Effect<void, StorageError>
 
   // Archive and retention
   readonly archiveData: (data: OTLPData, timestamp: number) => Effect.Effect<void, StorageError>
@@ -73,9 +77,9 @@ const makeStorageService = (
   clickhouse: ClickHouseStorage,
   config: StorageConfig
 ): StorageService => ({
-  writeOTLP: (data: OTLPData) =>
+  writeOTLP: (data: OTLPData, encodingType?: 'protobuf' | 'json') =>
     // Write to ClickHouse (primary storage)
-    clickhouse.writeOTLP(data),
+    clickhouse.writeOTLP(data, encodingType),
 
   writeBatch: (data: OTLPData[]) =>
     // Process batches with controlled concurrency
@@ -89,6 +93,7 @@ const makeStorageService = (
   queryForAI: (params: AIQueryParams) => clickhouse.queryForAI(params),
   queryRaw: (sql: string) => clickhouse.queryRaw(sql),
   queryText: (sql: string) => clickhouse.queryText(sql),
+  insertRaw: (sql: string) => clickhouse.insertRaw(sql),
 
   archiveData: (_data: OTLPData, _timestamp: number) =>
     // S3 archiving not implemented yet - just return success
@@ -100,14 +105,13 @@ const makeStorageService = (
     Effect.void,
 
   healthCheck: () =>
-    Effect.gen(function* (_) {
-      const clickhouseHealth = yield* _(clickhouse.healthCheck().pipe(Effect.option))
-
-      return {
+    clickhouse.healthCheck().pipe(
+      Effect.option,
+      Effect.map((clickhouseHealth) => ({
         clickhouse: clickhouseHealth._tag === 'Some' ? clickhouseHealth.value : false,
         s3: true // Always report S3 as healthy since we're not using it
-      }
-    }),
+      }))
+    ),
 
   getStorageStats: () =>
     Effect.gen(function* (_) {
@@ -171,8 +175,8 @@ export const StorageLayer = StorageServiceLive
 
 // Convenience functions for common operations
 export namespace StorageOperations {
-  export const writeOTLP = (data: OTLPData) =>
-    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.writeOTLP(data)))
+  export const writeOTLP = (data: OTLPData, encodingType?: 'protobuf' | 'json') =>
+    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.writeOTLP(data, encodingType)))
 
   export const queryTraces = (params: QueryParams) =>
     StorageServiceTag.pipe(Effect.flatMap((storage) => storage.queryTraces(params)))
