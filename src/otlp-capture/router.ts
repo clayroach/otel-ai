@@ -47,7 +47,8 @@ export const OtlpCaptureRouterLive = Layer.effect(
 
         const session = await Effect.runPromise(captureService.getCaptureStatus(sessionId))
 
-        res.json({ session })
+        // Return session directly for backward compatibility
+        res.json(session)
       } catch (error) {
         console.error('❌ Error getting capture session:', error)
         res.status(500).json({
@@ -60,25 +61,20 @@ export const OtlpCaptureRouterLive = Layer.effect(
     // Create new capture session
     router.post('/api/capture/sessions', async (req, res) => {
       try {
-        const { name, config } = req.body
+        // Support both formats: old (flat config) and new (name + config)
+        const captureConfig = req.body.config
+          ? {
+              sessionId: req.body.name || `capture-${Date.now()}`,
+              ...req.body.config
+            }
+          : req.body // Old format: flat CaptureConfig
 
-        const session = await Effect.runPromise(
-          captureService.startCapture({
-            sessionId: name || `capture-${Date.now()}`,
-            captureTraces: true,
-            captureMetrics: true,
-            captureLogs: true,
-            compressionEnabled: true,
-            ...config
-          })
-        )
+        const session = await Effect.runPromise(captureService.startCapture(captureConfig))
 
         console.log(`📥 Started capture session: ${session.sessionId}`)
 
-        res.json({
-          session,
-          message: 'Capture session started successfully'
-        })
+        // Return session directly for backward compatibility
+        res.json(session)
       } catch (error) {
         console.error('❌ Error starting capture session:', error)
         res.status(500).json({
@@ -93,14 +89,12 @@ export const OtlpCaptureRouterLive = Layer.effect(
       try {
         const { sessionId } = req.params
 
-        await Effect.runPromise(captureService.stopCapture(sessionId))
+        const session = await Effect.runPromise(captureService.stopCapture(sessionId))
 
         console.log(`🛑 Stopped capture session: ${sessionId}`)
 
-        res.json({
-          message: 'Capture session stopped successfully',
-          sessionId
-        })
+        // Return session for backward compatibility
+        res.json(session)
       } catch (error) {
         console.error('❌ Error stopping capture session:', error)
         res.status(500).json({
