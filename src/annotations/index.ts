@@ -48,6 +48,13 @@ export {
   FeatureFlagConfigTag
 } from './feature-flag-controller.js'
 
+// Export Filesystem-based Feature Flag Controller
+export { FeatureFlagControllerFilesystem } from './feature-flag-controller-filesystem.js'
+
+// Export Annotations Router
+export type { AnnotationsRouter } from './router.js'
+export { AnnotationsRouterTag, AnnotationsRouterLive } from './router.js'
+
 // Export Diagnostics Session Manager
 export {
   type DiagnosticsSession,

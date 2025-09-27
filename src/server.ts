@@ -31,8 +31,7 @@ import {
   DiagnosticsSessionManager,
   DiagnosticsSessionManagerLive,
   FeatureFlagController,
-  FeatureFlagControllerLive,
-  FeatureFlagConfigTag
+  FeatureFlagControllerFilesystem
 } from './annotations/index.js'
 import {
   OtlpCaptureServiceTag,
@@ -74,18 +73,18 @@ function convertAttributesToRecord(attributes: unknown): Record<string, unknown>
   return {}
 }
 
-// Import routers
-import { type StorageRouter, StorageRouterTag, StorageRouterLive } from './storage/router.js'
+// Import routers from package index files
+import { type StorageRouter, StorageRouterTag, StorageRouterLive } from './storage/index.js'
 import {
   type UIGeneratorRouter,
   UIGeneratorRouterTag,
   UIGeneratorRouterLive
-} from './ui-generator/router.js'
+} from './ui-generator/index.js'
 import {
   type AIAnalyzerRouter,
   AIAnalyzerRouterTag,
   AIAnalyzerRouterLive
-} from './ai-analyzer/router.js'
+} from './ai-analyzer/index.js'
 import {
   type LLMManagerRouter,
   LLMManagerRouterTag,
@@ -168,14 +167,6 @@ const ConfigLayer = ConfigServiceLive
 // Create storage layers with config
 const StorageWithConfig = StorageServiceLayer.pipe(Layer.provide(ConfigLayer))
 
-// Create feature flag config layer
-const FeatureFlagConfigLayer = Layer.succeed(FeatureFlagConfigTag, {
-  flagdHost: process.env.FLAGD_HOST ?? 'localhost',
-  flagdPort: parseInt(process.env.FLAGD_PORT ?? '8013'),
-  cacheTTL: parseInt(process.env.FLAGD_CACHE_TTL ?? '30000'),
-  timeout: parseInt(process.env.FLAGD_TIMEOUT ?? '5000')
-})
-
 // Create S3Storage layer for OTLP capture
 const S3StorageLayer = S3StorageLive
 
@@ -196,12 +187,12 @@ const BaseDependencies = Layer.mergeAll(
   LLMManagerAPIClientLayer, // LLM Manager API client
   AIAnalyzerMockLayer(), // AI Analyzer (mock)
   AnnotationServiceLive.pipe(Layer.provide(StorageWithConfig)), // Annotation Service
-  FeatureFlagControllerLive.pipe(Layer.provide(FeatureFlagConfigLayer)), // Feature Flag Controller
+  FeatureFlagControllerFilesystem, // Feature Flag Controller using filesystem (no gRPC)
   DiagnosticsSessionManagerLive.pipe(
     Layer.provide(
       Layer.mergeAll(
         AnnotationServiceLive.pipe(Layer.provide(StorageWithConfig)),
-        FeatureFlagControllerLive.pipe(Layer.provide(FeatureFlagConfigLayer)),
+        FeatureFlagControllerFilesystem,
         OtlpCaptureServiceLive.pipe(Layer.provide(S3StorageLayer))
       )
     )

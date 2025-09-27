@@ -219,13 +219,22 @@ export const AnnotationsRouterLive = Layer.effect(
     // Start training data capture
     router.post('/api/diagnostics/training/capture', async (req, res) => {
       try {
-        // Session ID not used in current implementation
+        const { flagName, flagValues, phaseDurations } = req.body
+
+        // Validate request body
+        if (!flagName || !flagValues || !phaseDurations) {
+          res.status(400).json({
+            error: 'Invalid request',
+            message: 'flagName, flagValues, and phaseDurations are required'
+          })
+          return
+        }
 
         const result = await Effect.runPromise(
           sessionManager.runTrainingSession({
-            flagName: 'default',
-            flagValues: { baseline: 0.0, anomaly: 1.0, recovery: 0.0 },
-            phaseDurations: { baseline: 60, anomaly: 60, recovery: 60 }
+            flagName,
+            flagValues,
+            phaseDurations
           })
         )
 

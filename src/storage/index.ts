@@ -57,3 +57,7 @@ export {
 export type { ClickHouseStorage } from './clickhouse.js'
 export type { S3Storage } from './s3.js'
 export { S3StorageTag, S3StorageLive } from './s3.js'
+
+// Router exports - Layer pattern for HTTP endpoints
+export type { StorageRouter } from './router.js'
+export { StorageRouterTag, StorageRouterLive } from './router.js'

@@ -73,3 +73,7 @@ export type {
   ResultAnalysis,
   ChartAnalysisInput
 } from './services/index.js'
+
+// Router exports - Layer pattern for HTTP endpoints
+export type { UIGeneratorRouter } from './router.js'
+export { UIGeneratorRouterTag, UIGeneratorRouterLive } from './router.js'
