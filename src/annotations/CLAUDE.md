@@ -46,6 +46,36 @@ export class ServiceName extends Context.Tag('ServiceName')<
 export const ServiceNameLive = Layer.succeed(ServiceName, impl)
 ```
 
+### HTTP Router Pattern
+```typescript
+// CRITICAL: Export routers as Effect Layers only
+export interface AnnotationsRouter {
+  readonly router: express.Router
+}
+
+export const AnnotationsRouterTag = Context.GenericTag<AnnotationsRouter>('AnnotationsRouter')
+
+export const AnnotationsRouterLive = Layer.effect(
+  AnnotationsRouterTag,
+  Effect.gen(function* () {
+    const annotationService = yield* AnnotationService
+    const sessionManager = yield* DiagnosticsSessionManager
+    const flagController = yield* FeatureFlagController
+
+    const router = express.Router()
+
+    // API endpoints
+    router.get('/api/diagnostics/flags', async (req, res) => {
+      // Delegate to services, minimal HTTP logic
+      const flags = await Effect.runPromise(flagController.listFlags())
+      res.json({ flags })
+    })
+
+    return AnnotationsRouterTag.of({ router })
+  })
+)
+```
+
 ### Error Handling
 ```typescript
 // Tagged errors for precise error handling
