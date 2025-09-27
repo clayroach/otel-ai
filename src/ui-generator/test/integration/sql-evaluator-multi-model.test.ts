@@ -13,9 +13,10 @@ import {
   setupClickHouseSchema,
   cleanupClickHouseContainer
 } from '../test-utils/clickhouse-container.js'
-
-// Skip LLM tests only in CI environment
-const skipInCI = process.env.CI === 'true'
+import {
+  filterExternalModels,
+  shouldSkipExternalLLMTests
+} from '../../../llm-manager/test/utils/llm-availability.js'
 
 describe('SQL Evaluator-Optimizer with Multiple LLM Models', () => {
   let testContainer: ClickHouseTestContainer
@@ -23,18 +24,25 @@ describe('SQL Evaluator-Optimizer with Multiple LLM Models', () => {
 
   // Models to test - all accessed through Portkey gateway
   // Portkey should be configured with virtual keys for each model
-  const models = [
+  const allModels = [
     { name: 'claude-3-haiku-20240307', provider: 'anthropic' },
     { name: 'gpt-4o-mini', provider: 'openai' },
     { name: 'codellama-7b-instruct', provider: 'local' },
     { name: 'deepseek-coder-6.7b-instruct', provider: 'local' }
   ]
 
+  // In CI, only test external models (Claude, OpenAI)
+  const models = process.env.CI === 'true' ? filterExternalModels(allModels) : allModels
+
   beforeAll(async () => {
-    // Skip setup in CI
-    if (skipInCI) {
-      console.log('⚠️  Running in CI - skipping test setup')
+    // Skip setup only if no external LLM keys available
+    if (shouldSkipExternalLLMTests()) {
+      console.log('⚠️  No LLM API keys available - skipping test setup')
       return
+    }
+
+    if (process.env.CI === 'true') {
+      console.log('🔄 Running in CI - testing external models only (Claude, OpenAI)')
     }
 
     console.log('🚀 Starting ClickHouse test container for multi-model tests...')
@@ -49,7 +57,7 @@ describe('SQL Evaluator-Optimizer with Multiple LLM Models', () => {
     console.log('✅ Schema created for multi-model tests')
   })
 
-  describe.skipIf(skipInCI)('Parallel model testing with Effect', () => {
+  describe.skipIf(shouldSkipExternalLLMTests())('Parallel model testing with Effect', () => {
     it('should test all models in parallel for NOT_AN_AGGREGATE errors', async () => {
       const invalidSQL = `
         SELECT
@@ -359,7 +367,7 @@ describe('SQL Evaluator-Optimizer with Multiple LLM Models', () => {
     })
   })
 
-  describe.skipIf(skipInCI)('Known Issues - Models Cannot Fix', () => {
+  describe.skipIf(shouldSkipExternalLLMTests())('Known Issues - Models Cannot Fix', () => {
     // TODO: Enable this test when models can properly fix UNKNOWN_IDENTIFIER in complex CTEs
     it.skip('should fix UNKNOWN_IDENTIFIER errors in complex CTEs', async () => {
       const invalidSQL = `
@@ -492,7 +500,7 @@ describe('SQL Evaluator-Optimizer with Multiple LLM Models', () => {
     })
   })
 
-  describe.skipIf(skipInCI)('Comprehensive model comparison with Effect', () => {
+  describe.skipIf(shouldSkipExternalLLMTests())('Comprehensive model comparison with Effect', () => {
     it('should compare all models on complex SQL with multiple errors', async () => {
       const testSQL = `
         SELECT

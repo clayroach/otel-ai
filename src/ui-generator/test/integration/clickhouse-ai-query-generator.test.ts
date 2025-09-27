@@ -8,7 +8,7 @@ import {
 import { StorageAPIClientTag } from "../../../storage/api-client"
 import {
   logAvailabilityStatus,
-  shouldSkipLLMTests
+  shouldSkipExternalLLMTests
 } from "../../../llm-manager/test/utils/llm-availability.js"
 import { LLMManagerLive } from "../../../llm-manager/index.js"
 
@@ -25,7 +25,7 @@ const testPath: CriticalPath = {
   }
 }
 
-describe.skipIf(shouldSkipLLMTests())("ClickHouse AI Query Generator", () => {
+describe.skipIf(shouldSkipExternalLLMTests())("ClickHouse AI Query Generator", () => {
   
   beforeAll(() => {
     // Log availability status using shared utility

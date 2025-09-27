@@ -18,6 +18,7 @@ import {
 import type { QueryGenerationAPIRequest } from '../../api-client.js'
 import type { UIGeneratorError } from '../../errors.js'
 import type { ValidationResult } from '../../service.js'
+import { shouldSkipExternalLLMTests } from '../../../llm-manager/test/utils/llm-availability.js'
 
 // Build the dependencies that UIGeneratorServiceLive needs
 // UIGeneratorServiceLive requires: LLMManagerServiceTag, StorageServiceTag, ConfigServiceTag
@@ -40,11 +41,15 @@ describe('UI Generator API Client Layer Integration', () => {
   let skipReason = ''
 
   beforeAll(async () => {
-    // Skip LLM tests in CI - they require actual API calls which may not be reliable
-    if (process.env.CI === 'true') {
+    // Skip only if no external LLM API keys are available
+    if (shouldSkipExternalLLMTests()) {
       isLLMAvailable = false
-      console.log('⚠️  Running in CI - skipping LLM integration tests that require API calls')
+      console.log('⚠️  No external LLM API keys available - skipping LLM integration tests')
       return
+    }
+
+    if (process.env.CI === 'true') {
+      console.log('🔄 Running in CI - using external LLM APIs (Claude, OpenAI) via Portkey')
     }
 
     // Check if Portkey gateway is available (with retries for CI)
@@ -83,8 +88,8 @@ describe('UI Generator API Client Layer Integration', () => {
 
     if (!isLLMAvailable) {
       const skipReasons = []
-      if (process.env.CI === 'true') {
-        skipReasons.push('CI environment detected')
+      if (shouldSkipExternalLLMTests()) {
+        skipReasons.push('No external LLM API keys available')
       }
       if (!gatewayAvailable) {
         skipReasons.push('Portkey gateway not available at localhost:8787')
@@ -105,7 +110,7 @@ describe('UI Generator API Client Layer Integration', () => {
     }
   })
 
-  describe.skipIf(process.env.CI === 'true')('With Real LLM Service', () => {
+  describe.skipIf(shouldSkipExternalLLMTests())('With Real LLM Service', () => {
     it('should generate query through the layer', async () => {
 
       try {

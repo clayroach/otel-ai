@@ -26,6 +26,30 @@ Production-ready AI-native observability platform built with Effect-TS, OpenTele
 
 **When in doubt**: Implement the minimum viable solution that meets the stated requirements.
 
+## ⚠️ CRITICAL: No Time Estimates in Implementation Plans
+
+**NEVER include time estimates or duration commitments in implementation guidance:**
+
+❌ **DON'T**:
+- Use "Days 1-2", "Week 1", "2-3 days", etc. in implementation plans
+- Add timeline estimates to phases or tasks
+- Include duration-based project planning
+- Suggest completion timeframes
+
+✅ **DO**:
+- Use phase-based organization (Phase 1, Phase 2, Phase 3)
+- Use priority-based labels (Immediate, Short-term, Long-term)
+- Focus on dependency relationships between tasks
+- Emphasize technical approach over timing
+
+**Examples**:
+- ✅ "Phase 1: Immediate Fixes"
+- ❌ "Phase 1: Day 1-2 Fixes"
+- ✅ "Phase 2: Core Infrastructure"
+- ❌ "Phase 2: Week 2-3 Infrastructure"
+
+**Rationale**: Time estimates can create false expectations and pressure. Focus on clear technical approach and logical task sequencing instead.
+
 ## Architecture
 
 **Core Packages** (`src/`):

@@ -8,7 +8,7 @@ import {
 import { StorageAPIClientTag } from "../../../storage/api-client"
 import {
   logAvailabilityStatus,
-  shouldSkipLLMTests
+  shouldSkipExternalLLMTests
 } from "../../../llm-manager/test/utils/llm-availability.js"
 import { LLMManagerLive, LLMManagerEssentials } from "../../../llm-manager"
 
@@ -33,7 +33,7 @@ const checkoutFlowPath: CriticalPath = {
   }
 }
 
-describe.skipIf(shouldSkipLLMTests())("Diagnostic Query Generation", () => {
+describe.skipIf(shouldSkipExternalLLMTests())("Diagnostic Query Generation", () => {
   
   beforeAll(() => {
     console.log("\n🔧 Diagnostic Query Generation Test Configuration")
