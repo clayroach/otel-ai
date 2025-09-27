@@ -61,6 +61,7 @@ describe.skipIf(shouldSkipLLMTests())("ClickHouse AI Query Generator", () => {
             ])
           }
         },
+        insertRaw: () => Effect.succeed(undefined),
         healthCheck: () => Effect.succeed({ clickhouse: true, s3: true })
       }
     )

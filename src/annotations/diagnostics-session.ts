@@ -3,7 +3,6 @@ import * as Schema from '@effect/schema/Schema'
 import { v4 as uuidv4 } from 'uuid'
 import { AnnotationService } from './annotation-service.js'
 import { type Annotation } from './annotation.schema.js'
-import { FeatureFlagController } from './feature-flag-controller.js'
 
 // Error types
 export class DiagnosticsSessionError extends Data.TaggedError('DiagnosticsSessionError')<{
@@ -77,7 +76,6 @@ export class DiagnosticsSessionManager extends Context.Tag('DiagnosticsSessionMa
 // Implementation
 const makeSessionManager = Effect.gen(function* () {
   const annotationService = yield* AnnotationService
-  const flagController = yield* FeatureFlagController
 
   // In-memory session store (in production, use persistent storage)
   const sessions = new Map<string, DiagnosticsSession>()
@@ -155,14 +153,20 @@ const makeSessionManager = Effect.gen(function* () {
         })
       )
 
-      // Phase 2: Enable flag
-      yield* Effect.logInfo(`Enabling flag ${config.flagName} for session ${sessionId}`)
-      yield* flagController.enableFlag(config.flagName)
+      // Phase 2: Flag management externalized to scripts
+      yield* Effect.logInfo(
+        `Flag management for ${config.flagName} handled externally for session ${sessionId}`
+      )
       yield* updateSession(sessionId, { phase: 'flag_enabled' })
       yield* createAnnotation(sessionId, `test.flag.${config.flagName}.enabled`, {
         timestamp: new Date(),
         sessionId
-      })
+      }).pipe(
+        Effect.catchAll((error) => {
+          console.error('ERROR: Failed to create flag enabled annotation:', error)
+          return Effect.void // Continue even if annotation fails
+        })
+      )
 
       // Phase 3: Warmup delay
       yield* Effect.logInfo(`Waiting ${warmupDelay}ms for warmup`)
@@ -174,7 +178,12 @@ const makeSessionManager = Effect.gen(function* () {
         createAnnotation(sessionId, 'diag.capture.checkpoint', {
           timestamp: new Date(),
           phase: 'capturing'
-        }),
+        }).pipe(
+          Effect.catchAll((error) => {
+            console.error('ERROR: Failed to create capture checkpoint annotation:', error)
+            return Effect.void // Continue even if annotation fails
+          })
+        ),
         Effect.repeat(
           Schedule.fixed(captureInterval).pipe(
             Schedule.compose(Schedule.elapsed),
@@ -189,14 +198,18 @@ const makeSessionManager = Effect.gen(function* () {
       // Wait for test duration
       yield* Effect.sleep(testDuration)
 
-      // Phase 5: Disable flag
-      yield* Effect.logInfo(`Disabling flag ${config.flagName}`)
-      yield* flagController.disableFlag(config.flagName)
+      // Phase 5: Flag management externalized to scripts
+      yield* Effect.logInfo(`Flag management for ${config.flagName} handled externally`)
       yield* updateSession(sessionId, { phase: 'flag_disabled' })
       yield* createAnnotation(sessionId, `test.flag.${config.flagName}.disabled`, {
         timestamp: new Date(),
         sessionId
-      })
+      }).pipe(
+        Effect.catchAll((error) => {
+          console.error('ERROR: Failed to create flag disabled annotation:', error)
+          return Effect.void // Continue even if annotation fails
+        })
+      )
 
       // Phase 6: Analysis phase (placeholder for future analysis)
       yield* updateSession(sessionId, { phase: 'analyzing' })
@@ -212,11 +225,16 @@ const makeSessionManager = Effect.gen(function* () {
         duration:
           (finalSession.endTime?.getTime() ?? Date.now()) - finalSession.startTime.getTime(),
         annotationCount: finalSession.annotations.length
-      })
+      }).pipe(
+        Effect.catchAll((error) => {
+          console.error('ERROR: Failed to create session completed annotation:', error)
+          return Effect.void // Continue even if annotation fails
+        })
+      )
 
       return finalSession
     }).pipe(
-      Effect.catchAll((error) =>
+      Effect.catchAll((error: unknown) =>
         pipe(
           updateSession(sessionId, {
             phase: 'failed',
@@ -325,12 +343,7 @@ const makeSessionManager = Effect.gen(function* () {
           )
         }
 
-        // If flag is still enabled, disable it
-        if (session.phase === 'flag_enabled' || session.phase === 'capturing') {
-          yield* flagController.disableFlag(session.flagName).pipe(
-            Effect.catchAll(() => Effect.succeed(undefined)) // Ignore flag errors during cleanup
-          )
-        }
+        // Flag management is external - session cleanup only handles internal state
 
         // Mark session as completed
         return yield* updateSession(sessionId, {

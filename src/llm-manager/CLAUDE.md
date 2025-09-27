@@ -7,6 +7,7 @@ This file is automatically read by Claude Code when working in this package.
 ## Mandatory Package Conventions
 CRITICAL: These conventions MUST be followed in this package:
 - **ONLY export Effect Layers for external consumption** (no factory functions)
+- **HTTP routers MUST be exported as Effect Layers** (use RouterTag pattern)
 - External packages must use PortkeyGatewayLive Layer or create their own mock
 - All LLM operations use Effect-TS with proper error handling
 - Schema validation required for all LLM responses
@@ -14,6 +15,7 @@ CRITICAL: These conventions MUST be followed in this package:
 - Use Portkey gateway for ALL model interactions
 - Always implement retry logic with exponential backoff
 - Response extraction must handle partial/malformed JSON
+- Router endpoints delegate to services, avoid business logic in routes
 
 ## Core Primitives & Patterns
 
@@ -41,6 +43,34 @@ const portkeyRequest = {
   },
   body: { messages, max_tokens, temperature }
 }
+```
+
+### HTTP Router Pattern
+```typescript
+// CRITICAL: Export routers as Effect Layers only
+export interface LLMManagerRouter {
+  readonly router: express.Router
+}
+
+export const LLMManagerRouterTag = Context.GenericTag<LLMManagerRouter>('LLMManagerRouter')
+
+export const LLMManagerRouterLive = Layer.effect(
+  LLMManagerRouterTag,
+  Effect.gen(function* () {
+    const llmManager = yield* LLMManagerAPIClientTag
+
+    const router = express.Router()
+
+    // API endpoints
+    router.get('/api/llm/interactions', async (req, res) => {
+      // Delegate to interaction logger, minimal logic
+      const interactions = interactionLogger.getInteractions(limit, model)
+      res.json({ interactions })
+    })
+
+    return LLMManagerRouterTag.of({ router })
+  })
+)
 ```
 
 ### Response Extraction Pattern

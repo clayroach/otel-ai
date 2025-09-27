@@ -80,6 +80,13 @@ describe('AnnotationService with TestContainer', () => {
           try: () => testContainer.client.query({ query: sql }).then(result => result.text()),
           catch: (error) => ({ _tag: 'QueryError' as const, message: String(error), query: sql, cause: error })
         }),
+        insertRaw: (sql: string) => Effect.tryPromise({
+          try: async () => {
+            // For INSERT operations, execute as command
+            await testContainer.client.command({ query: sql })
+          },
+          catch: (error) => ({ _tag: 'QueryError' as const, message: String(error), query: sql, cause: error })
+        }),
         archiveData: () => Effect.succeed(undefined),
         applyRetentionPolicies: () => Effect.succeed(undefined),
         healthCheck: () => Effect.succeed({ clickhouse: true, s3: true }),

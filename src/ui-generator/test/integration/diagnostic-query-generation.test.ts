@@ -89,6 +89,7 @@ describe.skipIf(shouldSkipLLMTests())("Diagnostic Query Generation", () => {
             ])
           }
         },
+        insertRaw: () => Effect.succeed(undefined),
         healthCheck: () => Effect.succeed({ clickhouse: true, s3: true })
       }
     )

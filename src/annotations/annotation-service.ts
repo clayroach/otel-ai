@@ -61,7 +61,7 @@ export const AnnotationServiceLive = Layer.effect(
           annotation_type: annotation.annotationType,
           annotation_key: annotation.annotationKey,
           annotation_value: annotation.annotationValue,
-          confidence: annotation.confidence || null,
+          confidence: annotation.confidence !== undefined ? annotation.confidence : null,
           created_at: annotation.createdAt ? annotation.createdAt.getTime() : Date.now(),
           created_by: annotation.createdBy,
           session_id: annotation.sessionId || null,
@@ -74,8 +74,8 @@ export const AnnotationServiceLive = Layer.effect(
           INSERT INTO otel.annotations (
             annotation_id, signal_type, trace_id, span_id, metric_name,
             time_range_start, time_range_end, service_name,
-            annotation_type, annotation_key, annotation_value, created_by,
-            created_at, session_id, expires_at
+            annotation_type, annotation_key, annotation_value, confidence,
+            created_by, created_at, session_id, expires_at
           ) VALUES (
             '${values.annotation_id}',
             '${values.signal_type}',
@@ -88,6 +88,7 @@ export const AnnotationServiceLive = Layer.effect(
             '${values.annotation_type}',
             '${values.annotation_key}',
             '${values.annotation_value}',
+            ${values.confidence !== null ? values.confidence : 'NULL'},
             '${values.created_by}',
             ${values.created_at},
             ${values.session_id ? `'${values.session_id}'` : 'NULL'},
@@ -98,17 +99,28 @@ export const AnnotationServiceLive = Layer.effect(
         console.log('DEBUG: Values for annotation insert:', values)
         console.log('DEBUG: Generated SQL for annotation insert:', insertSQL)
 
-        // Execute the insert using the storage service
-        yield* storage.queryRaw(insertSQL).pipe(
-          Effect.catchAll((error) =>
-            Effect.fail(
+        // Execute the insert using the storage service insertRaw for INSERT statements
+        yield* storage.insertRaw(insertSQL).pipe(
+          Effect.catchAll((error: unknown) => {
+            // Handle StorageError with proper message extraction
+            const errorMessage =
+              error && typeof error === 'object' && 'message' in error
+                ? String((error as { message: unknown }).message)
+                : error instanceof Error
+                  ? error.message
+                  : typeof error === 'string'
+                    ? error
+                    : JSON.stringify(error)
+            console.error('DEBUG: Raw error from storage.queryRaw:', error)
+            console.error('DEBUG: Processed error message:', errorMessage)
+            return Effect.fail(
               new AnnotationError({
                 reason: 'StorageFailure',
-                message: `Failed to insert annotation: ${error}`,
+                message: `Failed to insert annotation: ${errorMessage}`,
                 retryable: true
               })
             )
-          )
+          })
         )
 
         return annotationId

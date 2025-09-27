@@ -26,3 +26,7 @@ export type {
   ServiceTopology,
   AnalysisError
 } from './types.js'
+
+// Router exports - Layer pattern for HTTP endpoints
+export type { AIAnalyzerRouter } from './router.js'
+export { AIAnalyzerRouterTag, AIAnalyzerRouterLive } from './router.js'

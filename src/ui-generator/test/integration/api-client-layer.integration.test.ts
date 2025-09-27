@@ -45,10 +45,9 @@ const baseDependencies = Layer.mergeAll(
 const testLayer = Layer.provide(UIGeneratorAPIClientLayer, baseDependencies)
 
 // Helper to run effects with all required layers provided
-// This helper properly resolves all dependencies by providing the complete layer
-const runTest = <A, E>(effect: Effect.Effect<A, E, unknown>): Promise<A> => {
-  // TypeScript can't infer that all dependencies are resolved, but they are at runtime
-  return Effect.runPromise(Effect.provide(effect, testLayer) as unknown as Effect.Effect<A, E, never>)
+// Properly handles dependency resolution through layer provision
+const runTest = <A, E>(effect: Effect.Effect<A, E, UIGeneratorAPIClientTag>): Promise<A> => {
+  return Effect.runPromise(effect.pipe(Effect.provide(testLayer)))
 }
 
 describe('UI Generator API Client Layer Integration', () => {

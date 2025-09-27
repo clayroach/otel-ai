@@ -20,11 +20,20 @@ export {
   type ReplayConfig,
   type CapturedDataReference,
   type ReplayStatus,
+  type TrainingSessionConfig,
+  type TrainingDataset,
+  type PhaseInfo,
+  type PhaseLabels,
+  type Phase,
   CaptureSessionMetadataSchema,
   CaptureConfigSchema,
   ReplayConfigSchema,
   CapturedDataReferenceSchema,
-  ReplayStatusSchema
+  ReplayStatusSchema,
+  TrainingSessionConfigSchema,
+  TrainingDatasetSchema,
+  PhaseInfoSchema,
+  PhaseLabelsSchema
 } from './schemas.js'
 
 // Export services
@@ -51,6 +60,12 @@ export {
   CleanupResultSchema,
   StorageMetricsSchema
 } from './retention-service.js'
+
+export {
+  type TrainingDataReader,
+  TrainingDataReaderTag,
+  TrainingDataReaderLive
+} from './training-data-reader.js'
 
 // Re-export Effect dependencies for convenience
 export { Effect, Layer, Context } from 'effect'

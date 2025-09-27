@@ -7,6 +7,7 @@ This file is automatically read by Claude Code when working in this package.
 ## Mandatory Package Conventions
 CRITICAL: These conventions MUST be followed in this package:
 - **ONLY export Effect Layers for external consumption** (no `createAIAnalyzerClient` functions)
+- **HTTP routers MUST be exported as Effect Layers** (use RouterTag pattern)
 - External packages must use AIAnalyzerLive Layer or create their own mock
 - All async operations use Effect-TS with proper error handling
 - Schema validation required for all telemetry inputs
@@ -14,6 +15,7 @@ CRITICAL: These conventions MUST be followed in this package:
 - Use TensorFlow.js for autoencoder implementation
 - Always dispose tensors after use to prevent memory leaks
 - Stream processing for real-time analysis
+- Router endpoints delegate to services, avoid business logic in routes
 
 ## Core Primitives & Patterns
 
@@ -46,6 +48,37 @@ const encoder = tf.sequential({
     tf.layers.dense({ units: 16, activation: 'relu' })
   ]
 })
+```
+
+### HTTP Router Pattern
+```typescript
+// CRITICAL: Export routers as Effect Layers only
+export interface AIAnalyzerRouter {
+  readonly router: express.Router
+}
+
+export const AIAnalyzerRouterTag = Context.GenericTag<AIAnalyzerRouter>('AIAnalyzerRouter')
+
+export const AIAnalyzerRouterLive = Layer.effect(
+  AIAnalyzerRouterTag,
+  Effect.gen(function* () {
+    const aiAnalyzer = yield* AIAnalyzerService
+    const storageClient = yield* StorageAPIClientTag
+
+    const router = express.Router()
+
+    // API endpoints
+    router.post('/api/ai-analyzer/analyze', async (req, res) => {
+      // Delegate to service, no business logic here
+      const result = await Effect.runPromise(
+        aiAnalyzer.analyzeArchitecture(analysisRequest)
+      )
+      res.json(result)
+    })
+
+    return AIAnalyzerRouterTag.of({ router })
+  })
+)
 ```
 
 ### Anomaly Detection Pattern

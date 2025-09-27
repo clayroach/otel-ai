@@ -295,7 +295,7 @@ describe('DiagnosticsSessionManager', () => {
             reason: 'OrchestrationFailure',
             message: 'Cannot retrieve annotations'
           })
-        )
+        ),
     })
 
     it('should handle orchestration failure', async () => {
