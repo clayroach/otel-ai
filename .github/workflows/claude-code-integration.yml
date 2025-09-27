@@ -59,7 +59,7 @@ jobs:
           claude_args: |
             --max-turns 5
             --model claude-3-5-haiku-20241022
-            --permission-mode auto-accept
+            --permission-mode bypassPermissions
             --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh:*),Bash(grep:*),Read"
           prompt: |
             EXECUTE IMMEDIATELY - DO NOT ENTER PLAN MODE. Take action directly.
