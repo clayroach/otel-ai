@@ -130,15 +130,16 @@ describe('JSON Encoding Integration', () => {
     await Effect.runPromise(Effect.sleep(2000))
 
     // Query ClickHouse to verify the trace was stored with correct encoding
+    console.log(`🔍 Querying for traceId: ${traceId}`)
     const result = await clickhouseClient.query({
       query: `
-        SELECT 
+        SELECT
           trace_id,
           service_name,
           operation_name,
           encoding_type,
           span_attributes['test.encoding'] as test_encoding
-        FROM traces 
+        FROM traces
         WHERE trace_id = '${traceId}'
         LIMIT 1
       `,
@@ -146,6 +147,7 @@ describe('JSON Encoding Integration', () => {
     })
 
     const rows = await result.json() as TraceQueryResult[]
+    console.log(`🔍 Found ${rows.length} rows`)
     
     expect(rows).toHaveLength(1)
     const row = rows[0]

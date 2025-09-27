@@ -21,7 +21,10 @@ import { type ClickHouseStorage, makeClickHouseStorage } from './clickhouse.js'
 // Main storage service interface
 export interface StorageService {
   // Write operations
-  readonly writeOTLP: (data: OTLPData) => Effect.Effect<void, StorageError>
+  readonly writeOTLP: (
+    data: OTLPData,
+    encodingType?: 'protobuf' | 'json'
+  ) => Effect.Effect<void, StorageError>
   readonly writeBatch: (data: OTLPData[]) => Effect.Effect<void, StorageError>
 
   // Read operations
@@ -74,9 +77,9 @@ const makeStorageService = (
   clickhouse: ClickHouseStorage,
   config: StorageConfig
 ): StorageService => ({
-  writeOTLP: (data: OTLPData) =>
+  writeOTLP: (data: OTLPData, encodingType?: 'protobuf' | 'json') =>
     // Write to ClickHouse (primary storage)
-    clickhouse.writeOTLP(data),
+    clickhouse.writeOTLP(data, encodingType),
 
   writeBatch: (data: OTLPData[]) =>
     // Process batches with controlled concurrency
@@ -172,8 +175,8 @@ export const StorageLayer = StorageServiceLive
 
 // Convenience functions for common operations
 export namespace StorageOperations {
-  export const writeOTLP = (data: OTLPData) =>
-    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.writeOTLP(data)))
+  export const writeOTLP = (data: OTLPData, encodingType?: 'protobuf' | 'json') =>
+    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.writeOTLP(data, encodingType)))
 
   export const queryTraces = (params: QueryParams) =>
     StorageServiceTag.pipe(Effect.flatMap((storage) => storage.queryTraces(params)))

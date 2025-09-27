@@ -148,7 +148,7 @@ app.use((req, res, next) => {
 // Initialize Effect-based storage
 const clickhouseConfig = {
   host: process.env.CLICKHOUSE_HOST || 'localhost',
-  port: parseInt(process.env.CLICKHOUSE_PORT || '8123'),
+  port: parseInt(process.env.CLICKHOUSE_PORT || '8124'),
   database: process.env.CLICKHOUSE_DATABASE || 'otel',
   username: process.env.CLICKHOUSE_USERNAME || 'otel',
   password: process.env.CLICKHOUSE_PASSWORD || 'otel123'
@@ -603,10 +603,16 @@ app.post('/v1/traces', async (req, res) => {
 
               // Create trace record for storage (match TraceDataSchema)
               const traceRecord = {
-                traceId: Buffer.from((span.traceId as Uint8Array) || []).toString('hex'),
-                spanId: Buffer.from((span.spanId as Uint8Array) || []).toString('hex'),
+                traceId: isProtobuf
+                  ? Buffer.from((span.traceId as Uint8Array) || []).toString('hex')
+                  : String(span.traceId || ''),
+                spanId: isProtobuf
+                  ? Buffer.from((span.spanId as Uint8Array) || []).toString('hex')
+                  : String(span.spanId || ''),
                 parentSpanId: span.parentSpanId
-                  ? Buffer.from(span.parentSpanId as Uint8Array).toString('hex')
+                  ? isProtobuf
+                    ? Buffer.from(span.parentSpanId as Uint8Array).toString('hex')
+                    : String(span.parentSpanId)
                   : undefined,
                 operationName:
                   typeof span.name === 'string' ? span.name : String(span.name || 'unknown'),
@@ -647,8 +653,12 @@ app.post('/v1/traces', async (req, res) => {
                   : [],
                 links: Array.isArray(span.links)
                   ? span.links.map((link: Record<string, unknown>) => ({
-                      traceId: Buffer.from((link.traceId as Uint8Array) || []).toString('hex'),
-                      spanId: Buffer.from((link.spanId as Uint8Array) || []).toString('hex'),
+                      traceId: isProtobuf
+                        ? Buffer.from((link.traceId as Uint8Array) || []).toString('hex')
+                        : String(link.traceId || ''),
+                      spanId: isProtobuf
+                        ? Buffer.from((link.spanId as Uint8Array) || []).toString('hex')
+                        : String(link.spanId || ''),
                       attributes: Object.fromEntries(
                         Object.entries(
                           cleanAttributes(convertAttributesToRecord(link.attributes))
@@ -666,12 +676,15 @@ app.post('/v1/traces', async (req, res) => {
         console.log(`💾 Storing ${processedTraces.length} processed traces...`)
 
         // Store traces using the Storage Service
-        yield* storage.writeOTLP({
-          traces: processedTraces,
-          metrics: [],
-          logs: [],
-          timestamp: Date.now() * 1_000_000 // nanoseconds
-        })
+        yield* storage.writeOTLP(
+          {
+            traces: processedTraces,
+            metrics: [],
+            logs: [],
+            timestamp: Date.now() * 1_000_000 // nanoseconds
+          },
+          isProtobuf ? 'protobuf' : 'json'
+        )
 
         console.log('✅ Traces stored successfully')
         return { storedTraces: processedTraces.length }

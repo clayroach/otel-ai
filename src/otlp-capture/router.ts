@@ -28,7 +28,7 @@ export const OtlpCaptureRouterLive = Layer.effect(
 
         res.json({
           sessions,
-          total: sessions.length,
+          count: sessions.length,
           timestamp: new Date().toISOString()
         })
       } catch (error) {
@@ -93,8 +93,11 @@ export const OtlpCaptureRouterLive = Layer.effect(
 
         console.log(`🛑 Stopped capture session: ${sessionId}`)
 
-        // Return session for backward compatibility
-        res.json(session)
+        // Return session with message for backward compatibility
+        res.json({
+          message: `Capture session ${sessionId} stopped`,
+          session
+        })
       } catch (error) {
         console.error('❌ Error stopping capture session:', error)
         res.status(500).json({

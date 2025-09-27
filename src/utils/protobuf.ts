@@ -115,14 +115,30 @@ export function extractProtobufValue(value: unknown): unknown {
 
   // If it's a regular object with potential nested protobuf values
   if (value && typeof value === 'object' && !Buffer.isBuffer(value)) {
+    const obj = value as Record<string, unknown>
+
+    // Check if it's a simple OTLP JSON value object (e.g., { stringValue: 'foo' })
+    if ('stringValue' in obj && Object.keys(obj).length === 1) {
+      return obj.stringValue
+    }
+    if ('intValue' in obj && Object.keys(obj).length === 1) {
+      return obj.intValue
+    }
+    if ('boolValue' in obj && Object.keys(obj).length === 1) {
+      return obj.boolValue
+    }
+    if ('doubleValue' in obj && Object.keys(obj).length === 1) {
+      return obj.doubleValue
+    }
+
     // Check if it has protobuf array structure
-    if ('values' in value && Array.isArray((value as { values: unknown[] }).values)) {
-      return (value as { values: unknown[] }).values.map((v: unknown) => extractProtobufValue(v))
+    if ('values' in obj && Array.isArray(obj.values)) {
+      return obj.values.map((v: unknown) => extractProtobufValue(v))
     }
     // Otherwise process as regular object
     const result: Record<string, unknown> = {}
-    for (const key in value as Record<string, unknown>) {
-      result[key] = extractProtobufValue((value as Record<string, unknown>)[key])
+    for (const key in obj) {
+      result[key] = extractProtobufValue(obj[key])
     }
     return result
   }
