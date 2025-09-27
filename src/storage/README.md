@@ -44,6 +44,35 @@ const main = program.pipe(
 )
 ```
 
+## HTTP Router
+
+The storage package exports an HTTP router for query and retention endpoints:
+
+```typescript
+import { StorageRouterLive, StorageRouterTag } from '@otel-ai/storage/router'
+import { Effect } from 'effect'
+
+// Mount the router in your Express app
+const program = Effect.gen(function* () {
+  const storageRouter = yield* StorageRouterTag
+  app.use(storageRouter.router)
+})
+
+// Provide the router layer
+const main = program.pipe(
+  Effect.provide(StorageRouterLive),
+  Effect.provide(StorageAPIClientLayer), // Required dependency
+  Effect.provide(RetentionServiceLayer)  // Required dependency
+)
+```
+
+**Router Endpoints:**
+- `POST /api/clickhouse/query` - Execute raw ClickHouse queries
+- `GET /api/retention/usage` - Get storage usage metrics
+- `POST /api/retention/cleanup/continuous` - Trigger data cleanup
+- `POST /api/retention/jobs/start` - Start retention jobs
+- `POST /api/retention/archive` - Archive old sessions
+
 ## Key Features
 
 - **Unified OTLP Ingestion**: Single table design optimized for AI processing

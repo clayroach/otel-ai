@@ -7,12 +7,14 @@ This file is automatically read by Claude Code when working in this package.
 ## Mandatory Package Conventions
 CRITICAL: These conventions MUST be followed in this package:
 - **ONLY export Effect Layers for external consumption** (no factory functions)
+- **HTTP routers MUST be exported as Effect Layers** (use RouterTag pattern)
 - External packages must use OtlpCaptureServiceLive/OtlpReplayServiceLive Layers
 - All async operations use Effect-TS with proper error handling
 - Data is always compressed with gzip before storage
 - Tests go in test/unit/ and test/integration/ subdirectories
 - Sessions are tied to diagnostic sessions from annotations package
 - Timestamp adjustment must preserve relative timing between spans
+- Router endpoints delegate to services, avoid business logic in routes
 
 ## Core Primitives & Patterns
 

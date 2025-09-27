@@ -5,176 +5,25 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { Effect, Layer } from 'effect'
-import { 
-  StorageServiceTag,
-  ConfigServiceTag,
-  type StorageStats
-} from '../../services.js'
 import {
-  type OTLPData,
-  type QueryParams,
-  type AIQueryParams,
-  type TraceData,
-  type MetricData,
-  type LogData,
-  type AIDataset
-} from '../../schemas.js'
-import { StorageAPIClientTag, type StorageAPIClient } from '../../api-client.js'
-import { type StorageError, StorageErrorConstructors } from '../../errors.js'
-
-// Mock Storage Service Layer for unit tests - properly typed to match interface
-const MockStorageServiceLive = Layer.succeed(StorageServiceTag, {
-  writeOTLP: (_data: OTLPData): Effect.Effect<void, never> =>
-    Effect.void,
-
-  writeBatch: (_data: OTLPData[]): Effect.Effect<void, never> =>
-    Effect.void,
-
-  queryRaw: (_sql: string): Effect.Effect<unknown[], never> =>
-    Effect.succeed([]),
-
-  queryText: (_sql: string): Effect.Effect<string, never> =>
-    Effect.succeed(''),
-
-  queryTraces: (_params: QueryParams): Effect.Effect<TraceData[], never> =>
-    Effect.succeed([
-      {
-        traceId: 'mock-trace-123',
-        spanId: 'mock-span-123',
-        operationName: 'mock-operation',
-        startTime: Date.now() * 1000000,
-        endTime: (Date.now() + 1000) * 1000000,
-        duration: 1000000000,
-        serviceName: 'mock-service',
-        statusCode: 1,
-        spanKind: 'SERVER',
-        attributes: { 'test.key': 'test.value' },
-        resourceAttributes: { 'service.name': 'mock-service' },
-        events: [],
-        links: []
-      }
-    ]),
-
-  queryMetrics: (_params: QueryParams): Effect.Effect<MetricData[], never> =>
-    Effect.succeed([]),
-
-  queryLogs: (_params: QueryParams): Effect.Effect<LogData[], never> =>
-    Effect.succeed([]),
-
-  queryForAI: (_params: AIQueryParams): Effect.Effect<AIDataset, never> =>
-    Effect.succeed({
-      features: [],
-      metadata: {},
-      timeRange: { start: Date.now() - 3600000, end: Date.now() },
-      sampleCount: 0
-    }),
-
-  archiveData: (_data: OTLPData, _timestamp: number): Effect.Effect<void, never> =>
-    Effect.void,
-
-  applyRetentionPolicies: (): Effect.Effect<void, never> =>
-    Effect.void,
-
-  healthCheck: (): Effect.Effect<{ clickhouse: boolean; s3: boolean }, never> =>
-    Effect.succeed({ clickhouse: true, s3: true }),
-
-  getStorageStats: (): Effect.Effect<StorageStats, never> =>
-    Effect.succeed({
-      clickhouse: {
-        totalTraces: 100,
-        totalMetrics: 50,
-        totalLogs: 25,
-        diskUsage: '1.2 GB'
-      },
-      s3: {
-        totalObjects: 10,
-        totalSize: '500 MB',
-        oldestObject: new Date(Date.now() - 86400000),
-        newestObject: new Date()
-      }
-    })
-})
-
-// Mock Config Service Layer
-const MockConfigServiceLive = Layer.succeed(ConfigServiceTag, {
-  clickhouse: {
-    host: 'mock-host',
-    port: 8123,
-    database: 'test-db',
-    username: 'test-user',
-    password: 'test-pass'
-  },
-  s3: {
-    endpoint: 'http://mock-s3:9000',
-    accessKeyId: 'mock-access',
-    secretAccessKey: 'mock-secret',
-    bucket: 'test-bucket',
-    region: 'us-east-1'
-  },
-  features: {
-    enableS3Backup: true,
-    enableCompression: true,
-    enableEncryption: true,
-    enableAIOptimizations: false
-  },
-  performance: {
-    batchSize: 1000,
-    flushInterval: 5000,
-    maxConcurrentWrites: 5
-  },
-  retention: {
-    traces: { clickhouse: '30d', s3: '1y' },
-    metrics: { clickhouse: '90d', s3: '2y' },
-    logs: { clickhouse: '7d', s3: '30d' }
-  }
-})
-
-// Mock API Client Layer with proper error handling demonstration
-const MockAPIClientLive = Layer.succeed(StorageAPIClientTag, {
-  writeOTLP: (_data: OTLPData): Effect.Effect<void, StorageError> =>
-    Effect.succeed(undefined),
-
-  queryTraces: (_params: QueryParams): Effect.Effect<TraceData[], StorageError> =>
-    Effect.succeed([
-      {
-        traceId: 'api-mock-trace-123',
-        spanId: 'api-mock-span-123',
-        operationName: 'api-mock-operation',
-        startTime: Date.now() * 1000000,
-        endTime: (Date.now() + 1000) * 1000000,
-        duration: 1000000000,
-        serviceName: 'api-mock-service',
-        statusCode: 1,
-        spanKind: 'SERVER',
-        attributes: { 'test.api': 'true' },
-        resourceAttributes: { 'service.name': 'api-mock-service' },
-        events: [],
-        links: []
-      }
-    ]),
-
-  queryMetrics: (_params: QueryParams): Effect.Effect<MetricData[], StorageError> =>
-    Effect.succeed([]),
-
-  queryLogs: (_params: QueryParams): Effect.Effect<LogData[], StorageError> =>
-    Effect.succeed([]),
-
-  queryAI: (_params: AIQueryParams): Effect.Effect<unknown[], StorageError> =>
-    Effect.succeed([]),
-  
-  queryRaw: (_sql: string): Effect.Effect<unknown[], StorageError> =>
-    Effect.succeed([]),
-
-  healthCheck: (): Effect.Effect<{ clickhouse: boolean; s3: boolean }, StorageError> =>
-    Effect.succeed({ clickhouse: true, s3: true })
-} as StorageAPIClient)
-
-// Combined test layer - fix dependency order
-const TestStorageLayer = Layer.mergeAll(
+  StorageServiceTag,
+  StorageAPIClientTag,
+  ConfigServiceTag,
+  type StorageAPIClient,
+  TestStorageLayer,
   MockConfigServiceLive,
-  MockStorageServiceLive,
-  MockAPIClientLive
-)
+  MockStorageServiceLive
+} from '../../index.js'
+import {
+  createMockOTLPData,
+  createMockQueryParams,
+  createMockAIQueryParams
+} from '../../test-utils.js'
+import { StorageErrorConstructors } from '../../errors.js'
+import { type OTLPData, type QueryParams, type AIQueryParams, type AIDataset } from '../../schemas.js'
+import { type StorageStats } from '../../services.js'
+
+// Use shared test utilities instead of duplicating mock implementations
 
 describe('Storage Service with API Client (Effect-TS)', () => {
   beforeEach(() => {
@@ -204,7 +53,7 @@ describe('Storage Service with API Client (Effect-TS)', () => {
           return cfg
         }).pipe(Effect.provide(TestStorageLayer))
       )
-      expect(config.clickhouse.host).toBe('mock-host')
+      expect(config.clickhouse.host).toBe('mock-clickhouse')
       expect(config.s3.bucket).toBe('test-bucket')
     })
   })
@@ -231,7 +80,7 @@ describe('Storage Service with API Client (Effect-TS)', () => {
   })
 
   describe('OTLP Data Operations', () => {
-    const testTraceData: OTLPData = {
+    const testTraceData: OTLPData = createMockOTLPData({
       traces: [
         {
           traceId: 'test-trace-123',
@@ -248,9 +97,8 @@ describe('Storage Service with API Client (Effect-TS)', () => {
           events: [],
           links: []
         }
-      ],
-      timestamp: Date.now()
-    }
+      ]
+    })
 
     it('should write OTLP data through Effect service', async () => {
       const result = await Effect.runPromise(
@@ -261,10 +109,9 @@ describe('Storage Service with API Client (Effect-TS)', () => {
     })
 
     it('should handle empty traces array gracefully', async () => {
-      const emptyData: OTLPData = {
-        traces: [],
-        timestamp: Date.now()
-      }
+      const emptyData: OTLPData = createMockOTLPData({
+        traces: []
+      })
 
       const result = await Effect.runPromise(
         Effect.flatMap(StorageServiceTag, storage => storage.writeOTLP(emptyData)).pipe(Effect.provide(TestStorageLayer))
@@ -285,13 +132,7 @@ describe('Storage Service with API Client (Effect-TS)', () => {
   })
 
   describe('Query Operations', () => {
-    const queryParams: QueryParams = {
-      timeRange: {
-        start: Date.now() - 3600000, // 1 hour ago
-        end: Date.now()
-      },
-      limit: 100
-    }
+    const queryParams: QueryParams = createMockQueryParams()
 
     it('should query traces through Effect service', async () => {
       const traces = await Effect.runPromise(
@@ -331,11 +172,7 @@ describe('Storage Service with API Client (Effect-TS)', () => {
     })
 
     it('should handle AI dataset queries', async () => {
-      const aiParams: AIQueryParams = {
-        ...queryParams,
-        datasetType: 'anomaly-detection',
-        features: ['latency', 'error_rate']
-      }
+      const aiParams: AIQueryParams = createMockAIQueryParams()
       
       const dataset = await Effect.runPromise(
         Effect.flatMap(StorageServiceTag, storage => storage.queryForAI(aiParams)).pipe(Effect.provide(TestStorageLayer))
@@ -577,6 +414,7 @@ describe('Storage Service with API Client (Effect-TS)', () => {
         queryLogs: (_params: QueryParams) => Effect.succeed([]),
         queryAI: (_params: AIQueryParams) => Effect.succeed([]),
         queryRaw: (_sql: string) => Effect.succeed([]),
+        insertRaw: (_sql: string) => Effect.succeed(undefined),
         healthCheck: () => Effect.succeed({ clickhouse: false, s3: false })
       } as StorageAPIClient)
 
@@ -627,6 +465,7 @@ describe('Storage Service with API Client (Effect-TS)', () => {
           sampleCount: 0
         } as AIDataset),
         queryRaw: (_sql: string) => Effect.succeed([]),
+        insertRaw: (_sql: string) => Effect.succeed(undefined),
         queryText: (_sql: string) => Effect.succeed(''),
         archiveData: (_data: OTLPData, _timestamp: number) => Effect.succeed(undefined),
         applyRetentionPolicies: () => Effect.succeed(undefined),

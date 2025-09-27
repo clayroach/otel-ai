@@ -7,6 +7,7 @@ This file is automatically read by Claude Code when working in this package.
 ## Mandatory Package Conventions
 CRITICAL: These conventions MUST be followed in this package:
 - **ONLY export Effect Layers for external consumption** (no factory functions)
+- **HTTP routers MUST be exported as Effect Layers** (use RouterTag pattern)
 - External packages must use UIGeneratorLive Layer or create their own mock
 - All async operations use Effect-TS
 - Generated components must be valid TypeScript React
@@ -14,6 +15,7 @@ CRITICAL: These conventions MUST be followed in this package:
 - Always validate generated component syntax
 - Use Apache ECharts for all data visualizations
 - Components must handle loading and error states
+- Router endpoints delegate to services, avoid business logic in routes
 
 ## Core Primitives & Patterns
 
@@ -41,6 +43,35 @@ const generateComponent = (spec: ComponentSpec) =>
     }
     return { code: ensureImports(response.code), dependencies: response.dependencies }
   })
+```
+
+### HTTP Router Pattern
+```typescript
+// CRITICAL: Export routers as Effect Layers only
+export interface UIGeneratorRouter {
+  readonly router: express.Router
+}
+
+export const UIGeneratorRouterTag = Context.GenericTag<UIGeneratorRouter>('UIGeneratorRouter')
+
+export const UIGeneratorRouterLive = Layer.effect(
+  UIGeneratorRouterTag,
+  Effect.gen(function* () {
+    const uiGenerator = yield* UIGeneratorAPIClientTag
+    const llmManager = yield* LLMManagerAPIClientTag
+
+    const router = express.Router()
+
+    // API endpoints
+    router.post('/api/ui-generator/from-sql', async (req, res) => {
+      // Delegate to services, no business logic here
+      const result = await Effect.runPromise(serviceCall)
+      res.json(result)
+    })
+
+    return UIGeneratorRouterTag.of({ router })
+  })
+)
 ```
 
 ### ECharts Integration Pattern

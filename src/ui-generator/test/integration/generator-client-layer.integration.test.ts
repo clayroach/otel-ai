@@ -4,51 +4,35 @@
  * Tests the full integration with actual LLM query generation
  */
 
-import { describe, it, expect, beforeAll } from 'vitest'
-import { Effect, Context, Layer } from 'effect'
+import { Context, Effect, Layer } from 'effect'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { LLMManagerLive } from '../../../llm-manager/index.js'
+import { ConfigServiceLive, StorageServiceLive } from '../../../storage/index.js'
 import {
   UIGeneratorAPIClientLayer,
   UIGeneratorAPIClientTag,
-  generateQuery,
   generateMultipleQueries,
+  generateQuery,
   validateQuery
 } from '../../api-client-layer.js'
 import type { QueryGenerationAPIRequest } from '../../api-client.js'
-import type { ValidationResult } from '../../service.js'
 import type { UIGeneratorError } from '../../errors.js'
-import { LLMManagerLive } from '../../../llm-manager/index.js'
-import { StorageServiceLive, ConfigServiceLive } from '../../../storage/index.js'
-import { ClickHouseConfigTag } from '../../../storage/api-client.js'
+import type { ValidationResult } from '../../service.js'
 
-// Create proper test configuration
-const testClickHouseConfig = {
-  host: 'localhost',
-  port: 8123,
-  database: 'otel',
-  username: 'otel',
-  password: 'otel123'
-}
-
-// Test helpers that properly resolve dependencies
-// Build the layer composition step by step
-const configLayer = ConfigServiceLive
-const clickHouseConfigLayer = Layer.succeed(ClickHouseConfigTag, testClickHouseConfig)
-const storageLayer = Layer.provide(StorageServiceLive, configLayer)
-const baseDependencies = Layer.mergeAll(
-  configLayer,
-  storageLayer,
-  clickHouseConfigLayer,
+// Build the dependencies that UIGeneratorServiceLive needs
+// UIGeneratorServiceLive requires: LLMManagerServiceTag, StorageServiceTag, ConfigServiceTag
+const dependencies = Layer.mergeAll(
+  ConfigServiceLive,
+  StorageServiceLive.pipe(Layer.provide(ConfigServiceLive)),
   LLMManagerLive
 )
 
-// Now provide the UIGeneratorAPIClientLayer with all its dependencies
-const testLayer = Layer.provide(UIGeneratorAPIClientLayer, baseDependencies)
+const testLayer = UIGeneratorAPIClientLayer.pipe(Layer.provide(dependencies))
 
 // Helper to run effects with all required layers provided
-// This helper properly resolves all dependencies by providing the complete layer
-const runTest = <A, E>(effect: Effect.Effect<A, E, unknown>): Promise<A> => {
-  // TypeScript can't infer that all dependencies are resolved, but they are at runtime
-  return Effect.runPromise(Effect.provide(effect, testLayer) as unknown as Effect.Effect<A, E, never>)
+// Properly handles dependency resolution through layer provision
+const runTest = <A, E>(effect: Effect.Effect<A, E, UIGeneratorAPIClientTag>): Promise<A> => {
+  return Effect.runPromise(effect.pipe(Effect.provide(testLayer)))
 }
 
 describe('UI Generator API Client Layer Integration', () => {
@@ -167,6 +151,7 @@ describe('UI Generator API Client Layer Integration', () => {
 
     it(
       'should generate multiple queries for different patterns',
+     
       async () => {
 
         try {
@@ -265,13 +250,8 @@ describe('UI Generator API Client Layer Integration', () => {
       )
 
       // Compose layers - include all required dependencies
-      // First create the base layer with all dependencies
-      const BaseLayer = Layer.mergeAll(
-        LLMManagerLive,
-        storageLayer,
-        ConfigServiceLive,
-        clickHouseConfigLayer
-      )
+      // Use the same dependencies that are already working in the test file
+      const BaseLayer = dependencies
 
       // Then provide the UI Generator API Client layer
       const FullLayer = Layer.provide(UIGeneratorAPIClientLayer, BaseLayer)
@@ -283,7 +263,7 @@ describe('UI Generator API Client Layer Integration', () => {
         Effect.gen(function* () {
           const testService = yield* TestService
           return yield* testService.testMethod()
-        }).pipe(Effect.provide(AppLayer)) as Effect.Effect<{ valid: boolean; errors: string[] }, never, never>
+        }).pipe(Effect.provide(AppLayer))
       )
 
       expect(result).toBeDefined()

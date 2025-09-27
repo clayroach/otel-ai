@@ -450,6 +450,7 @@ describe.skipIf(shouldSkipTests)("LLM Query Generator", () => {
             ])
           }
         },
+        insertRaw: () => Effect.succeed(undefined),
         healthCheck: () => Effect.succeed({ clickhouse: true, s3: true })
       }
     )
@@ -514,6 +515,7 @@ describe.skipIf(shouldSkipTests)("LLM Query Generator", () => {
             query: singleQuery.sql,
             error: new Error("Network timeout")
           }),
+          insertRaw: () => Effect.succeed(undefined),
           healthCheck: () => Effect.succeed({ clickhouse: false, s3: false })
         }
       )
