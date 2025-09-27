@@ -52,12 +52,12 @@ jobs:
         if: github.event_name == 'pull_request'
         id: claude-review
         continue-on-error: true
-        timeout-minutes: 3
+        timeout-minutes: 10
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_args: |
-            --max-turns 10
+            --max-turns 5
             --model claude-3-5-haiku-20241022
             --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh:*),Bash(grep:*),Read"
           prompt: |
@@ -72,11 +72,11 @@ jobs:
 
             PROCESS:
             1. Use: gh pr diff ${{ github.event.pull_request.number }} --name-only
-            2. Read ONLY those files
+            2. Read ONLY the first 5 changed files to avoid timeout
             3. Post comments using mcp__github_inline_comment__create_inline_comment
             4. STOP after posting comments - do not continue analyzing
 
-            CRITICAL: Post comments and exit. Do not loop or continue searching.
+            CRITICAL: Limit to 5 files max. Post comments and exit immediately. Do not loop or continue searching.
 
       - name: Slack Architectural Review Notification
         if: github.event_name == 'pull_request'
