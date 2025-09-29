@@ -569,6 +569,7 @@ export const TracesView: React.FC = () => {
               </div>
             ) : error ? (
               <div
+                data-testid="query-error-message"
                 style={{
                   padding: '24px',
                   textAlign: 'center',

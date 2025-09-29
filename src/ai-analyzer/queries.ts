@@ -125,7 +125,7 @@ export const ArchitectureQueries = {
 
   /**
    * Analyze trace flows to understand request paths through the system
-   * Optimized version: Avoids recursive CTE to reduce memory usage
+   * Memory-optimized version: Uses array functions instead of self-joins to prevent OOM
    */
   getTraceFlows: (limit: number = 100, timeRangeHours: number = 24) => `
     WITH sampled_traces AS (
@@ -138,40 +138,39 @@ export const ArchitectureQueries = {
       ORDER BY max(duration_ns) DESC
       LIMIT ${limit}
     ),
-    trace_spans AS (
-      -- Get all spans for sampled traces
+    span_hierarchy AS (
+      -- Collect all spans per trace as arrays to avoid memory-intensive joins
       SELECT
-        t.trace_id,
-        t.span_id,
-        t.service_name,
-        t.operation_name,
-        t.parent_span_id,
-        t.start_time,
-        t.duration_ns / 1000000 as duration_ms,
-        t.span_kind,
-        t.status_code
+        trace_id,
+        groupArray((span_id, service_name, operation_name, parent_span_id, start_time, duration_ns / 1000000, span_kind, status_code)) as spans,
+        -- Create lookup maps for efficient parent resolution
+        groupArrayIf((span_id, service_name, operation_name), span_id != '') as span_lookup
       FROM traces t
       INNER JOIN sampled_traces st ON t.trace_id = st.trace_id
       WHERE t.start_time >= now() - INTERVAL ${timeRangeHours} HOUR
+      GROUP BY trace_id
     )
     SELECT
-      ts.trace_id,
-      ts.service_name,
-      ts.operation_name,
-      ps.service_name as parent_service,
-      ps.operation_name as parent_operation,
-      ts.start_time,
-      ts.duration_ms,
-      ts.span_kind,
-      ts.status_code,
+      h.trace_id,
+      span.2 as service_name,               -- service_name
+      span.3 as operation_name,             -- operation_name
+      -- Use arrayFirst to find parent service without expensive joins
+      arrayFirst(x -> x.1 = span.4, h.span_lookup).2 as parent_service,
+      arrayFirst(x -> x.1 = span.4, h.span_lookup).3 as parent_operation,
+      span.5 as start_time,                 -- start_time
+      span.6 as duration_ms,                -- duration_ms
+      span.7 as span_kind,                  -- span_kind
+      span.8 as status_code,                -- status_code
+      -- Calculate level without recursive joins
       CASE
-        WHEN ts.parent_span_id = '' THEN 0
-        WHEN ps.parent_span_id = '' THEN 1
-        ELSE 2
+        WHEN span.4 = '' THEN 0  -- parent_span_id empty = root level
+        WHEN arrayExists(x -> x.1 = span.4 AND x.4 = '', h.spans) THEN 1  -- parent is root
+        ELSE 2  -- deeper nesting (simplified to avoid complex hierarchy)
       END as level
-    FROM trace_spans ts
-    LEFT JOIN trace_spans ps ON ts.parent_span_id = ps.span_id AND ts.trace_id = ps.trace_id
-    ORDER BY ts.trace_id, ts.start_time
+    FROM span_hierarchy h
+    ARRAY JOIN h.spans as span
+    ORDER BY h.trace_id, span.5
+    SETTINGS max_memory_usage = 2000000000, max_execution_time = 30
   `,
 
   /**

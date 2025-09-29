@@ -32,3 +32,4 @@ TODOs:
 * feature flags/flagd is a bit too much spread across the codebase and should only be associated with the demo app
 * remove continuous streaming to s3/minio by default
 * storage service refactor - expose only service not clickhouse layer externally
+* query sandboxing - we need a way to prevent malicious users from bringing down the system - alternative is flawless autorecovery

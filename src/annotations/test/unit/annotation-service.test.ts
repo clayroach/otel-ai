@@ -93,7 +93,8 @@ describe('AnnotationService with TestContainer', () => {
         getStorageStats: () => Effect.succeed({
           clickhouse: { totalTraces: 0, totalMetrics: 0, totalLogs: 0, diskUsage: '0 GB' },
           s3: { totalObjects: 0, totalSize: '0 GB', oldestObject: null, newestObject: null }
-        })
+        }),
+        createValidationTables: () => Effect.void
       }
 
       const storageLayer = Layer.succeed(StorageServiceTag, storageService)

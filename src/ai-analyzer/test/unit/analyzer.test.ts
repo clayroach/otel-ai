@@ -265,7 +265,7 @@ describe('AI Analyzer', () => {
     it('should generate correct trace flows query', () => {
       const query = ArchitectureQueries.getTraceFlows(50, 6)
       expect(query).toContain('WITH sampled_traces')
-      expect(query).toContain('trace_spans')
+      expect(query).toContain('traces')
       expect(query).toContain('LIMIT 50')
       expect(query).toContain('INTERVAL 6 HOUR')
     })

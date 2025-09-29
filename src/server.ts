@@ -16,7 +16,9 @@ import {
   StorageAPIClientLayer,
   StorageLayer as StorageServiceLayer,
   StorageServiceTag,
-  ConfigServiceLive
+  ConfigServiceLive,
+  REQUIRED_TABLES,
+  type StorageError
 } from './storage/index.js'
 import {
   LLMManagerAPIClientTag,
@@ -252,7 +254,9 @@ const runWithServices = <A, E>(effect: Effect.Effect<A, E, AppServices>): Promis
 }
 
 // Helper function for raw queries that returns data in legacy format
-const runStorageQuery = <A, E>(effect: Effect.Effect<A, E, StorageAPIClientTag>): Promise<A> => {
+const runStorageQuery = <A>(
+  effect: Effect.Effect<A, StorageError, StorageAPIClientTag>
+): Promise<A> => {
   return Effect.runPromise(Effect.provide(effect, StorageAPIClientLayerWithConfig))
 }
 
@@ -300,15 +304,42 @@ async function createViews() {
   }
 }
 
+// Create validation tables for ILLEGAL_AGGREGATION prevention
+async function createValidationTables() {
+  try {
+    console.log(
+      '📊 Creating validation tables with Null engine for ILLEGAL_AGGREGATION prevention...'
+    )
+
+    // Use centralized list of tables
+    const tables = REQUIRED_TABLES
+
+    for (const tableName of tables) {
+      const validationTableSQL = `
+        CREATE TABLE IF NOT EXISTS ${tableName}_validation
+        AS ${tableName}
+        ENGINE = Null
+      `
+
+      await queryWithResults(validationTableSQL)
+      console.log(`  ✅ Created validation table: ${tableName}_validation`)
+    }
+
+    console.log('✅ All validation tables created successfully')
+  } catch (error) {
+    console.error('❌ Error creating validation tables:', error)
+    // Don't throw - validation tables are not critical for startup
+  }
+}
+
 // Core API Endpoints (not handled by package routers)
 
 // Health check endpoint
 app.get('/health', async (_req, res) => {
   try {
-    const healthResult = await Effect.runPromise(
+    const healthResult = await runStorageQuery(
       StorageAPIClientTag.pipe(
         Effect.flatMap((apiClient) => apiClient.healthCheck()),
-        Effect.provide(StorageAPIClientLayerWithConfig),
         Effect.match({
           onFailure: (error) => {
             console.error('Storage health check failed:', error._tag)
@@ -873,9 +904,13 @@ app.listen(PORT, async () => {
   console.log(`🎬 OTLP Capture & Replay: http://localhost:${PORT}/api/capture/sessions`)
   console.log(`🗄️ Retention Management: http://localhost:${PORT}/api/retention/usage`)
 
-  // Wait a bit for schema migrations to complete, then create views
+  // Wait a bit for schema migrations to complete, then create views and validation tables
   setTimeout(async () => {
     await createViews()
+
+    // Create validation tables for ILLEGAL_AGGREGATION prevention
+    await createValidationTables()
+
     console.log('✅ AI Analyzer service available through layer composition')
     console.log(`🤖 AI Analyzer API: http://localhost:${PORT}/api/ai-analyzer/health`)
 

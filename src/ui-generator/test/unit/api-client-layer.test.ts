@@ -126,7 +126,8 @@ describe('UI Generator API Client Layer', () => {
         getStorageStats: () => Effect.succeed({
           clickhouse: { totalTraces: 0, totalMetrics: 0, totalLogs: 0, diskUsage: "0B" },
           s3: { totalSize: "0B", totalObjects: 0, oldestObject: null, newestObject: null }
-        })
+        }),
+        createValidationTables: () => Effect.void
       })
 
       // Also need ConfigService for complete dependency chain
@@ -237,7 +238,8 @@ describe('UI Generator API Client Layer', () => {
         getStorageStats: () => Effect.succeed({
           clickhouse: { totalTraces: 0, totalMetrics: 0, totalLogs: 0, diskUsage: "0B" },
           s3: { totalSize: "0B", totalObjects: 0, oldestObject: null, newestObject: null }
-        })
+        }),
+        createValidationTables: () => Effect.void
       }
 
       // Create mock UIGeneratorService for testing

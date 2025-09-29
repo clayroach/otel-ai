@@ -626,7 +626,11 @@ export const generateAndOptimizeQuery = (
   llmConfig?: { endpoint?: string; model?: string; isClickHouseAI?: boolean },
   useEvaluator: boolean = false
 ): Effect.Effect<
-  GeneratedQuery & { evaluations?: SQLEvaluationResult[] },
+  GeneratedQuery & {
+    evaluations?: SQLEvaluationResult[] | undefined
+    validationAttempts?: number | undefined
+    finalValidation?: SQLEvaluationResult | undefined
+  },
   Error,
   LLMManagerServiceTag | StorageServiceTag
 > => {
@@ -743,7 +747,7 @@ export const generateAndOptimizeQuery = (
           lines.push(`-- Optimization ${idx + 1}:`)
           lines.push(`--   ${opt.explanation || 'Applied automatic optimization'}`)
           if (opt.changes && opt.changes.length > 0) {
-            opt.changes.forEach((change) => {
+            opt.changes.forEach((change: string) => {
               lines.push(`--   - ${change}`)
             })
           }
@@ -759,12 +763,35 @@ export const generateAndOptimizeQuery = (
       : result.finalSql
 
     // Return the optimized query with evaluation history
+    // Map OptimizationAttempt to SQLEvaluationResult for type compatibility
+    const evaluations: SQLEvaluationResult[] = result.attempts.map(
+      (attempt): SQLEvaluationResult => {
+        const evaluationResult: SQLEvaluationResult = {
+          sql: attempt.sql,
+          isValid: attempt.isValid
+        }
+
+        if (attempt.executionTimeMs !== undefined) {
+          evaluationResult.executionTimeMs = attempt.executionTimeMs
+        }
+
+        if (attempt.error) {
+          evaluationResult.error = {
+            code: attempt.error.code,
+            message: attempt.error.message
+          }
+        }
+
+        return evaluationResult
+      }
+    )
+
     return {
       ...initialQuery,
       sql: finalSqlWithComments,
-      evaluations: result.attempts,
+      evaluations,
       validationAttempts: result.attempts.length,
-      finalValidation: result.attempts[result.attempts.length - 1],
+      finalValidation: evaluations[evaluations.length - 1],
       description:
         result.attempts.length > 0 && result.attempts[result.attempts.length - 1]?.isValid
           ? `${initialQuery.description} (optimized after ${result.attempts.length} attempts)`

@@ -16,7 +16,7 @@ test.describe('Traces Query Functionality', () => {
 
   test('should handle malformed query gracefully', async ({ page }) => {
     // Enter a malformed query
-    await page.click('.monaco-editor')
+    await page.click('[data-testid="monaco-query-editor"]')
     await page.keyboard.press('Meta+A') // Select all
     await page.keyboard.type('SELECT invalid syntax FROM nowhere')
     
@@ -24,9 +24,10 @@ test.describe('Traces Query Functionality', () => {
     await page.click('[data-testid="traces-run-query-button"]')
     
     // Should show error message, not crash
-    await page.waitForSelector('text=/Query Error/', { timeout: 10000 })
-    const errorMessage = page.locator('text=/Query Error/')
+    await page.waitForSelector('[data-testid="query-error-message"]', { timeout: 10000 })
+    const errorMessage = page.locator('[data-testid="query-error-message"]')
     await expect(errorMessage).toBeVisible()
+    await expect(errorMessage).toContainText('Query Error:')
     
     // Verify the app is still responsive
     const queryButton = page.locator('[data-testid="traces-run-query-button"]')
@@ -57,7 +58,7 @@ test.describe('Traces Query Functionality', () => {
 
     if (!resultsAppeared) {
       // If no results, at least verify the query editor is present
-      await expect(page.locator('.monaco-editor')).toBeVisible()
+      await expect(page.locator('[data-testid="monaco-query-editor"]')).toBeVisible()
       console.warn('No initial query results appeared, test cannot proceed')
       return
     }
@@ -102,7 +103,7 @@ test.describe('Traces Query Functionality', () => {
 
   test('should handle empty query results gracefully', async ({ page }) => {
     // Enter a query that returns no results
-    await page.click('.monaco-editor')
+    await page.click('[data-testid="monaco-query-editor"]')
     await page.keyboard.press('Meta+A')
     await page.keyboard.type(`
       SELECT * FROM otel.traces 
@@ -133,7 +134,7 @@ test.describe('Traces Query Functionality', () => {
     await page.waitForSelector('[data-testid="traces-page-title"]')
 
     // Wait for Monaco editor to load and stabilize
-    await page.waitForSelector('.monaco-editor')
+    await page.waitForSelector('[data-testid="monaco-query-editor"]')
     await page.waitForTimeout(2000) // Let Monaco initialize fully
 
     // Run the default query
@@ -159,7 +160,7 @@ test.describe('Traces Query Functionality', () => {
 
     if (!resultsAppeared) {
       // If no results, at least verify the query editor is present
-      await expect(page.locator('.monaco-editor')).toBeVisible()
+      await expect(page.locator('[data-testid="monaco-query-editor"]')).toBeVisible()
     }
     
     // Check if we're in dynamic view (default)
@@ -195,7 +196,7 @@ test.describe('Traces Query Functionality', () => {
   test.skip('should preserve query after navigation', async ({ page }) => {
     // Enter a custom query
     const customQuery = 'SELECT COUNT(*) as total FROM otel.traces'
-    await page.click('.monaco-editor')
+    await page.click('[data-testid="monaco-query-editor"]')
     await page.keyboard.press('Meta+A')
     await page.keyboard.type(customQuery)
     
@@ -211,7 +212,7 @@ test.describe('Traces Query Functionality', () => {
     await page.waitForSelector('[data-testid="traces-page-title"]')
     
     // Query should be preserved (check the actual text content, accounting for line numbers)
-    const editorContent = await page.locator('.monaco-editor').textContent()
+    const editorContent = await page.locator('[data-testid="monaco-query-editor"]').textContent()
     expect(editorContent).toContain('COUNT(*)')
     expect(editorContent).toContain('total')
   })
