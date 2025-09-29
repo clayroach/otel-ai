@@ -1,0 +1,11 @@
+# Light Load Scenario - For development and basic testing
+
+replay:
+  selectionStrategy: smallest # Use smallest session for minimal load
+  maxDuration: 600 # 10 minutes
+  speedMultiplier: 0.5 # Half speed for easier observation
+  loopEnabled: false
+
+logging:
+  statusInterval: 30 # More frequent logging for development
+  level: debug # Verbose logging

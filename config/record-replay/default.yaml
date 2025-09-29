@@ -1,0 +1,69 @@
+# Default configuration for record-replay package
+# All settings can be overridden via environment variables
+
+# Storage configuration (MinIO/S3)
+storage:
+  endpoint: ${MINIO_ENDPOINT:-http://minio:9000}
+  bucket: ${MINIO_BUCKET:-otel-data}
+  accessKey: ${MINIO_ACCESS_KEY:-otel-ai}
+  secretKey: ${MINIO_SECRET_KEY:-otel-ai-secret}
+  region: ${MINIO_REGION:-us-east-1}
+  forcePathStyle: true # Required for MinIO
+
+# Capture settings
+capture:
+  maxSizeMB: 1000 # Maximum size per session
+  maxDurationMinutes: 60 # Auto-stop after 1 hour
+  compressionEnabled: true # Always use gzip
+  defaultPrefix: sessions # Base prefix in bucket
+
+# Replay settings
+replay:
+  # Session selection
+  sessionId: ${REPLAY_SESSION_ID:-auto} # auto = use strategy
+  selectionStrategy: ${REPLAY_STRATEGY:-latest} # latest|random|largest|smallest
+  preferSeedSessions: ${PREFER_SEEDS:-false} # Prefer seed sessions over captures
+
+  # Execution controls
+  maxDuration: ${REPLAY_MAX_DURATION:-3600} # seconds (1 hour default)
+  loopEnabled: ${REPLAY_LOOP:-false} # Loop when complete
+  speedMultiplier: ${REPLAY_SPEED:-1.0} # Replay speed
+  gracefulShutdownTimeout: 10 # seconds
+
+  # Target endpoints
+  targetEndpoint: ${REPLAY_ENDPOINT:-http://otel-collector:4318}
+
+  # Signal types
+  replayTraces: ${REPLAY_TRACES:-true}
+  replayMetrics: ${REPLAY_METRICS:-true}
+  replayLogs: ${REPLAY_LOGS:-true}
+
+  # Timestamp handling
+  timestampAdjustment: ${REPLAY_TIMESTAMP:-current} # none|relative|current
+
+# Seed generation settings (for future implementation)
+seed:
+  defaultPattern: basic-topology
+  tracesPerSecond: 10
+  defaultDuration: 60 # seconds
+  deterministicSeed: true # Use reproducible random
+  gitTrackingEnabled: true # Track git commit in metadata
+
+# Retention settings
+retention:
+  continuous:
+    retentionDays: 7 # Keep continuous data for 7 days
+    cleanupSchedule: '0 2 * * *' # Daily at 2 AM
+    enabled: true
+  sessions:
+    defaultRetentionDays: 30 # Keep sessions for 30 days
+    maxRetentionDays: 90 # Maximum session retention
+    archiveAfterDays: 60 # Archive old sessions
+    cleanupEnabled: true
+
+# Logging and monitoring
+logging:
+  statusInterval: 60 # Log status every 60 seconds
+  includeMetrics: true # Include replay metrics in logs
+  summaryOnExit: true # Log summary on shutdown
+  level: ${LOG_LEVEL:-info} # debug|info|warn|error
