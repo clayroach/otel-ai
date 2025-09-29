@@ -31,6 +31,9 @@ class DemoSetup {
   private config: DemoConfig
 
   constructor() {
+    // Detect the network name dynamically from docker-compose project
+    const networkName = this.detectNetworkName()
+
     this.config = {
       demoDir: DEMO_DIR,
       envOverrides: {
@@ -40,7 +43,7 @@ class DemoSetup {
         OTEL_COLLECTOR_PORT_HTTP: '4318',
 
         // Use external network to connect to our platform
-        NETWORK_NAME: 'otel-ai-network',
+        NETWORK_NAME: networkName,
 
         // Reduce resource usage for development
         LOCUST_USERS: '5',
@@ -48,18 +51,55 @@ class DemoSetup {
         // Disable components we don't need
         DISABLE_TRACETEST: 'true'
       },
-      composeOverride: this.generateComposeOverride()
+      composeOverride: this.generateComposeOverride(networkName)
     }
   }
 
-  private generateComposeOverride(): string {
+  private detectNetworkName(): string {
+    try {
+      // Try to get the network name from running collector container
+      const result = execSync(
+        "docker ps --filter 'name=otel-collector' --format '{{.Names}}' | head -1",
+        { encoding: 'utf-8' }
+      ).trim()
+
+      if (result) {
+        // Extract project name from container name (e.g., otel-ai2-otel-collector-1 -> otel-ai2)
+        const match = result.match(/^(.+?)-otel-collector/)
+        if (match) {
+          const projectName = match[1]
+          console.log(chalk.blue(`[demo] Detected project: ${projectName}`))
+          return `${projectName}_default`
+        }
+      }
+    } catch (error) {
+      // Fallback to checking docker-compose config
+      try {
+        const composeResult = execSync('docker-compose config --services', { encoding: 'utf-8' })
+        if (composeResult.includes('otel-collector')) {
+          // Read project name from .env or use directory name
+          const projectName = process.env.COMPOSE_PROJECT_NAME || path.basename(process.cwd())
+          console.log(chalk.blue(`[demo] Using project name: ${projectName}`))
+          return `${projectName}_default`
+        }
+      } catch (e) {
+        // Ignore
+      }
+    }
+
+    // Fallback to default
+    console.log(chalk.yellow('[demo] Using default network: otel-ai-network'))
+    return 'otel-ai-network'
+  }
+
+  private generateComposeOverride(networkName: string): string {
     return `# Docker Compose Override for otel-ai integration
 # This file modifies the original demo to use our external backend
 
 # Use external network to connect to our platform
 networks:
   default:
-    name: otel-ai-network
+    name: ${networkName}
     external: true
 
 services:
@@ -233,11 +273,15 @@ echo "Starting OpenTelemetry Demo with otel-ai backend..."
     this.log('Starting OpenTelemetry Demo with otel-ai backend...')
 
     // Check if our platform is running
+    const networkName = this.config.envOverrides.NETWORK_NAME
     try {
-      this.execCommand('docker network ls | grep otel-ai-network')
-      this.execCommand('docker ps | grep otel-ai-collector')
+      this.execCommand(`docker network ls | grep "${networkName}"`)
+      this.execCommand('docker ps | grep otel-collector')
     } catch (error) {
-      this.log('otel-ai platform not running. Please run: pnpm dev:up', 'error')
+      this.log(
+        `otel-ai platform not running (network: ${networkName}). Please run: pnpm dev:up`,
+        'error'
+      )
       process.exit(1)
     }
 

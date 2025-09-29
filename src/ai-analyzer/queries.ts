@@ -83,7 +83,7 @@ export const ArchitectureQueries = {
       parent.operation_name,
       child.service_name,
       child.operation_name
-    HAVING call_count >= 10  -- Filter out low-volume dependencies
+    HAVING call_count >= 1  -- Filter out noise (lowered for demo environments)
     ORDER BY call_count DESC
     LIMIT 500  -- Reduced limit
   `,
@@ -118,7 +118,7 @@ export const ArchitectureQueries = {
     FROM traces
     WHERE start_time >= now() - INTERVAL ${timeRangeHours} HOUR
     GROUP BY service_name, operation_name, span_kind
-    HAVING total_spans >= 10  -- Filter out low-volume operations
+    HAVING total_spans >= 1  -- Filter out noise (lowered for demo environments)
     ORDER BY total_spans DESC
     LIMIT 500
   `,

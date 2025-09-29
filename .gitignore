@@ -9,6 +9,8 @@ pods
 notes/.dendron.cache.*
 notes/.dendron.port
 notes/.dendron.ws
+notes/root.md
+notes/root.schema.yml
 
 # Node
 node_modules/

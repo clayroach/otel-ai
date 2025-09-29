@@ -228,7 +228,7 @@ export const LLMManagerRouterLive = Layer.effect(
     // LLM Manager Models endpoint
     router.get('/api/llm-manager/models', async (_req, res) => {
       try {
-        const models = await Effect.runPromise(llmManager.getLoadedModels())
+        const models = await Effect.runPromise(llmManager.getAllModels())
 
         res.json({
           models,
@@ -236,9 +236,9 @@ export const LLMManagerRouterLive = Layer.effect(
           timestamp: new Date().toISOString()
         })
       } catch (error) {
-        console.error('❌ Error getting loaded models:', error)
+        console.error('❌ Error getting all models:', error)
         res.status(500).json({
-          error: 'Failed to get loaded models',
+          error: 'Failed to get models',
           message: error instanceof Error ? error.message : 'Unknown error'
         })
       }
