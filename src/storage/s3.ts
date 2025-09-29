@@ -401,15 +401,14 @@ const parseRetentionPeriod = (period: string): number => {
 export const S3StorageLive = Layer.effect(
   S3StorageTag,
   Effect.gen(function* () {
-    // For now, use a default configuration from environment
-    // In a real implementation, this would come from ConfigServiceTag
+    // Configuration from environment variables with defaults for local MinIO
     const config: S3Config = {
-      endpoint: process.env.S3_ENDPOINT || 'http://localhost:9000',
+      endpoint: process.env.S3_ENDPOINT || 'http://localhost:9010',
       region: process.env.S3_REGION || 'us-east-1',
       bucket: process.env.S3_BUCKET || 'otel-data',
       accessKeyId: process.env.S3_ACCESS_KEY_ID || 'otel-ai',
       secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || 'otel-ai-secret',
-      forcePathStyle: process.env.S3_FORCE_PATH_STYLE === 'true',
+      forcePathStyle: process.env.S3_FORCE_PATH_STYLE !== 'false', // Default true for MinIO
       enableEncryption: process.env.S3_ENABLE_ENCRYPTION === 'true'
     }
 
