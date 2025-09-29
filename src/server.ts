@@ -17,7 +17,8 @@ import {
   StorageLayer as StorageServiceLayer,
   StorageServiceTag,
   ConfigServiceLive,
-  REQUIRED_TABLES
+  REQUIRED_TABLES,
+  type StorageError
 } from './storage/index.js'
 import {
   LLMManagerAPIClientTag,
@@ -253,7 +254,9 @@ const runWithServices = <A, E>(effect: Effect.Effect<A, E, AppServices>): Promis
 }
 
 // Helper function for raw queries that returns data in legacy format
-const runStorageQuery = <A, E>(effect: Effect.Effect<A, E, StorageAPIClientTag>): Promise<A> => {
+const runStorageQuery = <A>(
+  effect: Effect.Effect<A, StorageError, StorageAPIClientTag>
+): Promise<A> => {
   return Effect.runPromise(Effect.provide(effect, StorageAPIClientLayerWithConfig))
 }
 
@@ -334,10 +337,9 @@ async function createValidationTables() {
 // Health check endpoint
 app.get('/health', async (_req, res) => {
   try {
-    const healthResult = await Effect.runPromise(
+    const healthResult = await runStorageQuery(
       StorageAPIClientTag.pipe(
         Effect.flatMap((apiClient) => apiClient.healthCheck()),
-        Effect.provide(StorageAPIClientLayerWithConfig),
         Effect.match({
           onFailure: (error) => {
             console.error('Storage health check failed:', error._tag)

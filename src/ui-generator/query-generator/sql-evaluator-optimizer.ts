@@ -188,7 +188,8 @@ export const validateWithNullTable = <E = Error>(
       (): SQLEvaluationResult => ({
         sql,
         isValid: true,
-        executionTimeMs: 1 // Null tables are near-instant, report 1ms for test compatibility
+        executionTimeMs: 1, // Null tables are near-instant, report 1ms for test compatibility
+        rowCount: 0 // Null tables always return 0 rows
       })
     ),
     Effect.catchAll((error) => {

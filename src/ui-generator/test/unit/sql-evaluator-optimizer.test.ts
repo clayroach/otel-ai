@@ -3,7 +3,7 @@
  * Tests SQL validation and optimization against actual ClickHouse schema without data
  */
 
-import type { ClickHouseClient } from '@clickhouse/client'
+// ClickHouseClient import removed - using shared test utilities
 import { Effect, pipe, Layer } from 'effect'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { evaluateAndOptimizeSQLWithLLM, validateWithNullTable, type ClickHouseClient as EvaluatorClient } from '../../query-generator/sql-evaluator-optimizer.js'
@@ -84,29 +84,7 @@ const MockLLMManagerLayer = Layer.succeed(LLMManagerServiceTag, MockLLMManagerSe
 /**
  * Create validation tables with Null engine for testing
  */
-async function createValidationTables(client: ClickHouseClient): Promise<void> {
-  console.log('📊 Creating validation tables with Null engine...')
-
-  // Use centralized table list from storage config
-  const tables = ['traces', 'ai_anomalies', 'ai_service_baselines'] // TODO: Import from REQUIRED_TABLES
-
-  for (const tableName of tables) {
-    try {
-      const validationTableQuery = `
-        CREATE TABLE IF NOT EXISTS otel.${tableName}_validation
-        AS otel.${tableName}
-        ENGINE = Null
-      `
-      await client.command({ query: validationTableQuery })
-      console.log(`  ✅ Created validation table: ${tableName}_validation (Null engine)`)
-    } catch (error) {
-      console.error(`  ❌ Failed to create validation table ${tableName}_validation:`, error)
-      throw error
-    }
-  }
-
-  console.log('✅ Validation tables created successfully')
-}
+// Validation tables creation moved to shared utility (setupClickHouseSchema)
 
 
 
@@ -120,11 +98,8 @@ describe('SQL Evaluator-Optimizer Unit Tests', () => {
       testContainer = await startClickHouseContainer()
       testClient = testContainer.evaluatorClient
 
-      // Set up the schema from migration file
+      // Set up the schema from migration file (includes validation tables)
       await setupClickHouseSchema(testContainer.client)
-
-      // Create validation tables with Null engine for testing validateWithNullTable
-      await createValidationTables(testContainer.client)
 
     } catch (error) {
       console.error('❌ Failed to start ClickHouse container:', error)

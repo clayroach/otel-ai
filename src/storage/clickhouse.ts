@@ -47,7 +47,7 @@ export const makeClickHouseStorage = (
   config: ClickHouseConfig
 ): Effect.Effect<ClickHouseStorage, StorageError> =>
   Effect.gen(function* (_) {
-    // Create ClickHouse client with performance optimizations
+    // Create ClickHouse client with performance optimizations and timeout settings
     const client = createClient({
       host: `http://${config.host}:${config.port}`,
       database: config.database,
@@ -56,8 +56,10 @@ export const makeClickHouseStorage = (
       compression: {
         response: config.compression ?? true,
         request: config.compression ?? true
-      }
-      // Performance settings will be applied per-query via query_params
+      },
+      // Add timeout and performance settings
+      request_timeout: 30000, // 30 second timeout for all queries
+      max_open_connections: config.maxOpenConnections ?? 10
     })
 
     // Test connection on initialization

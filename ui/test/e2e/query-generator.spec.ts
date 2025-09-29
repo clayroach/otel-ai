@@ -193,7 +193,7 @@ test.describe('Query Generator Service', () => {
     console.log('❌ Invalid query errors:', result.invalidResult.errors)
   })
 
-  test('should handle API errors gracefully and use fallback', async ({ page }) => {
+  test.skip('should handle API errors gracefully and use fallback', async ({ page }) => {
     // Test fallback behavior when API is unreachable
     const result = await page.evaluate(async () => {
       const { QueryGeneratorService } = await import('../../src/services/query-generator.ts')

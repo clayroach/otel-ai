@@ -29,6 +29,29 @@ export const StorageRouterLive = Layer.effect(
       return { data: result as Record<string, unknown>[] }
     }
 
+    // Query to check high memory usage from system.query_log
+    const getHighMemoryQueries = async (minutesBack: number = 5, thresholdMB: number = 100) => {
+      const sql = `
+        SELECT
+          toDateTime(event_time) as time,
+          query_id,
+          query_duration_ms,
+          memory_usage / (1024*1024) as memory_mb,
+          read_rows,
+          read_bytes / (1024*1024*1024) as read_gb,
+          substring(query, 1, 200) as query_preview,
+          exception
+        FROM system.query_log
+        WHERE event_time >= now() - INTERVAL ${minutesBack} MINUTE
+          AND type IN ('QueryFinish', 'ExceptionWhileProcessing')
+          AND memory_usage > ${thresholdMB} * 1024 * 1024
+          AND query NOT LIKE '%system.query_log%'
+        ORDER BY memory_usage DESC
+        LIMIT 20
+      `
+      return queryWithResults(sql)
+    }
+
     // ClickHouse query endpoint
     router.post('/api/clickhouse/query', async (req, res) => {
       try {
@@ -134,6 +157,39 @@ export const StorageRouterLive = Layer.effect(
         console.error('❌ Error archiving sessions:', error)
         res.status(500).json({
           error: 'Failed to archive sessions',
+          message: error instanceof Error ? error.message : 'Unknown error'
+        })
+      }
+    })
+
+    // Memory monitoring endpoint - shows high memory queries
+    router.get('/api/monitoring/high-memory-queries', async (req, res) => {
+      try {
+        const minutesBack = parseInt(req.query.minutes as string) || 5
+        const thresholdMB = parseInt(req.query.threshold as string) || 100
+
+        console.log(
+          `📊 Checking for queries using >${thresholdMB}MB in last ${minutesBack} minutes`
+        )
+
+        const result = await getHighMemoryQueries(minutesBack, thresholdMB)
+
+        // Log if we found any high memory queries
+        if (result.data.length > 0) {
+          console.warn(`⚠️ Found ${result.data.length} high memory queries`)
+        }
+
+        res.json({
+          timestamp: new Date().toISOString(),
+          minutesBack,
+          thresholdMB,
+          count: result.data.length,
+          queries: result.data
+        })
+      } catch (error) {
+        console.error('❌ Error checking high memory queries:', error)
+        res.status(500).json({
+          error: 'Failed to check high memory queries',
           message: error instanceof Error ? error.message : 'Unknown error'
         })
       }

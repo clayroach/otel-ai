@@ -97,7 +97,7 @@ describe('StorageAPIClient Encoding Type', () => {
       yield* storage.writeOTLP(invalidData, 'json')
     })
 
-    const result = await Effect.runPromiseExit(Effect.provide(effect, testLayer))
+    const result = await Effect.runPromiseExit(effect.pipe(Effect.provide(testLayer)))
 
     // Should fail validation or connection (either is acceptable for this test)
     expect(Exit.isFailure(result)).toBe(true)
