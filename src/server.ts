@@ -16,7 +16,8 @@ import {
   StorageAPIClientLayer,
   StorageLayer as StorageServiceLayer,
   StorageServiceTag,
-  ConfigServiceLive
+  ConfigServiceLive,
+  REQUIRED_TABLES
 } from './storage/index.js'
 import {
   LLMManagerAPIClientTag,
@@ -297,6 +298,34 @@ async function createViews() {
     console.log('✅ Created traces_view successfully')
   } catch (error) {
     console.error('❌ Error creating views:', error)
+  }
+}
+
+// Create validation tables for ILLEGAL_AGGREGATION prevention
+async function createValidationTables() {
+  try {
+    console.log(
+      '📊 Creating validation tables with Null engine for ILLEGAL_AGGREGATION prevention...'
+    )
+
+    // Use centralized list of tables
+    const tables = REQUIRED_TABLES
+
+    for (const tableName of tables) {
+      const validationTableSQL = `
+        CREATE TABLE IF NOT EXISTS ${tableName}_validation
+        AS ${tableName}
+        ENGINE = Null
+      `
+
+      await queryWithResults(validationTableSQL)
+      console.log(`  ✅ Created validation table: ${tableName}_validation`)
+    }
+
+    console.log('✅ All validation tables created successfully')
+  } catch (error) {
+    console.error('❌ Error creating validation tables:', error)
+    // Don't throw - validation tables are not critical for startup
   }
 }
 
@@ -873,9 +902,13 @@ app.listen(PORT, async () => {
   console.log(`🎬 OTLP Capture & Replay: http://localhost:${PORT}/api/capture/sessions`)
   console.log(`🗄️ Retention Management: http://localhost:${PORT}/api/retention/usage`)
 
-  // Wait a bit for schema migrations to complete, then create views
+  // Wait a bit for schema migrations to complete, then create views and validation tables
   setTimeout(async () => {
     await createViews()
+
+    // Create validation tables for ILLEGAL_AGGREGATION prevention
+    await createValidationTables()
+
     console.log('✅ AI Analyzer service available through layer composition')
     console.log(`🤖 AI Analyzer API: http://localhost:${PORT}/api/ai-analyzer/health`)
 

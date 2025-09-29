@@ -4,7 +4,12 @@
  */
 
 import { Effect, Context, Layer, Schedule, Duration } from 'effect'
-import { type StorageConfig, defaultStorageConfig, loadConfigFromEnv } from './config.js'
+import {
+  type StorageConfig,
+  defaultStorageConfig,
+  loadConfigFromEnv,
+  REQUIRED_TABLES
+} from './config.js'
 import {
   type OTLPData,
   type QueryParams,
@@ -14,7 +19,7 @@ import {
   type LogData,
   type AIDataset
 } from './schemas.js'
-import { type StorageError } from './errors.js'
+import { type StorageError, StorageErrorConstructors } from './errors.js'
 import { type ClickHouseStorage, makeClickHouseStorage } from './clickhouse.js'
 // S3 imports removed - not used yet
 
@@ -43,6 +48,9 @@ export interface StorageService {
   // Health and maintenance
   readonly healthCheck: () => Effect.Effect<{ clickhouse: boolean; s3: boolean }, StorageError>
   readonly getStorageStats: () => Effect.Effect<StorageStats, StorageError>
+
+  // Validation table management
+  readonly createValidationTables: () => Effect.Effect<void, StorageError>
 }
 
 export interface StorageStats {
@@ -148,6 +156,42 @@ const makeStorageService = (
         clickhouse: clickhouseStats,
         s3: s3Stats
       }
+    }),
+
+  createValidationTables: () =>
+    Effect.gen(function* (_) {
+      console.log(
+        '📊 Creating validation tables with Null engine for ILLEGAL_AGGREGATION prevention...'
+      )
+
+      // Use centralized list of tables
+      const tables = REQUIRED_TABLES
+
+      for (const tableName of tables) {
+        const validationTableSQL = `
+          CREATE TABLE IF NOT EXISTS ${tableName}_validation
+          AS ${tableName}
+          ENGINE = Null
+        `
+
+        yield* _(
+          clickhouse
+            .insertRaw(validationTableSQL)
+            .pipe(
+              Effect.mapError((error) =>
+                StorageErrorConstructors.QueryError(
+                  `Failed to create validation table ${tableName}_validation: ${error}`,
+                  validationTableSQL,
+                  error
+                )
+              )
+            )
+        )
+
+        console.log(`  ✅ Created validation table: ${tableName}_validation`)
+      }
+
+      console.log('✅ All validation tables created successfully')
     })
 })
 

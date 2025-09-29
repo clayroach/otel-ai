@@ -87,7 +87,8 @@ const MockLLMManagerLayer = Layer.succeed(LLMManagerServiceTag, MockLLMManagerSe
 async function createValidationTables(client: ClickHouseClient): Promise<void> {
   console.log('📊 Creating validation tables with Null engine...')
 
-  const tables = ['traces', 'ai_anomalies', 'ai_service_baselines']
+  // Use centralized table list from storage config
+  const tables = ['traces', 'ai_anomalies', 'ai_service_baselines'] // TODO: Import from REQUIRED_TABLES
 
   for (const tableName of tables) {
     try {
