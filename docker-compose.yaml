@@ -245,22 +245,38 @@ services:
       - production
       - test
 
-  # Test Data Generator - Only runs when explicitly enabled
-  test-data-generator:
+  # OTLP Replay Orchestrator - Replays captured sessions for test data
+  replay-orchestrator:
     build:
       context: .
-      dockerfile: docker/test-data/Dockerfile
-    container_name: otel-ai-test-generator
+      dockerfile: Dockerfile
+    container_name: otel-ai-replay-orchestrator
     environment:
-      - OTLP_ENDPOINT=http://otel-collector:4318
-      - DIRECT_OTLP_ENDPOINT=http://backend:4319
-      - CLICKHOUSE_URL=http://clickhouse:8123
-      - GENERATE_INTERVAL=${TEST_DATA_INTERVAL:-15s}
-      - BATCH_SIZE=${TEST_DATA_BATCH:-5}
+      # MinIO/S3 Configuration
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_BUCKET=otel-data
+      - MINIO_ACCESS_KEY=otel-ai
+      - MINIO_SECRET_KEY=otel-ai-secret
+      # Replay Configuration
+      - REPLAY_SESSION_ID=${REPLAY_SESSION:-auto}
+      - REPLAY_STRATEGY=${REPLAY_STRATEGY:-latest}
+      - REPLAY_MAX_DURATION=${REPLAY_DURATION:-3600}
+      - REPLAY_LOOP=${REPLAY_LOOP:-false}
+      - REPLAY_SPEED=${REPLAY_SPEED:-1.0}
+      - REPLAY_ENDPOINT=http://otel-collector:4318
+      - REPLAY_TRACES=true
+      - REPLAY_METRICS=true
+      - REPLAY_LOGS=true
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - NODE_ENV=production
+    volumes:
+      - ./config/record-replay:/app/config/record-replay:ro
     depends_on:
-      - otel-collector
-      - backend
-      - clickhouse
+      minio:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    command: ['node', 'dist/src/record-replay/cli/replay.js']
     restart: unless-stopped
     profiles:
       - test-data
