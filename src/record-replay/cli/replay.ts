@@ -64,9 +64,13 @@ const setupSignalHandlers = () => {
     if (isShuttingDown || !currentSessionId || !orchestratorService) return
     isShuttingDown = true
 
+    // Capture values to avoid non-null assertions
+    const sessionId = currentSessionId
+    const orchestrator = orchestratorService
+
     Effect.runPromise(
       Console.log('🛑 Received shutdown signal, stopping replay gracefully...').pipe(
-        Effect.flatMap(() => orchestratorService!.stopReplay(currentSessionId!)),
+        Effect.flatMap(() => orchestrator.stopReplay(sessionId)),
         Effect.flatMap(() => Console.log('✅ Replay stopped successfully')),
         Effect.catchAll((error) => Console.error('❌ Error during shutdown:', error))
       )

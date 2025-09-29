@@ -37,7 +37,6 @@ export const ServiceTopologyPanel: React.FC<ServiceTopologyPanelProps> = ({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [topologyData, setTopologyData] = useState<TopologyVisualizationData | null>(null)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
   const [_selectedNode, setSelectedNode] = useState<ServiceNode | null>(null)
   // const [lastUpdated, setLastUpdated] = useState<Date | null>(null) // Not currently used
   const [filteredHealthStatuses, setFilteredHealthStatuses] = useState<string[]>([])
