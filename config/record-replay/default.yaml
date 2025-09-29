@@ -3,11 +3,11 @@
 
 # Storage configuration (MinIO/S3)
 storage:
-  endpoint: ${MINIO_ENDPOINT:-http://minio:9000}
-  bucket: ${MINIO_BUCKET:-otel-data}
-  accessKey: ${MINIO_ACCESS_KEY:-otel-ai}
-  secretKey: ${MINIO_SECRET_KEY:-otel-ai-secret}
-  region: ${MINIO_REGION:-us-east-1}
+  endpoint: ${S3_ENDPOINT:-http://minio:9000}
+  bucket: ${S3_BUCKET:-otel-data}
+  accessKeyId: ${S3_ACCESS_KEY_ID:-otel-ai}
+  secretAccessKey: ${S3_SECRET_ACCESS_KEY:-otel-ai-secret}
+  region: ${S3_REGION:-us-east-1}
   forcePathStyle: true # Required for MinIO
 
 # Capture settings

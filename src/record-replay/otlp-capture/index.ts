@@ -89,5 +89,15 @@ export {
   TrainingDataReaderLive
 } from '../training/training-data-reader.js'
 
+export {
+  type SeedGenerator,
+  SeedGeneratorTag,
+  SeedGeneratorLive,
+  type SeedConfig,
+  type GenerationPattern
+} from '../otlp-seed-generator/seed-generator.js'
+
+export { createSeededRandom, SeededRandom } from '../otlp-seed-generator/deterministic.js'
+
 // Re-export Effect dependencies for convenience
 export { Effect, Layer, Context } from 'effect'
