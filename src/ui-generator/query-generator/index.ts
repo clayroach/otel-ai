@@ -1,11 +1,7 @@
 // Main exports for query generator module
 export * from './types.js'
 export * from './llm-query-generator.js'
-export {
-  CriticalPathQueryGeneratorLLMTag,
-  CriticalPathQueryGeneratorLLMLive,
-  generateCustomQuery
-} from './service-llm.js'
+// Service LLM exports removed - caused validation bypasses
 export { generateQueryWithSQLModel } from './llm-query-generator.js'
 
 // Re-export commonly used types for convenience

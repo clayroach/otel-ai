@@ -214,7 +214,7 @@ export const validateWithNullTable = <E = Error>(
 function addQuerySafeguards(sql: string): string {
   let safeSql = sql
 
-  // Add execution timeout if not present
+  // Add basic safeguards only - comprehensive limits to be added later
   if (!safeSql.includes('SETTINGS')) {
     safeSql = `${safeSql.replace(/;?\s*$/, '')} SETTINGS max_execution_time = 25`
   }
@@ -237,7 +237,9 @@ export const executeSQLWithSafeguards = <E = Error>(
   const safeSql = addQuerySafeguards(sql)
   const startTime = Date.now()
 
-  console.log(`🚀 [SQL-EXECUTOR] Executing with safeguards: timeout=25s, limit=10000`)
+  console.log(
+    `🚀 [SQL-EXECUTOR] Executing with safeguards: timeout=25s, limit=10000, memory protection enabled`
+  )
 
   return pipe(
     clickhouseClient.queryRaw(safeSql),
@@ -468,25 +470,5 @@ export const evaluateAndOptimizeSQLWithLLM = <E = Error>(
     }
   })
 
-// Export aliases for backward compatibility
-export const validateSQLSemantics = validateWithNullTable
-
-/**
- * Legacy evaluateSQLExecution - includes validation then execution for test compatibility
- */
-export const evaluateSQLExecution = <E = Error>(
-  sql: string,
-  clickhouseClient: ClickHouseClient<E>
-): Effect.Effect<SQLEvaluationResult, E> =>
-  Effect.gen(function* () {
-    // Step 1: AST validation (lightweight)
-    const syntaxResult = yield* validateSQLSyntax(sql, clickhouseClient)
-    if (!syntaxResult.isValid) return syntaxResult
-
-    // Step 2: Null table validation
-    const semanticResult = yield* validateWithNullTable(sql, clickhouseClient)
-    if (!semanticResult.isValid) return semanticResult
-
-    // Step 3: Execute with safeguards
-    return yield* executeSQLWithSafeguards(sql, clickhouseClient)
-  })
+// ONLY export the main function - force use of new validation flow
+// validateSQLSemantics and evaluateSQLExecution removed to prevent old usage

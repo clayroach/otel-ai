@@ -638,18 +638,18 @@ describe('SQL Evaluator-Optimizer with Multiple LLM Models', () => {
         GROUP BY service_name
       `
 
-      // Note: count() * avg() is valid SQL but memory-intensive, requiring LIMIT 0 protection
+      // Note: count() * avg() is valid SQL but memory-intensive, will use spill-to-disk protection
 
       console.log('\n🔍 Testing memory protection for complex aggregation queries...')
       console.log('🔍 SQL contains: count() * avg(duration_ns) - should trigger memory protection')
 
       // Import the semantic validation function directly
-      const { validateSQLSemantics } = await import('../../query-generator/sql-evaluator-optimizer.js')
+      const { validateWithNullTable } = await import('../../query-generator/sql-evaluator-optimizer.js')
 
       // Test semantic validation and memory protection
       const program = Effect.gen(function* () {
-        console.log('🔧 Running validateSQLSemantics with memory protection...')
-        const result = yield* validateSQLSemantics(complexAggregationSQL, testClient)
+        console.log('🔧 Running validateWithNullTable with memory protection...')
+        const result = yield* validateWithNullTable(complexAggregationSQL, testClient)
         return result
       })
 

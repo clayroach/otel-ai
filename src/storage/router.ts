@@ -23,6 +23,7 @@ export const StorageRouterLive = Layer.effect(
     const router = express.Router()
 
     // Helper function for raw queries that returns data in legacy format
+    // Note: Only used for trusted, hand-crafted queries - not LLM-generated ones
     const queryWithResults = async (sql: string): Promise<{ data: Record<string, unknown>[] }> => {
       const result = await Effect.runPromise(storageClient.queryRaw(sql))
       return { data: result as Record<string, unknown>[] }

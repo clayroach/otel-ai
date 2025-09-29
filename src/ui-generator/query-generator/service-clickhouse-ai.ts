@@ -133,6 +133,7 @@ export const CriticalPathQueryGeneratorClickHouseAILive = Layer.effect(
           }
 
           // Create query execution thunk
+          // Note: ClickHouse AI generates queries - should use validation in future
           const executeThunk = (): Effect.Effect<QueryResult, Error, never> =>
             storageClient.queryRaw(sql).pipe(
               Effect.map((data) => {

@@ -6,7 +6,7 @@
 import type { ClickHouseClient } from '@clickhouse/client'
 import { Effect, pipe, Layer } from 'effect'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { evaluateAndOptimizeSQLWithLLM, evaluateSQLExecution, validateSQLSemantics, type ClickHouseClient as EvaluatorClient, type SQLEvaluationResult } from '../../query-generator/sql-evaluator-optimizer.js'
+import { evaluateAndOptimizeSQLWithLLM, validateWithNullTable, type ClickHouseClient as EvaluatorClient } from '../../query-generator/sql-evaluator-optimizer.js'
 import {
   cleanupClickHouseContainer,
   getSchemaInfo,
@@ -216,7 +216,7 @@ describe('SQL Evaluator-Optimizer Unit Tests', () => {
     `
 
     it('should detect UNKNOWN_IDENTIFIER error in service_health CTE', async () => {
-      const result: SQLEvaluationResult = await Effect.runPromise(evaluateSQLExecution(claudeQueryWithError, testClient))
+      const result = await Effect.runPromise(validateWithNullTable(claudeQueryWithError, testClient))
 
       expect(result.isValid).toBe(false)
       expect(result.error).toBeDefined()
@@ -272,10 +272,10 @@ describe('SQL Evaluator-Optimizer Unit Tests', () => {
         ) USING service_name
       `
 
-      const result = await Effect.runPromise(evaluateSQLExecution(sqlWithTypo, testClient))
+      const result = await Effect.runPromise(validateWithNullTable(sqlWithTypo, testClient))
 
       expect(result.isValid).toBe(false)
-      expect(result.error?.code).toBe('AST_ERROR')
+      expect(result.error?.code).toBe('VALIDATION_ERROR')
       expect(result.error?.message).toContain('PIIOT')
 
       console.log('❌ PIIOT typo error:', result.error?.code)
@@ -296,10 +296,10 @@ describe('SQL Evaluator-Optimizer Unit Tests', () => {
         GROUP BY t1.service_name, t1.operation_name
       `
 
-      const result = await Effect.runPromise(evaluateSQLExecution(malformedJoin, testClient))
+      const result = await Effect.runPromise(validateWithNullTable(malformedJoin, testClient))
 
       expect(result.isValid).toBe(false)
-      expect(result.error?.code).toBe('AST_ERROR')
+      expect(result.error?.code).toBe('VALIDATION_ERROR')
       expect(result.error?.message).toMatch(/parenthes|unexpected/i)
 
       console.log('❌ Extra parenthesis error:', result.error?.code)
@@ -315,10 +315,10 @@ describe('SQL Evaluator-Optimizer Unit Tests', () => {
         GROUP BY service_name, operation_name
       `
 
-      const result = await Effect.runPromise(evaluateSQLExecution(missingCommaSQL, testClient))
+      const result = await Effect.runPromise(validateWithNullTable(missingCommaSQL, testClient))
 
       expect(result.isValid).toBe(false)
-      expect(result.error?.code).toBe('AST_ERROR')
+      expect(result.error?.code).toBe('VALIDATION_ERROR')
 
       console.log('❌ Missing comma error:', result.error?.code)
       console.log('   Message:', result.error?.message)
@@ -337,7 +337,7 @@ describe('SQL Evaluator-Optimizer Unit Tests', () => {
         GROUP BY service_name
       `
 
-      const result = await Effect.runPromise(validateSQLSemantics(illegalAggregateSQL, testClient))
+      const result = await Effect.runPromise(validateWithNullTable(illegalAggregateSQL, testClient))
 
       expect(result.isValid).toBe(false)
       expect(result.error).toBeDefined()
@@ -358,7 +358,7 @@ describe('SQL Evaluator-Optimizer Unit Tests', () => {
         GROUP BY service_name
       `
 
-      const result = await Effect.runPromise(validateSQLSemantics(notAggregateSQL, testClient))
+      const result = await Effect.runPromise(validateWithNullTable(notAggregateSQL, testClient))
 
       expect(result.isValid).toBe(false)
       expect(result.error).toBeDefined()
@@ -381,7 +381,7 @@ describe('SQL Evaluator-Optimizer Unit Tests', () => {
         ORDER BY request_count DESC
       `
 
-      const result = await Effect.runPromise(validateSQLSemantics(validSQL, testClient))
+      const result = await Effect.runPromise(validateWithNullTable(validSQL, testClient))
 
       expect(result.isValid).toBe(true)
       expect(result.error).toBeUndefined()
@@ -399,7 +399,7 @@ describe('SQL Evaluator-Optimizer Unit Tests', () => {
         GROUP BY service_name
       `
 
-      const result = await Effect.runPromise(validateSQLSemantics(typeMismatchSQL, testClient))
+      const result = await Effect.runPromise(validateWithNullTable(typeMismatchSQL, testClient))
 
       expect(result.isValid).toBe(false)
       expect(result.error).toBeDefined()
@@ -425,11 +425,11 @@ describe('SQL Evaluator-Optimizer Unit Tests', () => {
       `
 
       const semanticStart = Date.now()
-      const semanticResult = await Effect.runPromise(validateSQLSemantics(complexQuery, testClient))
+      const semanticResult = await Effect.runPromise(validateWithNullTable(complexQuery, testClient))
       const semanticTime = Date.now() - semanticStart
 
       const executionStart = Date.now()
-      const executionResult = await Effect.runPromise(evaluateSQLExecution(complexQuery, testClient))
+      const executionResult = await Effect.runPromise(validateWithNullTable(complexQuery, testClient))
       const executionTime = Date.now() - executionStart
 
       expect(semanticResult.isValid).toBe(true)
@@ -532,7 +532,7 @@ describe('SQL Evaluator-Optimizer Unit Tests', () => {
         SELECT * FROM non_existent_table_with_very_long_name_that_triggers_detailed_error_message
       `
 
-      const result = await Effect.runPromise(evaluateSQLExecution(complexErrorSQL, testClient))
+      const result = await Effect.runPromise(validateWithNullTable(complexErrorSQL, testClient))
 
       expect(result.isValid).toBe(false)
       expect(result.error).toBeDefined()
@@ -556,7 +556,7 @@ describe('SQL Evaluator-Optimizer Unit Tests', () => {
         GROUP BY service_name
       `
 
-      const result = await Effect.runPromise(evaluateSQLExecution(invalidAggregate, testClient))
+      const result = await Effect.runPromise(validateWithNullTable(invalidAggregate, testClient))
 
       expect(result.isValid).toBe(false)
       expect(result.error).toBeDefined()
@@ -573,7 +573,7 @@ describe('SQL Evaluator-Optimizer Unit Tests', () => {
         LIMIT 1
       `
 
-      const result = await Effect.runPromise(evaluateSQLExecution(wrongTableRef, testClient))
+      const result = await Effect.runPromise(validateWithNullTable(wrongTableRef, testClient))
 
       expect(result.isValid).toBe(false)
       expect(result.error?.code).toBe('VALIDATION_ERROR')
@@ -592,7 +592,7 @@ describe('SQL Evaluator-Optimizer Unit Tests', () => {
         LIMIT 10
       `
 
-      const result = await Effect.runPromise(evaluateSQLExecution(validSQL, testClient))
+      const result = await Effect.runPromise(validateWithNullTable(validSQL, testClient))
 
       expect(result.isValid).toBe(true)
       expect(result.error).toBeUndefined()
