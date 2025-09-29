@@ -8,7 +8,7 @@ import * as Schema from '@effect/schema/Schema'
 import express from 'express'
 import { AnnotationService, DiagnosticsSessionManager, type DiagnosticsSession } from './index.js'
 import { AnnotationSchema } from './annotation.schema.js'
-import { TrainingDataReaderTag } from '../otlp-capture/index.js'
+import { TrainingDataReaderTag } from '../record-replay/otlp-capture/index.js'
 
 export interface AnnotationsRouter {
   readonly router: express.Router

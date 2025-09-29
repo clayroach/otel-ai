@@ -10,9 +10,10 @@ import {
   OtlpCaptureServiceTag,
   OtlpCaptureServiceLive,
   OtlpReplayServiceTag,
-  OtlpReplayServiceLive
+  OtlpReplayServiceLive,
+  OtlpHttpReplayClientLive
 } from '../../index.js'
-import { S3StorageTag } from '../../../storage/index.js'
+import { S3StorageTag } from '../../../../storage/index.js'
 import { generateTestOtlpData } from '../fixtures/otlp-generator.js'
 
 // This test uses testcontainers to spin up MinIO, so it should work in CI
@@ -74,7 +75,7 @@ describe('OTLP Capture and Replay Integration Tests', () => {
       S3StorageTag,
       Effect.gen(function* () {
         const { makeS3Storage } = yield* Effect.promise(() =>
-          import('../../../storage/s3.js')
+          import('../../../../storage/s3.js')
         )
         return yield* makeS3Storage(testS3Config)
       })
@@ -82,8 +83,9 @@ describe('OTLP Capture and Replay Integration Tests', () => {
 
     testLayer = Layer.mergeAll(
       S3StorageTestLive,
+      OtlpHttpReplayClientLive,
       OtlpCaptureServiceLive.pipe(Layer.provide(S3StorageTestLive)),
-      OtlpReplayServiceLive.pipe(Layer.provide(S3StorageTestLive))
+      OtlpReplayServiceLive.pipe(Layer.provide(Layer.mergeAll(S3StorageTestLive, OtlpHttpReplayClientLive)))
     )
   }, 60000) // 60 second timeout for container startup
 

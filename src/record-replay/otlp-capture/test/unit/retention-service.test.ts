@@ -8,8 +8,8 @@ import {
   RetentionServiceTag,
   RetentionServiceLive,
   type RetentionPolicy
-} from '../../retention-service.js'
-import { S3StorageTag, type S3Storage } from '../../../storage/s3.js'
+} from '../../../retention/retention-service.js'
+import { S3StorageTag, type S3Storage } from '../../../../storage/s3.js'
 
 describe('RetentionService Unit Tests', () => {
   const testPolicy: RetentionPolicy = {

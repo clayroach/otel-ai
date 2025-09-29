@@ -38,12 +38,13 @@ import {
   OtlpCaptureServiceLive,
   OtlpReplayServiceTag,
   OtlpReplayServiceLive,
+  OtlpHttpReplayClientLive,
   RetentionServiceTag,
   RetentionServiceLive,
   TrainingDataReaderTag,
   TrainingDataReaderLive,
   type RetentionPolicy
-} from './otlp-capture/index.js'
+} from './record-replay/otlp-capture/index.js'
 import { S3StorageTag, S3StorageLive } from './storage/s3.js'
 import { cleanAttributes, isProtobufContent, type AttributeValue } from './utils/protobuf.js'
 
@@ -99,7 +100,7 @@ import {
   type OtlpCaptureRouter,
   OtlpCaptureRouterTag,
   OtlpCaptureRouterLive
-} from './otlp-capture/router.js'
+} from './record-replay/router/capture-router.js'
 
 const app = express()
 const PORT = process.env.PORT || 4319
@@ -172,7 +173,10 @@ const S3StorageLayer = S3StorageLive
 
 // Create OTLP capture services with S3 dependency
 const OtlpCaptureLayer = OtlpCaptureServiceLive.pipe(Layer.provide(S3StorageLayer))
-const OtlpReplayLayer = OtlpReplayServiceLive.pipe(Layer.provide(S3StorageLayer))
+const HttpReplayClientLayer = OtlpHttpReplayClientLive
+const OtlpReplayLayer = OtlpReplayServiceLive.pipe(
+  Layer.provide(Layer.mergeAll(S3StorageLayer, HttpReplayClientLayer))
+)
 const RetentionServiceLayer = RetentionServiceLive.pipe(Layer.provide(S3StorageLayer))
 const TrainingDataReaderLayer = TrainingDataReaderLive.pipe(
   Layer.provide(Layer.mergeAll(S3StorageLayer, StorageAPIClientLayerWithConfig))
@@ -185,7 +189,7 @@ const BaseDependencies = Layer.mergeAll(
   StorageAPIClientLayerWithConfig, // Storage API client with ClickHouse config
   LLMManagerLive, // LLM Manager service
   LLMManagerAPIClientLayer, // LLM Manager API client
-  AIAnalyzerMockLayer(), // AI Analyzer (mock)
+  AIAnalyzerMockLayer(), // AI Analyzer (mock - real impl needs LLM service dependency fix)
   AnnotationServiceLive.pipe(Layer.provide(StorageWithConfig)), // Annotation Service
   DiagnosticsSessionManagerLive.pipe(
     Layer.provide(

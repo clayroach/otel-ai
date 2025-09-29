@@ -47,7 +47,29 @@ export {
   type OtlpReplayService,
   OtlpReplayServiceTag,
   OtlpReplayServiceLive
-} from './replay-service.js'
+} from '../otlp-replay/replay-service.js'
+
+export {
+  type OtlpHttpReplayClient,
+  OtlpHttpReplayClientTag,
+  OtlpHttpReplayClientLive
+} from '../otlp-replay/http-client.js'
+
+export {
+  type SessionManager,
+  SessionManagerTag,
+  SessionManagerLive,
+  type SessionSelectionStrategy,
+  type SessionFilter
+} from '../otlp-replay/session-manager.js'
+
+export {
+  type ReplayOrchestrator,
+  ReplayOrchestratorTag,
+  ReplayOrchestratorLive,
+  type OrchestratorConfig,
+  type OrchestratorStatus
+} from '../otlp-replay/orchestrator.js'
 
 export {
   type RetentionService,
@@ -59,13 +81,23 @@ export {
   RetentionPolicySchema,
   CleanupResultSchema,
   StorageMetricsSchema
-} from './retention-service.js'
+} from '../retention/retention-service.js'
 
 export {
   type TrainingDataReader,
   TrainingDataReaderTag,
   TrainingDataReaderLive
-} from './training-data-reader.js'
+} from '../training/training-data-reader.js'
+
+export {
+  type SeedGenerator,
+  SeedGeneratorTag,
+  SeedGeneratorLive,
+  type SeedConfig,
+  type GenerationPattern
+} from '../otlp-seed-generator/seed-generator.js'
+
+export { createSeededRandom, SeededRandom } from '../otlp-seed-generator/deterministic.js'
 
 // Re-export Effect dependencies for convenience
 export { Effect, Layer, Context } from 'effect'

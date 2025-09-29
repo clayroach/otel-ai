@@ -6,7 +6,7 @@
 import { Context, Effect, Layer } from 'effect'
 import express from 'express'
 import { StorageAPIClientTag } from './index.js'
-import { RetentionServiceTag, type RetentionPolicy } from '../otlp-capture/index.js'
+import { RetentionServiceTag, type RetentionPolicy } from '../record-replay/otlp-capture/index.js'
 
 export interface StorageRouter {
   readonly router: express.Router
