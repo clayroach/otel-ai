@@ -59,9 +59,34 @@ export interface TraceFlowRaw {
 export const ArchitectureQueries = {
   /**
    * Discover service dependencies by analyzing parent-child span relationships
-   * Optimized: Added trace_id join condition and better filtering
+   * Optimized: Pre-filter traces with CTE, add memory protection settings
+   * Issue #161: Prevent OOM with large datasets through trace sampling
    */
   getServiceDependencies: (timeRangeHours: number = 24) => `
+    WITH relevant_traces AS (
+      -- Pre-filter: Select only traces with multiple services to reduce memory usage
+      SELECT trace_id
+      FROM traces
+      WHERE start_time >= now() - INTERVAL ${timeRangeHours} HOUR
+      GROUP BY trace_id
+      HAVING uniq(service_name) > 1  -- Only traces that cross service boundaries
+      LIMIT 10000  -- Sample limit to prevent OOM with large datasets
+    ),
+    filtered_spans AS (
+      -- Get spans only for relevant traces
+      SELECT
+        t.trace_id,
+        t.span_id,
+        t.parent_span_id,
+        t.service_name,
+        t.operation_name,
+        t.start_time,
+        t.duration_ns,
+        t.status_code
+      FROM traces t
+      INNER JOIN relevant_traces rt ON t.trace_id = rt.trace_id
+      WHERE t.start_time >= now() - INTERVAL ${timeRangeHours} HOUR
+    )
     SELECT
       p.service_name as service_name,
       p.operation_name as operation_name,
@@ -71,24 +96,27 @@ export const ArchitectureQueries = {
       avg(c.duration_ns / 1000000) as avg_duration_ms,
       countIf(c.status_code = 'ERROR') as error_count,
       count(*) as total_count
-    FROM traces p
-    INNER JOIN traces c ON
+    FROM filtered_spans p
+    INNER JOIN filtered_spans c ON
       c.trace_id = p.trace_id
       AND c.parent_span_id = p.span_id
       AND c.service_name != p.service_name
-    WHERE p.start_time >= now() - INTERVAL ${timeRangeHours} HOUR
-      AND c.start_time >= now() - INTERVAL ${timeRangeHours} HOUR
     GROUP BY p.service_name, p.operation_name, c.service_name, c.operation_name
     HAVING call_count >= 1  -- Show all dependencies, even single calls
     ORDER BY call_count DESC
     LIMIT 500  -- Limit total results to prevent excessive data
+    SETTINGS max_memory_usage = 1000000000,  -- 1GB memory limit per query
+             max_execution_time = 30,         -- 30 second timeout
+             max_rows_to_read = 5000000,      -- Limit rows scanned
+             result_overflow_mode = 'break'   -- Stop gracefully if too much data
   `,
 
   /**
    * Get service topology information including span types and characteristics
+   * Optimized: Add memory protection settings for large datasets
    */
   getServiceTopology: (timeRangeHours: number = 24) => `
-    SELECT 
+    SELECT
       service_name,
       operation_name,
       span_kind,
@@ -115,6 +143,8 @@ export const ArchitectureQueries = {
     HAVING total_spans >= 1  -- Show all operations, even single spans
     ORDER BY total_spans DESC
     LIMIT 500
+    SETTINGS max_memory_usage = 1000000000,  -- 1GB memory limit
+             max_execution_time = 30          -- 30 second timeout
   `,
 
   /**
@@ -283,6 +313,106 @@ export const executeAnalysisQuery = <T>(
  */
 export const withTimeFilter = (baseQuery: string, timeRangeHours: number): string =>
   baseQuery.replace(/INTERVAL \d+ HOUR/g, `INTERVAL ${timeRangeHours} HOUR`)
+
+/**
+ * Optimized queries using materialized views (Issue #161)
+ */
+export const OptimizedQueries = {
+  /**
+   * Get service dependencies from materialized views
+   * Falls back to raw query if MV is not available or too old
+   */
+  getServiceDependenciesFromView: (timeRangeHours: number = 24) => {
+    // For recent data (< 24h), use 5-minute aggregations
+    if (timeRangeHours <= 24) {
+      return `
+        SELECT
+          parent_service as service_name,
+          parent_operation as operation_name,
+          child_service as dependent_service,
+          child_operation as dependent_operation,
+          sum(call_count) as call_count,
+          avg(avg_duration_ms) as avg_duration_ms,
+          sum(error_count) as error_count,
+          sum(call_count) as total_count
+        FROM service_dependencies_5min
+        WHERE window_start >= now() - INTERVAL ${timeRangeHours} HOUR
+        GROUP BY parent_service, parent_operation, child_service, child_operation
+        HAVING call_count >= 1
+        ORDER BY call_count DESC
+        LIMIT 500
+      `
+    } else {
+      // For longer ranges, use hourly aggregations
+      return `
+        SELECT
+          parent_service as service_name,
+          '' as operation_name,  -- Hourly view doesn't have operation detail
+          child_service as dependent_service,
+          '' as dependent_operation,
+          sum(call_count) as call_count,
+          avg(avg_duration_ms) as avg_duration_ms,
+          sum(error_count) as error_count,
+          sum(call_count) as total_count
+        FROM service_dependencies_hourly
+        WHERE window_start >= now() - INTERVAL ${timeRangeHours} HOUR
+        GROUP BY parent_service, child_service
+        HAVING call_count >= 1
+        ORDER BY call_count DESC
+        LIMIT 500
+      `
+    }
+  },
+
+  /**
+   * Get service topology from materialized views
+   */
+  getServiceTopologyFromView: (timeRangeHours: number = 24) => `
+    SELECT
+      service_name,
+      operation_name,
+      span_kind,
+      sum(total_spans) as total_spans,
+      sum(root_spans) as root_spans,
+      sum(error_spans) as error_spans,
+      avg(avg_duration_ms) as avg_duration_ms,
+      max(p95_duration_ms) as p95_duration_ms,
+      sum(unique_traces) as unique_traces,
+      sum(total_spans) / (${timeRangeHours} * 60) as rate_per_second,
+      (sum(error_spans) * 100.0) / sum(total_spans) as error_rate_percent,
+      CASE
+        WHEN (sum(error_spans) * 100.0) / sum(total_spans) > 5 THEN 'critical'
+        WHEN (sum(error_spans) * 100.0) / sum(total_spans) > 1 THEN 'warning'
+        WHEN max(p95_duration_ms) > 500 THEN 'degraded'
+        WHEN max(p95_duration_ms) > 100 THEN 'warning'
+        ELSE 'healthy'
+      END as health_status
+    FROM service_topology_5min
+    WHERE window_start >= now() - INTERVAL ${timeRangeHours} HOUR
+    GROUP BY service_name, operation_name, span_kind
+    HAVING total_spans >= 1
+    ORDER BY total_spans DESC
+    LIMIT 500
+  `,
+
+  /**
+   * Check if materialized views are available and fresh
+   */
+  checkMVStatus: () => `
+    SELECT
+      view_name,
+      last_update,
+      lag_seconds,
+      total_rows,
+      CASE
+        WHEN lag_seconds < 600 THEN 'fresh'      -- Less than 10 minutes
+        WHEN lag_seconds < 3600 THEN 'stale'     -- Less than 1 hour
+        ELSE 'outdated'
+      END as status
+    FROM mv_monitoring
+    ORDER BY view_name
+  `
+}
 
 /**
  * Query builders for dynamic filtering
