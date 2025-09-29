@@ -59,34 +59,10 @@ export interface TraceFlowRaw {
 export const ArchitectureQueries = {
   /**
    * Discover service dependencies by analyzing parent-child span relationships
-   * Optimized: Pre-filter traces with CTE, add memory protection settings
-   * Issue #161: Prevent OOM with large datasets through trace sampling
+   * Optimized: Direct query with memory protection, no sampling to ensure complete topology
+   * Issue #161: Prevent OOM with memory limits instead of sampling
    */
   getServiceDependencies: (timeRangeHours: number = 24) => `
-    WITH relevant_traces AS (
-      -- Pre-filter: Select only traces with multiple services to reduce memory usage
-      SELECT trace_id
-      FROM traces
-      WHERE start_time >= now() - INTERVAL ${timeRangeHours} HOUR
-      GROUP BY trace_id
-      HAVING uniq(service_name) > 1  -- Only traces that cross service boundaries
-      LIMIT 10000  -- Sample limit to prevent OOM with large datasets
-    ),
-    filtered_spans AS (
-      -- Get spans only for relevant traces
-      SELECT
-        t.trace_id,
-        t.span_id,
-        t.parent_span_id,
-        t.service_name,
-        t.operation_name,
-        t.start_time,
-        t.duration_ns,
-        t.status_code
-      FROM traces t
-      INNER JOIN relevant_traces rt ON t.trace_id = rt.trace_id
-      WHERE t.start_time >= now() - INTERVAL ${timeRangeHours} HOUR
-    )
     SELECT
       p.service_name as service_name,
       p.operation_name as operation_name,
@@ -96,19 +72,21 @@ export const ArchitectureQueries = {
       avg(c.duration_ns / 1000000) as avg_duration_ms,
       countIf(c.status_code = 'ERROR') as error_count,
       count(*) as total_count
-    FROM filtered_spans p
-    INNER JOIN filtered_spans c ON
+    FROM traces p
+    INNER JOIN traces c ON
       c.trace_id = p.trace_id
       AND c.parent_span_id = p.span_id
       AND c.service_name != p.service_name
+    WHERE p.start_time >= now() - INTERVAL ${timeRangeHours} HOUR
+      AND c.start_time >= now() - INTERVAL ${timeRangeHours} HOUR
     GROUP BY p.service_name, p.operation_name, c.service_name, c.operation_name
     HAVING call_count >= 1  -- Show all dependencies, even single calls
     ORDER BY call_count DESC
-    LIMIT 500  -- Limit total results to prevent excessive data
-    SETTINGS max_memory_usage = 1000000000,  -- 1GB memory limit per query
-             max_execution_time = 30,         -- 30 second timeout
-             max_rows_to_read = 5000000,      -- Limit rows scanned
-             result_overflow_mode = 'break'   -- Stop gracefully if too much data
+    LIMIT 1000  -- Increased limit to capture more dependencies
+    SETTINGS max_memory_usage = 2000000000,  -- 2GB memory limit for complete topology
+             max_execution_time = 60,         -- 60 second timeout for larger queries
+             max_block_size = 65536,          -- Larger blocks for better performance
+             distributed_product_mode = 'local' -- Optimize join execution
   `,
 
   /**
