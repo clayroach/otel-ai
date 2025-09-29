@@ -390,7 +390,7 @@ export const MonacoQueryEditor: React.FC<MonacoQueryEditorProps> = ({
           roundedSelection: false,
           scrollBeyondLastLine: false,
           readOnly: false,
-          fontSize: 14,
+          fontSize: 16,
           fontFamily: 'Menlo, Monaco, "Courier New", monospace',
           wordWrap: 'on',
           tabSize: 2,

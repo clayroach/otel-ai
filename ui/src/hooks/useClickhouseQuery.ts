@@ -21,12 +21,36 @@ interface ClickhouseError {
   code?: number
 }
 
+/**
+ * Strip SQL comments and metadata from query before sending to ClickHouse
+ * ClickHouse doesn't accept comments at the beginning of queries
+ */
+const stripSQLComments = (query: string): string => {
+  // Remove single-line comments (-- ...)
+  let cleaned = query.replace(/^--.*$/gm, '')
+
+  // Remove multi-line comments (/* ... */)
+  cleaned = cleaned.replace(/\/\*[\s\S]*?\*\//g, '')
+
+  // Remove empty lines and trim
+  cleaned = cleaned
+    .split('\n')
+    .filter((line) => line.trim().length > 0)
+    .join('\n')
+    .trim()
+
+  return cleaned
+}
+
 const executeClickhouseQuery = async <T = unknown>(
   query: string,
   url: string,
   auth: { username: string; password: string }
 ): Promise<ClickhouseQueryResult<T>> => {
   try {
+    // Strip comments from query before sending to ClickHouse
+    const cleanQuery = stripSQLComments(query)
+
     // For proxy URLs, don't send auth headers as the proxy handles authentication
     const isProxyUrl = url.includes('/api/clickhouse')
     console.log('ClickHouse Query URL:', url, 'isProxy:', isProxyUrl)
@@ -40,8 +64,8 @@ const executeClickhouseQuery = async <T = unknown>(
     const response = await axios.post(
       url,
       isProxyUrl
-        ? { query: `${query} FORMAT JSON` } // Backend expects JSON body with query field
-        : `${query} FORMAT JSON`, // Direct ClickHouse expects plain text
+        ? { query: `${cleanQuery} FORMAT JSON` } // Backend expects JSON body with query field
+        : `${cleanQuery} FORMAT JSON`, // Direct ClickHouse expects plain text
       {
         headers: {
           ...headers,
