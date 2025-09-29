@@ -170,12 +170,12 @@ describe('ClickHouse Empty Table Validation', () => {
 
     // Setup schema with validation tables
     await setupSchemaWithValidationTables(client)
-  })
+  }, 120000) // 2 minute timeout for container startup in CI
 
   afterAll(async () => {
     if (client) await client.close()
     if (container) await container.stop()
-  })
+  }, 120000) // 2 minute timeout for container cleanup
 
   describe('ILLEGAL_AGGREGATION Detection with Null Tables', () => {
     it('should detect the exact crash pattern: sum(duration_ns/1000000 * request_count)', async () => {
