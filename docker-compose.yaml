@@ -7,7 +7,7 @@ services:
   # ClickHouse for analytics storage
   clickhouse:
     image: clickhouse/clickhouse-server:25.7
-    container_name: otel-ai-clickhouse
+    # Container name will be automatically prefixed with project name (e.g., otel-ai2-clickhouse-1)
     ports:
       - '8124:8123' # HTTP interface (using 8124 to avoid conflicts)
     environment:
@@ -39,7 +39,7 @@ services:
   # MinIO for S3-compatible object storage (DISABLED for now)
   minio:
     image: minio/minio:latest
-    container_name: otel-ai-minio
+    # Container name will be automatically prefixed with project name
     ports:
       - '9001:9001' # Console
       - '9010:9000' # API
@@ -59,7 +59,7 @@ services:
   # Create MinIO bucket on startup (DISABLED for now)
   minio-bucket:
     image: minio/mc:latest
-    container_name: otel-ai-minio-setup
+    # Container name will be automatically prefixed with project name
     depends_on:
       minio:
         condition: service_healthy
@@ -77,7 +77,7 @@ services:
       context: ./migrations
       dockerfile: Dockerfile
     image: otel-ai-migrator:latest
-    container_name: otel-ai-migrator
+    # Container name will be automatically prefixed with project name
     profiles: ["migrate", "dev", "production", "test"]
     depends_on:
       clickhouse:
@@ -97,7 +97,7 @@ services:
   # S3 exporters always defined, enable by editing config/otel-collector/config.yaml
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
-    container_name: otel-ai-collector
+    # Container name will be automatically prefixed with project name
     ports:
       - '4317:4317' # OTLP gRPC receiver
       - '4318:4318' # OTLP HTTP receiver
@@ -126,7 +126,7 @@ services:
       context: ./ui
       dockerfile: Dockerfile
       target: production
-    container_name: otel-ai-ui
+    # Container name will be automatically prefixed with project name
     ports:
       - '80:80'
     depends_on:
@@ -143,7 +143,7 @@ services:
       context: .
       dockerfile: ./ui/Dockerfile
       target: development
-    container_name: otel-ai-ui-dev
+    # Container name will be automatically prefixed with project name
     ports:
       - '5173:5173'
     environment:
@@ -167,7 +167,7 @@ services:
   # Portkey Gateway - LLM routing and management
   portkey-gateway:
     image: portkeyai/gateway:latest
-    container_name: otel-ai-portkey
+    # Container name will be automatically prefixed with project name
     ports:
       - '8787:8787'
     environment:
@@ -198,7 +198,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: otel-ai-backend
+    # Container name will be automatically prefixed with project name
     ports:
       - '4319:4319' # OTLP ingestion endpoint for direct path
     environment:
@@ -250,7 +250,7 @@ services:
     build:
       context: .
       dockerfile: docker/test-data/Dockerfile
-    container_name: otel-ai-test-generator
+    # Container name will be automatically prefixed with project name
     environment:
       - OTLP_ENDPOINT=http://otel-collector:4318
       - DIRECT_OTLP_ENDPOINT=http://backend:4319
@@ -270,7 +270,7 @@ services:
     build:
       context: .
       dockerfile: docker/integration-tests/Dockerfile
-    container_name: otel-ai-integration-tests
+    # Container name will be automatically prefixed with project name
     environment:
       - API_URL=http://backend:4319
       - NODE_ENV=test
@@ -287,10 +287,10 @@ services:
 
 volumes:
   clickhouse_data:
-    name: otel-ai-clickhouse-data
+    # Let docker-compose automatically prefix with project name
   minio_data:
-    name: otel-ai-minio-data
+    # Let docker-compose automatically prefix with project name
 
 networks:
   default:
-    name: otel-ai-network
+    # Let docker-compose automatically prefix with project name
