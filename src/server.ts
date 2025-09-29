@@ -43,7 +43,7 @@ import {
   TrainingDataReaderTag,
   TrainingDataReaderLive,
   type RetentionPolicy
-} from './otlp-capture/index.js'
+} from './record-replay/otlp-capture/index.js'
 import { S3StorageTag, S3StorageLive } from './storage/s3.js'
 import { cleanAttributes, isProtobufContent, type AttributeValue } from './utils/protobuf.js'
 
@@ -99,7 +99,7 @@ import {
   type OtlpCaptureRouter,
   OtlpCaptureRouterTag,
   OtlpCaptureRouterLive
-} from './otlp-capture/router.js'
+} from './record-replay/router/capture-router.js'
 
 const app = express()
 const PORT = process.env.PORT || 4319

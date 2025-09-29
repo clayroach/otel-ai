@@ -5,7 +5,7 @@
 
 import { Context, Effect, Layer } from 'effect'
 import express from 'express'
-import { OtlpCaptureServiceTag, OtlpReplayServiceTag } from './index.js'
+import { OtlpCaptureServiceTag, OtlpReplayServiceTag } from '../otlp-capture/index.js'
 
 export interface OtlpCaptureRouter {
   readonly router: express.Router

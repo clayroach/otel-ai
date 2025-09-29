@@ -4,14 +4,14 @@
 
 import { Effect, Context, Layer, Ref, Stream, Chunk } from 'effect'
 import * as zlib from 'node:zlib'
-import { S3StorageTag } from '../storage/index.js'
-import { ReplayError, ReplayErrorConstructors } from './errors.js'
+import { S3StorageTag } from '../../storage/index.js'
+import { ReplayError, ReplayErrorConstructors } from '../otlp-capture/errors.js'
 import {
   type ReplayConfig,
   type ReplayStatus,
   type CaptureSessionMetadata,
   CaptureSessionMetadataSchema
-} from './schemas.js'
+} from '../otlp-capture/schemas.js'
 import { Schema } from '@effect/schema'
 
 // Effect wrapper for gunzip decompression

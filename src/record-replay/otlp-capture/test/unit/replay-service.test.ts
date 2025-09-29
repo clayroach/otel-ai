@@ -4,11 +4,11 @@
 
 import { describe, it, expect } from 'vitest'
 import { Effect, Layer } from 'effect'
-import { OtlpReplayServiceTag, OtlpReplayServiceLive } from '../../replay-service.js'
-import { S3StorageTag, StorageErrorConstructors } from '../../../storage/index.js'
+import { OtlpReplayServiceTag, OtlpReplayServiceLive } from '../../../otlp-replay/replay-service.js'
+import { S3StorageTag, StorageErrorConstructors } from '../../../../storage/index.js'
 import { mockReplayConfig, mockSessionMetadata, mockOtlpJsonData } from '../fixtures/test-data.js'
-import type { OTLPData } from '../../../storage/schemas.js'
-import type { RetentionConfig } from '../../../storage/config.js'
+import type { OTLPData } from '../../../../storage/schemas.js'
+import type { RetentionConfig } from '../../../../storage/config.js'
 import * as zlib from 'node:zlib'
 
 // Mock S3Storage implementation for testing

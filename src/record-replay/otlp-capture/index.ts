@@ -47,7 +47,7 @@ export {
   type OtlpReplayService,
   OtlpReplayServiceTag,
   OtlpReplayServiceLive
-} from './replay-service.js'
+} from '../otlp-replay/replay-service.js'
 
 export {
   type RetentionService,
@@ -59,13 +59,13 @@ export {
   RetentionPolicySchema,
   CleanupResultSchema,
   StorageMetricsSchema
-} from './retention-service.js'
+} from '../retention/retention-service.js'
 
 export {
   type TrainingDataReader,
   TrainingDataReaderTag,
   TrainingDataReaderLive
-} from './training-data-reader.js'
+} from '../training/training-data-reader.js'
 
 // Re-export Effect dependencies for convenience
 export { Effect, Layer, Context } from 'effect'

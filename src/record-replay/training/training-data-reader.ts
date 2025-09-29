@@ -5,15 +5,15 @@
 import { Effect, Context, Layer, Stream, Chunk } from 'effect'
 import { Schema } from '@effect/schema'
 import * as zlib from 'node:zlib'
-import { S3StorageTag, StorageAPIClientTag } from '../storage/index.js'
-import { ReplayError, ReplayErrorConstructors } from './errors.js'
+import { S3StorageTag, StorageAPIClientTag } from '../../storage/index.js'
+import { ReplayError, ReplayErrorConstructors } from '../otlp-capture/errors.js'
 import {
   type TrainingDataset,
   type PhaseInfo,
   type PhaseLabels,
   type Phase,
   CaptureSessionMetadataSchema
-} from './schemas.js'
+} from '../otlp-capture/schemas.js'
 
 // Effect wrapper for gunzip decompression
 const gunzipEffect = (data: Uint8Array): Effect.Effect<Buffer, Error> =>
