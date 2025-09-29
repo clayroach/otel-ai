@@ -50,6 +50,12 @@ export {
 } from '../otlp-replay/replay-service.js'
 
 export {
+  type OtlpHttpReplayClient,
+  OtlpHttpReplayClientTag,
+  OtlpHttpReplayClientLive
+} from '../otlp-replay/http-client.js'
+
+export {
   type RetentionService,
   RetentionServiceTag,
   RetentionServiceLive,

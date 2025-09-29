@@ -5,6 +5,7 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, Layer } from 'effect'
 import { OtlpReplayServiceTag, OtlpReplayServiceLive } from '../../../otlp-replay/replay-service.js'
+import { OtlpHttpReplayClientLive } from '../../../otlp-replay/http-client.js'
 import { S3StorageTag, StorageErrorConstructors } from '../../../../storage/index.js'
 import { mockReplayConfig, mockSessionMetadata, mockOtlpJsonData } from '../fixtures/test-data.js'
 import type { OTLPData } from '../../../../storage/schemas.js'
@@ -56,7 +57,11 @@ const MockS3Storage = Layer.succeed(
   })
 )
 
-const TestLayer = Layer.provide(OtlpReplayServiceLive, MockS3Storage)
+const TestLayer = Layer.mergeAll(
+  MockS3Storage,
+  OtlpHttpReplayClientLive,
+  OtlpReplayServiceLive.pipe(Layer.provide(Layer.mergeAll(MockS3Storage, OtlpHttpReplayClientLive)))
+)
 
 describe('OtlpReplayService', () => {
   describe('startReplay', () => {

@@ -10,7 +10,8 @@ import {
   OtlpCaptureServiceTag,
   OtlpCaptureServiceLive,
   OtlpReplayServiceTag,
-  OtlpReplayServiceLive
+  OtlpReplayServiceLive,
+  OtlpHttpReplayClientLive
 } from '../../index.js'
 import { S3StorageTag } from '../../../../storage/index.js'
 import { generateTestOtlpData } from '../fixtures/otlp-generator.js'
@@ -82,8 +83,9 @@ describe('OTLP Capture and Replay Integration Tests', () => {
 
     testLayer = Layer.mergeAll(
       S3StorageTestLive,
+      OtlpHttpReplayClientLive,
       OtlpCaptureServiceLive.pipe(Layer.provide(S3StorageTestLive)),
-      OtlpReplayServiceLive.pipe(Layer.provide(S3StorageTestLive))
+      OtlpReplayServiceLive.pipe(Layer.provide(Layer.mergeAll(S3StorageTestLive, OtlpHttpReplayClientLive)))
     )
   }, 60000) // 60 second timeout for container startup
 

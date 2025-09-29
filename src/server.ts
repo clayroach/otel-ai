@@ -38,6 +38,7 @@ import {
   OtlpCaptureServiceLive,
   OtlpReplayServiceTag,
   OtlpReplayServiceLive,
+  OtlpHttpReplayClientLive,
   RetentionServiceTag,
   RetentionServiceLive,
   TrainingDataReaderTag,
@@ -172,7 +173,10 @@ const S3StorageLayer = S3StorageLive
 
 // Create OTLP capture services with S3 dependency
 const OtlpCaptureLayer = OtlpCaptureServiceLive.pipe(Layer.provide(S3StorageLayer))
-const OtlpReplayLayer = OtlpReplayServiceLive.pipe(Layer.provide(S3StorageLayer))
+const HttpReplayClientLayer = OtlpHttpReplayClientLive
+const OtlpReplayLayer = OtlpReplayServiceLive.pipe(
+  Layer.provide(Layer.mergeAll(S3StorageLayer, HttpReplayClientLayer))
+)
 const RetentionServiceLayer = RetentionServiceLive.pipe(Layer.provide(S3StorageLayer))
 const TrainingDataReaderLayer = TrainingDataReaderLive.pipe(
   Layer.provide(Layer.mergeAll(S3StorageLayer, StorageAPIClientLayerWithConfig))
