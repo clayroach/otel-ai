@@ -5,10 +5,10 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, Layer } from 'effect'
 import { OtlpCaptureServiceTag, OtlpCaptureServiceLive } from '../../capture-service.js'
-import { S3StorageTag, StorageErrorConstructors } from '../../../storage/index.js'
+import { S3StorageTag, StorageErrorConstructors } from '../../../../storage/index.js'
 import { mockCaptureConfig, mockOtlpTraceData } from '../fixtures/test-data.js'
-import type { OTLPData } from '../../../storage/schemas.js'
-import type { RetentionConfig } from '../../../storage/config.js'
+import type { OTLPData } from '../../../../storage/schemas.js'
+import type { RetentionConfig } from '../../../../storage/config.js'
 
 // Mock S3Storage implementation for testing
 const MockS3Storage = Layer.succeed(

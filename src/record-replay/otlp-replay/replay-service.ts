@@ -4,15 +4,16 @@
 
 import { Effect, Context, Layer, Ref, Stream, Chunk } from 'effect'
 import * as zlib from 'node:zlib'
-import { S3StorageTag } from '../storage/index.js'
-import { ReplayError, ReplayErrorConstructors } from './errors.js'
+import { S3StorageTag } from '../../storage/index.js'
+import { ReplayError, ReplayErrorConstructors } from '../otlp-capture/errors.js'
 import {
   type ReplayConfig,
   type ReplayStatus,
   type CaptureSessionMetadata,
   CaptureSessionMetadataSchema
-} from './schemas.js'
+} from '../otlp-capture/schemas.js'
 import { Schema } from '@effect/schema'
+import { OtlpHttpReplayClientTag } from './http-client.js'
 
 // Effect wrapper for gunzip decompression
 const gunzipEffect = (data: Uint8Array): Effect.Effect<Buffer, Error> =>
@@ -109,6 +110,7 @@ export const OtlpReplayServiceLive = Layer.effect(
   Effect.gen(function* () {
     // Dependencies
     const s3Storage = yield* S3StorageTag
+    const httpClient = yield* OtlpHttpReplayClientTag
 
     // In-memory replay status storage
     const replayStatuses = yield* Ref.make<Map<string, ReplayStatus>>(new Map())
@@ -268,27 +270,24 @@ export const OtlpReplayServiceLive = Layer.effect(
             baseTimeOffset
           )
 
-          // Send to target endpoint (placeholder - actual implementation would use HTTP client)
-          const endpoint = config.targetEndpoint || 'http://localhost:4318/v1/traces'
+          // Send to target endpoint using HTTP client
+          const endpoint = config.targetEndpoint || 'http://localhost:4318'
 
-          yield* Effect.tryPromise({
-            try: async () => {
-              // TODO: Implement actual HTTP POST to OTLP endpoint
-              console.log(`[Replay] Would send to ${endpoint}:`, adjustedData)
+          // Determine signal type from filename
+          const signalType: 'traces' | 'metrics' | 'logs' = key.includes('/traces-')
+            ? 'traces'
+            : key.includes('/metrics-')
+              ? 'metrics'
+              : 'logs'
 
-              // Simulate processing delay based on speed multiplier
-              if (config.speedMultiplier && config.speedMultiplier !== 1.0) {
-                const delay = 100 / config.speedMultiplier
-                await new Promise((resolve) => setTimeout(resolve, delay))
-              }
-            },
-            catch: (error) =>
-              ReplayErrorConstructors.IngestionFailure(
-                config.sessionId,
-                'Failed to send replayed data',
-                error
-              )
-          })
+          // Send via HTTP client
+          yield* httpClient.send(endpoint, adjustedData, signalType)
+
+          // Apply speed multiplier delay if needed
+          if (config.speedMultiplier && config.speedMultiplier !== 1.0) {
+            const delay = 100 / config.speedMultiplier
+            yield* Effect.sleep(`${delay} millis`)
+          }
 
           // Update processed count
           yield* Ref.update(replayStatuses, (map) => {

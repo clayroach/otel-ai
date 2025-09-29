@@ -4,8 +4,8 @@
 
 import { Effect, Context, Layer, Schedule, Duration } from 'effect'
 import { Schema } from '@effect/schema'
-import { S3StorageTag } from '../storage/index.js'
-import { CaptureError, CaptureErrorConstructors } from './errors.js'
+import { S3StorageTag } from '../../storage/index.js'
+import { CaptureError, CaptureErrorConstructors } from '../otlp-capture/errors.js'
 
 // Retention policy configuration
 export const RetentionPolicySchema = Schema.Struct({

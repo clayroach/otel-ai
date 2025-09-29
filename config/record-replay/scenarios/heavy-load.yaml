@@ -1,0 +1,11 @@
+# Heavy Load Scenario - For stress testing and memory baseline (Issue #155)
+
+replay:
+  selectionStrategy: largest # Use largest session for maximum stress
+  maxDuration: 1800 # 30 minutes
+  speedMultiplier: 2.0 # 2x speed for stress testing
+  loopEnabled: true # Continuous generation
+
+logging:
+  statusInterval: 120 # Less frequent logging under load
+  level: info

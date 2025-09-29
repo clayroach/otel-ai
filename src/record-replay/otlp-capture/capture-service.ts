@@ -5,7 +5,7 @@
 import { Effect, Context, Layer, Ref } from 'effect'
 import { Schema } from '@effect/schema'
 import * as zlib from 'node:zlib'
-import { S3StorageTag } from '../storage/index.js'
+import { S3StorageTag } from '../../storage/index.js'
 import { CaptureError, CaptureErrorConstructors } from './errors.js'
 import {
   type CaptureConfig,
