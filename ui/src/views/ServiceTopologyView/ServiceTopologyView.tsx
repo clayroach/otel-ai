@@ -22,13 +22,11 @@ const { Text } = Typography
 const ServiceTopologyView: React.FC = () => {
   const { message } = App.useApp()
   // const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null) // Not used with new topology
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
   const [_loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Streaming functionality - disabled for now
   // const [streaming, setStreaming] = useState(false)
   // const [streamingContent, setStreamingContent] = useState<string>('')
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
   const [_serviceHealth, setServiceHealth] = useState<{
     status: string
     capabilities: string[]

@@ -458,7 +458,15 @@ export const TracesView: React.FC = () => {
               flexDirection: 'column',
               marginRight: '8px'
             }}
-            styles={{ body: { flex: 1, padding: '4px', overflow: 'hidden' } }}
+            styles={{
+              body: {
+                flex: 1,
+                padding: '4px',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column'
+              }
+            }}
           >
             <MonacoQueryEditor
               value={query}
