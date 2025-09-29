@@ -27,7 +27,7 @@ export type {
   RetentionConfig,
   PerformanceConfig
 } from './config.js'
-export { StorageConfigSchema, defaultStorageConfig } from './config.js'
+export { StorageConfigSchema, defaultStorageConfig, REQUIRED_TABLES } from './config.js'
 
 // Error types
 export type { StorageError } from './errors.js'

@@ -21,6 +21,7 @@ import {
 import { StorageErrorConstructors, type StorageError } from './errors.js'
 import { makeClickHouseStorage } from './clickhouse.js'
 import { type ClickHouseConfig } from './config.js'
+// QueryValidator and SqlOptimizer removed - using native ClickHouse monitoring instead
 
 /**
  * Storage API Client Service Interface
@@ -190,7 +191,8 @@ const makeStorageAPIClient: Effect.Effect<StorageAPIClient, StorageError, ClickH
         }),
 
       queryRaw: (sql: string) =>
-        // Delegate to clickhouse storage for raw query execution
+        // Direct delegation to ClickHouse storage without pattern validation
+        // Memory monitoring is now handled post-execution via system.query_log
         clickhouseStorage.queryRaw(sql),
 
       insertRaw: (sql: string) =>
@@ -201,6 +203,7 @@ const makeStorageAPIClient: Effect.Effect<StorageAPIClient, StorageError, ClickH
 
 /**
  * Storage API Client Layer
+ * Simplified to use native ClickHouse monitoring instead of pattern validation
  */
 export const StorageAPIClientLayer = Layer.effect(StorageAPIClientTag, makeStorageAPIClient)
 

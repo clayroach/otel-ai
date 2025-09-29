@@ -1,5 +1,5 @@
 import { Effect, pipe } from 'effect'
-import type { CriticalPath, GeneratedQuery } from './query-generator/types.js'
+import type { CriticalPath } from './query-generator/types.js'
 import {
   generateQueryWithLLM,
   generateAndOptimizeQuery,
@@ -115,7 +115,7 @@ export class UIGeneratorAPIClient {
     // Return the Effect for external execution with proper layers
     return pipe(
       queryEffect,
-      Effect.map((query: GeneratedQuery & { evaluations?: SQLEvaluationResult[] }) => ({
+      Effect.map((query) => ({
         sql: UIGeneratorAPIClient.sanitizeSQL(query.sql), // Remove semicolons for ClickHouse compatibility
         model: targetModel || 'default', // The model that was requested
         actualModel: targetModel || 'portkey-default', // Track actual model used
@@ -126,7 +126,7 @@ export class UIGeneratorAPIClient {
           description: `Column: ${name}`
         })),
         generationTimeMs: Date.now() - startTime,
-        evaluations: query.evaluations // Include evaluation history if present
+        evaluations: 'evaluations' in query ? query.evaluations : undefined // Include evaluation history if present
       })),
       Effect.catchAll((error: unknown) => {
         console.error('❌ Query generation error:', error)

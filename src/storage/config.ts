@@ -4,6 +4,12 @@
 
 import { Schema } from '@effect/schema'
 
+// Centralized list of all tables that need validation tables
+// IMPORTANT: Keep in sync with migrations/entrypoint.sh REQUIRED_TABLES
+export const REQUIRED_TABLES = ['traces', 'ai_anomalies', 'ai_service_baselines'] as const
+
+export type TableName = (typeof REQUIRED_TABLES)[number]
+
 // ClickHouse configuration
 export const ClickHouseConfigSchema = Schema.Struct({
   host: Schema.String,
