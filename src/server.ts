@@ -8,7 +8,7 @@ import { fromBinary } from '@bufbuild/protobuf'
 import cors from 'cors'
 import { Effect, Layer } from 'effect'
 import express from 'express'
-import { AIAnalyzerService, AIAnalyzerLayer } from './ai-analyzer/index.js'
+import { AIAnalyzerService, AIAnalyzerMockLayer } from './ai-analyzer/index.js'
 import { ExportTraceServiceRequestSchema } from './opentelemetry/index.js'
 import {
   StorageAPIClientTag,
@@ -189,7 +189,7 @@ const BaseDependencies = Layer.mergeAll(
   StorageAPIClientLayerWithConfig, // Storage API client with ClickHouse config
   LLMManagerLive, // LLM Manager service
   LLMManagerAPIClientLayer, // LLM Manager API client
-  AIAnalyzerLayer(), // AI Analyzer (real implementation)
+  AIAnalyzerMockLayer(), // AI Analyzer (mock - real impl needs LLM service dependency fix)
   AnnotationServiceLive.pipe(Layer.provide(StorageWithConfig)), // Annotation Service
   DiagnosticsSessionManagerLive.pipe(
     Layer.provide(
