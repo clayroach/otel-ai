@@ -5,8 +5,8 @@
  * Focuses on service topology, dependency mapping, and data flow analysis.
  */
 
-import { Effect } from 'effect'
 import type { ClickHouseClient } from '@clickhouse/client'
+import { Effect } from 'effect'
 import type { AnalysisError } from './types.js'
 
 // Raw query result types

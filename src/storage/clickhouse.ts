@@ -534,11 +534,15 @@ export const makeClickHouseStorage = (
           const chunks: string[] = []
 
           return new Promise<string>((resolve, reject) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            stream.on('data', (rows: any[]) => {
+            // ClickHouse streaming row type for TabSeparated format
+            interface ClickHouseStreamRow {
+              text?: string
+              [key: string]: unknown
+            }
+
+            stream.on('data', (rows: ClickHouseStreamRow[]) => {
               // Each row in TSV format has a 'text' property with the raw line
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              rows.forEach((row: any) => {
+              rows.forEach((row) => {
                 if (row.text !== undefined) {
                   chunks.push(row.text)
                 }

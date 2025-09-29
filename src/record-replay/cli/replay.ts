@@ -3,19 +3,19 @@
  * Replay CLI - Standalone CLI tool for OTLP replay orchestration
  */
 
-import { Effect, Layer, Console, Schedule, Duration, Exit } from 'effect'
 import { Command } from 'commander'
-import {
-  ReplayOrchestratorTag,
-  ReplayOrchestratorLive,
-  SessionManagerLive,
-  OtlpReplayServiceLive,
-  OtlpHttpReplayClientLive,
-  type OrchestratorConfig,
-  type SessionSelectionStrategy,
-  type ReplayOrchestrator
-} from '../otlp-capture/index.js'
+import { Console, Duration, Effect, Exit, Layer, Schedule } from 'effect'
 import { S3StorageLive } from '../../storage/s3.js'
+import {
+  OtlpHttpReplayClientLive,
+  OtlpReplayServiceLive,
+  ReplayOrchestratorLive,
+  ReplayOrchestratorTag,
+  SessionManagerLive,
+  type OrchestratorConfig,
+  type ReplayOrchestrator,
+  type SessionSelectionStrategy
+} from '../otlp-capture/index.js'
 
 // Parse command line arguments
 const program = new Command()
@@ -64,7 +64,7 @@ const setupSignalHandlers = () => {
     if (isShuttingDown || !currentSessionId || !orchestratorService) return
     isShuttingDown = true
 
-    // Capture values before the async operation
+    // Capture values to avoid non-null assertions
     const sessionId = currentSessionId
     const orchestrator = orchestratorService
 

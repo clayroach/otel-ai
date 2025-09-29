@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactECharts from 'echarts-for-react'
-import type { EChartsOption } from 'echarts'
+import type { EChartsOption, TooltipComponentFormatterCallbackParams } from 'echarts'
 import { Card, Empty, Space, Typography } from 'antd'
 import { BranchesOutlined } from '@ant-design/icons'
 import type { CriticalPath } from './types'
@@ -122,10 +122,15 @@ export const PathFlowChartPanel: React.FC<PathFlowChartPanelProps> = ({
       },
       tooltip: {
         trigger: 'item',
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        formatter: (params: any) => {
-          if (params.dataType === 'node') {
-            const service = services.find((s) => s.id === params.name)
+        formatter: (params: TooltipComponentFormatterCallbackParams) => {
+          if (!params || typeof params === 'string') return ''
+
+          // Use type assertions with runtime checks for ECharts Sankey-specific data
+          // The ECharts types don't fully capture Sankey series behavior
+          const paramsObj = params as unknown as Record<string, unknown>
+
+          if (paramsObj.dataType === 'node' && typeof paramsObj.name === 'string') {
+            const service = services.find((s) => s.id === paramsObj.name)
             if (service?.metrics) {
               const healthStatus =
                 service.metrics.errorRate > 0.05
@@ -141,17 +146,23 @@ export const PathFlowChartPanel: React.FC<PathFlowChartPanelProps> = ({
                 ⏱️ Duration: <b>${service.metrics.duration.toFixed(0)}ms</b>
               `
             }
-            return params.name
-          } else if (params.dataType === 'edge') {
-            const sourceService = services.find((s) => s.id === params.data.source)
-            const targetService = services.find((s) => s.id === params.data.target)
-            const errorRate = params.data.errorRate || 0
+            return String(paramsObj.name)
+          } else if (
+            paramsObj.dataType === 'edge' &&
+            typeof paramsObj.data === 'object' &&
+            paramsObj.data !== null
+          ) {
+            const edgeData = paramsObj.data as Record<string, unknown>
+            const sourceService = services.find((s) => s.id === edgeData.source)
+            const targetService = services.find((s) => s.id === edgeData.target)
+            const errorRate = typeof edgeData.errorRate === 'number' ? edgeData.errorRate : 0
+            const value = typeof paramsObj.value === 'number' ? paramsObj.value : 0
             const errorStatus =
               errorRate > 0.05 ? '🔴 Critical' : errorRate > 0.01 ? '🟡 Warning' : '🟢 Healthy'
             return `
-              <b>Flow: ${sourceService?.name || params.data.source} → ${targetService?.name || params.data.target}</b><br/>
+              <b>Flow: ${sourceService?.name || edgeData.source} → ${targetService?.name || edgeData.target}</b><br/>
               <hr style="margin: 4px 0; border-color: #ddd"/>
-              📈 Volume: <b>${params.value.toFixed(0)}</b> req/s<br/>
+              📈 Volume: <b>${value.toFixed(0)}</b> req/s<br/>
               ⚠️ Error Rate: <b>${(errorRate * 100).toFixed(2)}%</b> ${errorStatus}<br/>
               💡 Line width shows request volume, color shows health
             `
@@ -263,8 +274,7 @@ export const PathFlowChartPanel: React.FC<PathFlowChartPanelProps> = ({
         },
         label: {
           show: true,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
-          formatter: (_params: any) => {
+          formatter: () => {
             const name = service?.name || serviceId
             return level === 0 ? `▶ ${name}` : name
           },
@@ -294,10 +304,16 @@ export const PathFlowChartPanel: React.FC<PathFlowChartPanelProps> = ({
       },
       tooltip: {
         trigger: 'item',
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        formatter: (params: any) => {
-          if (params.dataType === 'node') {
-            const service = services.find((s) => s.id === params.data.id)
+        formatter: (params: TooltipComponentFormatterCallbackParams) => {
+          if (!params || typeof params === 'string') return ''
+
+          // Use type assertions with runtime checks for ECharts graph-specific data
+          // The ECharts types don't fully capture graph series behavior
+          const paramsObj = params as unknown as Record<string, unknown>
+
+          if (paramsObj.dataType === 'node' && typeof paramsObj.data === 'object' && paramsObj.data !== null) {
+            const nodeData = paramsObj.data as Record<string, unknown>
+            const service = services.find((s) => s.id === nodeData.id)
             if (service?.metrics) {
               return `
                 <b>${service.name}</b><br/>
@@ -306,7 +322,7 @@ export const PathFlowChartPanel: React.FC<PathFlowChartPanelProps> = ({
                 Duration: ${service.metrics.duration.toFixed(0)}ms
               `
             }
-            return params.name
+            return String(paramsObj.name)
           }
           return ''
         }
