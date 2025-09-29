@@ -17,7 +17,6 @@ import { useAppStore } from '../../store/appStore'
 import { TimeRangeSelector } from '../GlobalControls/TimeRangeSelector'
 import { AutoRefreshSelector } from '../GlobalControls/AutoRefreshSelector'
 import { AnalyzeButton } from '../GlobalControls/AnalyzeButton'
-import { DataSourceToggle } from '../GlobalControls/DataSourceToggle'
 import { ModelSelector, ModelSelectorSQL } from '../ModelSelector'
 
 const { Header, Sider, Content } = AntLayout
@@ -125,7 +124,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           >
             OTel AI Observability
           </Title>
-          <DataSourceToggle darkMode={darkMode} />
         </Space>
 
         <Space>

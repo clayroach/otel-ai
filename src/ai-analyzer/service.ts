@@ -57,7 +57,7 @@ export const defaultAnalyzerConfig: AnalyzerConfig = {
   },
   analysis: {
     defaultTimeWindowHours: 24,
-    minSpanThreshold: 100,
+    minSpanThreshold: 10, // Lowered from 100 to allow analysis with less data
     maxServicesAnalyzed: 50
   },
   llm: {
@@ -144,24 +144,18 @@ const makeAIAnalyzerService = (config: AnalyzerConfig) =>
           // Step 3: Generate enhanced architectural insights using multi-model orchestrator
           // Use request.config if provided, otherwise fall back to service config
           let effectiveConfig = config
-          let selectedModel: string = config.llm.preferredModel
+          let selectedModel: string = 'local-statistical-analyzer' // Default to local analyzer
 
-          if (request.config) {
-            if (request.config.llm) {
-              // LLM model requested (claude, gpt, llama)
-              selectedModel = request.config.llm.model
-              effectiveConfig = {
-                ...config,
-                llm: {
-                  preferredModel: request.config.llm.model,
-                  maxTokens: request.config.llm.maxTokens,
-                  temperature: request.config.llm.temperature
-                }
+          if (request.config?.llm?.model) {
+            // Only use LLM if explicitly requested with a model
+            selectedModel = request.config.llm.model
+            effectiveConfig = {
+              ...config,
+              llm: {
+                preferredModel: request.config.llm.model,
+                maxTokens: request.config.llm.maxTokens || config.llm.maxTokens,
+                temperature: request.config.llm.temperature || config.llm.temperature
               }
-            } else {
-              // No LLM config means statistical analyzer requested
-              selectedModel = 'local-statistical-analyzer'
-              effectiveConfig = config // Use default config for statistical analysis
             }
           }
 
@@ -171,16 +165,25 @@ const makeAIAnalyzerService = (config: AnalyzerConfig) =>
             )
           )
 
-          const llmResponse = yield* _(
-            generateEnhancedInsights(request.type, architecture, llmManagerService, effectiveConfig)
-          )
+          // Only call LLM if not using local analyzer
+          const llmResponse =
+            selectedModel === 'local-statistical-analyzer'
+              ? { content: 'Local statistical analysis completed' }
+              : yield* _(
+                  generateEnhancedInsights(
+                    request.type,
+                    architecture,
+                    llmManagerService,
+                    effectiveConfig
+                  )
+                )
 
           // Step 4: Generate insights based on the data with model-specific analysis
           const insights = generateInsights(architecture, request.type, selectedModel)
 
-          // Step 5: Generate documentation if requested
+          // Step 5: Generate documentation if requested (skip for local analyzer)
           const documentation =
-            request.type === 'architecture'
+            request.type === 'architecture' && selectedModel !== 'local-statistical-analyzer'
               ? yield* _(generateDocumentation(architecture, llmManagerService, config))
               : undefined
 

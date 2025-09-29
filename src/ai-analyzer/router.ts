@@ -77,7 +77,19 @@ export const AIAnalyzerRouterLive = Layer.effect(
     // Service topology endpoint
     router.post('/api/ai-analyzer/topology', async (req, res) => {
       try {
-        const { timeRange } = req.body
+        // Add validation and default values for timeRange
+        const timeRange = req.body?.timeRange || {
+          startTime: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+          endTime: new Date().toISOString()
+        }
+
+        // Validate timeRange format
+        if (!timeRange.startTime || !timeRange.endTime) {
+          return res.status(400).json({
+            error: 'Invalid request',
+            message: 'timeRange with startTime and endTime is required'
+          })
+        }
 
         const topologyRequest = {
           startTime: new Date(timeRange.startTime),
@@ -87,10 +99,10 @@ export const AIAnalyzerRouterLive = Layer.effect(
         // Execute the topology request using Effect and the service layer
         const topology = await Effect.runPromise(aiAnalyzer.getServiceTopology(topologyRequest))
 
-        res.json(topology)
+        return res.json(topology)
       } catch (error) {
         console.error('❌ AI Analyzer topology error:', error)
-        res.status(500).json({
+        return res.status(500).json({
           error: 'Topology analysis failed',
           message: error instanceof Error ? error.message : 'Unknown error'
         })
@@ -101,9 +113,35 @@ export const AIAnalyzerRouterLive = Layer.effect(
     router.post('/api/ai-analyzer/topology-visualization', async (req, res) => {
       try {
         console.log('🎨 AI Analyzer topology visualization endpoint hit')
+        console.log('📋 Request body:', JSON.stringify(req.body, null, 2))
 
-        const { timeRange } = req.body
-        const timeRangeHours = timeRange?.hours || 24
+        // Require timeRange - no defaults to mask issues
+        const { timeRange } = req.body || {}
+
+        if (!timeRange) {
+          return res.status(400).json({
+            error: 'Invalid request',
+            message:
+              'timeRange is required: provide either {hours: number} or {startTime: string, endTime: string}'
+          })
+        }
+
+        // Accept either hours or startTime/endTime
+        let timeRangeHours: number
+        if (timeRange.hours) {
+          timeRangeHours = timeRange.hours
+        } else if (timeRange.startTime && timeRange.endTime) {
+          timeRangeHours =
+            Math.abs(
+              new Date(timeRange.endTime).getTime() - new Date(timeRange.startTime).getTime()
+            ) /
+            (1000 * 60 * 60)
+        } else {
+          return res.status(400).json({
+            error: 'Invalid request',
+            message: 'timeRange must have either hours or both startTime and endTime'
+          })
+        }
 
         // Import the necessary functions
         const { ArchitectureQueries } = await import('./queries.js')
@@ -146,10 +184,10 @@ export const AIAnalyzerRouterLive = Layer.effect(
           })
         )
 
-        res.json(result)
+        return res.json(result)
       } catch (error) {
         console.error('❌ Topology visualization error:', error)
-        res.status(500).json({
+        return res.status(500).json({
           error: 'Topology visualization failed',
           message: error instanceof Error ? error.message : 'Unknown error',
           details: error instanceof Error ? error.stack : undefined

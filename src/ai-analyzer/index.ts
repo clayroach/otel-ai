@@ -12,8 +12,8 @@ export * from './queries.js'
 export * from './prompts.js'
 
 // Main Layer exports for service consumption
-export { AIAnalyzerLayer, AIAnalyzerMockLayer, defaultAnalyzerConfig } from './service.js'
-export { AIAnalyzerClientLive, AIAnalyzerClientMock, AIAnalyzerClientTag } from './api-client.js'
+export { AIAnalyzerLayer, defaultAnalyzerConfig } from './service.js'
+export { AIAnalyzerClientLive, AIAnalyzerClientTag } from './api-client.js'
 
 // Service tags and types
 export { AIAnalyzerService } from './types.js'

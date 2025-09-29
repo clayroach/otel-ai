@@ -33,3 +33,6 @@ TODOs:
 * remove continuous streaming to s3/minio by default
 * storage service refactor - expose only service not clickhouse layer externally
 * query sandboxing - we need a way to prevent malicious users from bringing down the system - alternative is flawless autorecovery
+* create an SRE claude agent: https://docs.claude.com/en/api/agent-sdk/overview.  use it to get publicity for the project
+* revert to previous service details hoverover view - was much better than current
+* imporve static critical path analysis patterns to be more effective at spotting criticial issues with just some pre-built queries

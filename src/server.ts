@@ -8,7 +8,7 @@ import { fromBinary } from '@bufbuild/protobuf'
 import cors from 'cors'
 import { Effect, Layer } from 'effect'
 import express from 'express'
-import { AIAnalyzerService, AIAnalyzerMockLayer } from './ai-analyzer/index.js'
+import { AIAnalyzerService, AIAnalyzerLayer } from './ai-analyzer/index.js'
 import { ExportTraceServiceRequestSchema } from './opentelemetry/index.js'
 import {
   StorageAPIClientTag,
@@ -182,6 +182,11 @@ const TrainingDataReaderLayer = TrainingDataReaderLive.pipe(
   Layer.provide(Layer.mergeAll(S3StorageLayer, StorageAPIClientLayerWithConfig))
 )
 
+// Create AI Analyzer layer with its dependencies
+const AIAnalyzerWithDeps = AIAnalyzerLayer().pipe(
+  Layer.provide(Layer.mergeAll(StorageWithConfig, LLMManagerLive))
+)
+
 // Create the base dependencies
 const BaseDependencies = Layer.mergeAll(
   ConfigLayer, // Shared config service
@@ -189,7 +194,7 @@ const BaseDependencies = Layer.mergeAll(
   StorageAPIClientLayerWithConfig, // Storage API client with ClickHouse config
   LLMManagerLive, // LLM Manager service
   LLMManagerAPIClientLayer, // LLM Manager API client
-  AIAnalyzerMockLayer(), // AI Analyzer (mock - real impl needs LLM service dependency fix)
+  AIAnalyzerWithDeps, // AI Analyzer (real implementation with dependencies)
   AnnotationServiceLive.pipe(Layer.provide(StorageWithConfig)), // Annotation Service
   DiagnosticsSessionManagerLive.pipe(
     Layer.provide(

@@ -128,20 +128,20 @@ When running locally for comprehensive review:
 **IN LOCAL MODE:** Run these commands and include results in comprehensive report.
 
 ```bash
-# 1. Find direct ClickHouse imports outside storage package
+# 1. Find direct ClickHouse imports (ONLY flag @clickhouse/client imports outside storage)
 grep -r "from '@clickhouse/client'" --include="*.ts" --include="*.tsx" . | grep -v "src/storage/"
 
 # 2. Find raw SQL queries outside storage
-grep -r "SELECT\|INSERT\|UPDATE\|DELETE\|CREATE TABLE" --include="*.ts" --include="*.tsx" . | grep -v "src/storage/"
+grep -r "SELECT\|INSERT\|UPDATE\|DELETE\|CREATE TABLE" --include="*.ts" --include="*.tsx" . | grep -v "src/storage/" | grep -v "\.sql$" | grep -v "test/fixtures/"
 
-# 3. Find direct database client creation
-grep -r "createClient\|new.*Client.*clickhouse" --include="*.ts" --include="*.tsx" .
+# 3. Find direct database client creation (NOT just client usage)
+grep -r "createClient\|new.*Client.*clickhouse\|\.createClient(" --include="*.ts" --include="*.tsx" .
 
 # 4. Find test files outside test/ directories
 find . -name "*.test.ts" -o -name "*.spec.ts" | grep -v "/test/"
 
-# 5. Find StorageServiceTag bypass patterns
-grep -r "ClickhouseClient\|clickhouse\.query\|client\.query" --include="*.ts" . | grep -v "src/storage/"
+# 5. Find StorageServiceTag bypass patterns (ONLY direct client usage, not imports from storage)
+grep -r "yield\* ClickhouseClient\|yield\*.*ClickhouseClient\|const.*=.*ClickhouseClient" --include="*.ts" . | grep -v "src/storage/"
 
 # 6. Find missing Effect-TS patterns
 grep -r "class.*Service[^{]*{" --include="*.ts" . | grep -v "Context.Tag\|Context.GenericTag"
@@ -172,22 +172,25 @@ Move to src/[package]/test/unit/ or test/integration/
 
 ### ❌ WRONG: Direct Database Client Usage
 ```typescript
-// VIOLATION: Direct ClickHouse client import
+// VIOLATION: Direct ClickHouse client import from @clickhouse/client
 import { createClient, type ClickHouseClient } from '@clickhouse/client'
-import { ClickhouseClient } from '../some-package'
+
+// VIOLATION: Creating client instances outside storage layer
+const client = createClient({ host: 'localhost' })
 
 // VIOLATION: Using raw SQL instead of service methods
 const insertSQL = `INSERT INTO otel.annotations (...) VALUES (...)`
 yield* storage.queryRaw(insertSQL)
 
-// VIOLATION: Bypassing StorageService abstraction
-const client = yield* ClickhouseClient
+// VIOLATION: Bypassing StorageService abstraction - using client directly
+const client = yield* ClickhouseClient  // Direct client usage outside storage
 const result = yield* client.query(...)
 ```
 
 ### ✅ CORRECT: Service Abstraction Usage
 ```typescript
-// CORRECT: Use StorageService abstraction
+// CORRECT: Import from storage package (NOT flagged)
+import { ClickhouseClient } from '@otel-ai/storage'
 import { StorageServiceTag } from '../storage/services.js'
 
 // CORRECT: Use service methods instead of raw SQL
@@ -203,16 +206,26 @@ export const ServiceLive = Layer.effect(
     return { /* implementation using storage */ }
   })
 )
+
+// CORRECT: Type annotations from storage package (NOT flagged)
+function processData(client: ClickhouseClient) {
+  // Using type from storage abstraction is fine
+}
 ```
 
 ### Detection Patterns
 
 **Flag any code containing:**
-- `import { ClickHouseClient }` or `import { createClient }`
-- `@clickhouse/client` imports outside of `/storage/` package
-- Raw SQL template strings in non-storage packages
-- Direct `ClickhouseClient` usage instead of `StorageServiceTag`
-- Bypassing service abstractions for database access
+- `from '@clickhouse/client'` imports outside of `/storage/` package
+- `createClient` or `.createClient(` calls outside storage layer
+- Raw SQL template strings in non-storage packages (except test fixtures)
+- Direct client instance usage: `yield* ClickhouseClient` outside storage
+- Bypassing StorageServiceTag: using database clients instead of service methods
+
+**DO NOT flag:**
+- `import { ClickhouseClient } from '@otel-ai/storage'` (correct pattern)
+- `import { ClickhouseClient } from '../storage'` (correct relative imports)
+- `ClickhouseClient` type annotations when importing from storage packages
 
 ### Expected Output Format for Violations
 

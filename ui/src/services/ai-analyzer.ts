@@ -61,7 +61,7 @@ export class AIAnalyzerService {
           timeWindowHours:
             Math.abs(request.timeRange.endTime.getTime() - request.timeRange.startTime.getTime()) /
             (1000 * 60 * 60),
-          minSpanCount: 100
+          minSpanCount: 10 // Lowered to match backend threshold
         },
         output: {
           format: 'markdown',

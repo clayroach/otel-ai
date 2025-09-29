@@ -63,29 +63,25 @@ export const ArchitectureQueries = {
    */
   getServiceDependencies: (timeRangeHours: number = 24) => `
     SELECT
-      parent.service_name as service_name,
-      parent.operation_name as operation_name,
-      child.service_name as dependent_service,
-      child.operation_name as dependent_operation,
+      p.service_name as service_name,
+      p.operation_name as operation_name,
+      c.service_name as dependent_service,
+      c.operation_name as dependent_operation,
       count(*) as call_count,
-      avg(child.duration_ns / 1000000) as avg_duration_ms,
-      countIf(child.status_code = 'ERROR') as error_count,
+      avg(c.duration_ns / 1000000) as avg_duration_ms,
+      countIf(c.status_code = 'ERROR') as error_count,
       count(*) as total_count
-    FROM traces parent
-    INNER JOIN traces child ON
-      child.trace_id = parent.trace_id  -- Added trace_id join for better performance
-      AND child.parent_span_id = parent.span_id
-      AND child.service_name != parent.service_name
-    WHERE parent.start_time >= now() - INTERVAL ${timeRangeHours} HOUR
-      AND child.start_time >= now() - INTERVAL ${timeRangeHours} HOUR
-    GROUP BY
-      parent.service_name,
-      parent.operation_name,
-      child.service_name,
-      child.operation_name
-    HAVING call_count >= 10  -- Filter out low-volume dependencies
+    FROM traces p
+    INNER JOIN traces c ON
+      c.trace_id = p.trace_id
+      AND c.parent_span_id = p.span_id
+      AND c.service_name != p.service_name
+    WHERE p.start_time >= now() - INTERVAL ${timeRangeHours} HOUR
+      AND c.start_time >= now() - INTERVAL ${timeRangeHours} HOUR
+    GROUP BY p.service_name, p.operation_name, c.service_name, c.operation_name
+    HAVING call_count >= 1  -- Show all dependencies, even single calls
     ORDER BY call_count DESC
-    LIMIT 500  -- Reduced limit
+    LIMIT 500  -- Limit total results to prevent excessive data
   `,
 
   /**
@@ -105,20 +101,18 @@ export const ArchitectureQueries = {
       -- Topology visualization extensions
       count(*) / (${timeRangeHours} * 60) as rate_per_second,
       (countIf(status_code = 'ERROR') * 100.0) / count(*) as error_rate_percent,
-      CASE 
+      CASE
         WHEN (countIf(status_code = 'ERROR') * 100.0) / count(*) > 5 THEN 'critical'
         WHEN (countIf(status_code = 'ERROR') * 100.0) / count(*) > 1 THEN 'warning'
         WHEN quantile(0.95)(duration_ns / 1000000) > 500 THEN 'degraded'
         WHEN quantile(0.95)(duration_ns / 1000000) > 100 THEN 'warning'
         ELSE 'healthy'
-      END as health_status,
-      any(resource_attributes['telemetry.sdk.language']) as runtime_language,
-      any(resource_attributes['process.runtime.name']) as runtime_name,
-      any(span_attributes['component']) as component
+      END as health_status
+      -- Note: Removed resource_attributes and span_attributes access to prevent OOM (GitHub #57)
     FROM traces
     WHERE start_time >= now() - INTERVAL ${timeRangeHours} HOUR
     GROUP BY service_name, operation_name, span_kind
-    HAVING total_spans >= 10  -- Filter out low-volume operations
+    HAVING total_spans >= 1  -- Show all operations, even single spans
     ORDER BY total_spans DESC
     LIMIT 500
   `,

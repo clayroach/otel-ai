@@ -35,17 +35,7 @@ const ServiceTopologyView: React.FC = () => {
   } | null>(null)
 
   // Use global store for analysis configuration
-  const {
-    analysisModel: selectedModel,
-    useMockData,
-    setUseMockData,
-    analysisTimeRange: timeRange,
-    autoRefresh
-  } = useAppStore()
-
-  // Convert to useRealService for consistency with existing code
-  const useRealService = !useMockData
-  const setUseRealService = (value: boolean) => setUseMockData(!value)
+  const { analysisTimeRange: timeRange, autoRefresh, useRealService } = useAppStore()
 
   const aiAnalyzer = useAIAnalyzer()
 
@@ -57,8 +47,7 @@ const ServiceTopologyView: React.FC = () => {
         setServiceHealth(health)
 
         if (health.status !== 'healthy') {
-          setUseRealService(false)
-          message.info('Using enhanced mock data for topology demonstration', 3)
+          message.info('AI Analyzer service is not healthy', 3)
         } else {
           message.success('AI Analyzer service connected - ready for real topology analysis!', 3)
         }
@@ -68,8 +57,7 @@ const ServiceTopologyView: React.FC = () => {
           status: 'demo-mode',
           capabilities: ['mock-topology', 'enhanced-visualization']
         })
-        setUseRealService(false)
-        message.info('🚀 Demo mode: Using enhanced mock topology data with real-world scenarios', 4)
+        message.info('🚀 AI Analyzer service not available', 4)
       }
     }
 
@@ -132,52 +120,34 @@ const ServiceTopologyView: React.FC = () => {
     setError(null)
 
     try {
-      if (useRealService) {
-        // Use real AI analyzer service with model selection
-        const config = {
-          llm: {
-            model: (selectedModel === 'gpt-4' ? 'gpt' : selectedModel) as
-              | 'claude'
-              | 'llama'
-              | 'gpt',
-            temperature: selectedModel === 'gpt-4' ? 0.5 : selectedModel === 'llama' ? 0.8 : 0.7,
-            maxTokens: selectedModel === 'gpt-4' ? 1500 : selectedModel === 'llama' ? 1800 : 2000
-          },
-          analysis: {
-            timeWindowHours: getTimeRangeHours(),
-            minSpanCount: 100
-          },
-          output: {
-            format: 'markdown' as const,
-            includeDigrams: true,
-            detailLevel: 'comprehensive' as const
-          }
+      // Always use real service with local statistical analyzer
+      const config = {
+        analysis: {
+          timeWindowHours: getTimeRangeHours(),
+          minSpanCount: 10 // Lowered to match backend
+        },
+        output: {
+          format: 'markdown' as const,
+          includeDigrams: true,
+          detailLevel: 'comprehensive' as const
         }
-
-        const endTime = new Date()
-        const startTime = new Date(endTime.getTime() - getTimeRangeHours() * 60 * 60 * 1000)
-
-        await aiAnalyzer.analyzeArchitecture({
-          type: 'architecture', // Always analyze all types
-          timeRange: {
-            startTime,
-            endTime
-          },
-          filters: {},
-          config
-        })
-
-        // setAnalysisResult(result) // Commented out - using new topology component
-        message.success(`🎯 Real topology analysis completed using ${selectedModel} model!`)
-      } else {
-        // Fallback to mock data with model awareness
-        await new Promise((resolve) => setTimeout(resolve, 2000))
-        // const result = generateMockData('architecture', selectedModel)
-        // setAnalysisResult(result) // Commented out - using new topology component
-        message.success(
-          `🚀 Enhanced topology analysis completed with ${selectedModel === 'llama' ? 'Llama/Local' : selectedModel + ' model'}!`
-        )
+        // Note: Not including llm config so backend uses local-statistical-analyzer
       }
+
+      const endTime = new Date()
+      const startTime = new Date(endTime.getTime() - getTimeRangeHours() * 60 * 60 * 1000)
+
+      await aiAnalyzer.analyzeArchitecture({
+        type: 'architecture',
+        timeRange: {
+          startTime,
+          endTime
+        },
+        filters: {},
+        config
+      })
+
+      message.success(`🎯 Topology analysis completed using local statistical analyzer!`)
     } catch (err) {
       console.error('Analysis failed:', err)
       setError(
