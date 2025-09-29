@@ -56,6 +56,22 @@ export {
 } from '../otlp-replay/http-client.js'
 
 export {
+  type SessionManager,
+  SessionManagerTag,
+  SessionManagerLive,
+  type SessionSelectionStrategy,
+  type SessionFilter
+} from '../otlp-replay/session-manager.js'
+
+export {
+  type ReplayOrchestrator,
+  ReplayOrchestratorTag,
+  ReplayOrchestratorLive,
+  type OrchestratorConfig,
+  type OrchestratorStatus
+} from '../otlp-replay/orchestrator.js'
+
+export {
   type RetentionService,
   RetentionServiceTag,
   RetentionServiceLive,
