@@ -376,7 +376,10 @@ export const MonacoQueryEditor: React.FC<MonacoQueryEditorProps> = ({
   )
 
   return (
-    <div data-testid="monaco-query-editor">
+    <div
+      data-testid="monaco-query-editor"
+      style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+    >
       <Editor
         height={height}
         language={language}
