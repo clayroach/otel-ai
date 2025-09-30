@@ -4,14 +4,13 @@
 
 import { describe, expect, it } from 'vitest'
 import { Schema } from '@effect/schema'
-import { 
+import {
   AnalysisRequestSchema,
   ServiceTopologySchema
 } from '../../types.js'
 import { classifyServiceType, buildDependencyGraph } from '../../topology.js'
 import type { ServiceTopologyRaw, ServiceDependencyRaw } from '../../queries.js'
 import { ArchitectureQueries } from '../../queries.js'
-import { PromptTemplates } from '../../prompts.js'
 
 // Helper to add required fields to test data
 function createTestTopology(partial: Partial<ServiceTopologyRaw>): ServiceTopologyRaw {
@@ -270,50 +269,6 @@ describe('AI Analyzer', () => {
       expect(query).toContain('LIMIT 50')
       expect(query).toContain('INTERVAL 6 HOUR')
       expect(query).toContain('HAVING count(*) >= 1')
-    })
-  })
-
-  describe('Prompt Templates', () => {
-    it('should generate architecture analysis prompt', () => {
-      const topology = {
-        applicationName: 'Test App',
-        description: 'Test application',
-        services: [],
-        dataFlows: [],
-        criticalPaths: [],
-        generatedAt: new Date()
-      }
-      
-      const prompt = PromptTemplates.architectureOverview(topology)
-      expect(prompt).toContain('Application Data')
-      expect(prompt).toContain('Test App')
-    })
-
-    it('should generate data flow prompt', () => {
-      const flows = [
-        {
-          from: 'service-a',
-          to: 'service-b',
-          operation: 'test-op',
-          volume: 100,
-          latency: { p50: 50, p95: 100, p99: 200 }
-        }
-      ]
-      
-      // PromptTemplates doesn't have analyzeDataFlows, so let's use performanceInsights
-      // which includes data flow analysis
-      const architecture = {
-        applicationName: 'Test App',
-        description: 'Test application',
-        services: [],
-        dataFlows: flows,
-        criticalPaths: [],
-        generatedAt: new Date()
-      }
-      const prompt = PromptTemplates.performanceInsights(architecture)
-      expect(prompt).toContain('High-Volume Data Flows')
-      expect(prompt).toContain('service-a')
-      expect(prompt).toContain('service-b')
     })
   })
 

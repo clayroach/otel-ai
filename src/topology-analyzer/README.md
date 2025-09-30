@@ -1,336 +1,214 @@
-# AI Analyzer Package
+# Topology Analyzer Package
 
-Service topology analysis and AI-powered insights for telemetry data. Autoencoder-based anomaly detection and pattern recognition with real-time ML analysis using TensorFlow.js.
+Statistical analysis of service architecture and telemetry data. Discovers service dependencies, identifies performance bottlenecks, and generates topology visualizations from OpenTelemetry trace data.
 
 ## Current Implementation Status
 
-✅ **Complete**: Service topology mapping, AI-powered analysis, and comprehensive testing
-🚀 **Future Enhancement**: Autoencoder anomaly detection for advanced ML capabilities
+✅ **Complete**: Service topology mapping, statistical analysis, dependency discovery, and comprehensive testing
+🚀 **Future Enhancement**: LLM-powered insights and autoencoder anomaly detection for advanced ML capabilities
 
 ## Quick Start
 
 ```bash
 # Install dependencies
-pnpm add @otel-ai/ai-analyzer
-
-# Set up environment
-export TF_CPP_MIN_LOG_LEVEL=2  # Reduce TensorFlow logging
+pnpm add @otel-ai/topology-analyzer
 ```
 
 ## Usage
 
-### Basic Anomaly Detection
+### Basic Topology Analysis
 
 ```typescript
-import { AIAnalyzerClient, AIAnalyzerClientLive } from '@otel-ai/ai-analyzer'
-import { Effect, Layer } from 'effect'
+import { TopologyAnalyzerClient, TopologyAnalyzerClientLive } from '@otel-ai/topology-analyzer'
+import { Effect } from 'effect'
 
 const program = Effect.gen(function* () {
-  const analyzer = yield* AIAnalyzerClient
-
-  // Detect anomalies in traces
-  const report = yield* analyzer.detectAnomalies({
-    timeRange: '1h',
-    sensitivity: 0.95
-  })
+  const analyzer = yield* TopologyAnalyzerClient
 
   // Get service topology
   const topology = yield* analyzer.getTopology({
-    timeRange: '1h'
+    startTime: '2025-01-01T00:00:00Z',
+    endTime: '2025-01-01T01:00:00Z'
   })
 
-  // AI-powered analysis
+  // Statistical architecture analysis
   const analysis = yield* analyzer.analyze({
     type: 'architecture',
-    model: 'gpt-4',
-    serviceName: 'frontend'
+    timeRange: {
+      startTime: '2025-01-01T00:00:00Z',
+      endTime: '2025-01-01T01:00:00Z'
+    }
   })
 
-  return { report, topology, analysis }
+  return { topology, analysis }
 })
 
-const main = program.pipe(Effect.provide(AIAnalyzerClientLive))
+const main = program.pipe(Effect.provide(TopologyAnalyzerClientLive()))
 Effect.runPromise(main).then(console.log)
 ```
 
-### Training Autoencoder Model
+### Using the Service Layer
 
 ```typescript
-import { trainAutoencoder } from '@otel-ai/ai-analyzer'
+import { TopologyAnalyzerService, TopologyAnalyzerLayer } from '@otel-ai/topology-analyzer'
+import { StorageLayer } from '@otel-ai/storage'
+import { Effect, Layer } from 'effect'
 
-const model = await trainAutoencoder({
-  dataset: historicalTraces,
-  config: {
-    epochs: 100,
-    batchSize: 32,
-    validationSplit: 0.2,
-    callbacks: {
-      onEpochEnd: (epoch, logs) => {
-        console.log(`Epoch ${epoch}: loss = ${logs.loss}`)
-      }
+const program = Effect.gen(function* () {
+  const analyzer = yield* TopologyAnalyzerService
+
+  const result = yield* analyzer.analyzeArchitecture({
+    type: 'architecture',
+    timeRange: {
+      startTime: new Date('2025-01-01T00:00:00Z'),
+      endTime: new Date('2025-01-01T01:00:00Z')
     }
-  }
+  })
+
+  return result
 })
 
-// Save trained model
-await model.save('file://./models/autoencoder')
-```
+// Provide necessary layers
+const AppLayer = Layer.merge(
+  TopologyAnalyzerLayer(),
+  StorageLayer
+)
 
-### Streaming Analysis
-
-```typescript
-import { Stream } from 'effect'
-
-const streamingAnalysis = Effect.gen(function* () {
-  const analyzer = yield* AIAnalyzerClient
-
-  // Create trace stream
-  const traceStream = Stream.fromIterable(incomingTraces)
-
-  // Real-time anomaly detection
-  const anomalyStream = yield* analyzer.streamAnalysis(traceStream)
-
-  // Process anomalies as they occur
-  yield* Stream.runForEach(anomalyStream, (anomaly) =>
-    Effect.sync(() => {
-      console.log(`Anomaly detected: ${anomaly.service} - ${anomaly.severity}`)
-      // Trigger alerts, update dashboards, etc.
-    })
-  )
-})
+Effect.runPromise(program.pipe(Effect.provide(AppLayer)))
 ```
 
 ## Key Features
 
 - **Service Topology Mapping**: Automatic discovery and visualization of service dependencies
-- **Multi-Model Analysis**: Support for GPT-4, Claude, SQLCoder for different analysis types
-- **Autoencoder Anomaly Detection**: ML-based anomaly detection using reconstruction error
-- **Pattern Recognition**: Identify periodic, burst, degradation, and correlation patterns
-- **Real-time Streaming**: Process telemetry data in real-time with backpressure management
-- **Architecture Insights**: AI-powered system architecture analysis
-- **Performance Analysis**: Bottleneck detection and optimization recommendations
-- **Effect-TS Integration**: Type-safe ML pipelines with structured error handling
+- **Statistical Analysis**: Performance bottlenecks, error rate analysis, latency patterns
+- **Dependency Discovery**: Call graphs, critical paths, service relationships
+- **Architecture Insights**: Service classifications, complexity metrics, health summaries
+- **Effect-TS Integration**: Type-safe analysis pipelines with structured error handling
 
 ## Architecture
 
 ### Service Layer Design
 
 ```typescript
-export interface AIAnalyzer extends Context.Tag<"AIAnalyzer", {
-  // Anomaly detection
-  readonly detectAnomalies: (
-    traces: ReadonlyArray<Trace>
-  ) => Effect.Effect<AnomalyReport, AIError, never>
+export interface TopologyAnalyzerService extends Context.Tag<"TopologyAnalyzerService", {
+  // Architecture analysis with statistical insights
+  readonly analyzeArchitecture: (
+    request: AnalysisRequest
+  ) => Effect.Effect<AnalysisResult, AnalysisError, never>
 
-  // Pattern recognition
-  readonly identifyPatterns: (
-    data: TelemetryData
-  ) => Effect.Effect<ReadonlyArray<Pattern>, AIError, never>
-
-  // Model training
-  readonly trainModel: (
-    dataset: TrainingData
-  ) => Effect.Effect<ModelMetadata, AIError, never>
-
-  // Real-time streaming analysis
-  readonly streamAnalysis: (
-    input: Stream.Stream<Trace>
-  ) => Stream.Stream<AnomalyEvent, AIError, never>
-
-  // Service topology
-  readonly getTopology: (
-    params: TopologyParams
-  ) => Effect.Effect<ServiceTopology, AIError, never>
-
-  // Model management
-  readonly saveModel: (path: string) => Effect.Effect<void, AIError, never>
-  readonly loadModel: (path: string) => Effect.Effect<void, AIError, never>
+  // Service topology discovery
+  readonly getServiceTopology: (
+    request: { startTime: Date; endTime: Date }
+  ) => Effect.Effect<ReadonlyArray<ServiceTopology>, AnalysisError, never>
 }>{}
 ```
 
-### Autoencoder Architecture
+### Statistical Insights
 
-The package uses a deep autoencoder for anomaly detection:
+The analyzer generates insights based on statistical analysis:
 
-```typescript
-const createAutoencoder = () => {
-  const encoder = tf.sequential({
-    layers: [
-      tf.layers.dense({ units: 64, activation: 'relu', inputShape: [inputDim] }),
-      tf.layers.dropout({ rate: 0.2 }),
-      tf.layers.dense({ units: 32, activation: 'relu' }),
-      tf.layers.dense({ units: 16, activation: 'relu' }) // Latent space
-    ]
-  })
-
-  const decoder = tf.sequential({
-    layers: [
-      tf.layers.dense({ units: 32, activation: 'relu', inputShape: [16] }),
-      tf.layers.dropout({ rate: 0.2 }),
-      tf.layers.dense({ units: 64, activation: 'relu' }),
-      tf.layers.dense({ units: inputDim, activation: 'sigmoid' })
-    ]
-  })
-
-  return tf.model({
-    inputs: encoder.inputs,
-    outputs: decoder(encoder.outputs)
-  })
-}
-```
+- **High Latency Services**: Services with p95 latency > 1000ms
+- **Error-Prone Services**: Services with error rate > 5%
+- **Complex Dependencies**: Services with > 5 downstream dependencies
+- **Data Flow Analysis**: Critical paths and bottlenecks in service communication
 
 ## API Reference
 
 ### Core Types
 
 ```typescript
-interface AnomalyReport {
-  timestamp: number
-  anomalies: Array<{
-    traceId: string
+interface AnalysisRequest {
+  type: 'architecture' | 'performance' | 'reliability'
+  timeRange: {
+    startTime: Date
+    endTime: Date
+  }
+  filters?: Record<string, unknown>
+  config?: {
+    analysis?: {
+      timeWindowHours: number
+      minSpanCount: number
+    }
+    output?: {
+      format: 'markdown' | 'json'
+      includeDigrams: boolean
+      detailLevel: 'summary' | 'detailed' | 'comprehensive'
+    }
+  }
+}
+
+interface AnalysisResult {
+  requestId: string
+  type: string
+  summary: string
+  architecture: ApplicationArchitecture
+  insights: ReadonlyArray<Insight>
+  metadata: {
+    analyzedSpans: number
+    analysisTimeMs: number
+    confidence: number
+  }
+}
+
+interface ServiceTopology {
+  service: string
+  type: 'frontend' | 'api' | 'backend' | 'database' | 'queue' | 'cache' | 'external'
+  operations: string[]
+  dependencies: Array<{
     service: string
-    severity: "low" | "medium" | "high" | "critical"
-    score: number
-    description: string
+    operation: string
+    callCount: number
+    avgLatencyMs: number
+    errorRate: number
   }>
-  statistics: {
-    totalAnalyzed: number
-    anomaliesFound: number
-    threshold: number
+  metadata: {
+    avgLatencyMs?: number
+    p95LatencyMs?: number
+    errorRate?: number
+    totalSpans: number
+    throughput?: number
   }
 }
 
-interface Pattern {
-  id: string
-  type: "periodic" | "burst" | "degradation" | "correlation"
-  services: string[]
-  confidence: number
-  timeRange: TimeRange
-  metadata: Record<string, unknown>
-}
+type AnalysisError =
+  | { _tag: "InsufficientData"; message: string }
+  | { _tag: "QueryError"; message: string; cause: unknown }
+  | { _tag: "ConfigurationError"; message: string }
+```
 
-interface TrainingData {
-  traces: Trace[]
-  labels?: boolean[] // For supervised learning
-  config: {
-    epochs: number
-    batchSize: number
-    validationSplit: number
+### API Endpoints
+
+The topology analyzer provides HTTP endpoints via `TopologyAnalyzerRouterLive`:
+
+- `GET /api/topology/health` - Health check
+- `POST /api/topology/analyze` - Architecture analysis
+- `POST /api/topology/services` - Service topology discovery
+- `POST /api/topology/visualization` - Topology visualization data
+- `GET /api/topology/performance` - Query performance metrics
+
+## Configuration
+
+### Environment Variables
+
+```bash
+# Service Configuration
+TOPOLOGY_ANALYZER_PORT=4319
+```
+
+### Analysis Configuration
+
+```typescript
+const analysisConfig = {
+  analysis: {
+    timeWindowHours: 24,  // Time window for analysis
+    minSpanCount: 100     // Minimum spans required
+  },
+  output: {
+    format: 'json',
+    includeDigrams: true,
+    detailLevel: 'detailed'
   }
 }
-
-type AIError =
-  | { _tag: "ModelNotTrained"; message: string }
-  | { _tag: "InsufficientData"; required: number; provided: number }
-  | { _tag: "PreprocessingError"; message: string }
-  | { _tag: "TensorFlowError"; cause: unknown }
-  | { _tag: "ThresholdCalculationError"; message: string }
-```
-
-### Service Methods
-
-#### detectAnomalies
-Analyzes traces for anomalies using autoencoder reconstruction error.
-
-```typescript
-const report = await analyzer.detectAnomalies({
-  traces: recentTraces,
-  threshold: 0.95 // 95th percentile
-})
-```
-
-#### identifyPatterns
-Identifies recurring patterns in telemetry data.
-
-```typescript
-const patterns = await analyzer.identifyPatterns({
-  data: telemetryData,
-  minConfidence: 0.8
-})
-```
-
-#### trainModel
-Trains the autoencoder on historical data.
-
-```typescript
-const metadata = await analyzer.trainModel({
-  traces: historicalTraces,
-  config: {
-    epochs: 100,
-    batchSize: 32,
-    validationSplit: 0.2
-  }
-})
-```
-
-#### streamAnalysis
-Performs real-time streaming analysis on incoming traces.
-
-```typescript
-const anomalyStream = analyzer.streamAnalysis(traceStream)
-```
-
-## Performance Optimization
-
-### Model Configuration
-
-```typescript
-const optimalConfig = {
-  inputDim: 128,        // Feature vector size
-  encoderLayers: [64, 32, 16],  // Compression layers
-  latentDim: 16,        // Bottleneck dimension
-  decoderLayers: [32, 64, 128], // Reconstruction layers
-  activation: 'relu',
-  outputActivation: 'sigmoid',
-  optimizer: 'adam',
-  loss: 'meanSquaredError',
-  metrics: ['accuracy']
-}
-```
-
-### Memory Management
-
-Always dispose tensors to prevent memory leaks:
-
-```typescript
-const processBatch = (batch: tf.Tensor) =>
-  tf.tidy(() => {
-    const result = model.predict(batch) as tf.Tensor
-    return result.arraySync()
-  })
-```
-
-### Batch Processing
-
-Process large datasets in batches:
-
-```typescript
-const batchProcess = async (data: number[][], batchSize = 1000) => {
-  const results = []
-
-  for (let i = 0; i < data.length; i += batchSize) {
-    const batch = data.slice(i, i + batchSize)
-    const tensor = tf.tensor2d(batch)
-
-    const predictions = await model.predict(tensor).array()
-    results.push(...predictions)
-
-    tensor.dispose()
-  }
-
-  return results
-}
-```
-
-### GPU Acceleration
-
-Enable GPU acceleration for faster training:
-
-```typescript
-import '@tensorflow/tfjs-node-gpu'
-
-// Verify GPU is available
-console.log('GPU Available:', tf.env().get('WEBGL_VERSION'))
 ```
 
 ## Testing
@@ -339,156 +217,60 @@ console.log('GPU Available:', tf.env().get('WEBGL_VERSION'))
 
 ```bash
 # Run unit tests
-pnpm test:unit:ai-analyzer
+pnpm test -- src/topology-analyzer/test/unit
 
 # With coverage
-pnpm test:unit:ai-analyzer --coverage
+pnpm test -- src/topology-analyzer/test/unit --coverage
 ```
 
 ### Integration Tests
 
 ```bash
-# Requires trained models
-pnpm test:integration:ai-analyzer
-
-# Test specific features
-pnpm test:integration:ai-analyzer --grep "anomaly detection"
-```
-
-### Performance Tests
-
-```bash
-# Benchmark model inference
-pnpm test:perf:ai-analyzer
-```
-
-## Configuration
-
-### Environment Variables
-
-```bash
-# TensorFlow Configuration
-TF_CPP_MIN_LOG_LEVEL=2  # Reduce logging verbosity
-TF_FORCE_GPU_ALLOW_GROWTH=true  # GPU memory management
-
-# Model Configuration
-MODEL_PATH=/path/to/saved/model
-ANOMALY_THRESHOLD=0.95
-BATCH_SIZE=32
-
-# Service Configuration
-AI_ANALYZER_PORT=8081
-ENABLE_GPU=true
-```
-
-### Model Training Configuration
-
-```typescript
-const trainingConfig = {
-  // Data preprocessing
-  normalization: {
-    method: 'minmax', // or 'zscore'
-    featureRange: [0, 1]
-  },
-
-  // Model architecture
-  architecture: {
-    type: 'autoencoder',
-    compression: 0.125, // 16/128
-    dropout: 0.2
-  },
-
-  // Training parameters
-  training: {
-    epochs: 100,
-    batchSize: 32,
-    learningRate: 0.001,
-    validationSplit: 0.2,
-    earlyStopping: {
-      patience: 10,
-      monitor: 'val_loss'
-    }
-  },
-
-  // Anomaly detection
-  anomaly: {
-    method: 'reconstruction_error',
-    threshold: 'dynamic', // or fixed value
-    percentile: 95
-  }
-}
+# Requires ClickHouse running
+pnpm test:integration -- src/topology-analyzer/test/integration
 ```
 
 ## Troubleshooting
 
 ### Common Issues
 
-#### Out of Memory Errors
-- **Cause**: Tensors not being disposed
-- **Solution**: Use tf.tidy() or manual dispose()
-- **Prevention**: Enable memory profiling with `tf.profile()`
+#### Insufficient Data
+- **Cause**: Not enough spans in the requested time range
+- **Solution**: Increase time window or reduce minSpanCount
+- **Prevention**: Ensure trace collection is working
 
-#### Poor Anomaly Detection
-- **Cause**: Model undertrained or threshold too high/low
-- **Solution**: Increase epochs, adjust threshold percentile
-- **Prevention**: Use validation data to tune hyperparameters
+#### Query Timeout
+- **Cause**: Large time windows causing slow ClickHouse queries
+- **Solution**: Reduce time window or add more specific filters
+- **Prevention**: Use aggregated tables for common queries
 
-#### Slow Inference
-- **Cause**: Large batch sizes or CPU-only processing
-- **Solution**: Reduce batch size, enable GPU acceleration
-- **Prevention**: Profile performance with `tf.time()`
-
-## Migration Guide
-
-### From Statistical Methods
-
-```typescript
-// Before: Statistical anomaly detection
-const isAnomaly = (value: number, mean: number, stdDev: number) => {
-  return Math.abs(value - mean) > 3 * stdDev
-}
-
-// After: ML-based detection
-const anomalyScore = await analyzer.getAnomalyScore(trace)
-const isAnomaly = anomalyScore > threshold
-```
-
-### From Manual Pattern Detection
-
-```typescript
-// Before: Rule-based patterns
-const detectPattern = (data: number[]) => {
-  // Complex rules...
-}
-
-// After: ML pattern recognition
-const patterns = await analyzer.identifyPatterns({
-  data: telemetryData,
-  minConfidence: 0.8
-})
-```
+#### Missing Dependencies
+- **Cause**: Services not sending trace context correctly
+- **Solution**: Verify OpenTelemetry instrumentation setup
+- **Prevention**: Validate trace propagation in tests
 
 ## Integration with Platform
 
-The AI Analyzer integrates with:
+The Topology Analyzer integrates with:
 
-- **Storage**: Retrieves historical traces for training
-- **LLM Manager**: Generates explanations for detected anomalies
-- **UI Generator**: Creates visualizations for anomaly reports
-- **Server**: Provides real-time analysis endpoints
+- **Storage**: Queries ClickHouse for span data and service metrics
+- **UI**: Provides topology visualizations for dashboard rendering
+- **Server**: Exposes HTTP API for analysis requests
 
 ## Change Log
 
-### 2025-09-15 - Complete Implementation
+### 2025-09-30 - Refactor to Topology Analyzer
+- Renamed from ai-analyzer to topology-analyzer
+- Removed unused LLM integration code
+- Simplified to pure statistical analysis
+- Cleaned up 800+ lines of unused code
+- Updated API paths: `/api/ai-analyzer/*` → `/api/topology/*`
+
+### 2025-09-15 - Initial Implementation
 - Service topology mapping with dependency discovery
-- Multi-model AI analysis (GPT-4, Claude, SQLCoder)
+- Statistical analysis and insights generation
 - Comprehensive testing suite
 - Production-ready API client
-
-### 2025-08-20 - Initial Design
-- Autoencoder architecture specification
-- TensorFlow.js integration planning
-- Effect-TS service definitions
 
 ---
 

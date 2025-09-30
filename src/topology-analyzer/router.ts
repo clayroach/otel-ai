@@ -1,41 +1,41 @@
 /**
- * AI Analyzer Package Router
+ * Topology Analyzer Package Router
  * Handles architecture analysis, topology discovery, and visualization
  */
 
 import { Context, Effect, Layer } from 'effect'
 import express from 'express'
-import { AIAnalyzerService } from './index.js'
+import { TopologyAnalyzerService } from './index.js'
 import { StorageAPIClientTag } from '../storage/index.js'
 import type { ServiceTopologyRaw, ServiceDependencyRaw, TraceFlowRaw } from './queries.js'
 
-export interface AIAnalyzerRouter {
+export interface TopologyAnalyzerRouter {
   readonly router: express.Router
 }
 
-export const AIAnalyzerRouterTag = Context.GenericTag<AIAnalyzerRouter>('AIAnalyzerRouter')
+export const TopologyAnalyzerRouterTag =
+  Context.GenericTag<TopologyAnalyzerRouter>('TopologyAnalyzerRouter')
 
-export const AIAnalyzerRouterLive = Layer.effect(
-  AIAnalyzerRouterTag,
+export const TopologyAnalyzerRouterLive = Layer.effect(
+  TopologyAnalyzerRouterTag,
   Effect.gen(function* () {
-    const aiAnalyzer = yield* AIAnalyzerService
+    const topologyAnalyzer = yield* TopologyAnalyzerService
     const storageClient = yield* StorageAPIClientTag
 
     const router = express.Router()
 
     // Health check endpoint
-    router.get('/api/ai-analyzer/health', async (_req, res) => {
+    router.get('/api/topology/health', async (_req, res) => {
       try {
-        // AI Analyzer service is always available through the layer
+        // Topology Analyzer service is always available through the layer
         res.json({
           status: 'healthy',
           capabilities: [
             'architecture-analysis',
             'topology-discovery',
-            'streaming-analysis',
-            'documentation-generation'
+            'service-dependency-mapping'
           ],
-          message: 'AI Analyzer service ready (using mock layer)'
+          message: 'Topology Analyzer service ready'
         })
       } catch (error) {
         res.status(500).json({
@@ -47,7 +47,7 @@ export const AIAnalyzerRouterLive = Layer.effect(
     })
 
     // Architecture analysis endpoint
-    router.post('/api/ai-analyzer/analyze', async (req, res) => {
+    router.post('/api/topology/analyze', async (req, res) => {
       try {
         const { type, timeRange, filters, config } = req.body
 
@@ -70,12 +70,14 @@ export const AIAnalyzerRouterLive = Layer.effect(
         }
 
         // Execute the analysis using Effect and the service layer
-        const result = await Effect.runPromise(aiAnalyzer.analyzeArchitecture(analysisRequest))
+        const result = await Effect.runPromise(
+          topologyAnalyzer.analyzeArchitecture(analysisRequest)
+        )
 
         res.json(result)
         return
       } catch (error) {
-        console.error('❌ AI Analyzer analysis error:', error)
+        console.error('❌ Topology Analyzer analysis error:', error)
         res.status(500).json({
           error: 'Analysis failed',
           message: error instanceof Error ? error.message : 'Unknown error'
@@ -85,7 +87,7 @@ export const AIAnalyzerRouterLive = Layer.effect(
     })
 
     // Service topology endpoint
-    router.post('/api/ai-analyzer/topology', async (req, res) => {
+    router.post('/api/topology/services', async (req, res) => {
       try {
         // Add validation and default values for timeRange
         const timeRange = req.body?.timeRange || {
@@ -107,11 +109,13 @@ export const AIAnalyzerRouterLive = Layer.effect(
         }
 
         // Execute the topology request using Effect and the service layer
-        const topology = await Effect.runPromise(aiAnalyzer.getServiceTopology(topologyRequest))
+        const topology = await Effect.runPromise(
+          topologyAnalyzer.getServiceTopology(topologyRequest)
+        )
 
         return res.json(topology)
       } catch (error) {
-        console.error('❌ AI Analyzer topology error:', error)
+        console.error('❌ Topology Analyzer topology error:', error)
         return res.status(500).json({
           error: 'Topology analysis failed',
           message: error instanceof Error ? error.message : 'Unknown error'
@@ -120,9 +124,9 @@ export const AIAnalyzerRouterLive = Layer.effect(
     })
 
     // Topology visualization endpoint
-    router.post('/api/ai-analyzer/topology-visualization', async (req, res) => {
+    router.post('/api/topology/visualization', async (req, res) => {
       try {
-        console.log('🎨 AI Analyzer topology visualization endpoint hit')
+        console.log('🎨 Topology Analyzer visualization endpoint hit')
         console.log('📋 Request body:', JSON.stringify(req.body, null, 2))
 
         // Require timeRange - no defaults to mask issues
@@ -224,7 +228,7 @@ export const AIAnalyzerRouterLive = Layer.effect(
     })
 
     // Query performance metrics endpoint
-    router.get('/api/ai-analyzer/topology/performance', async (_req, res) => {
+    router.get('/api/topology/performance', async (_req, res) => {
       try {
         // Query to check recent query performance from system tables
         const perfQuery = `
@@ -260,6 +264,6 @@ export const AIAnalyzerRouterLive = Layer.effect(
       }
     })
 
-    return AIAnalyzerRouterTag.of({ router })
+    return TopologyAnalyzerRouterTag.of({ router })
   })
 )

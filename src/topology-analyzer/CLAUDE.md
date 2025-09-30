@@ -1,153 +1,156 @@
-# AI Analyzer Package - Claude Context
+# Topology Analyzer Package - Claude Context
 
 ## Package Overview
-Autoencoder-based anomaly detection and pattern recognition for telemetry data with real-time ML analysis.
+Statistical analysis and topology discovery for telemetry data with real-time service dependency mapping.
 This file is automatically read by Claude Code when working in this package.
 
 ## Mandatory Package Conventions
 CRITICAL: These conventions MUST be followed in this package:
-- **ONLY export Effect Layers for external consumption** (no `createAIAnalyzerClient` functions)
+- **ONLY export Effect Layers for external consumption** (no `createTopologyAnalyzerClient` functions)
 - **HTTP routers MUST be exported as Effect Layers** (use RouterTag pattern)
-- External packages must use AIAnalyzerLive Layer or create their own mock
+- External packages must use TopologyAnalyzerLive Layer or create their own mock
 - All async operations use Effect-TS with proper error handling
 - Schema validation required for all telemetry inputs
 - Tests go in test/unit/ and test/integration/ subdirectories
-- Use TensorFlow.js for autoencoder implementation
-- Always dispose tensors after use to prevent memory leaks
-- Stream processing for real-time analysis
 - Router endpoints delegate to services, avoid business logic in routes
+- All analysis is statistical - no LLM/AI calls
 
 ## Core Primitives & Patterns
 
 ### Service Definition Pattern
 ```typescript
-export interface AIAnalyzer extends Context.Tag<"AIAnalyzer", {
-  readonly detectAnomalies: (traces: ReadonlyArray<Trace>) => Effect.Effect<AnomalyReport, AIError, never>
-  readonly trainModel: (dataset: TrainingData) => Effect.Effect<Model, AIError, never>
-  readonly streamAnalysis: (input: Stream.Stream<Trace>) => Stream.Stream<Anomaly, AIError, never>
+export interface TopologyAnalyzerService extends Context.Tag<"TopologyAnalyzerService", {
+  readonly analyzeArchitecture: (request: AnalysisRequest) => Effect.Effect<AnalysisResult, AnalysisError, never>
+  readonly getServiceTopology: (request: TopologyRequest) => Effect.Effect<ReadonlyArray<ServiceTopology>, AnalysisError, never>
 }>{}
-```
-
-### Autoencoder Architecture
-```typescript
-// Optimal configuration for anomaly detection
-const modelConfig = {
-  inputDim: 128,  // Feature vector size
-  encoderLayers: [64, 32, 16],  // Compression
-  latentDim: 16,  // Bottleneck
-  decoderLayers: [32, 64, 128],  // Reconstruction
-  activation: 'relu',
-  loss: 'meanSquaredError'
-}
-
-// Create autoencoder
-const encoder = tf.sequential({
-  layers: [
-    tf.layers.dense({ units: 64, activation: 'relu', inputShape: [128] }),
-    tf.layers.dense({ units: 32, activation: 'relu' }),
-    tf.layers.dense({ units: 16, activation: 'relu' })
-  ]
-})
 ```
 
 ### HTTP Router Pattern
 ```typescript
 // CRITICAL: Export routers as Effect Layers only
-export interface AIAnalyzerRouter {
+export interface TopologyAnalyzerRouter {
   readonly router: express.Router
 }
 
-export const AIAnalyzerRouterTag = Context.GenericTag<AIAnalyzerRouter>('AIAnalyzerRouter')
+export const TopologyAnalyzerRouterTag = Context.GenericTag<TopologyAnalyzerRouter>('TopologyAnalyzerRouter')
 
-export const AIAnalyzerRouterLive = Layer.effect(
-  AIAnalyzerRouterTag,
+export const TopologyAnalyzerRouterLive = Layer.effect(
+  TopologyAnalyzerRouterTag,
   Effect.gen(function* () {
-    const aiAnalyzer = yield* AIAnalyzerService
+    const topologyAnalyzer = yield* TopologyAnalyzerService
     const storageClient = yield* StorageAPIClientTag
 
     const router = express.Router()
 
     // API endpoints
-    router.post('/api/ai-analyzer/analyze', async (req, res) => {
+    router.post('/api/topology/analyze', async (req, res) => {
       // Delegate to service, no business logic here
       const result = await Effect.runPromise(
-        aiAnalyzer.analyzeArchitecture(analysisRequest)
+        topologyAnalyzer.analyzeArchitecture(analysisRequest)
       )
       res.json(result)
     })
 
-    return AIAnalyzerRouterTag.of({ router })
+    return TopologyAnalyzerRouterTag.of({ router })
   })
 )
 ```
 
-### Anomaly Detection Pattern
+### Statistical Analysis Pattern
 ```typescript
-// Detect using reconstruction error
-const detectAnomalies = (traces: Trace[], model: tf.LayersModel) =>
-  Effect.gen(function* () {
-    const features = yield* preprocessTraces(traces)
-    const predictions = model.predict(features) as tf.Tensor
-    const errors = tf.losses.meanSquaredError(features, predictions)
-    const threshold = yield* calculateDynamicThreshold(errors)
+// Generate insights from statistical thresholds
+const generateInsights = (topology: ServiceTopology[]): Insight[] => {
+  const insights: Insight[] = []
 
-    // Clean up tensors
-    features.dispose()
-    predictions.dispose()
-    errors.dispose()
+  for (const service of topology) {
+    // High latency detection (statistical)
+    if (service.metadata.p95LatencyMs && service.metadata.p95LatencyMs > 1000) {
+      insights.push({
+        type: 'performance',
+        severity: 'high',
+        title: `High latency in ${service.service}`,
+        description: `P95 latency: ${service.metadata.p95LatencyMs}ms`,
+        recommendation: 'Investigate slow queries or external dependencies'
+      })
+    }
 
-    return { anomalies, threshold, scores }
-  })
+    // Error rate detection (statistical)
+    if (service.metadata.errorRate && service.metadata.errorRate > 0.05) {
+      insights.push({
+        type: 'reliability',
+        severity: 'critical',
+        title: `High error rate in ${service.service}`,
+        description: `Error rate: ${(service.metadata.errorRate * 100).toFixed(2)}%`
+      })
+    }
+  }
+
+  return insights
+}
 ```
 
 ## Known Issues & Workarounds
 
-### TensorFlow Memory Leaks
-- **Problem**: Tensors not disposed causing OOM
-- **Workaround**: Always use tf.tidy() or manual dispose()
-- **Fix**: Implement automatic tensor tracking
+### API Path Changes
+- **Breaking Change**: Routes changed from `/api/ai-analyzer/*` to `/api/topology/*`
+- **Migration**: Update all client code to use new paths
+- **Router**: `TopologyAnalyzerRouterLive` handles new paths
 
-### Large Dataset Processing
-- **Problem**: Loading entire dataset crashes Node.js
-- **Workaround**: Use tf.data.generator() for streaming
-- **Fix**: Implement batch processing pipeline
+### LLM Code Removed
+- **Status**: All LLM/AI integration code has been removed
+- **Rationale**: Package now focuses purely on statistical analysis
+- **Future**: LLM features may be added to a separate ai-insights package
 
 ## Common Pitfalls
 
-❌ **DON'T**: Train on unnormalized data
-❌ **DON'T**: Use fixed anomaly thresholds
-❌ **DON'T**: Load entire datasets into memory
-❌ **DON'T**: Forget to dispose tensors
-❌ **DON'T**: Block during model inference
+❌ **DON'T**: Add LLM calls to this package
+❌ **DON'T**: Use hardcoded thresholds - make them configurable
+❌ **DON'T**: Block during topology queries - use Effect concurrency
+❌ **DON'T**: Mix business logic into router handlers
+❌ **DON'T**: Use old AIAnalyzer* naming - all renamed to TopologyAnalyzer*
 
-✅ **DO**: Normalize all features before training
-✅ **DO**: Use dynamic percentile-based thresholds
-✅ **DO**: Stream data in batches
-✅ **DO**: Use tf.tidy() for automatic cleanup
-✅ **DO**: Use async/Effect for all operations
+✅ **DO**: Keep analysis purely statistical
+✅ **DO**: Use dynamic thresholds based on percentiles
+✅ **DO**: Stream data in batches for large topologies
+✅ **DO**: Delegate all logic to service layer
+✅ **DO**: Use TopologyAnalyzer* naming consistently
 
 ## Quick Command Reference
 
 ```bash
 # Development
-pnpm dev:ai-analyzer
+pnpm dev:topology-analyzer
 
 # Testing
-pnpm test:unit:ai-analyzer
-pnpm test:integration:ai-analyzer
+pnpm test -- src/topology-analyzer/test/unit
+pnpm test:integration -- src/topology-analyzer/test/integration
 
-# Training
-pnpm train:model
+# Type checking
+pnpm typecheck
 
 # Find active work
-mcp__github__search_issues query:"package:ai-analyzer is:open"
+mcp__github__search_issues query:"package:topology-analyzer is:open"
 ```
 
 ## Dependencies & References
-- `@tensorflow/tfjs` ^4.20.0
-- `@tensorflow/tfjs-node` ^4.20.0 (server-side)
 - `effect` ^3.11.0
 - `@effect/schema` ^0.78.0
-- Storage package (for telemetry data)
+- `express` ^4.21.2
+- Storage package (for telemetry data queries)
 - Full documentation: See README.md
-- TensorFlow.js Guide: https://www.tensorflow.org/js/guide
+
+## Recent Refactoring (2025-09-30)
+
+### Renamed from ai-analyzer to topology-analyzer
+- Package directory: `src/ai-analyzer/` → `src/topology-analyzer/`
+- All symbols: `AIAnalyzer*` → `TopologyAnalyzer*`
+- API routes: `/api/ai-analyzer/*` → `/api/topology/*`
+- Removed: 800+ lines of unused LLM integration code
+- Removed: prompts.ts, model selection logic, fake LLM insights
+- Focus: Pure statistical analysis and topology discovery
+
+### Breaking Changes
+- All exports renamed (AIAnalyzer → TopologyAnalyzer)
+- API client paths changed
+- Service interface simplified (removed LLM methods)
+- Metadata fields removed: llmModel, llmTokensUsed, selectedModel

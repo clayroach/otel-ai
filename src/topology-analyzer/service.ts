@@ -5,8 +5,9 @@
  * Provides insights into service dependencies, performance patterns, and architecture.
  */
 
-import { Effect, Context, Layer } from 'effect'
+import { Effect, Layer } from 'effect'
 import { Schema } from '@effect/schema'
+import type { TraceData } from '../storage/schemas.js'
 import type { ServiceTopologyRaw, ServiceDependencyRaw, TraceFlowRaw } from './queries.js'
 import { TopologyAnalyzerService } from './types.js'
 import type {
@@ -219,16 +220,7 @@ const cleanServiceName = (serviceName: string): string => {
  * Transform storage traces into topology data format
  */
 function transformTracesToTopology(
-  traces: Array<{
-    TraceId: string
-    ServiceName: string
-    SpanName: string
-    ParentSpanId: string
-    Duration: number
-    StatusCode: string
-    Timestamp: Date
-    SpanAttributes?: Record<string, unknown>
-  }>,
+  traces: TraceData[],
   timeRangeHours: number
 ): [ServiceTopologyRaw[], ServiceDependencyRaw[], TraceFlowRaw[]] {
   // Group spans by service
@@ -248,7 +240,7 @@ function transformTracesToTopology(
   const traceFlows: TraceFlowRaw[] = []
 
   for (const span of traces) {
-    const serviceName = cleanServiceName(span.ServiceName)
+    const serviceName = cleanServiceName(span.serviceName)
 
     // Aggregate service metrics
     if (!serviceMap.has(serviceName)) {
@@ -259,36 +251,43 @@ function transformTracesToTopology(
       })
     }
 
-    const serviceData = serviceMap.get(serviceName)!
+    const serviceData = serviceMap.get(serviceName)
+    if (!serviceData) continue
     serviceData.spans.push(span)
-    serviceData.totalDuration += span.Duration
-    if (span.StatusCode === 'STATUS_CODE_ERROR') {
+    serviceData.totalDuration += span.duration
+    if (span.statusCode === 2) {
+      // STATUS_CODE_ERROR = 2
       serviceData.errorCount++
     }
 
     // Track dependencies (parent-child relationships)
-    if (span.ParentSpanId) {
+    if (span.parentSpanId) {
       // Find parent span to determine dependency
-      const parentSpan = traces.find((t) => t.ParentSpanId === span.ParentSpanId)
-      if (parentSpan && parentSpan.ServiceName !== span.ServiceName) {
-        const depKey = `${cleanServiceName(parentSpan.ServiceName)}->${serviceName}`
+      const parentSpan = traces.find((t) => t.spanId === span.parentSpanId)
+      if (parentSpan && parentSpan.serviceName !== span.serviceName) {
+        const depKey = `${cleanServiceName(parentSpan.serviceName)}->${serviceName}`
         if (!dependencies.has(depKey)) {
           dependencies.set(depKey, {
-            source_service: cleanServiceName(parentSpan.ServiceName),
-            target_service: serviceName,
-            operation: span.SpanName,
-            total_calls: 0,
+            service_name: cleanServiceName(parentSpan.serviceName),
+            operation_name: parentSpan.operationName,
+            dependent_service: serviceName,
+            dependent_operation: span.operationName,
+            call_count: 0,
             avg_duration_ms: 0,
-            error_rate: 0
+            error_count: 0,
+            total_count: 0
           })
         }
 
-        const dep = dependencies.get(depKey)!
-        dep.total_calls++
+        const dep = dependencies.get(depKey)
+        if (!dep) continue
+        dep.call_count++
+        dep.total_count++
         dep.avg_duration_ms =
-          (dep.avg_duration_ms * (dep.total_calls - 1) + span.Duration) / dep.total_calls
-        if (span.StatusCode === 'STATUS_CODE_ERROR') {
-          dep.error_rate = (dep.error_rate * (dep.total_calls - 1) + 1) / dep.total_calls
+          (dep.avg_duration_ms * (dep.call_count - 1) + span.duration) / dep.call_count
+        if (span.statusCode === 2) {
+          // STATUS_CODE_ERROR = 2
+          dep.error_count++
         }
       }
     }
@@ -297,12 +296,25 @@ function transformTracesToTopology(
   // Convert to topology format
   const topologyData: ServiceTopologyRaw[] = []
   for (const [serviceName, data] of serviceMap) {
+    const operations = [...new Set(data.spans.map((s) => s.operationName))]
     topologyData.push({
       service_name: serviceName,
+      operation_name: operations[0] || 'unknown',
+      span_kind: 'SPAN_KIND_SERVER',
       total_spans: data.spans.length,
-      avg_latency_ms: data.totalDuration / data.spans.length,
-      error_rate: data.errorCount / data.spans.length,
-      operations: [...new Set(data.spans.map((s) => s.SpanName))]
+      root_spans: data.spans.filter((s) => !s.parentSpanId).length,
+      error_spans: data.errorCount,
+      avg_duration_ms: data.totalDuration / data.spans.length,
+      p95_duration_ms: (data.totalDuration / data.spans.length) * 1.2, // Approximate
+      unique_traces: new Set(data.spans.map((s) => s.traceId)).size,
+      rate_per_second: data.spans.length / (timeRangeHours * 3600),
+      error_rate_percent: (data.errorCount / data.spans.length) * 100,
+      health_status:
+        data.errorCount / data.spans.length > 0.1
+          ? 'critical'
+          : data.errorCount / data.spans.length > 0.05
+            ? 'warning'
+            : 'healthy'
     })
   }
 
@@ -314,7 +326,7 @@ function transformTracesToTopology(
  */
 const generateInsights = (
   architecture: ApplicationArchitecture,
-  analysisType: AnalysisRequest['type']
+  _analysisType: AnalysisRequest['type']
 ): Insight[] => {
   const insights: Insight[] = []
 
@@ -526,7 +538,7 @@ const makeTopologyAnalyzerMockService = (_config: AnalyzerConfig = defaultAnalyz
         }
       }),
 
-    getServiceTopology: (timeRange: {
+    getServiceTopology: (_timeRange: {
       startTime: Date
       endTime: Date
     }): Effect.Effect<readonly ServiceTopology[], AnalysisError, never> =>
