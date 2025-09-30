@@ -131,11 +131,11 @@ When running locally for comprehensive review:
 # 1. Find direct ClickHouse imports (ONLY flag @clickhouse/client imports outside storage)
 grep -r "from '@clickhouse/client'" --include="*.ts" --include="*.tsx" . | grep -v "src/storage/"
 
-# 2. Find raw SQL queries outside storage
-grep -r "SELECT\|INSERT\|UPDATE\|DELETE\|CREATE TABLE" --include="*.ts" --include="*.tsx" . | grep -v "src/storage/" | grep -v "\.sql$" | grep -v "test/fixtures/"
+# 2. Find raw SQL queries outside storage (exclude test utils and fixtures)
+grep -r "SELECT\|INSERT\|UPDATE\|DELETE\|CREATE TABLE" --include="*.ts" --include="*.tsx" . | grep -v "src/storage/" | grep -v "\.sql$" | grep -v "test/fixtures/" | grep -v "test/test-utils/" | grep -v "test-utils/"
 
-# 3. Find direct database client creation (NOT just client usage)
-grep -r "createClient\|new.*Client.*clickhouse\|\.createClient(" --include="*.ts" --include="*.tsx" .
+# 3. Find direct database client creation outside storage (exclude package test utils)
+grep -r "createClient\|new.*Client.*clickhouse\|\.createClient(" --include="*.ts" --include="*.tsx" . | grep -v "src/storage/" | grep -v "/test/test-utils/" | grep -v "/test-utils/"
 
 # 4. Find test files outside test/ directories
 find . -name "*.test.ts" -o -name "*.spec.ts" | grep -v "/test/"

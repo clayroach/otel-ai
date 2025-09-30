@@ -4,31 +4,27 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { createClient } from '@clickhouse/client'
-import type { ClickHouseClient } from '@clickhouse/client'
 import { ArchitectureQueries, OptimizedQueries } from '../../queries.js'
 import type { ServiceDependencyRaw, ServiceTopologyRaw, TraceFlowRaw } from '../../queries.js'
 import { ensureClickHouseRunning } from '../../../test-helpers/clickhouse-health.js'
+import {
+  getTestClickHouseClient,
+  closeTestClickHouseClient,
+  waitForClickHouseReady
+} from '../../../storage/test/test-utils/clickhouse-client.js'
 
 describe('Service Topology Queries Integration', () => {
-  let client: ClickHouseClient
+  let client: ReturnType<typeof getTestClickHouseClient>
 
   beforeAll(async () => {
     // Check ClickHouse health first
     await ensureClickHouseRunning()
 
-    // Create ClickHouse client with proper configuration
-    client = createClient({
-      url: `http://${process.env.CLICKHOUSE_HOST || 'localhost'}:${process.env.CLICKHOUSE_PORT || '8124'}`,
-      username: process.env.CLICKHOUSE_USERNAME || 'otel',
-      password: process.env.CLICKHOUSE_PASSWORD || 'otel123',
-      database: process.env.CLICKHOUSE_DATABASE || 'otel',
-      clickhouse_settings: {
-        // Set default settings for all queries
-        max_memory_usage: '4000000000', // 4GB default
-        max_execution_time: 120 // 2 minutes default (as number)
-      }
-    })
+    // Wait for ClickHouse to be ready
+    await waitForClickHouseReady()
+
+    // Get shared client
+    client = getTestClickHouseClient()
 
     // Ensure traces table exists
     try {
@@ -57,7 +53,7 @@ describe('Service Topology Queries Integration', () => {
   })
 
   afterAll(async () => {
-    await client.close()
+    await closeTestClickHouseClient()
   })
 
   describe('Query Syntax Validation', () => {

@@ -4,9 +4,14 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { createClient, type ClickHouseClient } from '@clickhouse/client'
 import { Effect } from 'effect'
-import { ensureClickHouseRunning } from '../../test-helpers/clickhouse-health.js'
+import { ensureClickHouseRunning } from '../../../test-helpers/clickhouse-health.js'
+import {
+  getTestClickHouseClient,
+  closeTestClickHouseClient,
+  waitForClickHouseReady,
+  ensureTestTables
+} from '../test-utils/clickhouse-client.js'
 
 // Type definitions for ClickHouse query results
 interface TraceQueryResult {
@@ -24,21 +29,17 @@ interface ServiceEncodingResult {
 }
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:4319'
-const CLICKHOUSE_CONFIG = {
-  url: `http://${process.env.CLICKHOUSE_HOST || 'localhost'}:${process.env.CLICKHOUSE_PORT || '8124'}`,
-  database: process.env.CLICKHOUSE_DATABASE || 'otel',
-  username: process.env.CLICKHOUSE_USER || 'otel',
-  password: process.env.CLICKHOUSE_PASSWORD || 'otel123'
-}
 
 describe('JSON Encoding Integration', () => {
-  let clickhouseClient: ClickHouseClient
-  
   beforeAll(async () => {
     // Check ClickHouse health first
     await ensureClickHouseRunning(BACKEND_URL)
 
-    clickhouseClient = createClient(CLICKHOUSE_CONFIG)
+    // Wait for ClickHouse to be ready
+    await waitForClickHouseReady()
+
+    // Ensure tables exist
+    await ensureTestTables()
 
     // Wait for backend to be ready
     let retries = 30
@@ -58,10 +59,12 @@ describe('JSON Encoding Integration', () => {
   })
 
   afterAll(async () => {
-    await clickhouseClient.close()
+    await closeTestClickHouseClient()
   })
 
   it('should store JSON traces with correct encoding_type via HTTP endpoint', async () => {
+    const clickhouseClient = getTestClickHouseClient()
+
     const traceId = `json-integration-${Date.now()}`
     const spanId = `span-${Date.now()}`
     const startTime = Date.now() * 1000000 // nanoseconds
@@ -168,6 +171,8 @@ describe('JSON Encoding Integration', () => {
   })
 
   it('should differentiate between JSON and protobuf traces', async () => {
+    const clickhouseClient = getTestClickHouseClient()
+
     const jsonTraceId = `json-diff-${Date.now()}`
     const startTime = Date.now() * 1000000
     

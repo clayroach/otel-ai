@@ -37,3 +37,4 @@ TODOs:
 * revert to previous service details hoverover view - was much better than current
 * imporve static critical path analysis patterns to be more effective at spotting criticial issues with just some pre-built queries
 * should split out ai-analyzer to be a statistical analyzer and separately ai-analyzer for generated queries or at least have autoencoders to make it a true "ai-analyzer"
+* clickhouse connection pool monitoring
