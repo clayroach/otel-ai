@@ -1,15 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import {
-  Card,
   Typography,
-  Space,
-  Spin,
   Alert,
   // Tabs, // Not used with new topology
-  Tag,
   App
 } from 'antd'
-import { LineChartOutlined as TrendingUpIcon } from '@ant-design/icons'
 // import ReactMarkdown from 'react-markdown'; // Commented out - not available
 // import { type AnalysisResult, generateMockData } from './mockData' // Not used with new topology
 import { useAIAnalyzer } from '../../services/ai-analyzer'
@@ -17,7 +12,7 @@ import { ServiceTopology } from '../../components/ServiceTopology'
 import { useAppStore } from '../../store/appStore'
 import { analysisEventBus } from '../../utils/eventBus'
 
-const { Text } = Typography
+const { Text: _Text } = Typography
 
 const ServiceTopologyView: React.FC = () => {
   const { message } = App.useApp()
@@ -325,52 +320,6 @@ const ServiceTopologyView: React.FC = () => {
           closable
           style={{ marginBottom: '24px' }}
         />
-      )}
-
-      {/* Streaming Content - Hidden for now as we simplified the interface */}
-      {false && (
-        <Card
-          title={
-            <Space>
-              <Spin size="small" />
-              <TrendingUpIcon style={{ color: '#1890ff' }} />
-              Real-time Topology Analysis Stream
-            </Space>
-          }
-          extra={<Tag color="processing">⚡ Live Analysis</Tag>}
-          style={{ marginBottom: '24px' }}
-        >
-          <div
-            style={{
-              minHeight: '250px',
-              padding: '16px',
-              background: 'linear-gradient(to bottom, #f0f9ff, #f5f5f5)',
-              borderRadius: '8px',
-              border: '1px solid #e6f7ff'
-            }}
-          >
-            <div
-              style={{
-                whiteSpace: 'pre-wrap',
-                fontFamily:
-                  'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace',
-                fontSize: '13px',
-                lineHeight: '1.5',
-                color: '#2c3e50'
-              }}
-            >
-              {
-                'Initializing topology analysis...\n🔍 Scanning service dependencies...\n📊 Processing telemetry data...'
-              }
-            </div>
-            <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Spin size="small" />
-              <Text type="secondary" style={{ fontSize: '12px' }}>
-                Analyzing service topology and generating insights...
-              </Text>
-            </div>
-          </div>
-        </Card>
       )}
 
       {/* Service Topology - Three-Panel Layout */}

@@ -44,8 +44,8 @@ export enum ClickHouseErrorCode {
   // Type and Value Errors
   TYPE_MISMATCH = 53,
   ILLEGAL_TYPE_OF_ARGUMENT = 43,
-  CANNOT_CONVERT_TYPE = 6,
-  ILLEGAL_COLUMN = 47,
+  CANNOT_CONVERT_TYPE = 54,
+  ILLEGAL_COLUMN = 48,
 
   // Aggregate Function Errors (caught by AST and Null tables)
   ILLEGAL_AGGREGATION = 184,
@@ -57,11 +57,11 @@ export enum ClickHouseErrorCode {
   MEMORY_LIMIT_EXCEEDED = 241,
   TOO_MANY_ROWS = 158,
   TOO_MANY_BYTES = 159,
-  TIMEOUT_EXCEEDED = 159,
+  TIMEOUT_EXCEEDED = 160,
 
   // Query Complexity Errors
   TOO_MANY_PARTS = 252,
-  TOO_MANY_PARTITIONS = 252,
+  TOO_MANY_PARTITIONS = 253,
   QUERY_IS_TOO_LARGE = 162
 }
 

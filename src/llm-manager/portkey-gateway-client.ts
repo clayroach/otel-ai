@@ -392,7 +392,7 @@ export const makePortkeyGatewayManager = (baseURL: string) => {
                         return JSON.parse(jsonLine)
                       }
                     }
-                  } catch (parseError) {
+                  } catch {
                     // Fall through to re-throw original error
                   }
                 }

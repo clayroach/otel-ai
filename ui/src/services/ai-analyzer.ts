@@ -143,7 +143,7 @@ export class AIAnalyzerService {
               } else {
                 yield line
               }
-            } catch (e) {
+            } catch {
               // If not JSON, yield as plain text
               yield line
             }
@@ -196,7 +196,7 @@ export class AIAnalyzerService {
     try {
       const response = await apiClient.get('/ai-analyzer/health')
       return response.data
-    } catch (error) {
+    } catch {
       return {
         status: 'unavailable',
         capabilities: []

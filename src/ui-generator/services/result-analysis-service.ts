@@ -46,7 +46,7 @@ const ColumnAnalysisSchema = Schema.Struct({
 })
 type ColumnAnalysis = Schema.Schema.Type<typeof ColumnAnalysisSchema>
 
-const ResultAnalysisSchema = Schema.Struct({
+const _ResultAnalysisSchema = Schema.Struct({
   rowCount: Schema.Number,
   columnCount: Schema.Number,
   columns: Schema.Array(ColumnAnalysisSchema),
@@ -55,7 +55,7 @@ const ResultAnalysisSchema = Schema.Struct({
   confidence: Schema.Number, // 0-1 confidence in recommendation
   reasoning: Schema.String
 })
-type ResultAnalysis = Schema.Schema.Type<typeof ResultAnalysisSchema>
+type ResultAnalysis = Schema.Schema.Type<typeof _ResultAnalysisSchema>
 
 // ========================
 // Service Definition
