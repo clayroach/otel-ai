@@ -51,6 +51,14 @@ export const AIAnalyzerRouterLive = Layer.effect(
       try {
         const { type, timeRange, filters, config } = req.body
 
+        // Validate required fields
+        if (!timeRange || !timeRange.startTime || !timeRange.endTime) {
+          return res.status(400).json({
+            error: 'Bad Request',
+            message: 'timeRange with startTime and endTime is required'
+          })
+        }
+
         const analysisRequest = {
           type: type || 'architecture',
           timeRange: {
@@ -65,12 +73,14 @@ export const AIAnalyzerRouterLive = Layer.effect(
         const result = await Effect.runPromise(aiAnalyzer.analyzeArchitecture(analysisRequest))
 
         res.json(result)
+        return
       } catch (error) {
         console.error('❌ AI Analyzer analysis error:', error)
         res.status(500).json({
           error: 'Analysis failed',
           message: error instanceof Error ? error.message : 'Unknown error'
         })
+        return
       }
     })
 
