@@ -134,12 +134,12 @@ export const TopologyVisualizationDataSchema = Schema.extend(ApplicationArchitec
 // Enhanced evidence formatting schemas for model differentiation
 export const ModelSpecificEvidenceSchema = Schema.Struct({
   format: Schema.Literal('structured', 'narrative', 'statistical'),
-  data: Schema.Record(Schema.String, Schema.Unknown),
+  data: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
   visualizations: Schema.optional(Schema.Array(Schema.Struct({
     type: Schema.Literal('timeseries', 'heatmap', 'network', 'distribution', 'scatter', 'bar'),
     title: Schema.String,
     description: Schema.String,
-    config: Schema.Record(Schema.String, Schema.Unknown),
+    config: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
     data: Schema.Array(Schema.Unknown)
   }))),
   metadata: Schema.Struct({
@@ -207,9 +207,9 @@ export const AnalysisResponseSchema = Schema.Struct({
   requestId: Schema.String,
   type: Schema.Literal('architecture', 'dataflow', 'dependencies', 'insights'),
   summary: Schema.String,
-  architecture: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)), // Flexible architecture object
-  insights: Schema.Array(Schema.Record(Schema.String, Schema.Unknown)), // Flexible insights
-  documentation: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)), // Flexible documentation
+  architecture: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })), // Flexible architecture object
+  insights: Schema.Array(Schema.Record({ key: Schema.String, value: Schema.Unknown })), // Flexible insights
+  documentation: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })), // Flexible documentation
   metadata: Schema.Struct({
     analyzedSpans: Schema.Union(Schema.Number, Schema.String), // Handle both number and string
     analysisTimeMs: Schema.Number,

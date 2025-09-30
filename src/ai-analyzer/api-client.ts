@@ -54,7 +54,7 @@ const AnalysisRequestSchema = Schema.Struct({
     startTime: Schema.String,
     endTime: Schema.String
   }),
-  filters: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  filters: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
   config: Schema.optional(
     Schema.Struct({
       llm: Schema.optional(
