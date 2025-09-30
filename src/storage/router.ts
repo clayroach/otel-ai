@@ -22,6 +22,23 @@ export const StorageRouterLive = Layer.effect(
 
     const router = express.Router()
 
+    // Health check endpoint - verifies ClickHouse connectivity
+    router.get('/api/storage/health', async (req, res) => {
+      try {
+        const health = await Effect.runPromise(storageClient.healthCheck())
+        res.json(health)
+        return
+      } catch (error) {
+        console.error('❌ Storage health check failed:', error)
+        res.status(500).json({
+          clickhouse: false,
+          s3: false,
+          error: error instanceof Error ? error.message : 'Health check failed'
+        })
+        return
+      }
+    })
+
     // Helper function for raw queries that returns data in legacy format
     // Note: Only used for trusted, hand-crafted queries - not LLM-generated ones
     const queryWithResults = async (sql: string): Promise<{ data: Record<string, unknown>[] }> => {

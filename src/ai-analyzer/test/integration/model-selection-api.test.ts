@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest'
+import { ensureClickHouseRunning } from './test-helpers.js'
 
 // This test requires the backend service to be running
 // Run with: pnpm test:integration
@@ -76,7 +77,13 @@ async function fetchAnalysis(config?: { llm?: { model: string; temperature: numb
       config
     })
   })
-  
+
+  // Log actual response for debugging
+  if (!response.ok) {
+    const errorBody = await response.text()
+    console.error(`❌ API returned ${response.status}: ${errorBody}`)
+  }
+
   expect(response.ok).toBe(true)
   return await response.json() as AnalysisResponse
 }
@@ -91,7 +98,10 @@ const testTimeRange = {
 
 describe('AI Analyzer Model Selection API (Optimized)', () => {
   beforeAll(async () => {
-    // Check if the service is available
+    // Check ClickHouse is running FIRST - fail fast if not
+    await ensureClickHouseRunning()
+
+    // Then check if the backend service is available
     try {
       const response = await fetch(`${API_BASE_URL}/health`)
       if (!response.ok) {

@@ -8,11 +8,15 @@ import { createClient } from '@clickhouse/client'
 import type { ClickHouseClient } from '@clickhouse/client'
 import { ArchitectureQueries, OptimizedQueries } from '../../queries.js'
 import type { ServiceDependencyRaw, ServiceTopologyRaw, TraceFlowRaw } from '../../queries.js'
+import { ensureClickHouseRunning } from '../../../test-helpers/clickhouse-health.js'
 
 describe('Service Topology Queries Integration', () => {
   let client: ClickHouseClient
 
   beforeAll(async () => {
+    // Check ClickHouse health first
+    await ensureClickHouseRunning()
+
     // Create ClickHouse client with proper configuration
     client = createClient({
       url: `http://${process.env.CLICKHOUSE_HOST || 'localhost'}:${process.env.CLICKHOUSE_PORT || '8124'}`,

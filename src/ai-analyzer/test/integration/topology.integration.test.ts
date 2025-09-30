@@ -9,6 +9,7 @@ import { describe, it, expect, beforeAll } from 'vitest'
 import { Schema } from '@effect/schema'
 import { Effect } from 'effect'
 import { ServiceTopologySchema } from '../../types.js'
+import { ensureClickHouseRunning } from '../../../test-helpers/clickhouse-health.js'
 
 const API_BASE_URL = process.env.API_URL || 'http://localhost:4319'
 const TEST_TIMEOUT = 30000 // 30 seconds for Docker operations
@@ -155,12 +156,15 @@ async function waitForArchitectureData(minSpans = 50, maxWaitMs = 15000): Promis
 describe('AI Analyzer Topology Integration', () => {
   
   beforeAll(async () => {
+    // Check ClickHouse health first
+    await ensureClickHouseRunning(API_BASE_URL)
+
     // Wait for services to be ready
     console.log('🔄 Waiting for services to be ready...')
     console.log(`📍 Using API URL: ${API_BASE_URL}`)
     const maxRetries = 20
     let retries = 0
-    
+
     while (retries < maxRetries) {
       try {
         const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/health`)
@@ -174,12 +178,12 @@ describe('AI Analyzer Topology Integration', () => {
       } catch (error) {
         console.log(`⚠️ Service not ready yet (attempt ${retries + 1}/${maxRetries}):`, (error as Error).message)
       }
-      
+
       retries++
       if (retries === maxRetries) {
         throw new Error('AI Analyzer service did not become ready in time')
       }
-      
+
       await Effect.runPromise(Effect.sleep(2000))
     }
   }, TEST_TIMEOUT)

@@ -6,6 +6,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createClient, type ClickHouseClient } from '@clickhouse/client'
 import { Effect } from 'effect'
+import { ensureClickHouseRunning } from '../../test-helpers/clickhouse-health.js'
 
 // Type definitions for ClickHouse query results
 interface TraceQueryResult {
@@ -34,8 +35,11 @@ describe('JSON Encoding Integration', () => {
   let clickhouseClient: ClickHouseClient
   
   beforeAll(async () => {
+    // Check ClickHouse health first
+    await ensureClickHouseRunning(BACKEND_URL)
+
     clickhouseClient = createClient(CLICKHOUSE_CONFIG)
-    
+
     // Wait for backend to be ready
     let retries = 30
     while (retries > 0) {

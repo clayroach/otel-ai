@@ -179,3 +179,10 @@ export const parseSpanCount = (spanCount: string | number): number => {
   const parsed = parseInt(spanCount, 10)
   return isNaN(parsed) ? 0 : parsed
 }
+
+// Re-export shared ClickHouse health check utilities
+export {
+  checkClickHouseHealth,
+  ensureClickHouseRunning,
+  waitForClickHouse
+} from '../../../test-helpers/clickhouse-health.js'

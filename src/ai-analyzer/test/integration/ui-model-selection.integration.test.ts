@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import { TypedAPIClient } from '../helpers/api-client.js'
+import { ensureClickHouseRunning } from './test-helpers.js'
 
 // This test validates that the UI model selection actually produces different results
 // by simulating exactly what the UI does when changing models
@@ -50,7 +51,10 @@ const createUIRequest = (model: string) => {
 
 describe('UI Model Selection Integration', () => {
   beforeAll(async () => {
-    // Check if the service is available
+    // Check ClickHouse is running FIRST - fail fast if not
+    await ensureClickHouseRunning()
+
+    // Then check if the backend service is available
     try {
       await apiClient.getHealthCheck()
       console.log('✅ AI Analyzer service is ready')

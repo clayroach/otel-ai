@@ -4,6 +4,7 @@
 
 import { describe, expect, it, beforeAll, afterAll } from 'vitest'
 import { Effect } from 'effect'
+import { ensureClickHouseRunning } from '../../../test-helpers/clickhouse-health.js'
 
 describe('Topology Visualization API Integration', () => {
   let baseUrl: string
@@ -15,10 +16,13 @@ describe('Topology Visualization API Integration', () => {
     process.env.CLICKHOUSE_USER = process.env.CLICKHOUSE_USER || 'otel'
     process.env.CLICKHOUSE_PASSWORD = process.env.CLICKHOUSE_PASSWORD || 'otel123'
     process.env.CLICKHOUSE_DATABASE = process.env.CLICKHOUSE_DATABASE || 'otel'
-    
+
     // Test against the existing server on correct port
     baseUrl = process.env.API_BASE_URL || 'http://localhost:4319'
-    
+
+    // Check ClickHouse health first
+    await ensureClickHouseRunning(baseUrl)
+
     // Wait for backend to be ready
     const maxRetries = 30
     for (let i = 0; i < maxRetries; i++) {
