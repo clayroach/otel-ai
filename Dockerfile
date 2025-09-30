@@ -18,7 +18,7 @@ COPY src/ ./src/
 COPY protobuf/ ./protobuf/
 COPY tsconfig.json ./
 COPY buf.gen.yaml ./
-COPY .eslintrc.json ./
+COPY eslint.config.mjs ./
 
 # Build stage
 FROM base AS builder
