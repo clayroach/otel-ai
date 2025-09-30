@@ -1,0 +1,280 @@
+/**
+ * Unit Tests for AI Analyzer Query Optimizations
+ * Issue #161: Test memory-protected queries and materialized view logic
+ */
+
+import { describe, it, expect } from 'vitest'
+import { ArchitectureQueries, OptimizedQueries } from '../../queries.js'
+
+describe('AI Analyzer Queries', () => {
+  // Unit tests should not require a real ClickHouse connection
+  // We're just testing the query generation logic
+
+  describe('Service Dependencies Query', () => {
+    it('should include memory protection settings', () => {
+      const query = ArchitectureQueries.getServiceDependencies(24)
+
+      // Check for memory protection settings
+      expect(query).toContain('SETTINGS')
+      expect(query).toContain('max_memory_usage = 2000000000')
+      expect(query).toContain('max_execution_time = 60')
+      expect(query).toContain('distributed_product_mode = \'local\'')
+    })
+
+    it('should not use sampling or trace limiting', () => {
+      const query = ArchitectureQueries.getServiceDependencies(24)
+
+      // Should NOT contain sampling CTEs
+      expect(query).not.toContain('WITH relevant_traces')
+      expect(query).not.toContain('LIMIT 10000')
+      expect(query).not.toContain('SAMPLE')
+
+      // Should have direct joins
+      expect(query).toContain('FROM traces p')
+      expect(query).toContain('INNER JOIN traces c')
+    })
+
+    it('should include all dependencies (HAVING count >= 1)', () => {
+      const query = ArchitectureQueries.getServiceDependencies(24)
+
+      expect(query).toContain('HAVING call_count >= 1')
+      expect(query).not.toContain('HAVING call_count >= 5')
+      expect(query).not.toContain('HAVING call_count > 1')
+    })
+
+    it('should have increased result limit', () => {
+      const query = ArchitectureQueries.getServiceDependencies(24)
+
+      expect(query).toContain('LIMIT 1000')
+      expect(query).not.toContain('LIMIT 500')
+    })
+  })
+
+  describe('Service Topology Query', () => {
+    it('should include memory protection', () => {
+      const query = ArchitectureQueries.getServiceTopology(24)
+
+      expect(query).toContain('SETTINGS')
+      expect(query).toContain('max_memory_usage = 1000000000')
+      expect(query).toContain('max_execution_time = 30')
+    })
+
+    it('should include all services (HAVING total_spans >= 1)', () => {
+      const query = ArchitectureQueries.getServiceTopology(24)
+
+      expect(query).toContain('HAVING total_spans >= 1')
+      expect(query).not.toContain('HAVING total_spans >= 5')
+    })
+  })
+
+  describe('Trace Flows Query', () => {
+    it('should include single-span traces', () => {
+      const query = ArchitectureQueries.getTraceFlows(100, 24)
+
+      expect(query).toContain('HAVING count(*) >= 1')
+      expect(query).not.toContain('HAVING count(*) BETWEEN 3 AND 50')
+      expect(query).not.toContain('HAVING count(*) > 1')
+    })
+
+    it('should use memory-optimized array functions', () => {
+      const query = ArchitectureQueries.getTraceFlows(100, 24)
+
+      expect(query).toContain('groupArray')
+      expect(query).toContain('arrayFirst')
+      expect(query).not.toContain('RECURSIVE')
+    })
+  })
+
+  describe('Root Services Query', () => {
+    it('should include all root services', () => {
+      const query = ArchitectureQueries.getRootServices(24)
+
+      expect(query).toContain('HAVING root_span_count >= 1')
+      expect(query).not.toContain('HAVING root_span_count >= 5')
+    })
+
+    it('should have increased limit', () => {
+      const query = ArchitectureQueries.getRootServices(24)
+
+      expect(query).toContain('LIMIT 100')
+      expect(query).not.toContain('LIMIT 50')
+    })
+  })
+
+  describe('Leaf Services Query', () => {
+    it('should include all leaf services', () => {
+      const query = ArchitectureQueries.getLeafServices(24)
+
+      expect(query).toContain('HAVING span_count >= 1')
+      expect(query).not.toContain('HAVING span_count >= 5')
+    })
+
+    it('should have increased limit', () => {
+      const query = ArchitectureQueries.getLeafServices(24)
+
+      expect(query).toContain('LIMIT 100')
+      expect(query).not.toContain('LIMIT 50')
+    })
+  })
+
+  describe('Critical Paths Query', () => {
+    it('should include single-span traces', () => {
+      const query = ArchitectureQueries.getCriticalPaths(24)
+
+      expect(query).toContain('HAVING span_count >= 1')
+      expect(query).not.toContain('HAVING span_count >= 3')
+    })
+
+    it('should have increased limit for more visibility', () => {
+      const query = ArchitectureQueries.getCriticalPaths(24)
+
+      expect(query).toContain('LIMIT 50')
+      expect(query).not.toContain('LIMIT 20')
+    })
+  })
+
+  describe('Error Patterns Query', () => {
+    it('should include single error occurrences', () => {
+      const query = ArchitectureQueries.getErrorPatterns(24)
+
+      expect(query).toContain('HAVING error_count >= 1')
+      expect(query).not.toContain('HAVING error_count >= 5')
+    })
+
+    it('should have increased limit', () => {
+      const query = ArchitectureQueries.getErrorPatterns(24)
+
+      expect(query).toContain('LIMIT 100')
+      expect(query).not.toContain('LIMIT 50')
+    })
+  })
+
+  describe('Materialized View Queries', () => {
+    it('should use 5-minute MV for recent data', () => {
+      const query = OptimizedQueries.getServiceDependenciesFromView(12) // 12 hours
+
+      expect(query).toContain('FROM service_dependencies_5min')
+      expect(query).not.toContain('FROM service_dependencies_hourly')
+    })
+
+    it('should use hourly MV for longer ranges', () => {
+      const query = OptimizedQueries.getServiceDependenciesFromView(48) // 48 hours
+
+      expect(query).toContain('FROM service_dependencies_hourly')
+      expect(query).not.toContain('FROM service_dependencies_5min')
+    })
+
+    it('should aggregate MV data correctly', () => {
+      const query = OptimizedQueries.getServiceTopologyFromView(24)
+
+      expect(query).toContain('sum(total_spans)')
+      expect(query).toContain('sum(root_spans)')
+      expect(query).toContain('avg(avg_duration_ms)')
+      expect(query).toContain('max(p95_duration_ms)')
+      expect(query).toContain('HAVING sum(total_spans) >= 1')
+    })
+
+    it('should check MV freshness correctly', () => {
+      const query = OptimizedQueries.checkMVStatus()
+
+      expect(query).toContain('FROM mv_monitoring')
+      expect(query).toContain('lag_seconds < 600 THEN \'fresh\'')
+      expect(query).toContain('lag_seconds < 3600 THEN \'stale\'')
+    })
+  })
+
+  describe('Query Safety', () => {
+    it('should not contain dangerous operations', () => {
+      const queries = [
+        ArchitectureQueries.getServiceDependencies(24),
+        ArchitectureQueries.getServiceTopology(24),
+        ArchitectureQueries.getTraceFlows(100, 24),
+        OptimizedQueries.getServiceDependenciesFromView(24)
+      ]
+
+      queries.forEach(query => {
+        // No DROP or DELETE operations
+        expect(query.toUpperCase()).not.toContain('DROP')
+        expect(query.toUpperCase()).not.toContain('DELETE')
+        expect(query.toUpperCase()).not.toContain('TRUNCATE')
+
+        // Has proper memory limits
+        if (query.includes('traces p')) {
+          expect(query).toContain('max_memory_usage')
+        }
+      })
+    })
+  })
+
+  describe('Time Range Filtering', () => {
+    it('should correctly apply time range filters', () => {
+      const testRanges = [1, 6, 12, 24, 48, 168] // Various hour ranges
+
+      testRanges.forEach(hours => {
+        const query = ArchitectureQueries.getServiceDependencies(hours)
+        expect(query).toContain(`INTERVAL ${hours} HOUR`)
+      })
+    })
+  })
+})
+
+describe('Edge Cases', () => {
+  describe('Empty Dataset Handling', () => {
+    it('queries should handle empty results gracefully', () => {
+      // All queries should have proper GROUP BY and aggregation
+      const query = ArchitectureQueries.getServiceDependencies(24)
+
+      expect(query).toContain('GROUP BY')
+      expect(query).toContain('count(*)')
+      expect(query).toContain('avg(')
+    })
+  })
+
+  describe('Single Service Scenarios', () => {
+    it('should handle traces with only one service', () => {
+      const query = ArchitectureQueries.getServiceDependencies(24)
+
+      // The join condition ensures different services
+      expect(query).toContain('c.service_name != p.service_name')
+    })
+  })
+
+  describe('Large Dataset Protection', () => {
+    it('should have result limits to prevent UI overload', () => {
+      const queries = [
+        ArchitectureQueries.getServiceDependencies(24),
+        ArchitectureQueries.getServiceTopology(24),
+        ArchitectureQueries.getRootServices(24),
+        ArchitectureQueries.getLeafServices(24)
+      ]
+
+      queries.forEach(query => {
+        expect(query).toMatch(/LIMIT \d+/)
+      })
+    })
+  })
+})
+
+describe('Performance Characteristics', () => {
+  it('should use appropriate memory limits based on query complexity', () => {
+    const dependencyQuery = ArchitectureQueries.getServiceDependencies(24)
+    const topologyQuery = ArchitectureQueries.getServiceTopology(24)
+
+    // Dependencies query (with joins) should have higher memory limit
+    expect(dependencyQuery).toContain('max_memory_usage = 2000000000') // 2GB
+
+    // Topology query (simple aggregation) can have lower limit
+    expect(topologyQuery).toContain('max_memory_usage = 1000000000') // 1GB
+  })
+
+  it('should use appropriate timeout values', () => {
+    const dependencyQuery = ArchitectureQueries.getServiceDependencies(24)
+    const topologyQuery = ArchitectureQueries.getServiceTopology(24)
+
+    // Dependencies query should have longer timeout
+    expect(dependencyQuery).toContain('max_execution_time = 60')
+
+    // Topology query can have shorter timeout
+    expect(topologyQuery).toContain('max_execution_time = 30')
+  })
+})

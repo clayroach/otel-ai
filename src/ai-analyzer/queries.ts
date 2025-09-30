@@ -131,12 +131,12 @@ export const ArchitectureQueries = {
    */
   getTraceFlows: (limit: number = 100, timeRangeHours: number = 24) => `
     WITH sampled_traces AS (
-      -- First, select a sample of traces to analyze
+      -- Select traces to analyze, including single-span traces
       SELECT trace_id
       FROM traces
       WHERE start_time >= now() - INTERVAL ${timeRangeHours} HOUR
       GROUP BY trace_id
-      HAVING count(*) BETWEEN 3 AND 50  -- Focus on meaningful traces
+      HAVING count(*) >= 1  -- Include all traces, even single spans
       ORDER BY max(duration_ns) DESC
       LIMIT ${limit}
     ),
@@ -179,7 +179,7 @@ export const ArchitectureQueries = {
    * Identify root services (entry points to the application)
    */
   getRootServices: (timeRangeHours: number = 24) => `
-    SELECT 
+    SELECT
       service_name,
       operation_name,
       count(*) as root_span_count,
@@ -190,16 +190,16 @@ export const ArchitectureQueries = {
     WHERE parent_span_id = ''
       AND start_time >= now() - INTERVAL ${timeRangeHours} HOUR
     GROUP BY service_name, operation_name, span_kind
-    HAVING root_span_count >= 5
+    HAVING root_span_count >= 1  -- Show all root services, even rarely called ones
     ORDER BY root_span_count DESC
-    LIMIT 50
+    LIMIT 100  -- Increased limit to capture more services
   `,
 
   /**
    * Identify leaf services (services that don't call others)
    */
   getLeafServices: (timeRangeHours: number = 24) => `
-    SELECT 
+    SELECT
       service_name,
       operation_name,
       count(*) as span_count,
@@ -208,22 +208,22 @@ export const ArchitectureQueries = {
     FROM traces
     WHERE start_time >= now() - INTERVAL ${timeRangeHours} HOUR
       AND span_id NOT IN (
-        SELECT DISTINCT parent_span_id 
-        FROM traces 
+        SELECT DISTINCT parent_span_id
+        FROM traces
         WHERE parent_span_id != ''
           AND start_time >= now() - INTERVAL ${timeRangeHours} HOUR
       )
     GROUP BY service_name, operation_name, span_kind
-    HAVING span_count >= 5
+    HAVING span_count >= 1  -- Show all leaf services, even rarely called ones
     ORDER BY span_count DESC
-    LIMIT 50
+    LIMIT 100  -- Increased limit to capture more services
   `,
 
   /**
    * Get critical path analysis - longest running trace paths
    */
   getCriticalPaths: (timeRangeHours: number = 24) => `
-    SELECT 
+    SELECT
       trace_id,
       arrayStringConcat(groupArray(service_name), ' -> ') as service_path,
       arrayStringConcat(groupArray(operation_name), ' -> ') as operation_path,
@@ -233,24 +233,24 @@ export const ArchitectureQueries = {
     FROM traces
     WHERE start_time >= now() - INTERVAL ${timeRangeHours} HOUR
     GROUP BY trace_id
-    HAVING span_count >= 3
+    HAVING span_count >= 1  -- Include all traces, even single-span ones
     ORDER BY total_duration_ms DESC
-    LIMIT 20
+    LIMIT 50  -- Increased to show more critical paths
   `,
 
   /**
    * Get error patterns across services
    */
   getErrorPatterns: (timeRangeHours: number = 24) => `
-    SELECT 
+    SELECT
       service_name,
       operation_name,
       status_code,
       count(*) as error_count,
       count(*) * 100.0 / (
-        SELECT count(*) 
-        FROM traces t2 
-        WHERE t2.service_name = traces.service_name 
+        SELECT count(*)
+        FROM traces t2
+        WHERE t2.service_name = traces.service_name
           AND t2.operation_name = traces.operation_name
           AND t2.start_time >= now() - INTERVAL ${timeRangeHours} HOUR
       ) as error_rate_percent
@@ -258,9 +258,9 @@ export const ArchitectureQueries = {
     WHERE status_code = 'ERROR'
       AND start_time >= now() - INTERVAL ${timeRangeHours} HOUR
     GROUP BY service_name, operation_name, status_code
-    HAVING error_count >= 5
+    HAVING error_count >= 1  -- Show all errors, even single occurrences
     ORDER BY error_rate_percent DESC, error_count DESC
-    LIMIT 50
+    LIMIT 100  -- Increased to capture more error patterns
   `
 }
 
@@ -298,7 +298,7 @@ export const withTimeFilter = (baseQuery: string, timeRangeHours: number): strin
 export const OptimizedQueries = {
   /**
    * Get service dependencies from materialized views
-   * Falls back to raw query if MV is not available or too old
+   * Note: Tables already contain aggregated data
    */
   getServiceDependenciesFromView: (timeRangeHours: number = 24) => {
     // For recent data (< 24h), use 5-minute aggregations
@@ -309,13 +309,17 @@ export const OptimizedQueries = {
           parent_operation as operation_name,
           child_service as dependent_service,
           child_operation as dependent_operation,
-          sum(call_count) as call_count,
-          avg(avg_duration_ms) as avg_duration_ms,
-          sum(error_count) as error_count,
-          sum(call_count) as total_count
+          call_count,
+          avg_duration_ms,
+          error_count,
+          call_count as total_count
         FROM service_dependencies_5min
         WHERE window_start >= now() - INTERVAL ${timeRangeHours} HOUR
-        GROUP BY parent_service, parent_operation, child_service, child_operation
+          AND window_start = (
+            SELECT max(window_start)
+            FROM service_dependencies_5min
+            WHERE window_start >= now() - INTERVAL ${timeRangeHours} HOUR
+          )
         HAVING call_count >= 1
         ORDER BY call_count DESC
         LIMIT 500
@@ -328,13 +332,17 @@ export const OptimizedQueries = {
           '' as operation_name,  -- Hourly view doesn't have operation detail
           child_service as dependent_service,
           '' as dependent_operation,
-          sum(call_count) as call_count,
-          avg(avg_duration_ms) as avg_duration_ms,
-          sum(error_count) as error_count,
-          sum(call_count) as total_count
+          call_count,
+          avg_duration_ms,
+          error_count,
+          call_count as total_count
         FROM service_dependencies_hourly
         WHERE window_start >= now() - INTERVAL ${timeRangeHours} HOUR
-        GROUP BY parent_service, child_service
+          AND window_start = (
+            SELECT max(window_start)
+            FROM service_dependencies_hourly
+            WHERE window_start >= now() - INTERVAL ${timeRangeHours} HOUR
+          )
         HAVING call_count >= 1
         ORDER BY call_count DESC
         LIMIT 500
@@ -344,30 +352,35 @@ export const OptimizedQueries = {
 
   /**
    * Get service topology from materialized views
+   * Note: service_topology_5min already contains aggregated data, so we just select it
    */
   getServiceTopologyFromView: (timeRangeHours: number = 24) => `
     SELECT
       service_name,
       operation_name,
       span_kind,
-      sum(total_spans) as total_spans,
-      sum(root_spans) as root_spans,
-      sum(error_spans) as error_spans,
-      avg(avg_duration_ms) as avg_duration_ms,
-      max(p95_duration_ms) as p95_duration_ms,
-      sum(unique_traces) as unique_traces,
-      sum(total_spans) / (${timeRangeHours} * 60) as rate_per_second,
-      (sum(error_spans) * 100.0) / sum(total_spans) as error_rate_percent,
+      total_spans,
+      root_spans,
+      error_spans,
+      avg_duration_ms,
+      p95_duration_ms,
+      unique_traces,
+      total_spans / (${timeRangeHours} * 60) as rate_per_second,
+      error_rate_percent,
       CASE
-        WHEN (sum(error_spans) * 100.0) / sum(total_spans) > 5 THEN 'critical'
-        WHEN (sum(error_spans) * 100.0) / sum(total_spans) > 1 THEN 'warning'
-        WHEN max(p95_duration_ms) > 500 THEN 'degraded'
-        WHEN max(p95_duration_ms) > 100 THEN 'warning'
+        WHEN error_rate_percent > 5 THEN 'critical'
+        WHEN error_rate_percent > 1 THEN 'warning'
+        WHEN p95_duration_ms > 500 THEN 'degraded'
+        WHEN p95_duration_ms > 100 THEN 'warning'
         ELSE 'healthy'
       END as health_status
     FROM service_topology_5min
     WHERE window_start >= now() - INTERVAL ${timeRangeHours} HOUR
-    GROUP BY service_name, operation_name, span_kind
+      AND window_start = (
+        SELECT max(window_start)
+        FROM service_topology_5min
+        WHERE window_start >= now() - INTERVAL ${timeRangeHours} HOUR
+      )
     HAVING total_spans >= 1
     ORDER BY total_spans DESC
     LIMIT 500

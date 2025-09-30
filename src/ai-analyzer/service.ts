@@ -57,7 +57,7 @@ export const defaultAnalyzerConfig: AnalyzerConfig = {
   },
   analysis: {
     defaultTimeWindowHours: 24,
-    minSpanThreshold: 10, // Lowered from 100 to allow analysis with less data
+    minSpanThreshold: 1, // Issue #161: Allow analysis with single spans to ensure complete topology capture
     maxServicesAnalyzed: 50
   },
   llm: {

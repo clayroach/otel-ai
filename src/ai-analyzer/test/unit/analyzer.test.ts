@@ -256,10 +256,11 @@ describe('AI Analyzer', () => {
 
     it('should generate correct service dependencies query', () => {
       const query = ArchitectureQueries.getServiceDependencies(12)
-      expect(query).toContain('parent.service_name')
-      expect(query).toContain('child.service_name')
+      expect(query).toContain('p.service_name')
+      expect(query).toContain('c.service_name')
       expect(query).toContain('INNER JOIN')
       expect(query).toContain('INTERVAL 12 HOUR')
+      expect(query).toContain('HAVING call_count >= 1')
     })
 
     it('should generate correct trace flows query', () => {
@@ -268,6 +269,7 @@ describe('AI Analyzer', () => {
       expect(query).toContain('traces')
       expect(query).toContain('LIMIT 50')
       expect(query).toContain('INTERVAL 6 HOUR')
+      expect(query).toContain('HAVING count(*) >= 1')
     })
   })
 
