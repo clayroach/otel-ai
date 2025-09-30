@@ -59,35 +59,43 @@ export interface TraceFlowRaw {
 export const ArchitectureQueries = {
   /**
    * Discover service dependencies by analyzing parent-child span relationships
-   * Optimized: Direct query with memory protection, no sampling to ensure complete topology
+   * Optimized: Array-based approach to avoid expensive self-joins
    * Issue #161: This is the FALLBACK query when MVs are not available
    * NOTE: Prefer using materialized views via OptimizedQueries.getServiceDependenciesFromView()
    */
   getServiceDependencies: (timeRangeHours: number = 24) => `
+    WITH trace_data AS (
+      SELECT
+        trace_id,
+        groupArray((span_id, parent_span_id, service_name, operation_name, duration_ns, status_code)) as spans
+      FROM traces
+      WHERE start_time >= now() - INTERVAL ${timeRangeHours} HOUR
+      GROUP BY trace_id
+      HAVING length(spans) > 1  -- Skip single-span traces for dependencies
+    )
     SELECT
-      p.service_name as service_name,
-      p.operation_name as operation_name,
-      c.service_name as dependent_service,
-      c.operation_name as dependent_operation,
+      parent.3 as service_name,
+      parent.4 as operation_name,
+      child.3 as dependent_service,
+      child.4 as dependent_operation,
       count(*) as call_count,
-      avg(c.duration_ns / 1000000) as avg_duration_ms,
-      countIf(c.status_code = 'ERROR') as error_count,
+      avg(toFloat64(child.5) / 1000000) as avg_duration_ms,
+      countIf(child.6 = 'ERROR') as error_count,
       count(*) as total_count
-    FROM traces p
-    INNER JOIN traces c ON
-      c.trace_id = p.trace_id
-      AND c.parent_span_id = p.span_id
-      AND c.service_name != p.service_name
-    WHERE p.start_time >= now() - INTERVAL ${timeRangeHours} HOUR
-      AND c.start_time >= now() - INTERVAL ${timeRangeHours} HOUR
-    GROUP BY p.service_name, p.operation_name, c.service_name, c.operation_name
-    HAVING call_count >= 1  -- Show all dependencies, even single calls
+    FROM (
+      SELECT
+        arrayJoin(spans) as parent,
+        arrayFilter(x -> x.2 = parent.1 AND x.3 != parent.3, spans) as matching_children
+      FROM trace_data
+      WHERE length(matching_children) > 0
+    ) ARRAY JOIN matching_children as child
+    GROUP BY service_name, operation_name, dependent_service, dependent_operation
+    HAVING call_count >= 1
     ORDER BY call_count DESC
-    LIMIT 1000  -- Increased limit to capture more dependencies
-    SETTINGS max_memory_usage = 500000000,   -- 500MB memory limit (reduced to prevent OOM)
-             max_execution_time = 30,         -- 30 second timeout
-             max_block_size = 8192,           -- Smaller blocks to reduce memory peaks
-             distributed_product_mode = 'local' -- Optimize join execution
+    LIMIT 1000
+    SETTINGS max_memory_usage = 500000000,
+             max_execution_time = 30,
+             max_block_size = 8192
   `,
 
   /**
