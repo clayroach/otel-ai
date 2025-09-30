@@ -256,9 +256,9 @@ describe('AI Analyzer', () => {
 
     it('should generate correct service dependencies query', () => {
       const query = ArchitectureQueries.getServiceDependencies(12)
-      expect(query).toContain('p.service_name')
-      expect(query).toContain('c.service_name')
-      expect(query).toContain('INNER JOIN')
+      expect(query).toContain('parent.3 as service_name')
+      expect(query).toContain('child.3 as dependent_service')
+      expect(query).toContain('groupArray')
       expect(query).toContain('INTERVAL 12 HOUR')
       expect(query).toContain('HAVING call_count >= 1')
     })

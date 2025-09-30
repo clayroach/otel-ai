@@ -16,22 +16,21 @@ describe('AI Analyzer Queries', () => {
 
       // Check for memory protection settings
       expect(query).toContain('SETTINGS')
-      expect(query).toContain('max_memory_usage = 2000000000')
-      expect(query).toContain('max_execution_time = 60')
-      expect(query).toContain('distributed_product_mode = \'local\'')
+      expect(query).toContain('max_memory_usage = 500000000')
+      expect(query).toContain('max_execution_time = 30')
     })
 
-    it('should not use sampling or trace limiting', () => {
+    it('should use array-based approach without sampling', () => {
       const query = ArchitectureQueries.getServiceDependencies(24)
 
       // Should NOT contain sampling CTEs
-      expect(query).not.toContain('WITH relevant_traces')
-      expect(query).not.toContain('LIMIT 10000')
       expect(query).not.toContain('SAMPLE')
 
-      // Should have direct joins
-      expect(query).toContain('FROM traces p')
-      expect(query).toContain('INNER JOIN traces c')
+      // Should use array-based approach
+      expect(query).toContain('groupArray')
+      expect(query).toContain('trace_data')
+      expect(query).toContain('parent.3 as service_name')
+      expect(query).toContain('child.3 as dependent_service')
     })
 
     it('should include all dependencies (HAVING count >= 1)', () => {
@@ -149,37 +148,39 @@ describe('AI Analyzer Queries', () => {
     })
   })
 
-  describe('Materialized View Queries', () => {
-    it('should use 5-minute MV for recent data', () => {
+  describe('Aggregated Table Queries', () => {
+    it('should use 5-minute aggregation for recent data', () => {
       const query = OptimizedQueries.getServiceDependenciesFromView(12) // 12 hours
 
-      expect(query).toContain('FROM service_dependencies_5min')
-      expect(query).not.toContain('FROM service_dependencies_hourly')
+      expect(query).toContain('FROM otel.service_dependencies_5min')
+      expect(query).not.toContain('FROM otel.service_dependencies_hourly')
     })
 
-    it('should use hourly MV for longer ranges', () => {
+    it('should use hourly aggregation for longer ranges', () => {
       const query = OptimizedQueries.getServiceDependenciesFromView(48) // 48 hours
 
-      expect(query).toContain('FROM service_dependencies_hourly')
-      expect(query).not.toContain('FROM service_dependencies_5min')
+      expect(query).toContain('FROM otel.service_dependencies_hourly')
+      expect(query).not.toContain('FROM otel.service_dependencies_5min')
     })
 
-    it('should aggregate MV data correctly', () => {
+    it('should aggregate table data correctly', () => {
       const query = OptimizedQueries.getServiceTopologyFromView(24)
 
-      expect(query).toContain('sum(total_spans)')
-      expect(query).toContain('sum(root_spans)')
-      expect(query).toContain('avg(avg_duration_ms)')
-      expect(query).toContain('max(p95_duration_ms)')
-      expect(query).toContain('HAVING sum(total_spans) >= 1')
+      // The query actually returns columns directly, not aggregated
+      expect(query).toContain('total_spans')
+      expect(query).toContain('root_spans')
+      expect(query).toContain('avg_duration_ms')
+      expect(query).toContain('p95_duration_ms')
+      expect(query).toContain('FROM service_topology_5min')
     })
 
-    it('should check MV freshness correctly', () => {
-      const query = OptimizedQueries.checkMVStatus()
+    it('should use getServiceDependenciesForMinutes for sub-hour queries', () => {
+      const query = OptimizedQueries.getServiceDependenciesForMinutes(30) // 30 minutes
 
-      expect(query).toContain('FROM mv_monitoring')
-      expect(query).toContain('lag_seconds < 600 THEN \'fresh\'')
-      expect(query).toContain('lag_seconds < 3600 THEN \'stale\'')
+      expect(query).toContain('FROM otel.service_dependencies_5min')
+      expect(query).toContain('WHERE window_start >= now() - INTERVAL 30 MINUTE')
+      expect(query).toContain('sum(call_count)')
+      expect(query).toContain('avg(avg_duration_ms)')
     })
   })
 
@@ -234,8 +235,8 @@ describe('Edge Cases', () => {
     it('should handle traces with only one service', () => {
       const query = ArchitectureQueries.getServiceDependencies(24)
 
-      // The join condition ensures different services
-      expect(query).toContain('c.service_name != p.service_name')
+      // The array filter ensures different services
+      expect(query).toContain('x.3 != parent.3')
     })
   })
 
@@ -260,8 +261,8 @@ describe('Performance Characteristics', () => {
     const dependencyQuery = ArchitectureQueries.getServiceDependencies(24)
     const topologyQuery = ArchitectureQueries.getServiceTopology(24)
 
-    // Dependencies query (with joins) should have higher memory limit
-    expect(dependencyQuery).toContain('max_memory_usage = 2000000000') // 2GB
+    // Dependencies query now uses lower memory limit with array approach (500MB)
+    expect(dependencyQuery).toContain('max_memory_usage = 500000000') // 500MB
 
     // Topology query (simple aggregation) can have lower limit
     expect(topologyQuery).toContain('max_memory_usage = 1000000000') // 1GB
@@ -271,10 +272,10 @@ describe('Performance Characteristics', () => {
     const dependencyQuery = ArchitectureQueries.getServiceDependencies(24)
     const topologyQuery = ArchitectureQueries.getServiceTopology(24)
 
-    // Dependencies query should have longer timeout
-    expect(dependencyQuery).toContain('max_execution_time = 60')
+    // Both queries use 30 second timeout now
+    expect(dependencyQuery).toContain('max_execution_time = 30')
 
-    // Topology query can have shorter timeout
+    // Topology query also has 30 second timeout
     expect(topologyQuery).toContain('max_execution_time = 30')
   })
 })

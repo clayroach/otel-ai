@@ -60,8 +60,8 @@ export const ArchitectureQueries = {
   /**
    * Discover service dependencies by analyzing parent-child span relationships
    * Optimized: Array-based approach to avoid expensive self-joins
-   * Issue #161: This is the FALLBACK query when MVs are not available
-   * NOTE: Prefer using materialized views via OptimizedQueries.getServiceDependenciesFromView()
+   * Issue #161: This is the FALLBACK query when aggregated tables are not available
+   * NOTE: Prefer using aggregated tables via OptimizedQueries.getServiceDependenciesFromView()
    */
   getServiceDependencies: (timeRangeHours: number = 24) => `
     WITH trace_data AS (
@@ -302,11 +302,11 @@ export const withTimeFilter = (baseQuery: string, timeRangeHours: number): strin
   baseQuery.replace(/INTERVAL \d+ HOUR/g, `INTERVAL ${timeRangeHours} HOUR`)
 
 /**
- * Optimized queries using materialized views (Issue #161)
+ * Optimized queries using aggregated tables (Issue #161)
  */
 export const OptimizedQueries = {
   /**
-   * Get service dependencies from materialized views
+   * Get service dependencies from aggregated tables
    * Note: Uses SummingMergeTree, so we aggregate the pre-computed sums
    */
   getServiceDependenciesFromView: (timeRangeHours: number = 24) => {
@@ -398,7 +398,7 @@ export const OptimizedQueries = {
   },
 
   /**
-   * Get service topology from materialized views
+   * Get service topology from aggregated tables
    * Note: service_topology uses VIEWs with Merge functions, so we just query them
    */
   getServiceTopologyFromView: (timeRangeHours: number = 24) => `
@@ -425,24 +425,6 @@ export const OptimizedQueries = {
     WHERE window_start >= now() - INTERVAL ${timeRangeHours} HOUR
     ORDER BY total_spans DESC
     LIMIT 500
-  `,
-
-  /**
-   * Check if materialized views are available and fresh
-   */
-  checkMVStatus: () => `
-    SELECT
-      view_name,
-      last_update,
-      lag_seconds,
-      total_rows,
-      CASE
-        WHEN lag_seconds < 600 THEN 'fresh'      -- Less than 10 minutes
-        WHEN lag_seconds < 3600 THEN 'stale'     -- Less than 1 hour
-        ELSE 'outdated'
-      END as status
-    FROM mv_monitoring
-    ORDER BY view_name
   `
 }
 

@@ -213,59 +213,6 @@ export const AIAnalyzerRouterLive = Layer.effect(
       }
     })
 
-    // Materialized view management endpoints (Issue #161)
-    router.get('/api/ai-analyzer/topology/mv-status', async (_req, res) => {
-      try {
-        const { OptimizedQueries } = await import('./queries.js')
-
-        const status = await Effect.runPromise(
-          storageClient.queryRaw(OptimizedQueries.checkMVStatus())
-        )
-
-        res.json({
-          success: true,
-          materialized_views: status,
-          message: 'Materialized view status retrieved successfully'
-        })
-      } catch (error) {
-        console.error('❌ Failed to get MV status:', error)
-        res.status(500).json({
-          success: false,
-          error: 'Failed to retrieve materialized view status',
-          message: error instanceof Error ? error.message : 'Unknown error'
-        })
-      }
-    })
-
-    // Manual refresh endpoint for materialized views
-    router.post('/api/ai-analyzer/topology/refresh-views', async (req, res) => {
-      try {
-        const { force = false } = req.body
-
-        // In a production system, you would trigger a refresh of the MVs
-        // For now, we'll just report the current status
-        const { OptimizedQueries } = await import('./queries.js')
-        const status = await Effect.runPromise(
-          storageClient.queryRaw(OptimizedQueries.checkMVStatus())
-        )
-
-        res.json({
-          success: true,
-          message: force
-            ? 'Materialized views refresh initiated (forced)'
-            : 'Materialized views are updated automatically',
-          current_status: status
-        })
-      } catch (error) {
-        console.error('❌ Failed to refresh MVs:', error)
-        res.status(500).json({
-          success: false,
-          error: 'Failed to refresh materialized views',
-          message: error instanceof Error ? error.message : 'Unknown error'
-        })
-      }
-    })
-
     // Query performance metrics endpoint
     router.get('/api/ai-analyzer/topology/performance', async (_req, res) => {
       try {

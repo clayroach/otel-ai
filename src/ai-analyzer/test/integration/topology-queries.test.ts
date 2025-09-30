@@ -205,8 +205,8 @@ describe('Service Topology Queries Integration', () => {
     it('should have memory limits in service dependencies query', () => {
       const query = ArchitectureQueries.getServiceDependencies(24)
 
-      expect(query).toContain('max_memory_usage = 2000000000')
-      expect(query).toContain('max_execution_time = 60')
+      expect(query).toContain('max_memory_usage = 500000000')
+      expect(query).toContain('max_execution_time = 30')
       expect(query).toContain('LIMIT 1000')
     })
 
@@ -240,21 +240,22 @@ describe('Service Topology Queries Integration', () => {
     })
   })
 
-  describe('Materialized View Fallback', () => {
-    it('should handle missing materialized views gracefully', async () => {
-      const mvQuery = OptimizedQueries.checkMVStatus()
+  describe('Aggregated Table Fallback', () => {
+    it('should handle missing aggregated tables gracefully', async () => {
+      // Try to query aggregated tables
+      const aggregatedQuery = OptimizedQueries.getServiceDependenciesFromView(24)
 
       try {
-        // This should fail as MVs don't exist in test environment
-        await client.query({ query: mvQuery })
+        // This may fail if aggregated tables don't exist in test environment
+        await client.query({ query: aggregatedQuery })
 
-        // If it doesn't fail, MVs exist - that's fine too
+        // If it doesn't fail, aggregated tables exist - that's fine
         expect(true).toBe(true)
       } catch (error) {
-        // Expected behavior - MVs don't exist
+        // Expected behavior - aggregated tables might not exist in test
         expect(error).toBeDefined()
 
-        // Ensure raw queries still work
+        // Ensure raw queries still work as fallback
         const fallbackQuery = ArchitectureQueries.getServiceDependencies(24)
         const testQuery = fallbackQuery.replace(/LIMIT \d+/, 'LIMIT 0')
 
