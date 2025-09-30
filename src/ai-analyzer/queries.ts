@@ -307,7 +307,7 @@ export const withTimeFilter = (baseQuery: string, timeRangeHours: number): strin
 export const OptimizedQueries = {
   /**
    * Get service dependencies from materialized views
-   * Note: Tables already contain aggregated data
+   * Note: Must use *Merge functions with AggregatingMergeTree
    */
   getServiceDependenciesFromView: (timeRangeHours: number = 24) => {
     // For recent data (< 24h), use 5-minute aggregations
@@ -318,17 +318,13 @@ export const OptimizedQueries = {
           parent_operation as operation_name,
           child_service as dependent_service,
           child_operation as dependent_operation,
-          call_count,
-          avg_duration_ms,
-          error_count,
-          call_count as total_count
+          countMerge(call_count_state) as call_count,
+          avgMerge(avg_duration_state) / 1000000 as avg_duration_ms,
+          countMerge(error_count_state) as error_count,
+          countMerge(call_count_state) as total_count
         FROM service_dependencies_5min
         WHERE window_start >= now() - INTERVAL ${timeRangeHours} HOUR
-          AND window_start = (
-            SELECT max(window_start)
-            FROM service_dependencies_5min
-            WHERE window_start >= now() - INTERVAL ${timeRangeHours} HOUR
-          )
+        GROUP BY parent_service, parent_operation, child_service, child_operation
         HAVING call_count >= 1
         ORDER BY call_count DESC
         LIMIT 500
@@ -341,17 +337,13 @@ export const OptimizedQueries = {
           '' as operation_name,  -- Hourly view doesn't have operation detail
           child_service as dependent_service,
           '' as dependent_operation,
-          call_count,
-          avg_duration_ms,
-          error_count,
-          call_count as total_count
+          countMerge(call_count_state) as call_count,
+          avgMerge(avg_duration_state) / 1000000 as avg_duration_ms,
+          countMerge(error_count_state) as error_count,
+          countMerge(call_count_state) as total_count
         FROM service_dependencies_hourly
         WHERE window_start >= now() - INTERVAL ${timeRangeHours} HOUR
-          AND window_start = (
-            SELECT max(window_start)
-            FROM service_dependencies_hourly
-            WHERE window_start >= now() - INTERVAL ${timeRangeHours} HOUR
-          )
+        GROUP BY parent_service, child_service
         HAVING call_count >= 1
         ORDER BY call_count DESC
         LIMIT 500
@@ -361,35 +353,31 @@ export const OptimizedQueries = {
 
   /**
    * Get service topology from materialized views
-   * Note: service_topology_5min already contains aggregated data, so we just select it
+   * Note: Must use *Merge functions with AggregatingMergeTree
    */
   getServiceTopologyFromView: (timeRangeHours: number = 24) => `
     SELECT
       service_name,
       operation_name,
       span_kind,
-      total_spans,
-      root_spans,
-      error_spans,
-      avg_duration_ms,
-      p95_duration_ms,
-      unique_traces,
-      total_spans / (${timeRangeHours} * 60) as rate_per_second,
-      error_rate_percent,
+      countMerge(total_spans_state) as total_spans,
+      countMerge(root_spans_state) as root_spans,
+      countMerge(error_spans_state) as error_spans,
+      avgMerge(avg_duration_state) / 1000000 as avg_duration_ms,
+      quantileMerge(0.95)(p95_duration_state) / 1000000 as p95_duration_ms,
+      uniqMerge(unique_traces_state) as unique_traces,
+      countMerge(total_spans_state) / (${timeRangeHours} * 60) as rate_per_second,
+      (countMerge(error_spans_state) * 100.0) / countMerge(total_spans_state) as error_rate_percent,
       CASE
-        WHEN error_rate_percent > 5 THEN 'critical'
-        WHEN error_rate_percent > 1 THEN 'warning'
-        WHEN p95_duration_ms > 500 THEN 'degraded'
-        WHEN p95_duration_ms > 100 THEN 'warning'
+        WHEN (countMerge(error_spans_state) * 100.0) / countMerge(total_spans_state) > 5 THEN 'critical'
+        WHEN (countMerge(error_spans_state) * 100.0) / countMerge(total_spans_state) > 1 THEN 'warning'
+        WHEN quantileMerge(0.95)(p95_duration_state) / 1000000 > 500 THEN 'degraded'
+        WHEN quantileMerge(0.95)(p95_duration_state) / 1000000 > 100 THEN 'warning'
         ELSE 'healthy'
       END as health_status
     FROM service_topology_5min
     WHERE window_start >= now() - INTERVAL ${timeRangeHours} HOUR
-      AND window_start = (
-        SELECT max(window_start)
-        FROM service_topology_5min
-        WHERE window_start >= now() - INTERVAL ${timeRangeHours} HOUR
-      )
+    GROUP BY service_name, operation_name, span_kind
     HAVING total_spans >= 1
     ORDER BY total_spans DESC
     LIMIT 500
