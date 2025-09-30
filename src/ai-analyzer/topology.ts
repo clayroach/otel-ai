@@ -424,6 +424,7 @@ export const buildTopologyVisualizationData = (
   })
 
   // Create nodes with visualization properties
+  // First, create nodes from architecture services (if any)
   architecture.services.forEach((service) => {
     const metrics = serviceMetrics.get(service.service)
     const node: ServiceNode = {
@@ -446,6 +447,40 @@ export const buildTopologyVisualizationData = (
     nodes.push(node)
     nodeMap.set(service.service, node)
   })
+
+  // If no nodes created from topology, create nodes from dependency data
+  if (nodes.length === 0 && dependencyData.length > 0) {
+    // Extract unique services from dependencies
+    const servicesFromDeps = new Set<string>()
+    dependencyData.forEach((dep) => {
+      servicesFromDeps.add(dep.service_name)
+      servicesFromDeps.add(dep.dependent_service)
+    })
+
+    // Create nodes for each unique service found in dependencies
+    servicesFromDeps.forEach((serviceName) => {
+      const metrics = serviceMetrics.get(serviceName)
+      const node: ServiceNode = {
+        id: serviceName,
+        name: serviceName,
+        category: metrics?.runtime || 'unknown',
+        symbolSize: 30, // Default size when no topology metrics
+        itemStyle: {
+          color: getHealthColor('healthy') // Default to healthy when no metrics
+        },
+        label: {
+          show: true
+        },
+        metrics: {
+          rate: metrics?.rate || 0,
+          errorRate: metrics?.errorRate || 0,
+          duration: metrics?.p95Duration || 0
+        }
+      }
+      nodes.push(node)
+      nodeMap.set(serviceName, node)
+    })
+  }
 
   // Create edges from dependencies
   const edges: ServiceEdge[] = []

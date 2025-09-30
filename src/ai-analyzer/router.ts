@@ -150,34 +150,24 @@ export const AIAnalyzerRouterLive = Layer.effect(
         // Execute queries to get raw topology data using Effect
         const result = await Effect.runPromise(
           Effect.gen(function* () {
-            // Try to use materialized views first, fallback to raw queries
-            let topologyQuery = ArchitectureQueries.getServiceTopology(timeRangeHours)
-            let dependencyQuery = ArchitectureQueries.getServiceDependencies(timeRangeHours)
+            // Default to using raw topology query (no aggregated table for this yet)
+            const topologyQuery = ArchitectureQueries.getServiceTopology(timeRangeHours)
+            let dependencyQuery: string
 
-            // Check if MVs are available (optional optimization)
-            try {
-              const mvStatus = yield* storageClient.queryRaw(OptimizedQueries.checkMVStatus())
-              const hasAnyMVs = (mvStatus as Array<{ status: string }>).length > 0
-              const hasFreshMVs = (mvStatus as Array<{ status: string }>).some(
-                (mv) => mv.status === 'fresh'
+            // For dependencies, use our aggregated tables populated by dependency-aggregator
+            // Convert timeRangeHours to minutes for sub-hour windows
+            const timeRangeMinutes = timeRangeHours * 60
+
+            if (timeRangeMinutes <= 60) {
+              // For windows <= 1 hour, use getServiceDependenciesForMinutes
+              console.log(
+                `📊 Using aggregated service_dependencies_5min table for ${timeRangeMinutes} minute window`
               )
-
-              if (hasAnyMVs) {
-                // Use MVs even if stale - better than OOM crashes from raw queries
-                if (hasFreshMVs) {
-                  console.log('📊 Using fresh materialized views for faster queries')
-                } else {
-                  console.log(
-                    '📊 Using stale materialized views (better than OOM from raw queries)'
-                  )
-                }
-                topologyQuery = OptimizedQueries.getServiceTopologyFromView(timeRangeHours)
-                dependencyQuery = OptimizedQueries.getServiceDependenciesFromView(timeRangeHours)
-              } else {
-                console.log('⚠️ No materialized views found, using raw queries with memory limits')
-              }
-            } catch (mvError) {
-              console.log('📋 Materialized views not available, using optimized raw queries')
+              dependencyQuery = OptimizedQueries.getServiceDependenciesForMinutes(timeRangeMinutes)
+            } else {
+              // For longer windows, use the standard view query
+              console.log(`📊 Using aggregated dependency tables for ${timeRangeHours} hour window`)
+              dependencyQuery = OptimizedQueries.getServiceDependenciesFromView(timeRangeHours)
             }
 
             const traceFlowQuery = ArchitectureQueries.getTraceFlows(100, timeRangeHours)

@@ -310,8 +310,11 @@ export const OptimizedQueries = {
    * Note: Uses SummingMergeTree, so we aggregate the pre-computed sums
    */
   getServiceDependenciesFromView: (timeRangeHours: number = 24) => {
-    // For recent data (< 24h), use 5-minute aggregations
-    if (timeRangeHours <= 24) {
+    // Convert hours to minutes for more granular time windows
+    const timeRangeMinutes = timeRangeHours * 60
+
+    // For time windows <= 1 hour, use 5-minute aggregations
+    if (timeRangeMinutes <= 60) {
       return `
         SELECT
           parent_service as service_name,
@@ -322,7 +325,26 @@ export const OptimizedQueries = {
           avg(avg_duration_ms) as avg_duration_ms,
           sum(error_count) as error_count,
           sum(total_count) as total_count
-        FROM service_dependencies_5min
+        FROM otel.service_dependencies_5min
+        WHERE window_start >= now() - INTERVAL ${timeRangeMinutes} MINUTE
+        GROUP BY parent_service, parent_operation, child_service, child_operation
+        HAVING call_count >= 1
+        ORDER BY call_count DESC
+        LIMIT 500
+      `
+    } else if (timeRangeHours <= 24) {
+      // For recent data (1h < time <= 24h), still use 5-minute aggregations
+      return `
+        SELECT
+          parent_service as service_name,
+          parent_operation as operation_name,
+          child_service as dependent_service,
+          child_operation as dependent_operation,
+          sum(call_count) as call_count,
+          avg(avg_duration_ms) as avg_duration_ms,
+          sum(error_count) as error_count,
+          sum(total_count) as total_count
+        FROM otel.service_dependencies_5min
         WHERE window_start >= now() - INTERVAL ${timeRangeHours} HOUR
         GROUP BY parent_service, parent_operation, child_service, child_operation
         HAVING call_count >= 1
@@ -330,7 +352,7 @@ export const OptimizedQueries = {
         LIMIT 500
       `
     } else {
-      // For longer ranges, use hourly aggregations
+      // For longer ranges (> 24h), use hourly aggregations
       return `
         SELECT
           parent_service as service_name,
@@ -341,7 +363,7 @@ export const OptimizedQueries = {
           avg(avg_duration_ms) as avg_duration_ms,
           sum(error_count) as error_count,
           sum(total_count) as total_count
-        FROM service_dependencies_hourly
+        FROM otel.service_dependencies_hourly
         WHERE window_start >= now() - INTERVAL ${timeRangeHours} HOUR
         GROUP BY parent_service, child_service
         HAVING call_count >= 1
@@ -349,6 +371,30 @@ export const OptimizedQueries = {
         LIMIT 500
       `
     }
+  },
+
+  /**
+   * Get service dependencies for specific minute windows (5, 15, 30 minutes)
+   */
+  getServiceDependenciesForMinutes: (minutes: number) => {
+    // Always use 5-minute aggregations for sub-hour windows
+    return `
+      SELECT
+        parent_service as service_name,
+        parent_operation as operation_name,
+        child_service as dependent_service,
+        child_operation as dependent_operation,
+        sum(call_count) as call_count,
+        avg(avg_duration_ms) as avg_duration_ms,
+        sum(error_count) as error_count,
+        sum(total_count) as total_count
+      FROM otel.service_dependencies_5min
+      WHERE window_start >= now() - INTERVAL ${minutes} MINUTE
+      GROUP BY parent_service, parent_operation, child_service, child_operation
+      HAVING call_count >= 1
+      ORDER BY call_count DESC
+      LIMIT 500
+    `
   },
 
   /**

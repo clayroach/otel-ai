@@ -7,7 +7,7 @@
 import { Context, Effect, Layer } from 'effect'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { LLMManagerLive } from '../../../llm-manager/index.js'
-import { ConfigServiceLive, StorageServiceLive } from '../../../storage/index.js'
+import { ConfigServiceLive, StorageServiceLive, DependencyAggregatorMock } from '../../../storage/index.js'
 import {
   UIGeneratorAPIClientLayer,
   UIGeneratorAPIClientTag,
@@ -22,9 +22,13 @@ import { shouldSkipExternalLLMTests } from '../../../llm-manager/test/utils/llm-
 
 // Build the dependencies that UIGeneratorServiceLive needs
 // UIGeneratorServiceLive requires: LLMManagerServiceTag, StorageServiceTag, ConfigServiceTag
+// StorageServiceLive now requires DependencyAggregatorTag
 const dependencies = Layer.mergeAll(
   ConfigServiceLive,
-  StorageServiceLive.pipe(Layer.provide(ConfigServiceLive)),
+  StorageServiceLive.pipe(
+    Layer.provide(ConfigServiceLive),
+    Layer.provide(DependencyAggregatorMock)
+  ),
   LLMManagerLive
 )
 
