@@ -61,12 +61,9 @@ export const ServiceTopologyPanel: React.FC<ServiceTopologyPanelProps> = ({
         params.endTime = timeRange[1].toISOString()
       }
 
-      const response = await axios.post(
-        'http://localhost:4319/api/ai-analyzer/topology-visualization',
-        {
-          timeRange: params
-        }
-      )
+      const response = await axios.post('http://localhost:4319/api/topology/visualization', {
+        timeRange: params
+      })
 
       console.log('[ServiceTopologyGraph] Response status:', response.status)
       console.log('[ServiceTopologyGraph] Response data keys:', Object.keys(response.data || {}))
@@ -217,10 +214,9 @@ export const ServiceTopologyPanel: React.FC<ServiceTopologyPanelProps> = ({
           params.endTime = timeRange[1].toISOString()
         }
 
-        const response = await axios.post(
-          'http://localhost:4319/api/ai-analyzer/topology-visualization',
-          { timeRange: params }
-        )
+        const response = await axios.post('http://localhost:4319/api/topology/visualization', {
+          timeRange: params
+        })
 
         if (response.data) {
           console.log(

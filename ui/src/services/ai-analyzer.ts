@@ -1,7 +1,7 @@
 /**
- * AI Analyzer Service Integration
+ * Topology Analyzer Service Integration
  *
- * Connects the UI to the backend AI analyzer service for real-time analysis.
+ * Connects the UI to the backend topology analyzer service for real-time analysis.
  */
 
 import axios from 'axios'
@@ -23,7 +23,7 @@ const apiClient = axios.create({
 // Request interceptor for logging
 apiClient.interceptors.request.use(
   (config) => {
-    console.log('AI Analyzer API Request:', config.method?.toUpperCase(), config.url)
+    console.log('Topology Analyzer API Request:', config.method?.toUpperCase(), config.url)
     return config
   },
   (error) => Promise.reject(error)
@@ -33,22 +33,22 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.error('AI Analyzer API Error:', error.response?.data || error.message)
+    console.error('Topology Analyzer API Error:', error.response?.data || error.message)
     return Promise.reject(error)
   }
 )
 
 /**
- * AI Analyzer Service
+ * Topology Analyzer Service
  */
 export class AIAnalyzerService {
   /**
-   * Perform a complete AI analysis
+   * Perform a complete topology analysis
    */
   static async analyzeArchitecture(request: AnalysisRequestParams): Promise<AnalysisResult> {
-    console.log('🔍 AI Analyzer Service called with config:', request.config)
+    console.log('🔍 Topology Analyzer Service called with config:', request.config)
 
-    const response = await apiClient.post('/ai-analyzer/analyze', {
+    const response = await apiClient.post('/topology/analyze', {
       type: request.type,
       timeRange: {
         startTime: request.timeRange.startTime.toISOString(),
@@ -90,7 +90,7 @@ export class AIAnalyzerService {
     request: AnalysisRequestParams
   ): AsyncGenerator<string, void, unknown> {
     try {
-      const response = await fetch(`http://localhost:4319/api/ai-analyzer/stream`, {
+      const response = await fetch(`http://localhost:4319/api/topology/stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -163,7 +163,7 @@ export class AIAnalyzerService {
     startTime: Date
     endTime: Date
   }): Promise<ServiceTopology[]> {
-    const response = await apiClient.post('/ai-analyzer/topology', {
+    const response = await apiClient.post('/topology/services', {
       timeRange: {
         startTime: timeRange.startTime.toISOString(),
         endTime: timeRange.endTime.toISOString()
@@ -179,7 +179,7 @@ export class AIAnalyzerService {
   static async generateDocumentation(
     architecture: ApplicationArchitecture
   ): Promise<{ markdown: string }> {
-    const response = await apiClient.post('/ai-analyzer/documentation', {
+    const response = await apiClient.post('/topology/documentation', {
       architecture: {
         ...architecture,
         generatedAt: architecture.generatedAt.toISOString()
@@ -190,11 +190,11 @@ export class AIAnalyzerService {
   }
 
   /**
-   * Health check for the AI analyzer service
+   * Health check for the topology analyzer service
    */
   static async healthCheck(): Promise<{ status: string; capabilities: string[] }> {
     try {
-      const response = await apiClient.get('/ai-analyzer/health')
+      const response = await apiClient.get('/topology/health')
       return response.data
     } catch (error) {
       return {
