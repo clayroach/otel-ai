@@ -1,22 +1,19 @@
-import React from 'react'
-import { Layout as AntLayout, Menu, Button, Typography, Space, Dropdown } from 'antd'
 import {
-  BugOutlined,
-  BarChartOutlined,
-  FileTextOutlined,
   ApartmentOutlined,
-  SettingOutlined,
-  MoonOutlined,
-  SunOutlined,
+  BugOutlined,
   MenuOutlined,
+  MoonOutlined,
   RobotOutlined,
-  BuildOutlined
+  SettingOutlined,
+  SunOutlined
 } from '@ant-design/icons'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { Layout as AntLayout, Button, Dropdown, Menu, Space, Typography } from 'antd'
+import React from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAppStore } from '../../store/appStore'
-import { TimeRangeSelector } from '../GlobalControls/TimeRangeSelector'
-import { AutoRefreshSelector } from '../GlobalControls/AutoRefreshSelector'
 import { AnalyzeButton } from '../GlobalControls/AnalyzeButton'
+import { AutoRefreshSelector } from '../GlobalControls/AutoRefreshSelector'
+import { TimeRangeSelector } from '../GlobalControls/TimeRangeSelector'
 import { ModelSelector, ModelSelectorSQL } from '../ModelSelector'
 
 const { Header, Sider, Content } = AntLayout
@@ -45,28 +42,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       'data-testid': 'nav-traces'
     },
     {
-      key: '/metrics',
-      icon: <BarChartOutlined />,
-      label: 'Metrics',
-      'data-testid': 'nav-metrics'
-    },
-    {
-      key: '/logs',
-      icon: <FileTextOutlined />,
-      label: 'Logs',
-      'data-testid': 'nav-logs'
-    },
-    {
       key: '/llm-debug',
       icon: <RobotOutlined />,
       label: 'LLM Debug',
       'data-testid': 'nav-llm-debug'
-    },
-    {
-      key: '/dynamic-ui',
-      icon: <BuildOutlined />,
-      label: 'Dynamic UI',
-      'data-testid': 'nav-dynamic-ui'
     }
   ]
 

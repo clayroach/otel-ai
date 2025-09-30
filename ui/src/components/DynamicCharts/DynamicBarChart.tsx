@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
+import { extractEChartsConfig, validateChartConfig } from './chartValidation'
 
 interface DynamicBarChartProps {
   config: EChartsOption
@@ -31,13 +32,22 @@ export const DynamicBarChart: React.FC<DynamicBarChartProps> = ({
     )
   }
 
-  if (!config) {
+  // Extract the actual ECharts config (may be wrapped in metadata)
+  const extractedConfig = extractEChartsConfig(config) as EChartsOption
+
+  // Validate chart configuration
+  const validationError = validateChartConfig(extractedConfig)
+  if (validationError) {
+    return validationError
+  }
+
+  if (!extractedConfig) {
     return null
   }
 
   return (
     <ReactECharts
-      option={config}
+      option={extractedConfig}
       style={{ height, width: '100%' }}
       notMerge={true}
       lazyUpdate={true}

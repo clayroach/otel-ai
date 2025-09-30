@@ -16,6 +16,63 @@ import {
 } from './diagnostic-query-instructions.js'
 
 /**
+ * Extract SQL from LLM response, handling markdown code fences and preamble text
+ */
+function extractSQLFromResponse(response: string): string {
+  let sql = response.trim()
+
+  // Check if response contains markdown code fences
+  const sqlBlockMatch = sql.match(/```(?:sql|SQL)?\s*\n([\s\S]*?)\n```/)
+  if (sqlBlockMatch && sqlBlockMatch[1]) {
+    // Extract SQL from within code fences
+    sql = sqlBlockMatch[1].trim()
+  } else {
+    // No code fences - try to remove common preamble patterns
+    // Remove lines like "Here's the corrected SQL query:", "Here is the query:", etc.
+    const preamblePatterns = [
+      /^Here'?s?\s+(?:the\s+)?(?:corrected\s+)?(?:SQL\s+)?(?:query|solution):?\s*\n/i,
+      /^The\s+(?:corrected\s+)?(?:SQL\s+)?(?:query|solution)\s+is:?\s*\n/i,
+      /^Query:?\s*\n/i
+    ]
+
+    for (const pattern of preamblePatterns) {
+      sql = sql.replace(pattern, '')
+    }
+
+    // Remove any remaining markdown code fence markers
+    sql = sql.replace(/^```(?:sql|SQL)?\s*\n?/i, '')
+    sql = sql.replace(/\n?```\s*$/g, '')
+    sql = sql.trim()
+  }
+
+  // Validate and complete incomplete queries
+  sql = validateAndCompleteQuery(sql)
+
+  return sql
+}
+
+/**
+ * Detect and complete incomplete CTE queries that are missing the main SELECT
+ */
+function validateAndCompleteQuery(sql: string): string {
+  const trimmed = sql.trim()
+
+  // Check if query starts with WITH and ends with closing paren
+  // This indicates an incomplete CTE
+  if (/^WITH\s+/i.test(trimmed) && trimmed.endsWith(')')) {
+    // Extract the CTE name
+    const cteMatch = trimmed.match(/^WITH\s+(\w+)\s+AS\s*\(/i)
+    if (cteMatch && cteMatch[1]) {
+      const cteName = cteMatch[1]
+      // Add a simple SELECT * to complete the query
+      return `${trimmed}\nSELECT * FROM ${cteName} LIMIT 100`
+    }
+  }
+
+  return sql
+}
+
+/**
  * Service definition for ClickHouse AI Query Generator
  */
 export class CriticalPathQueryGeneratorClickHouseAI extends Context.Tag(
@@ -109,19 +166,7 @@ export const CriticalPathQueryGeneratorClickHouseAILive = Layer.effect(
             )
 
           // Clean the response to extract just the SQL
-          let sql = response.content.trim()
-
-          // Remove markdown blocks if present
-          if (sql.startsWith('```sql')) {
-            sql = sql.substring(6)
-          }
-          if (sql.startsWith('```')) {
-            sql = sql.substring(3)
-          }
-          if (sql.endsWith('```')) {
-            sql = sql.substring(0, sql.length - 3)
-          }
-          sql = sql.trim()
+          const sql = extractSQLFromResponse(response.content)
 
           // Map scenario name to QueryPattern
           const getPattern = (name: string): QueryPattern => {

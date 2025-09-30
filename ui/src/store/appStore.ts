@@ -157,7 +157,7 @@ export const useAppStore = create<AppState>()(
       clearQueryHistory: () => set({ queryHistory: [] }),
 
       // Connection settings
-      clickhouseUrl: '/api/clickhouse',
+      clickhouseUrl: '/api/clickhouse/query',
       clickhouseAuth: {
         username: 'otel',
         password: 'otel123'
@@ -187,7 +187,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'otel-ai-app-storage',
-      version: 5, // Increment after removing useMockData
+      version: 6, // Increment for clickhouse URL migration to backend proxy
       partialize: (state) => ({
         darkMode: state.darkMode,
         sidebarCollapsed: state.sidebarCollapsed,
@@ -203,7 +203,7 @@ export const useAppStore = create<AppState>()(
           return {
             darkMode: (state?.darkMode as boolean) || false,
             sidebarCollapsed: (state?.sidebarCollapsed as boolean) || false,
-            clickhouseUrl: '/api/clickhouse',
+            clickhouseUrl: '/api/clickhouse/query',
             clickhouseAuth: {
               username: 'otel',
               password: 'otel123'
@@ -212,6 +212,15 @@ export const useAppStore = create<AppState>()(
             // activeQuery will default to '' which forces use of DEFAULT_QUERY
           }
         }
+
+        // Migration for v5 -> v6: Update clickhouse URL to use backend proxy
+        if (version === 5 && persistedState && typeof persistedState === 'object') {
+          const state = persistedState as Record<string, unknown>
+          if (state.clickhouseUrl === '/api/clickhouse') {
+            state.clickhouseUrl = '/api/clickhouse/query'
+          }
+        }
+
         return persistedState
       }
     }
