@@ -254,7 +254,8 @@ function transformTracesToTopology(
     const serviceData = serviceMap.get(serviceName)
     if (!serviceData) continue
     serviceData.spans.push(span)
-    serviceData.totalDuration += span.duration
+    // Convert nanoseconds to milliseconds
+    serviceData.totalDuration += span.duration / 1_000_000
     if (span.statusCode === 2) {
       // STATUS_CODE_ERROR = 2
       serviceData.errorCount++
@@ -283,8 +284,10 @@ function transformTracesToTopology(
         if (!dep) continue
         dep.call_count++
         dep.total_count++
+        // Convert nanoseconds to milliseconds
+        const durationMs = span.duration / 1_000_000
         dep.avg_duration_ms =
-          (dep.avg_duration_ms * (dep.call_count - 1) + span.duration) / dep.call_count
+          ((dep.avg_duration_ms ?? 0) * (dep.call_count - 1) + durationMs) / dep.call_count
         if (span.statusCode === 2) {
           // STATUS_CODE_ERROR = 2
           dep.error_count++
@@ -304,6 +307,7 @@ function transformTracesToTopology(
       total_spans: data.spans.length,
       root_spans: data.spans.filter((s) => !s.parentSpanId).length,
       error_spans: data.errorCount,
+      // totalDuration is already in milliseconds after conversion above
       avg_duration_ms: data.totalDuration / data.spans.length,
       p95_duration_ms: (data.totalDuration / data.spans.length) * 1.2, // Approximate
       unique_traces: new Set(data.spans.map((s) => s.traceId)).size,
@@ -332,15 +336,15 @@ const generateInsights = (
 
   // Performance insights - high latency services
   const slowServices = architecture.services
-    .filter((s) => (s.metadata.avgLatencyMs as number) > 1000)
-    .sort((a, b) => (b.metadata.avgLatencyMs as number) - (a.metadata.avgLatencyMs as number))
+    .filter((s) => s.metadata.avgLatencyMs !== undefined && s.metadata.avgLatencyMs > 1000)
+    .sort((a, b) => (b.metadata.avgLatencyMs ?? 0) - (a.metadata.avgLatencyMs ?? 0))
 
   if (slowServices.length > 0) {
     const evidenceData = slowServices
       .slice(0, 5)
       .map(
         (s) =>
-          `${cleanServiceName(s.service)}: ${Math.round(s.metadata.avgLatencyMs as number)}ms avg latency (${s.metadata.totalSpans} spans)`
+          `${cleanServiceName(s.service)}: ${Math.round(s.metadata.avgLatencyMs ?? 0)}ms avg latency (${s.metadata.totalSpans} spans)`
       )
 
     insights.push({
@@ -358,15 +362,15 @@ const generateInsights = (
 
   // Error rate insights
   const errorProneServices = architecture.services
-    .filter((s) => (s.metadata.errorRate as number) > 0.01) // 1% error rate
-    .sort((a, b) => (b.metadata.errorRate as number) - (a.metadata.errorRate as number))
+    .filter((s) => s.metadata.errorRate !== undefined && s.metadata.errorRate > 0.01) // 1% error rate
+    .sort((a, b) => (b.metadata.errorRate ?? 0) - (a.metadata.errorRate ?? 0))
 
   if (errorProneServices.length > 0) {
     const evidenceData = errorProneServices
       .slice(0, 5)
       .map(
         (s) =>
-          `${cleanServiceName(s.service)}: ${((s.metadata.errorRate as number) * 100).toFixed(1)}% error rate (${s.metadata.totalSpans} spans)`
+          `${cleanServiceName(s.service)}: ${((s.metadata.errorRate ?? 0) * 100).toFixed(1)}% error rate (${s.metadata.totalSpans} spans)`
       )
 
     insights.push({
@@ -377,7 +381,7 @@ const generateInsights = (
         .slice(0, 3)
         .map(
           (s) =>
-            `${cleanServiceName(s.service)} (${((s.metadata.errorRate as number) * 100).toFixed(1)}%)`
+            `${cleanServiceName(s.service)} (${((s.metadata.errorRate ?? 0) * 100).toFixed(1)}%)`
         )
         .join(', ')}`,
       recommendation: 'Review error handling and monitoring for these services',

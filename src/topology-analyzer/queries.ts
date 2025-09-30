@@ -16,7 +16,7 @@ export interface ServiceDependencyRaw {
   dependent_service: string
   dependent_operation: string
   call_count: number
-  avg_duration_ms: number
+  avg_duration_ms: number | null // ClickHouse can return null
   error_count: number
   total_count: number
 }
@@ -28,8 +28,8 @@ export interface ServiceTopologyRaw {
   total_spans: number
   root_spans: number
   error_spans: number
-  avg_duration_ms: number
-  p95_duration_ms: number
+  avg_duration_ms: number | null // ClickHouse can return null
+  p95_duration_ms: number | null // ClickHouse can return null
   unique_traces: number
   // Topology visualization extensions
   rate_per_second: number

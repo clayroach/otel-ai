@@ -45,9 +45,9 @@ describe('Topology Visualization API Integration', () => {
     // Clean up if needed
   })
 
-  describe('POST /api/ai-analyzer/topology-visualization', () => {
+  describe('POST /api/topology/visualization', () => {
     it('should return topology visualization data with nodes and edges', async () => {
-      const response = await fetch(`${baseUrl}/api/ai-analyzer/topology-visualization`, {
+      const response = await fetch(`${baseUrl}/api/topology/visualization`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -121,7 +121,7 @@ describe('Topology Visualization API Integration', () => {
       const timeRanges = [1, 6, 12, 48]
 
       for (const hours of timeRanges) {
-        const response = await fetch(`${baseUrl}/api/ai-analyzer/topology-visualization`, {
+        const response = await fetch(`${baseUrl}/api/topology/visualization`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -145,7 +145,7 @@ describe('Topology Visualization API Integration', () => {
     })
 
     it('should validate health color mapping', async () => {
-      const response = await fetch(`${baseUrl}/api/ai-analyzer/topology-visualization`, {
+      const response = await fetch(`${baseUrl}/api/topology/visualization`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -171,7 +171,7 @@ describe('Topology Visualization API Integration', () => {
     })
 
     it('should validate edge thickness values', async () => {
-      const response = await fetch(`${baseUrl}/api/ai-analyzer/topology-visualization`, {
+      const response = await fetch(`${baseUrl}/api/topology/visualization`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -202,7 +202,7 @@ describe('Topology Visualization API Integration', () => {
     })
 
     it('should return appropriate error for invalid time range', async () => {
-      const response = await fetch(`${baseUrl}/api/ai-analyzer/topology-visualization`, {
+      const response = await fetch(`${baseUrl}/api/topology/visualization`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -219,7 +219,7 @@ describe('Topology Visualization API Integration', () => {
     })
 
     it('should include runtime environments when available', async () => {
-      const response = await fetch(`${baseUrl}/api/ai-analyzer/topology-visualization`, {
+      const response = await fetch(`${baseUrl}/api/topology/visualization`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -244,7 +244,7 @@ describe('Topology Visualization API Integration', () => {
     })
 
     it('should calculate node sizes based on activity', async () => {
-      const response = await fetch(`${baseUrl}/api/ai-analyzer/topology-visualization`, {
+      const response = await fetch(`${baseUrl}/api/topology/visualization`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -269,7 +269,7 @@ describe('Topology Visualization API Integration', () => {
     })
 
     it('should include R.E.D metrics in node data', async () => {
-      const response = await fetch(`${baseUrl}/api/ai-analyzer/topology-visualization`, {
+      const response = await fetch(`${baseUrl}/api/topology/visualization`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

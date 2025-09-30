@@ -89,7 +89,8 @@ export const buildDependencyGraph = (
       service: dep.dependent_service,
       operation: dep.dependent_operation,
       callCount: dep.call_count,
-      avgLatencyMs: dep.avg_duration_ms,
+      // Convert null to 0 for required number fields
+      avgLatencyMs: dep.avg_duration_ms ?? 0,
       errorRate: dep.error_count / dep.total_count
     })
 
@@ -168,17 +169,21 @@ export const discoverCriticalPaths = (traceFlows: TraceFlowRaw[]) => {
  * Build data flow analysis
  */
 export const buildDataFlows = (dependencies: ServiceDependencyRaw[]) => {
-  return dependencies.map((dep) => ({
-    from: dep.service_name,
-    to: dep.dependent_service,
-    operation: dep.dependent_operation,
-    volume: dep.call_count,
-    latency: {
-      p50: dep.avg_duration_ms, // Approximation - we'd need percentile data
-      p95: dep.avg_duration_ms * 1.5, // Rough estimate
-      p99: dep.avg_duration_ms * 2.0 // Rough estimate
+  return dependencies.map((dep) => {
+    // Convert null to 0 for latency calculations
+    const avgDuration = dep.avg_duration_ms ?? 0
+    return {
+      from: dep.service_name,
+      to: dep.dependent_service,
+      operation: dep.dependent_operation,
+      volume: dep.call_count,
+      latency: {
+        p50: avgDuration, // Approximation - we'd need percentile data
+        p95: avgDuration * 1.5, // Rough estimate
+        p99: avgDuration * 2.0 // Rough estimate
+      }
     }
-  }))
+  })
 }
 
 /**
@@ -205,8 +210,9 @@ export const discoverApplicationTopology = (
           totalSpans: raw.total_spans,
           rootSpans: raw.root_spans,
           errorRate: raw.error_spans / raw.total_spans,
-          avgLatencyMs: raw.avg_duration_ms,
-          p95LatencyMs: raw.p95_duration_ms,
+          // Convert null to undefined for optional fields in schema
+          avgLatencyMs: raw.avg_duration_ms ?? undefined,
+          p95LatencyMs: raw.p95_duration_ms ?? undefined,
           uniqueTraces: raw.unique_traces
         }
       }))
@@ -410,7 +416,7 @@ export const buildTopologyVisualizationData = (
       } = {
         totalSpans: raw.total_spans,
         errorRate: raw.error_rate_percent,
-        p95Duration: raw.p95_duration_ms,
+        p95Duration: raw.p95_duration_ms ?? 0, // Convert null to 0
         rate: raw.rate_per_second,
         health: raw.health_status
       }

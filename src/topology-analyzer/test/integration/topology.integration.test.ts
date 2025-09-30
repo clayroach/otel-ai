@@ -23,7 +23,7 @@ async function waitForTelemetryData(minServices = 5, maxWaitMs = 20000): Promise
       const endTime = new Date()
       const startTime = new Date(endTime.getTime() - 2 * 60 * 60 * 1000)
       
-      const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/topology`, {
+      const response = await fetch(`${API_BASE_URL}/api/topology/discover`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -54,7 +54,7 @@ async function waitForTelemetryData(minServices = 5, maxWaitMs = 20000): Promise
   const endTime = new Date()
   const startTime = new Date(endTime.getTime() - 4 * 60 * 60 * 1000) // Expand to 4 hours
   
-  const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/topology`, {
+  const response = await fetch(`${API_BASE_URL}/api/topology/services`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -100,7 +100,7 @@ async function waitForArchitectureData(minSpans = 50, maxWaitMs = 15000): Promis
       const endTime = new Date()
       const startTime = new Date(endTime.getTime() - 2 * 60 * 60 * 1000)
       
-      const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/analyze`, {
+      const response = await fetch(`${API_BASE_URL}/api/topology/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -132,7 +132,7 @@ async function waitForArchitectureData(minSpans = 50, maxWaitMs = 15000): Promis
   const endTime = new Date()
   const startTime = new Date(endTime.getTime() - 4 * 60 * 60 * 1000)
   
-  const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/analyze`, {
+  const response = await fetch(`${API_BASE_URL}/api/topology/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -167,7 +167,7 @@ describe('AI Analyzer Topology Integration', () => {
 
     while (retries < maxRetries) {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/health`)
+        const response = await fetch(`${API_BASE_URL}/api/topology/health`)
         if (response.ok) {
           const health = await response.json() as { status: string; message: string }
           console.log('✅ AI Analyzer service is ready:', health.message)
@@ -219,7 +219,7 @@ describe('AI Analyzer Topology Integration', () => {
       const endTime = new Date()
       const startTime = new Date(endTime.getTime() - 60 * 60 * 1000)
       
-      const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/topology`, {
+      const response = await fetch(`${API_BASE_URL}/api/topology/services`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -273,7 +273,7 @@ describe('AI Analyzer Topology Integration', () => {
       const endTime = new Date()
       const startTime = new Date(endTime.getTime() - 60 * 60 * 1000)
       
-      const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/topology`, {
+      const response = await fetch(`${API_BASE_URL}/api/topology/services`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -322,7 +322,7 @@ describe('AI Analyzer Topology Integration', () => {
       const endTime = new Date()
       const startTime = new Date(endTime.getTime() - 5 * 60 * 1000)
       
-      const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/topology`, {
+      const response = await fetch(`${API_BASE_URL}/api/topology/services`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -420,7 +420,7 @@ describe('AI Analyzer Topology Integration', () => {
       const endTime = new Date()
       const startTime = new Date(endTime.getTime() - 60 * 60 * 1000)
       
-      const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/analyze`, {
+      const response = await fetch(`${API_BASE_URL}/api/topology/analyze`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -482,7 +482,7 @@ describe('AI Analyzer Topology Integration', () => {
 
   describe('Health Check', () => {
     it('should report healthy status', async () => {
-      const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/health`)
+      const response = await fetch(`${API_BASE_URL}/api/topology/health`)
       
       expect(response.ok).toBe(true)
       const health = await response.json() as Record<string, unknown>

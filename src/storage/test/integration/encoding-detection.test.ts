@@ -45,7 +45,7 @@ describe('JSON Encoding Integration', () => {
     let retries = 30
     while (retries > 0) {
       try {
-        const response = await fetch(`${BACKEND_URL}/api/ai-analyzer/health`)
+        const response = await fetch(`${BACKEND_URL}/api/topology/health`)
         if (!response.ok) throw new Error('Backend not ready')
         break
       } catch (error) {
