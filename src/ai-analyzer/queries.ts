@@ -60,7 +60,8 @@ export const ArchitectureQueries = {
   /**
    * Discover service dependencies by analyzing parent-child span relationships
    * Optimized: Direct query with memory protection, no sampling to ensure complete topology
-   * Issue #161: Prevent OOM with memory limits instead of sampling
+   * Issue #161: This is the FALLBACK query when MVs are not available
+   * NOTE: Prefer using materialized views via OptimizedQueries.getServiceDependenciesFromView()
    */
   getServiceDependencies: (timeRangeHours: number = 24) => `
     SELECT
@@ -83,9 +84,9 @@ export const ArchitectureQueries = {
     HAVING call_count >= 1  -- Show all dependencies, even single calls
     ORDER BY call_count DESC
     LIMIT 1000  -- Increased limit to capture more dependencies
-    SETTINGS max_memory_usage = 2000000000,  -- 2GB memory limit for complete topology
-             max_execution_time = 60,         -- 60 second timeout for larger queries
-             max_block_size = 65536,          -- Larger blocks for better performance
+    SETTINGS max_memory_usage = 500000000,   -- 500MB memory limit (reduced to prevent OOM)
+             max_execution_time = 30,         -- 30 second timeout
+             max_block_size = 8192,           -- Smaller blocks to reduce memory peaks
              distributed_product_mode = 'local' -- Optimize join execution
   `,
 

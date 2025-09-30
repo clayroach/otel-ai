@@ -157,16 +157,24 @@ export const AIAnalyzerRouterLive = Layer.effect(
             // Check if MVs are available (optional optimization)
             try {
               const mvStatus = yield* storageClient.queryRaw(OptimizedQueries.checkMVStatus())
+              const hasAnyMVs = (mvStatus as Array<{ status: string }>).length > 0
               const hasFreshMVs = (mvStatus as Array<{ status: string }>).some(
                 (mv) => mv.status === 'fresh'
               )
 
-              if (hasFreshMVs) {
-                console.log('📊 Using materialized views for faster queries')
+              if (hasAnyMVs) {
+                // Use MVs even if stale - better than OOM crashes from raw queries
+                if (hasFreshMVs) {
+                  console.log('📊 Using fresh materialized views for faster queries')
+                } else {
+                  console.log(
+                    '📊 Using stale materialized views (better than OOM from raw queries)'
+                  )
+                }
                 topologyQuery = OptimizedQueries.getServiceTopologyFromView(timeRangeHours)
                 dependencyQuery = OptimizedQueries.getServiceDependenciesFromView(timeRangeHours)
               } else {
-                console.log('⚠️ Materialized views not fresh, using optimized raw queries')
+                console.log('⚠️ No materialized views found, using raw queries with memory limits')
               }
             } catch (mvError) {
               console.log('📋 Materialized views not available, using optimized raw queries')
