@@ -24,7 +24,7 @@ function isValidFormatterParams(params: unknown): params is { data: unknown[] } 
 // Schema Definitions
 // ========================
 
-const ChartConfigSchema = Schema.Struct({
+const _ChartConfigSchema = Schema.Struct({
   type: Schema.Literal('line', 'bar', 'heatmap', 'pie', 'scatter', 'table'),
   title: Schema.String,
   description: Schema.optional(Schema.String),
@@ -35,7 +35,7 @@ const ChartConfigSchema = Schema.Struct({
     optionalColumns: Schema.Array(Schema.String)
   })
 })
-type ChartConfig = Schema.Schema.Type<typeof ChartConfigSchema>
+type ChartConfig = Schema.Schema.Type<typeof _ChartConfigSchema>
 
 // ========================
 // Service Definition

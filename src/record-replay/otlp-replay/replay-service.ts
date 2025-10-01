@@ -254,7 +254,7 @@ export const OtlpReplayServiceLive = Layer.effect(
           let otlpData
           try {
             otlpData = JSON.parse(decompressedData.toString('utf8'))
-          } catch (error) {
+          } catch {
             yield* Effect.fail(
               ReplayErrorConstructors.DataCorrupted(
                 config.sessionId,

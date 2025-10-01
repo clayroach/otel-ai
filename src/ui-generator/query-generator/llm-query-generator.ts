@@ -11,7 +11,7 @@ import {
 import { StorageServiceTag } from '../../storage/index.js'
 
 // Schema for LLM-generated query response
-const LLMQueryResponseSchema = Schema.Struct({
+const _LLMQueryResponseSchema = Schema.Struct({
   sql: Schema.String,
   description: Schema.String,
   expectedColumns: Schema.Array(
@@ -24,7 +24,7 @@ const LLMQueryResponseSchema = Schema.Struct({
   reasoning: Schema.String
 })
 
-type LLMQueryResponse = Schema.Schema.Type<typeof LLMQueryResponseSchema>
+type LLMQueryResponse = Schema.Schema.Type<typeof _LLMQueryResponseSchema>
 
 // Default model will be determined by Portkey configuration
 export const DEFAULT_MODEL = undefined // Let Portkey config handle defaults
@@ -239,7 +239,7 @@ The SQL must analyze: ${analysisGoal}`
           return retryResponse
         }
       }
-    } catch (e) {
+    } catch {
       // If parsing fails, continue with original response
     }
 
@@ -537,7 +537,7 @@ The SQL must analyze: ${analysisGoal}`
                 sql: jsonParsed.sql
               }
             }
-          } catch (e) {
+          } catch {
             // Not JSON, continue with original
           }
         }

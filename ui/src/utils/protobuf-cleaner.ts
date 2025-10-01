@@ -32,7 +32,7 @@ export const cleanServiceName = (serviceName: string): string => {
       let parsed
       try {
         parsed = JSON.parse(serviceName)
-      } catch (firstError) {
+      } catch {
         // If direct parsing fails, try unescaping first
         const unescaped = serviceName.replace(/\\(\$|")/g, '$1')
         parsed = JSON.parse(unescaped)
