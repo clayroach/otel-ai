@@ -12,6 +12,62 @@ import { LLMManagerServiceTag } from '../../llm-manager/index.js'
 import type { LLMRequest, LLMError } from '../../llm-manager/types.js'
 import { NetworkError } from '../../llm-manager/types.js'
 
+/**
+ * Extract SQL from LLM response, handling markdown code fences and preamble text
+ */
+function extractSQLFromResponse(response: string): string {
+  let sql = response.trim()
+
+  // Check if response contains markdown code fences
+  const sqlBlockMatch = sql.match(/```(?:sql|SQL)?\s*\n([\s\S]*?)\n```/)
+  if (sqlBlockMatch && sqlBlockMatch[1]) {
+    // Extract SQL from within code fences
+    sql = sqlBlockMatch[1].trim()
+  } else {
+    // No code fences - try to remove common preamble patterns
+    const preamblePatterns = [
+      /^Here'?s?\s+(?:the\s+)?(?:corrected\s+)?(?:SQL\s+)?(?:query|solution):?\s*\n/i,
+      /^The\s+(?:corrected\s+)?(?:SQL\s+)?(?:query|solution)\s+is:?\s*\n/i,
+      /^Query:?\s*\n/i
+    ]
+
+    for (const pattern of preamblePatterns) {
+      sql = sql.replace(pattern, '')
+    }
+
+    // Remove any remaining markdown code fence markers
+    sql = sql.replace(/^```(?:sql|SQL)?\s*\n?/i, '')
+    sql = sql.replace(/\n?```\s*$/g, '')
+    sql = sql.trim()
+  }
+
+  // Validate and complete incomplete queries
+  sql = validateAndCompleteQuery(sql)
+
+  return sql
+}
+
+/**
+ * Detect and complete incomplete CTE queries that are missing the main SELECT
+ */
+function validateAndCompleteQuery(sql: string): string {
+  const trimmed = sql.trim()
+
+  // Check if query starts with WITH and ends with closing paren
+  // This indicates an incomplete CTE
+  if (/^WITH\s+/i.test(trimmed) && trimmed.endsWith(')')) {
+    // Extract the CTE name
+    const cteMatch = trimmed.match(/^WITH\s+(\w+)\s+AS\s*\(/i)
+    if (cteMatch && cteMatch[1]) {
+      const cteName = cteMatch[1]
+      // Add a simple SELECT * to complete the query
+      return `${trimmed}\nSELECT * FROM ${cteName} LIMIT 100`
+    }
+  }
+
+  return sql
+}
+
 // ClickHouse client interface using Effect
 export interface ClickHouseClient<E = Error> {
   queryRaw: (sql: string) => Effect.Effect<unknown[], E>
@@ -316,8 +372,7 @@ Return ONLY the corrected SQL query, no explanation.`
 
     const response = yield* pipe(
       llmManager.generate(request),
-      Effect.map((response) => response.content.trim()),
-      Effect.map((sql) => sql.replace(/^```sql\s*|\s*```$/g, '').trim())
+      Effect.map((response) => extractSQLFromResponse(response.content))
     )
 
     console.log(`✅ [LLM-OPTIMIZER] Received optimized SQL`)

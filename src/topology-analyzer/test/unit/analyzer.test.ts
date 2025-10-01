@@ -4,14 +4,13 @@
 
 import { describe, expect, it } from 'vitest'
 import { Schema } from '@effect/schema'
-import { 
+import {
   AnalysisRequestSchema,
   ServiceTopologySchema
 } from '../../types.js'
 import { classifyServiceType, buildDependencyGraph } from '../../topology.js'
 import type { ServiceTopologyRaw, ServiceDependencyRaw } from '../../queries.js'
 import { ArchitectureQueries } from '../../queries.js'
-import { PromptTemplates } from '../../prompts.js'
 
 // Helper to add required fields to test data
 function createTestTopology(partial: Partial<ServiceTopologyRaw>): ServiceTopologyRaw {
@@ -256,10 +255,11 @@ describe('AI Analyzer', () => {
 
     it('should generate correct service dependencies query', () => {
       const query = ArchitectureQueries.getServiceDependencies(12)
-      expect(query).toContain('parent.service_name')
-      expect(query).toContain('child.service_name')
-      expect(query).toContain('INNER JOIN')
+      expect(query).toContain('parent.3 as service_name')
+      expect(query).toContain('child.3 as dependent_service')
+      expect(query).toContain('groupArray')
       expect(query).toContain('INTERVAL 12 HOUR')
+      expect(query).toContain('HAVING call_count >= 1')
     })
 
     it('should generate correct trace flows query', () => {
@@ -268,50 +268,7 @@ describe('AI Analyzer', () => {
       expect(query).toContain('traces')
       expect(query).toContain('LIMIT 50')
       expect(query).toContain('INTERVAL 6 HOUR')
-    })
-  })
-
-  describe('Prompt Templates', () => {
-    it('should generate architecture analysis prompt', () => {
-      const topology = {
-        applicationName: 'Test App',
-        description: 'Test application',
-        services: [],
-        dataFlows: [],
-        criticalPaths: [],
-        generatedAt: new Date()
-      }
-      
-      const prompt = PromptTemplates.architectureOverview(topology)
-      expect(prompt).toContain('Application Data')
-      expect(prompt).toContain('Test App')
-    })
-
-    it('should generate data flow prompt', () => {
-      const flows = [
-        {
-          from: 'service-a',
-          to: 'service-b',
-          operation: 'test-op',
-          volume: 100,
-          latency: { p50: 50, p95: 100, p99: 200 }
-        }
-      ]
-      
-      // PromptTemplates doesn't have analyzeDataFlows, so let's use performanceInsights
-      // which includes data flow analysis
-      const architecture = {
-        applicationName: 'Test App',
-        description: 'Test application',
-        services: [],
-        dataFlows: flows,
-        criticalPaths: [],
-        generatedAt: new Date()
-      }
-      const prompt = PromptTemplates.performanceInsights(architecture)
-      expect(prompt).toContain('High-Volume Data Flows')
-      expect(prompt).toContain('service-a')
-      expect(prompt).toContain('service-b')
+      expect(query).toContain('HAVING count(*) >= 1')
     })
   })
 

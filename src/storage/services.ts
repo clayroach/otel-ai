@@ -4,6 +4,7 @@
  */
 
 import { Effect, Context, Layer, Schedule, Duration } from 'effect'
+import { DependencyAggregatorTag, DependencyAggregatorLive } from './dependency-aggregator.js'
 import {
   type StorageConfig,
   defaultStorageConfig,
@@ -200,9 +201,26 @@ export const StorageServiceLive = Layer.effect(
   StorageServiceTag,
   Effect.gen(function* (_) {
     const config = yield* _(ConfigServiceTag)
+    const aggregator = yield* _(DependencyAggregatorTag)
 
     const clickhouse = yield* _(makeClickHouseStorage(config.clickhouse))
     // S3 not used yet - removed to simplify setup
+
+    // Start the dependency aggregator automatically in the background
+    // This runs every 30 seconds to aggregate span relationships into service dependencies
+    yield* _(
+      aggregator.start().pipe(
+        Effect.tap(() => Effect.log('[StorageService] Dependency aggregator started successfully')),
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            // Log but don't fail - aggregator is not critical for basic operations
+            yield* Effect.logError('[StorageService] Failed to start dependency aggregator')
+            yield* Effect.logError(error)
+          })
+        ),
+        Effect.fork // Run in background
+      )
+    )
 
     return makeStorageService(clickhouse, config)
   })
@@ -214,8 +232,9 @@ export const ConfigServiceLive = Layer.succeed(ConfigServiceTag, {
   ...loadConfigFromEnv()
 })
 
-// Storage layer that requires ConfigServiceTag to be provided externally
-export const StorageLayer = StorageServiceLive
+// Storage layer that includes the dependency aggregator
+// The aggregator will start automatically when the storage service is initialized
+export const StorageLayer = StorageServiceLive.pipe(Layer.provide(DependencyAggregatorLive()))
 
 // Convenience functions for common operations
 export namespace StorageOperations {

@@ -5,12 +5,13 @@
 
 import { describe, it, expect, beforeAll } from 'vitest'
 import { Effect, Layer } from 'effect'
-import { 
+import {
   StorageAPIClientTag,
-  ClickHouseConfigTag, 
+  ClickHouseConfigTag,
   StorageAPIClientLayer,
-  type OTLPData 
+  type OTLPData
 } from '../../storage/index.js'
+import { ensureClickHouseRunning } from '../../test-helpers/clickhouse-health.js'
 
 // Test configuration
 const testConfig = {
@@ -35,12 +36,15 @@ describe('Trace Ingestion Integration', () => {
   let spanId: string
   
   beforeAll(async () => {
+    // Check ClickHouse health first
+    await ensureClickHouseRunning()
+
     // Generate test IDs
-    traceId = Array.from({ length: 16 }, () => 
+    traceId = Array.from({ length: 16 }, () =>
       Math.floor(Math.random() * 256).toString(16).padStart(2, '0')
     ).join('')
-    
-    spanId = Array.from({ length: 8 }, () => 
+
+    spanId = Array.from({ length: 8 }, () =>
       Math.floor(Math.random() * 256).toString(16).padStart(2, '0')
     ).join('')
   })

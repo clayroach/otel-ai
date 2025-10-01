@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
+import { extractEChartsConfig, validateChartConfig } from './chartValidation'
 
 interface DynamicScatterPlotProps {
   config: EChartsOption
@@ -31,5 +32,18 @@ export const DynamicScatterPlot: React.FC<DynamicScatterPlotProps> = ({
     )
   }
 
-  return <ReactECharts option={config} style={{ height, width: '100%' }} />
+  // Extract the actual ECharts config (may be wrapped in metadata)
+  const extractedConfig = extractEChartsConfig(config) as EChartsOption
+
+  // Validate chart configuration
+  const validationError = validateChartConfig(extractedConfig)
+  if (validationError) {
+    return validationError
+  }
+
+  if (!extractedConfig) {
+    return null
+  }
+
+  return <ReactECharts option={extractedConfig} style={{ height, width: '100%' }} />
 }

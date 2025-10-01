@@ -62,6 +62,14 @@ export { S3StorageTag, S3StorageLive } from './s3.js'
 export type { StorageRouter } from './router.js'
 export { StorageRouterTag, StorageRouterLive } from './router.js'
 
+// Dependency Aggregator Service - SigNoz-inspired background service
+export type { DependencyAggregator } from './dependency-aggregator.js'
+export {
+  DependencyAggregatorTag,
+  DependencyAggregatorLive,
+  DependencyAggregatorMock
+} from './dependency-aggregator.js'
+
 // Test Layers only - no utility functions exported from package index
 export {
   MockStorageServiceLive,

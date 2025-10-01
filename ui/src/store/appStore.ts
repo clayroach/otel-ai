@@ -84,10 +84,6 @@ interface AppState {
   sidebarCollapsed: boolean
   toggleSidebar: () => void
 
-  // Data Source
-  useMockData: boolean
-  setUseMockData: (useMock: boolean) => void
-
   // Query state
   activeQuery: string
   setActiveQuery: (query: string) => void
@@ -136,10 +132,6 @@ export const useAppStore = create<AppState>()(
       sidebarCollapsed: false,
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
 
-      // Data Source
-      useMockData: false, // Default to live data for better user experience
-      setUseMockData: (useMock: boolean) => set({ useMockData: useMock }),
-
       // Query state
       activeQuery: '',
       setActiveQuery: (query: string) => set({ activeQuery: query }),
@@ -165,7 +157,7 @@ export const useAppStore = create<AppState>()(
       clearQueryHistory: () => set({ queryHistory: [] }),
 
       // Connection settings
-      clickhouseUrl: '/api/clickhouse',
+      clickhouseUrl: '/api/clickhouse/query',
       clickhouseAuth: {
         username: 'otel',
         password: 'otel123'
@@ -188,18 +180,17 @@ export const useAppStore = create<AppState>()(
       setAnalysisModel: (model: 'llama' | 'claude' | 'gpt-4') => set({ analysisModel: model }),
       useRealService: false,
       setUseRealService: (useReal: boolean) => set({ useRealService: useReal }),
-      analysisTimeRange: '5m',
+      analysisTimeRange: '24h', // Default to 24h to show seed services
       setAnalysisTimeRange: (range: string) => set({ analysisTimeRange: range }),
       autoRefresh: 'manual',
       setAutoRefresh: (refresh: 'manual' | '1m' | '5m') => set({ autoRefresh: refresh })
     }),
     {
       name: 'otel-ai-app-storage',
-      version: 4, // Increment to add useMockData persistence
+      version: 6, // Increment for clickhouse URL migration to backend proxy
       partialize: (state) => ({
         darkMode: state.darkMode,
         sidebarCollapsed: state.sidebarCollapsed,
-        useMockData: state.useMockData, // Persist data source selection
         clickhouseUrl: state.clickhouseUrl,
         clickhouseAuth: state.clickhouseAuth,
         queryHistory: state.queryHistory
@@ -212,8 +203,7 @@ export const useAppStore = create<AppState>()(
           return {
             darkMode: (state?.darkMode as boolean) || false,
             sidebarCollapsed: (state?.sidebarCollapsed as boolean) || false,
-            useMockData: (state?.useMockData as boolean) ?? false, // Default to live data (false)
-            clickhouseUrl: '/api/clickhouse',
+            clickhouseUrl: '/api/clickhouse/query',
             clickhouseAuth: {
               username: 'otel',
               password: 'otel123'
@@ -222,6 +212,15 @@ export const useAppStore = create<AppState>()(
             // activeQuery will default to '' which forces use of DEFAULT_QUERY
           }
         }
+
+        // Migration for v5 -> v6: Update clickhouse URL to use backend proxy
+        if (version === 5 && persistedState && typeof persistedState === 'object') {
+          const state = persistedState as Record<string, unknown>
+          if (state.clickhouseUrl === '/api/clickhouse') {
+            state.clickhouseUrl = '/api/clickhouse/query'
+          }
+        }
+
         return persistedState
       }
     }
