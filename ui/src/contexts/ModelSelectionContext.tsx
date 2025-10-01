@@ -63,7 +63,7 @@ export const ModelSelectionProvider: React.FC<{ children: React.ReactNode }> = (
     }
   })
 
-  const healthCheckInterval = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
+  const healthCheckInterval = useRef<number | null>(null)
   const loadingRef = useRef(false) // Prevent duplicate loads
 
   // Load models from API (only once for all components)
@@ -214,7 +214,7 @@ export const ModelSelectionProvider: React.FC<{ children: React.ReactNode }> = (
       checkModelHealth()
 
       // Set up interval (30 seconds)
-      healthCheckInterval.current = setInterval(checkModelHealth, 30000)
+      healthCheckInterval.current = setInterval(checkModelHealth, 30000) as unknown as number
 
       return () => {
         if (healthCheckInterval.current) {

@@ -457,7 +457,15 @@ export const TracesView: React.FC = () => {
               flexDirection: 'column',
               marginRight: '8px'
             }}
-            styles={{ body: { flex: 1, padding: '4px', overflow: 'hidden' } }}
+            styles={{
+              body: {
+                flex: 1,
+                padding: '4px',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column'
+              }
+            }}
           >
             <MonacoQueryEditor
               value={query}
@@ -569,6 +577,7 @@ export const TracesView: React.FC = () => {
               </div>
             ) : error ? (
               <div
+                data-testid="query-error-message"
                 style={{
                   padding: '24px',
                   textAlign: 'center',

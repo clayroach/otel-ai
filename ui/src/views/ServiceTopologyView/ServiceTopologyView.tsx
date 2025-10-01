@@ -1,15 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import {
-  Card,
   Typography,
-  Space,
-  Spin,
   Alert,
   // Tabs, // Not used with new topology
-  Tag,
   App
 } from 'antd'
-import { LineChartOutlined as TrendingUpIcon } from '@ant-design/icons'
 // import ReactMarkdown from 'react-markdown'; // Commented out - not available
 // import { type AnalysisResult, generateMockData } from './mockData' // Not used with new topology
 import { useAIAnalyzer } from '../../services/ai-analyzer'
@@ -17,35 +12,23 @@ import { ServiceTopology } from '../../components/ServiceTopology'
 import { useAppStore } from '../../store/appStore'
 import { analysisEventBus } from '../../utils/eventBus'
 
-const { Text } = Typography
+const { Text: _Text } = Typography
 
 const ServiceTopologyView: React.FC = () => {
   const { message } = App.useApp()
   // const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null) // Not used with new topology
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
   const [_loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Streaming functionality - disabled for now
   // const [streaming, setStreaming] = useState(false)
   // const [streamingContent, setStreamingContent] = useState<string>('')
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
   const [_serviceHealth, setServiceHealth] = useState<{
     status: string
     capabilities: string[]
   } | null>(null)
 
   // Use global store for analysis configuration
-  const {
-    analysisModel: selectedModel,
-    useMockData,
-    setUseMockData,
-    analysisTimeRange: timeRange,
-    autoRefresh
-  } = useAppStore()
-
-  // Convert to useRealService for consistency with existing code
-  const useRealService = !useMockData
-  const setUseRealService = (value: boolean) => setUseMockData(!value)
+  const { analysisTimeRange: timeRange, autoRefresh, useRealService } = useAppStore()
 
   const aiAnalyzer = useAIAnalyzer()
 
@@ -57,8 +40,7 @@ const ServiceTopologyView: React.FC = () => {
         setServiceHealth(health)
 
         if (health.status !== 'healthy') {
-          setUseRealService(false)
-          message.info('Using enhanced mock data for topology demonstration', 3)
+          message.info('AI Analyzer service is not healthy', 3)
         } else {
           message.success('AI Analyzer service connected - ready for real topology analysis!', 3)
         }
@@ -68,8 +50,7 @@ const ServiceTopologyView: React.FC = () => {
           status: 'demo-mode',
           capabilities: ['mock-topology', 'enhanced-visualization']
         })
-        setUseRealService(false)
-        message.info('🚀 Demo mode: Using enhanced mock topology data with real-world scenarios', 4)
+        message.info('🚀 AI Analyzer service not available', 4)
       }
     }
 
@@ -132,52 +113,34 @@ const ServiceTopologyView: React.FC = () => {
     setError(null)
 
     try {
-      if (useRealService) {
-        // Use real AI analyzer service with model selection
-        const config = {
-          llm: {
-            model: (selectedModel === 'gpt-4' ? 'gpt' : selectedModel) as
-              | 'claude'
-              | 'llama'
-              | 'gpt',
-            temperature: selectedModel === 'gpt-4' ? 0.5 : selectedModel === 'llama' ? 0.8 : 0.7,
-            maxTokens: selectedModel === 'gpt-4' ? 1500 : selectedModel === 'llama' ? 1800 : 2000
-          },
-          analysis: {
-            timeWindowHours: getTimeRangeHours(),
-            minSpanCount: 100
-          },
-          output: {
-            format: 'markdown' as const,
-            includeDigrams: true,
-            detailLevel: 'comprehensive' as const
-          }
+      // Always use real service with local statistical analyzer
+      const config = {
+        analysis: {
+          timeWindowHours: getTimeRangeHours(),
+          minSpanCount: 10 // Lowered to match backend
+        },
+        output: {
+          format: 'markdown' as const,
+          includeDigrams: true,
+          detailLevel: 'comprehensive' as const
         }
-
-        const endTime = new Date()
-        const startTime = new Date(endTime.getTime() - getTimeRangeHours() * 60 * 60 * 1000)
-
-        await aiAnalyzer.analyzeArchitecture({
-          type: 'architecture', // Always analyze all types
-          timeRange: {
-            startTime,
-            endTime
-          },
-          filters: {},
-          config
-        })
-
-        // setAnalysisResult(result) // Commented out - using new topology component
-        message.success(`🎯 Real topology analysis completed using ${selectedModel} model!`)
-      } else {
-        // Fallback to mock data with model awareness
-        await new Promise((resolve) => setTimeout(resolve, 2000))
-        // const result = generateMockData('architecture', selectedModel)
-        // setAnalysisResult(result) // Commented out - using new topology component
-        message.success(
-          `🚀 Enhanced topology analysis completed with ${selectedModel === 'llama' ? 'Llama/Local' : selectedModel + ' model'}!`
-        )
+        // Note: Not including llm config so backend uses local-statistical-analyzer
       }
+
+      const endTime = new Date()
+      const startTime = new Date(endTime.getTime() - getTimeRangeHours() * 60 * 60 * 1000)
+
+      await aiAnalyzer.analyzeArchitecture({
+        type: 'architecture',
+        timeRange: {
+          startTime,
+          endTime
+        },
+        filters: {},
+        config
+      })
+
+      message.success(`🎯 Topology analysis completed using local statistical analyzer!`)
     } catch (err) {
       console.error('Analysis failed:', err)
       setError(
@@ -327,52 +290,6 @@ const ServiceTopologyView: React.FC = () => {
           closable
           style={{ marginBottom: '24px' }}
         />
-      )}
-
-      {/* Streaming Content - Hidden for now as we simplified the interface */}
-      {false && (
-        <Card
-          title={
-            <Space>
-              <Spin size="small" />
-              <TrendingUpIcon style={{ color: '#1890ff' }} />
-              Real-time Topology Analysis Stream
-            </Space>
-          }
-          extra={<Tag color="processing">⚡ Live Analysis</Tag>}
-          style={{ marginBottom: '24px' }}
-        >
-          <div
-            style={{
-              minHeight: '250px',
-              padding: '16px',
-              background: 'linear-gradient(to bottom, #f0f9ff, #f5f5f5)',
-              borderRadius: '8px',
-              border: '1px solid #e6f7ff'
-            }}
-          >
-            <div
-              style={{
-                whiteSpace: 'pre-wrap',
-                fontFamily:
-                  'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace',
-                fontSize: '13px',
-                lineHeight: '1.5',
-                color: '#2c3e50'
-              }}
-            >
-              {
-                'Initializing topology analysis...\n🔍 Scanning service dependencies...\n📊 Processing telemetry data...'
-              }
-            </div>
-            <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Spin size="small" />
-              <Text type="secondary" style={{ fontSize: '12px' }}>
-                Analyzing service topology and generating insights...
-              </Text>
-            </div>
-          </div>
-        </Card>
       )}
 
       {/* Service Topology - Three-Panel Layout */}

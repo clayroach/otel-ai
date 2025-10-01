@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react'
-import { Row, Col, Alert, App } from 'antd'
+import { Row, Col, App } from 'antd'
 import { CriticalPathsPanel } from './CriticalPathsPanel'
 import { AIAnalysisPanel } from './AIAnalysisPanel'
 import { ServiceTopologyPanel } from './ServiceTopologyPanel'
@@ -236,6 +236,27 @@ export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
   className = ''
 }) => {
   const { message } = App.useApp()
+  const { analysisTimeRange } = useAppStore()
+
+  // Convert analysisTimeRange string to Date tuple
+  const getTimeRange = (): [Date, Date] => {
+    const end = new Date()
+    const hoursMap: Record<string, number> = {
+      '1m': 1 / 60,
+      '5m': 5 / 60,
+      '15m': 0.25,
+      '30m': 0.5,
+      '1h': 1,
+      '3h': 3,
+      '6h': 6,
+      '12h': 12,
+      '24h': 24
+    }
+    const hours = hoursMap[analysisTimeRange] || 24
+    const start = new Date(end.getTime() - hours * 60 * 60 * 1000)
+    return [start, end]
+  }
+
   // State management
   const [state, setState] = useState<TopologyState>({
     availablePaths: propsPaths || generateMockPaths(),
@@ -560,28 +581,12 @@ export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
 
   const colSpans = getColSpans()
 
-  // Get mock data state from global store
-  const { useMockData } = useAppStore()
-
   return (
     <div
       className={`critical-request-paths-topology ${className}`}
       data-testid="service-topology-container"
     >
-      {/* Mock Data Warning Banner */}
-      {useMockData && (
-        <Alert
-          message="Demo Mode"
-          description="Currently displaying mock data for demonstration. Toggle to Live mode in the header to connect to backend."
-          type="warning"
-          showIcon
-          closable
-          style={{ marginBottom: 12 }}
-          data-testid="demo-mode-alert"
-        />
-      )}
-
-      <Row gutter={[12, 12]} style={{ height: useMockData ? 'calc(100% - 60px)' : '100%' }}>
+      <Row gutter={[12, 12]} style={{ height: '100%' }}>
         {/* Critical Paths Panel */}
         {colSpans.paths > 0 && (
           <Col span={colSpans.paths} style={{ height: '100%' }} data-testid="critical-paths-column">
@@ -608,7 +613,7 @@ export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
             />
           ) : (
             <ServiceTopologyPanel
-              data={null} // Will use mock data from ServiceTopologyPanel
+              timeRange={getTimeRange()}
               highlightedServices={Array.from(state.highlightedServices)}
               servicesWithTabs={Array.from(servicesWithTabs)} // Pass services that have tabs open
               onServiceClick={handleServiceClick}

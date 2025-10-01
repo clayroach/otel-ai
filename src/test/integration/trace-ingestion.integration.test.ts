@@ -5,12 +5,13 @@
 
 import { describe, it, expect, beforeAll } from 'vitest'
 import { Effect, Layer } from 'effect'
-import { 
+import {
   StorageAPIClientTag,
-  ClickHouseConfigTag, 
+  ClickHouseConfigTag,
   StorageAPIClientLayer,
-  type OTLPData 
+  type OTLPData
 } from '../../storage/index.js'
+import { ensureClickHouseRunning } from '../../test-helpers/clickhouse-health.js'
 
 // Test configuration
 const testConfig = {
@@ -35,12 +36,15 @@ describe('Trace Ingestion Integration', () => {
   let spanId: string
   
   beforeAll(async () => {
+    // Check ClickHouse health first
+    await ensureClickHouseRunning()
+
     // Generate test IDs
-    traceId = Array.from({ length: 16 }, () => 
+    traceId = Array.from({ length: 16 }, () =>
       Math.floor(Math.random() * 256).toString(16).padStart(2, '0')
     ).join('')
-    
-    spanId = Array.from({ length: 8 }, () => 
+
+    spanId = Array.from({ length: 8 }, () =>
       Math.floor(Math.random() * 256).toString(16).padStart(2, '0')
     ).join('')
   })
@@ -77,7 +81,7 @@ describe('Trace Ingestion Integration', () => {
     )
 
     // Query back the data using raw query to avoid schema issues
-    const results = await runStorage(
+    const results = await runStorage( // TypeScript comment: results will be unknown[] due to queryRaw return type
       Effect.gen(function* () {
         const storage = yield* StorageAPIClientTag
         return yield* storage.queryRaw(`
@@ -92,9 +96,9 @@ describe('Trace Ingestion Integration', () => {
 
     // Verify the data was stored and retrieved correctly
     expect(results).toBeDefined()
-    expect(results.length).toBeGreaterThan(0)
-    
-    const retrievedTrace = results[0] as Record<string, unknown>
+    expect((results as unknown[]).length).toBeGreaterThan(0) // TypeScript comment: cast to unknown[] for length check
+
+    const retrievedTrace = (results as unknown[])[0] as Record<string, unknown>
     expect(retrievedTrace).toBeDefined()
     expect(retrievedTrace.service_name).toBe('test-service')
     expect(retrievedTrace.operation_name).toBe('test-operation')
@@ -153,8 +157,8 @@ describe('Trace Ingestion Integration', () => {
     )
 
     expect(encodingResults).toBeDefined()
-    expect(encodingResults.length).toBeGreaterThan(0)
-    expect(encodingResults[0]).toHaveProperty('encoding_type', 'protobuf')
+    expect((encodingResults as unknown[]).length).toBeGreaterThan(0) // TypeScript comment: cast to unknown[] for length check
+    expect((encodingResults as unknown[])[0]).toHaveProperty('encoding_type', 'protobuf')
   }, { timeout: 30000 })
 
   it('should handle health checks correctly', async () => {
@@ -185,8 +189,8 @@ describe('Trace Ingestion Integration', () => {
 
     expect(rawResults).toBeDefined()
     expect(Array.isArray(rawResults)).toBe(true)
-    if (rawResults.length > 0) {
-      expect(rawResults[0]).toHaveProperty('trace_count')
+    if ((rawResults as unknown[]).length > 0) { // TypeScript comment: cast to unknown[] for array operations
+      expect((rawResults as unknown[])[0]).toHaveProperty('trace_count')
     }
   })
 

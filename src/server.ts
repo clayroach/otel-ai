@@ -8,7 +8,7 @@ import { fromBinary } from '@bufbuild/protobuf'
 import cors from 'cors'
 import { Effect, Layer } from 'effect'
 import express from 'express'
-import { AIAnalyzerService, AIAnalyzerMockLayer } from './ai-analyzer/index.js'
+import { TopologyAnalyzerService, TopologyAnalyzerLayer } from './topology-analyzer/index.js'
 import { ExportTraceServiceRequestSchema } from './opentelemetry/index.js'
 import {
   StorageAPIClientTag,
@@ -16,7 +16,9 @@ import {
   StorageAPIClientLayer,
   StorageLayer as StorageServiceLayer,
   StorageServiceTag,
-  ConfigServiceLive
+  ConfigServiceLive,
+  REQUIRED_TABLES,
+  type StorageError
 } from './storage/index.js'
 import {
   LLMManagerAPIClientTag,
@@ -36,12 +38,13 @@ import {
   OtlpCaptureServiceLive,
   OtlpReplayServiceTag,
   OtlpReplayServiceLive,
+  OtlpHttpReplayClientLive,
   RetentionServiceTag,
   RetentionServiceLive,
   TrainingDataReaderTag,
   TrainingDataReaderLive,
   type RetentionPolicy
-} from './otlp-capture/index.js'
+} from './record-replay/otlp-capture/index.js'
 import { S3StorageTag, S3StorageLive } from './storage/s3.js'
 import { cleanAttributes, isProtobufContent, type AttributeValue } from './utils/protobuf.js'
 
@@ -79,10 +82,10 @@ import {
   UIGeneratorRouterLive
 } from './ui-generator/index.js'
 import {
-  type AIAnalyzerRouter,
-  AIAnalyzerRouterTag,
-  AIAnalyzerRouterLive
-} from './ai-analyzer/index.js'
+  type TopologyAnalyzerRouter,
+  TopologyAnalyzerRouterTag,
+  TopologyAnalyzerRouterLive
+} from './topology-analyzer/index.js'
 import {
   type LLMManagerRouter,
   LLMManagerRouterTag,
@@ -97,7 +100,7 @@ import {
   type OtlpCaptureRouter,
   OtlpCaptureRouterTag,
   OtlpCaptureRouterLive
-} from './otlp-capture/router.js'
+} from './record-replay/router/capture-router.js'
 
 const app = express()
 const PORT = process.env.PORT || 4319
@@ -170,11 +173,17 @@ const S3StorageLayer = S3StorageLive
 
 // Create OTLP capture services with S3 dependency
 const OtlpCaptureLayer = OtlpCaptureServiceLive.pipe(Layer.provide(S3StorageLayer))
-const OtlpReplayLayer = OtlpReplayServiceLive.pipe(Layer.provide(S3StorageLayer))
+const HttpReplayClientLayer = OtlpHttpReplayClientLive
+const OtlpReplayLayer = OtlpReplayServiceLive.pipe(
+  Layer.provide(Layer.mergeAll(S3StorageLayer, HttpReplayClientLayer))
+)
 const RetentionServiceLayer = RetentionServiceLive.pipe(Layer.provide(S3StorageLayer))
 const TrainingDataReaderLayer = TrainingDataReaderLive.pipe(
   Layer.provide(Layer.mergeAll(S3StorageLayer, StorageAPIClientLayerWithConfig))
 )
+
+// Create Topology Analyzer layer with its dependencies
+const TopologyAnalyzerWithDeps = TopologyAnalyzerLayer().pipe(Layer.provide(StorageWithConfig))
 
 // Create the base dependencies
 const BaseDependencies = Layer.mergeAll(
@@ -183,7 +192,7 @@ const BaseDependencies = Layer.mergeAll(
   StorageAPIClientLayerWithConfig, // Storage API client with ClickHouse config
   LLMManagerLive, // LLM Manager service
   LLMManagerAPIClientLayer, // LLM Manager API client
-  AIAnalyzerMockLayer(), // AI Analyzer (mock)
+  TopologyAnalyzerWithDeps, // Topology Analyzer (real implementation with dependencies)
   AnnotationServiceLive.pipe(Layer.provide(StorageWithConfig)), // Annotation Service
   DiagnosticsSessionManagerLive.pipe(
     Layer.provide(
@@ -210,7 +219,7 @@ const ExtendedDependencies = Layer.mergeAll(
 const RouterLayers = Layer.mergeAll(
   StorageRouterLive,
   UIGeneratorRouterLive,
-  AIAnalyzerRouterLive,
+  TopologyAnalyzerRouterLive,
   LLMManagerRouterLive,
   AnnotationsRouterLive,
   OtlpCaptureRouterLive
@@ -229,7 +238,7 @@ type AppServices =
   | LLMManagerAPIClientTag
   | UIGeneratorAPIClientTag
   | StorageAPIClientTag
-  | AIAnalyzerService
+  | TopologyAnalyzerService
   | LLMManagerServiceTag
   | StorageServiceTag
   | AnnotationService
@@ -241,7 +250,7 @@ type AppServices =
   | TrainingDataReaderTag
   | StorageRouter
   | UIGeneratorRouter
-  | AIAnalyzerRouter
+  | TopologyAnalyzerRouter
   | LLMManagerRouter
   | AnnotationsRouter
   | OtlpCaptureRouter
@@ -252,7 +261,9 @@ const runWithServices = <A, E>(effect: Effect.Effect<A, E, AppServices>): Promis
 }
 
 // Helper function for raw queries that returns data in legacy format
-const runStorageQuery = <A, E>(effect: Effect.Effect<A, E, StorageAPIClientTag>): Promise<A> => {
+const runStorageQuery = <A>(
+  effect: Effect.Effect<A, StorageError, StorageAPIClientTag>
+): Promise<A> => {
   return Effect.runPromise(Effect.provide(effect, StorageAPIClientLayerWithConfig))
 }
 
@@ -300,15 +311,42 @@ async function createViews() {
   }
 }
 
+// Create validation tables for ILLEGAL_AGGREGATION prevention
+async function createValidationTables() {
+  try {
+    console.log(
+      '📊 Creating validation tables with Null engine for ILLEGAL_AGGREGATION prevention...'
+    )
+
+    // Use centralized list of tables
+    const tables = REQUIRED_TABLES
+
+    for (const tableName of tables) {
+      const validationTableSQL = `
+        CREATE TABLE IF NOT EXISTS ${tableName}_validation
+        AS ${tableName}
+        ENGINE = Null
+      `
+
+      await queryWithResults(validationTableSQL)
+      console.log(`  ✅ Created validation table: ${tableName}_validation`)
+    }
+
+    console.log('✅ All validation tables created successfully')
+  } catch (error) {
+    console.error('❌ Error creating validation tables:', error)
+    // Don't throw - validation tables are not critical for startup
+  }
+}
+
 // Core API Endpoints (not handled by package routers)
 
 // Health check endpoint
 app.get('/health', async (_req, res) => {
   try {
-    const healthResult = await Effect.runPromise(
+    const healthResult = await runStorageQuery(
       StorageAPIClientTag.pipe(
         Effect.flatMap((apiClient) => apiClient.healthCheck()),
-        Effect.provide(StorageAPIClientLayerWithConfig),
         Effect.match({
           onFailure: (error) => {
             console.error('Storage health check failed:', error._tag)
@@ -828,8 +866,8 @@ const mountRouters = async () => {
     console.log('📦 Mounting storage router...')
     const storageRouter = await runWithServices(StorageRouterTag)
 
-    console.log('📦 Mounting AI analyzer router...')
-    const aiAnalyzerRouter = await runWithServices(AIAnalyzerRouterTag)
+    console.log('📦 Mounting topology analyzer router...')
+    const topologyAnalyzerRouter = await runWithServices(TopologyAnalyzerRouterTag)
 
     console.log('📦 Mounting LLM manager router...')
     const llmManagerRouter = await runWithServices(LLMManagerRouterTag)
@@ -846,7 +884,7 @@ const mountRouters = async () => {
     // Mount all the routers
     app.use(storageRouter.router)
     app.use(uiGeneratorRouter.router)
-    app.use(aiAnalyzerRouter.router)
+    app.use(topologyAnalyzerRouter.router)
     app.use(llmManagerRouter.router)
     app.use(annotationsRouter.router)
     app.use(otlpCaptureRouter.router)
@@ -873,9 +911,13 @@ app.listen(PORT, async () => {
   console.log(`🎬 OTLP Capture & Replay: http://localhost:${PORT}/api/capture/sessions`)
   console.log(`🗄️ Retention Management: http://localhost:${PORT}/api/retention/usage`)
 
-  // Wait a bit for schema migrations to complete, then create views
+  // Wait a bit for schema migrations to complete, then create views and validation tables
   setTimeout(async () => {
     await createViews()
+
+    // Create validation tables for ILLEGAL_AGGREGATION prevention
+    await createValidationTables()
+
     console.log('✅ AI Analyzer service available through layer composition')
     console.log(`🤖 AI Analyzer API: http://localhost:${PORT}/api/ai-analyzer/health`)
 

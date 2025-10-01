@@ -174,6 +174,7 @@ validate_schema() {
     log_info "Validating database schema..."
     
     # Check core tables from original schema
+    # IMPORTANT: Keep in sync with src/storage/config.ts REQUIRED_TABLES
     REQUIRED_TABLES=(
         "traces"
         "ai_anomalies"

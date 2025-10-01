@@ -24,6 +24,7 @@ export interface ServerModelInfo extends ModelInfo {
 // API Client Service Interface
 export interface LLMManagerAPIClientService {
   readonly getLoadedModels: () => Effect.Effect<ServerModelInfo[], never, never>
+  readonly getAllModels: () => Effect.Effect<ModelInfo[], never, never>
   readonly getStatus: () => Effect.Effect<ManagerStatus, never, never>
   readonly selectBestModel: (taskType: string) => Effect.Effect<string, never, never>
   readonly selectModel: (
@@ -65,6 +66,8 @@ export const LLMManagerAPIClientServiceLive = Layer.effect(
           })
         )
       ).pipe(Effect.catchAll(() => Effect.succeed([]))),
+
+    getAllModels: () => manager.getAllModels().pipe(Effect.catchAll(() => Effect.succeed([]))),
 
     getStatus: () =>
       Effect.flatMap(manager.getStatus(), (status) =>

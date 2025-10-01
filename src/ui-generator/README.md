@@ -215,9 +215,63 @@ export interface UIGenerator extends Context.Tag<"UIGenerator", {
 1. **Requirements Analysis**: Parse component specifications
 2. **LLM Prompting**: Build optimized prompts for code generation
 3. **Code Generation**: Generate React/TypeScript components
-4. **Validation**: TypeScript compilation and syntax validation
+4. **3-Stage Validation**: Multi-layered validation to prevent ClickHouse crashes
 5. **Optimization**: Apply performance optimizations
 6. **Integration**: Add ECharts and data bindings
+
+#### 3-Stage SQL Validation Process
+
+The query generator employs a sophisticated 3-stage validation process to catch errors before they reach ClickHouse, preventing database crashes and ensuring query reliability:
+
+```mermaid
+graph TD
+    A[Generated SQL] --> B[Stage 1: Syntax Validation]
+    B --> C{Syntax Valid?}
+    C -->|No| D[Rule-Based Optimization]
+    C -->|Yes| E[Stage 2: Semantic Validation]
+    D --> F[LLM Optimization]
+    F --> B
+    E --> G{Semantics Valid?}
+    G -->|No| H[Rule-Based Semantic Fix]
+    G -->|Yes| I[Stage 3: Execution Test]
+    H --> J[LLM Semantic Optimization]
+    J --> E
+    I --> K{Execution Valid?}
+    K -->|No| L[Final Optimization]
+    K -->|Yes| M[✅ Valid Query]
+    L --> N[LLM Execution Fix]
+    N --> I
+
+    style A fill:#e1f5fe
+    style M fill:#c8e6c9
+    style D fill:#fff3e0
+    style H fill:#fff3e0
+    style L fill:#fff3e0
+```
+
+**Stage 1: Syntax Validation**
+- Uses `EXPLAIN AST` to validate SQL parsing
+- Catches syntax errors, typos, and malformed queries
+- Safe operation - no data execution or memory usage
+- Quick feedback loop for basic SQL issues
+
+**Stage 2: Semantic Validation** *(NEW)*
+- Uses `EXPLAIN PLAN` to validate query semantics
+- Catches `ILLEGAL_AGGREGATION`, `NOT_AN_AGGREGATE`, and type mismatches
+- Prevents queries with nested aggregates like `sum(column * count())`
+- Validates column references and aggregation logic
+- **Critical for preventing ClickHouse crashes**
+
+**Stage 3: Execution Test**
+- Executes query with `LIMIT 1` for minimal data validation
+- Tests actual data compatibility and performance
+- Final verification before full query execution
+- Only reached if syntax and semantics are valid
+
+**Rule-Based Optimizations:**
+- Automatic fixes for common patterns like `sum(duration_ns/1000000 * request_count)`
+- Intelligent aggregation unwrapping and column reference fixes
+- Fallback when LLM optimization fails or returns empty results
 
 ### ECharts Integration
 

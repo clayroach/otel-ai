@@ -4,7 +4,6 @@ import { ApartmentOutlined } from '@ant-design/icons'
 import ServiceTopologyGraph from './ServiceTopologyGraph'
 import type { ServiceNode, TopologyVisualizationData } from './ServiceTopologyGraph'
 import axios from 'axios'
-import { useAppStore } from '../../store/appStore'
 
 const { Text } = Typography
 
@@ -37,63 +36,53 @@ export const ServiceTopologyPanel: React.FC<ServiceTopologyPanelProps> = ({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [topologyData, setTopologyData] = useState<TopologyVisualizationData | null>(null)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
   const [_selectedNode, setSelectedNode] = useState<ServiceNode | null>(null)
   // const [lastUpdated, setLastUpdated] = useState<Date | null>(null) // Not currently used
   const [filteredHealthStatuses, setFilteredHealthStatuses] = useState<string[]>([])
+  // const [isMockData, setIsMockData] = useState(false) // Not currently used
 
   // Get message from App context
   const { message } = App.useApp()
 
-  // Get LIVE mode setting from global store
-  // IMPORTANT: The UI toggle uses useMockData, so we need to invert it to get useRealService
-  const { useMockData } = useAppStore()
-  const useRealService = !useMockData // LIVE mode is when NOT using mock data
-
-  // Debug: Log the current LIVE mode state
-  useEffect(() => {
-    console.log(
-      '[ServiceTopologyGraph] Component mounted/updated, useMockData:',
-      useMockData,
-      'useRealService:',
-      useRealService
-    )
-  }, [useMockData, useRealService])
-
+  // Always fetch real topology data
   const fetchTopologyData = async () => {
-    console.log('[ServiceTopologyGraph] fetchTopologyData called, useRealService:', useRealService)
+    console.log('[ServiceTopologyGraph] Fetching real topology data')
     setLoading(true)
     setError(null)
 
     try {
-      // If not in LIVE mode, use mock data directly
-      if (!useRealService) {
-        console.log('[ServiceTopologyGraph] LIVE is OFF - loading mock data')
-        await new Promise((resolve) => setTimeout(resolve, 1000)) // Simulate loading
-        setTopologyData(getMockTopologyData())
-        message.info('Using mock topology data for demonstration')
-        return
-      }
+      console.log('[ServiceTopologyGraph] Fetching real topology data')
 
-      console.log('[ServiceTopologyGraph] LIVE is ON - attempting to fetch real data')
-
-      // Only make API call when in LIVE mode
+      // Make API call to fetch topology data
       const params: { startTime?: string; endTime?: string } = {}
       if (timeRange) {
         params.startTime = timeRange[0].toISOString()
         params.endTime = timeRange[1].toISOString()
       }
 
-      const response = await axios.post(
-        'http://localhost:4319/api/ai-analyzer/topology-visualization',
-        {
-          timeRange: params
-        }
+      const response = await axios.post('http://localhost:4319/api/topology/visualization', {
+        timeRange: params
+      })
+
+      console.log('[ServiceTopologyGraph] Response status:', response.status)
+      console.log('[ServiceTopologyGraph] Response data keys:', Object.keys(response.data || {}))
+      console.log('[ServiceTopologyGraph] response.data type:', typeof response.data)
+      console.log('[ServiceTopologyGraph] response.data.nodes exists?', !!response.data?.nodes)
+      console.log(
+        '[ServiceTopologyGraph] response.data.nodes type:',
+        Array.isArray(response.data?.nodes) ? 'array' : typeof response.data?.nodes
       )
 
       if (response.data) {
+        console.log('[ServiceTopologyGraph] Total nodes from backend:', response.data.nodes?.length)
         console.log(
-          '[ServiceTopologyGraph] Raw backend response nodes:',
+          '[ServiceTopologyGraph] Seed services in response:',
+          response.data.nodes
+            ?.filter((n: ServiceNode) => n.name?.startsWith('seed'))
+            .map((n: ServiceNode) => n.name)
+        )
+        console.log(
+          '[ServiceTopologyGraph] Raw backend response nodes (first 3):',
           response.data.nodes?.slice(0, 3)
         )
 
@@ -176,10 +165,19 @@ export const ServiceTopologyPanel: React.FC<ServiceTopologyPanelProps> = ({
         }
 
         console.log(
+          '[ServiceTopologyGraph] Total nodes after transformation:',
+          transformedData.nodes?.length
+        )
+        console.log(
+          '[ServiceTopologyGraph] Seed services after transformation:',
+          transformedData.nodes
+            ?.filter((n: ServiceNode) => n.name?.startsWith('seed'))
+            .map((n: ServiceNode) => n.name)
+        )
+        console.log(
           '[ServiceTopologyGraph] Transformed topology data nodes (first 3):',
           transformedData.nodes?.slice(0, 3)
         )
-        console.log('[ServiceTopologyGraph] Total nodes:', transformedData.nodes?.length)
         setTopologyData(transformedData)
         // setLastUpdated(new Date())
         message.success('Topology data updated successfully')
@@ -189,32 +187,18 @@ export const ServiceTopologyPanel: React.FC<ServiceTopologyPanelProps> = ({
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch topology data'
       setError(errorMessage)
 
-      if (useRealService) {
-        // When LIVE mode is on, never fall back to mock data
-        console.log('[ServiceTopologyGraph] LIVE is ON - NOT falling back to mock data')
-        setTopologyData(null) // Explicitly clear any data
-        message.error('Failed to fetch topology data - please check service connection')
-        // Do NOT set mock data - let the error state show
-      } else {
-        // Only use mock data when NOT in LIVE mode
-        console.log('[ServiceTopologyGraph] LIVE is OFF - falling back to mock data')
-        setTopologyData(getMockTopologyData())
-        message.info('Using mock topology data for demonstration')
-      }
+      // Always show error - never fall back to mock data
+      console.log('[ServiceTopologyGraph] Error fetching data - showing error state')
+      setTopologyData(null) // Explicitly clear any data
+      message.error('Failed to fetch topology data - please check service connection')
     } finally {
       setLoading(false)
     }
   }
 
-  // Initial fetch and refetch when LIVE mode changes
+  // Initial fetch and refetch
   useEffect(() => {
-    const isLiveMode = !useMockData
-    console.log(
-      '[ServiceTopologyGraph] useEffect triggered, useMockData:',
-      useMockData,
-      'isLiveMode:',
-      isLiveMode
-    )
+    console.log('[ServiceTopologyGraph] useEffect triggered, fetching real data')
 
     const loadData = async () => {
       setLoading(true)
@@ -222,90 +206,78 @@ export const ServiceTopologyPanel: React.FC<ServiceTopologyPanelProps> = ({
       setTopologyData(null) // Clear existing data
 
       try {
-        if (useMockData) {
-          console.log('[ServiceTopologyGraph] Loading mock data (DEMO mode is ON)')
-          await new Promise((resolve) => setTimeout(resolve, 1000))
-          setTopologyData(getMockTopologyData())
-          message.info('Using mock topology data for demonstration')
-        } else {
-          console.log('[ServiceTopologyGraph] Fetching real data (LIVE mode is ON)')
-          const params: { startTime?: string; endTime?: string } = {}
-          if (timeRange) {
-            params.startTime = timeRange[0].toISOString()
-            params.endTime = timeRange[1].toISOString()
-          }
+        console.log('[ServiceTopologyGraph] Fetching real data')
+        const params: { startTime?: string; endTime?: string } = {}
+        if (timeRange) {
+          params.startTime = timeRange[0].toISOString()
+          params.endTime = timeRange[1].toISOString()
+        }
 
-          const response = await axios.post(
-            'http://localhost:4319/api/ai-analyzer/topology-visualization',
-            { timeRange: params }
+        const response = await axios.post('http://localhost:4319/api/topology/visualization', {
+          timeRange: params
+        })
+
+        if (response.data) {
+          console.log(
+            '[ServiceTopologyGraph] useEffect - Raw backend nodes:',
+            response.data.nodes?.slice(0, 3)
           )
-
-          if (response.data) {
-            console.log(
-              '[ServiceTopologyGraph] useEffect - Raw backend nodes:',
-              response.data.nodes?.slice(0, 3)
-            )
-            // Transform and set data - ensure nodes have all required properties
-            const transformedData = {
-              nodes:
-                response.data.nodes?.map((node: ServiceNode) => ({
-                  ...node,
-                  // Ensure node has id and name
-                  id: node.id || node.name,
-                  name: node.name || node.id,
-                  // Preserve all other properties
-                  category: node.category,
-                  symbolSize: node.symbolSize,
-                  itemStyle: node.itemStyle,
-                  label: node.label,
-                  metrics: node.metrics || {
-                    rate: 0,
-                    errorRate: 0,
-                    duration: 0,
-                    spanCount: 0,
-                    rateStatus: 0,
-                    errorStatus: 0,
-                    durationStatus: 0,
-                    otelStatus: 0
-                  }
-                })) || [],
-              edges: response.data.edges || [],
-              runtimeEnvironments: response.data.runtimeEnvironments || [],
-              healthSummary: response.data.healthSummary || {
-                healthy: 0,
-                warning: 0,
-                degraded: 0,
-                critical: 0,
-                unavailable: 0
-              }
+          // Transform and set data - ensure nodes have all required properties
+          const transformedData = {
+            nodes:
+              response.data.nodes?.map((node: ServiceNode) => ({
+                ...node,
+                // Ensure node has id and name
+                id: node.id || node.name,
+                name: node.name || node.id,
+                // Preserve all other properties
+                category: node.category,
+                symbolSize: node.symbolSize,
+                itemStyle: node.itemStyle,
+                label: node.label,
+                metrics: node.metrics || {
+                  rate: 0,
+                  errorRate: 0,
+                  duration: 0,
+                  spanCount: 0,
+                  rateStatus: 0,
+                  errorStatus: 0,
+                  durationStatus: 0,
+                  otelStatus: 0
+                }
+              })) || [],
+            edges: response.data.edges || [],
+            runtimeEnvironments: response.data.runtimeEnvironments || [],
+            healthSummary: response.data.healthSummary || {
+              healthy: 0,
+              warning: 0,
+              degraded: 0,
+              critical: 0,
+              unavailable: 0
             }
-            console.log(
-              '[ServiceTopologyGraph] useEffect - Transformed nodes:',
-              transformedData.nodes?.slice(0, 3)
-            )
-            setTopologyData(transformedData)
-            message.success('Topology data updated successfully')
           }
+          console.log(
+            '[ServiceTopologyGraph] useEffect - Transformed nodes:',
+            transformedData.nodes?.slice(0, 3)
+          )
+          setTopologyData(transformedData)
+          message.success('Topology data updated successfully')
         }
       } catch (err) {
         console.error('[ServiceTopologyGraph] Error loading data:', err)
         const errorMessage = err instanceof Error ? err.message : 'Failed to fetch topology data'
         setError(errorMessage)
 
-        if (!useMockData) {
-          console.log('[ServiceTopologyGraph] LIVE mode error - showing error state')
-          setTopologyData(null)
-          message.error('Failed to fetch topology data - please check service connection')
-        } else {
-          console.log('[ServiceTopologyGraph] Mock mode error - this should not happen')
-        }
+        console.log('[ServiceTopologyGraph] Error - showing error state')
+        setTopologyData(null)
+        message.error('Failed to fetch topology data - please check service connection')
       } finally {
         setLoading(false)
       }
     }
 
     loadData()
-  }, [timeRange, useMockData])
+  }, [timeRange])
 
   // Auto-refresh
   useEffect(() => {
@@ -329,7 +301,7 @@ export const ServiceTopologyPanel: React.FC<ServiceTopologyPanelProps> = ({
       })
     )
     console.log('TopologyTab - onServiceClick prop exists?', !!onServiceClick)
-    console.log('TopologyTab - useMockData:', useMockData)
+    console.log('TopologyTab - Using real service')
     setSelectedNode(node)
 
     // Use the node.id which should be the clean service name
@@ -347,8 +319,7 @@ export const ServiceTopologyPanel: React.FC<ServiceTopologyPanelProps> = ({
   }
 
   const handleRefresh = () => {
-    console.log('[ServiceTopologyGraph] Manual refresh triggered, useRealService:', useRealService)
-    // Trigger re-render with current LIVE state
+    console.log('[ServiceTopologyGraph] Manual refresh triggered')
     setTopologyData(null)
     setError(null)
     fetchTopologyData()
@@ -406,30 +377,8 @@ export const ServiceTopologyPanel: React.FC<ServiceTopologyPanelProps> = ({
     )
   }
 
-  // CRITICAL: Final safety check - never show mock data when LIVE is ON
-  const dataToDisplay =
-    useRealService && topologyData && isMockData(topologyData) ? null : topologyData
-
-  // If LIVE is ON and we detected mock data, show an error
-  if (useRealService && topologyData && isMockData(topologyData)) {
-    console.error('[ServiceTopologyGraph] CRITICAL: Mock data detected when LIVE is ON!')
-    return (
-      <Alert
-        message="Data Integrity Error"
-        description="Mock data detected when LIVE mode is enabled. Please refresh the page."
-        type="error"
-        showIcon
-        action={
-          <Button size="small" onClick={handleRefresh}>
-            Refresh
-          </Button>
-        }
-      />
-    )
-  }
-
   // Don't render chart if no data
-  if (!dataToDisplay) {
+  if (!topologyData) {
     return (
       <Empty description="No topology data available" image={Empty.PRESENTED_IMAGE_SIMPLE}>
         <Button type="primary" onClick={handleRefresh}>
@@ -466,7 +415,7 @@ export const ServiceTopologyPanel: React.FC<ServiceTopologyPanelProps> = ({
       }
     >
       <ServiceTopologyGraph
-        data={dataToDisplay}
+        data={topologyData}
         onNodeClick={handleNodeClick}
         onHealthFilter={handleHealthFilter}
         filteredHealthStatuses={filteredHealthStatuses}
@@ -478,11 +427,7 @@ export const ServiceTopologyPanel: React.FC<ServiceTopologyPanelProps> = ({
   )
 }
 
-// Helper function to detect mock data
-function isMockData(data: TopologyVisualizationData): boolean {
-  // Check if any node has a name starting with 'm'
-  return data.nodes.some((node) => node.name.startsWith('m'))
-}
+// Helper function removed - mock data detection not currently needed
 
 // Helper functions (commented out - not currently used)
 // const getServiceType = (node: ServiceNode): string => {

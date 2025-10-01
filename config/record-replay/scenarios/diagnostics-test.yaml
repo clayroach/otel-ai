@@ -1,0 +1,14 @@
+# Diagnostics Test Scenario - For Issue #103 UI testing
+
+replay:
+  # Use training sessions with known anomalies
+  sessionFilter:
+    sessionType: training # Only replay training sessions
+  selectionStrategy: latest
+  maxDuration: 300 # 5 minutes
+  speedMultiplier: 1.0 # Real-time for UI observation
+  loopEnabled: false
+
+logging:
+  statusInterval: 30
+  level: debug

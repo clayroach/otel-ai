@@ -79,7 +79,14 @@ export const DIAGNOSTIC_SQL_PATTERNS = {
   count() AS request_count`,
 
   bottleneckDetection: `
-  count() * quantile(0.95)(duration_ns/1000000) AS total_time_impact_ms`,
+  count() AS request_count,
+  quantile(0.95)(duration_ns/1000000) AS p95_latency_ms`,
+
+  // DANGEROUS PATTERN - intentionally kept for validation testing
+  // This pattern WILL cause ILLEGAL_AGGREGATION if not caught by validation
+  // ONLY use in controlled test environments to verify validation works
+  dangerousPattern: `
+  count() * quantile(0.95)(duration_ns/1000000) AS dangerous_metric -- ILLEGAL_AGGREGATION`,
 
   operationBreakdown: `
   GROUP BY service_name, operation_name`,
@@ -240,8 +247,8 @@ ORDER BY error_rate_pct DESC, error_count DESC`
     analysisGoal.toLowerCase().includes('bottleneck') ||
     analysisGoal.toLowerCase().includes('impact')
   ) {
-    exactSQL = `SELECT service_name, operation_name, 
-  count() * quantile(0.95)(duration_ns/1000000) as total_time_impact_ms,
+    exactSQL = `SELECT service_name, operation_name,
+  count() as request_count,
   quantile(0.95)(duration_ns/1000000) as p95_ms
 FROM traces 
 WHERE service_name IN (${services})
@@ -480,7 +487,8 @@ diagnostic_analysis AS (
     round(countIf(t.status_code != 'OK') * 100.0 / count(), 2) AS error_rate_pct,
     quantile(0.5)(t.duration_ns/1000000) AS p50_ms,
     quantile(0.95)(t.duration_ns/1000000) AS p95_ms,
-    count() * quantile(0.95)(t.duration_ns/1000000) AS total_time_impact_ms
+    count() AS request_count,
+    quantile(0.95)(t.duration_ns/1000000) AS p95_latency_ms
   FROM traces t
   INNER JOIN problematic_traces pt ON t.trace_id = pt.trace_id
   WHERE t.service_name IN (${services.map((s) => `'${s}'`).join(', ')})

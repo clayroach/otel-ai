@@ -470,7 +470,8 @@ describe('Storage Service with API Client (Effect-TS)', () => {
         archiveData: (_data: OTLPData, _timestamp: number) => Effect.succeed(undefined),
         applyRetentionPolicies: () => Effect.succeed(undefined),
         healthCheck: () => Effect.succeed({ clickhouse: true, s3: true }),
-        getStorageStats: () => Effect.succeed({} as StorageStats)
+        getStorageStats: () => Effect.succeed({} as StorageStats),
+        createValidationTables: () => Effect.void
       })
 
       const FailingLayer = Layer.mergeAll(

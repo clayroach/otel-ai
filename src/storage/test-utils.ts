@@ -220,7 +220,10 @@ export const createMockStorageServiceLive = (
       shouldFailHealth ? Effect.fail(customError) : Effect.succeed({ clickhouse: true, s3: true }),
 
     getStorageStats: (): Effect.Effect<StorageStats, StorageError> =>
-      shouldFailQuery ? Effect.fail(customError) : Effect.succeed(createMockStorageStats())
+      shouldFailQuery ? Effect.fail(customError) : Effect.succeed(createMockStorageStats()),
+
+    createValidationTables: (): Effect.Effect<void, StorageError> =>
+      shouldFailWrite ? Effect.fail(customError) : Effect.void
   } satisfies StorageService)
 }
 

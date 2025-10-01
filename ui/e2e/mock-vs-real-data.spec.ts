@@ -72,7 +72,7 @@ test.describe('Mock vs Real Data E2E Validation', () => {
     // Set up network interceptor to monitor API calls
     const apiCalls: string[] = []
     page.on('request', request => {
-      if (request.url().includes('/api/ai-analyzer') || request.url().includes('4319')) {
+      if (request.url().includes('/api/topology') || request.url().includes('4319')) {
         apiCalls.push(request.url())
       }
     })
@@ -124,7 +124,7 @@ test.describe('Mock vs Real Data E2E Validation', () => {
     // Set up network listener
     let apiCallMade = false
     page.on('request', request => {
-      if (request.url().includes('/api/ai-analyzer') || request.url().includes('4319')) {
+      if (request.url().includes('/api/topology') || request.url().includes('4319')) {
         apiCallMade = true
       }
     })

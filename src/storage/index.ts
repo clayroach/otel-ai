@@ -27,7 +27,7 @@ export type {
   RetentionConfig,
   PerformanceConfig
 } from './config.js'
-export { StorageConfigSchema, defaultStorageConfig } from './config.js'
+export { StorageConfigSchema, defaultStorageConfig, REQUIRED_TABLES } from './config.js'
 
 // Error types
 export type { StorageError } from './errors.js'
@@ -61,6 +61,14 @@ export { S3StorageTag, S3StorageLive } from './s3.js'
 // Router exports - Layer pattern for HTTP endpoints
 export type { StorageRouter } from './router.js'
 export { StorageRouterTag, StorageRouterLive } from './router.js'
+
+// Dependency Aggregator Service - SigNoz-inspired background service
+export type { DependencyAggregator } from './dependency-aggregator.js'
+export {
+  DependencyAggregatorTag,
+  DependencyAggregatorLive,
+  DependencyAggregatorMock
+} from './dependency-aggregator.js'
 
 // Test Layers only - no utility functions exported from package index
 export {

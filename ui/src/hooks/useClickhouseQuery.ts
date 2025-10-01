@@ -21,12 +21,36 @@ interface ClickhouseError {
   code?: number
 }
 
+/**
+ * Strip SQL comments and metadata from query before sending to ClickHouse
+ * ClickHouse doesn't accept comments at the beginning of queries
+ */
+const stripSQLComments = (query: string): string => {
+  // Remove single-line comments (-- ...)
+  let cleaned = query.replace(/^--.*$/gm, '')
+
+  // Remove multi-line comments (/* ... */)
+  cleaned = cleaned.replace(/\/\*[\s\S]*?\*\//g, '')
+
+  // Remove empty lines and trim
+  cleaned = cleaned
+    .split('\n')
+    .filter((line) => line.trim().length > 0)
+    .join('\n')
+    .trim()
+
+  return cleaned
+}
+
 const executeClickhouseQuery = async <T = unknown>(
   query: string,
   url: string,
   auth: { username: string; password: string }
 ): Promise<ClickhouseQueryResult<T>> => {
   try {
+    // Strip comments from query before sending to ClickHouse
+    const cleanQuery = stripSQLComments(query)
+
     // For proxy URLs, don't send auth headers as the proxy handles authentication
     const isProxyUrl = url.includes('/api/clickhouse')
     console.log('ClickHouse Query URL:', url, 'isProxy:', isProxyUrl)
@@ -37,13 +61,19 @@ const executeClickhouseQuery = async <T = unknown>(
       headers['Authorization'] = `Basic ${btoa(`${auth.username}:${auth.password}`)}`
     }
 
-    const response = await axios.post(url, `${query} FORMAT JSON`, {
-      headers: {
-        ...headers,
-        'Content-Type': 'text/plain'
-      },
-      timeout: 30000 // 30 second timeout
-    })
+    const response = await axios.post(
+      url,
+      isProxyUrl
+        ? { query: `${cleanQuery} FORMAT JSON` } // Backend expects JSON body with query field
+        : `${cleanQuery} FORMAT JSON`, // Direct ClickHouse expects plain text
+      {
+        headers: {
+          ...headers,
+          'Content-Type': isProxyUrl ? 'application/json' : 'text/plain'
+        },
+        timeout: 30000 // 30 second timeout
+      }
+    )
 
     // ClickHouse returns JSON with data, rows, statistics, and optionally meta
     const result = response.data
@@ -60,12 +90,26 @@ const executeClickhouseQuery = async <T = unknown>(
     }
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      // Handle ClickHouse error responses
+      // Handle backend API error responses
       if (error.response?.data) {
-        const errorText =
-          typeof error.response.data === 'string'
-            ? error.response.data
-            : JSON.stringify(error.response.data)
+        const errorData = error.response.data
+
+        // Handle backend API error format: {"error": "...", "message": "..."}
+        if (typeof errorData === 'object' && errorData.error && errorData.message) {
+          // Parse the nested error message if it's JSON
+          try {
+            const parsedMessage = JSON.parse(errorData.message)
+            if (parsedMessage.message) {
+              throw new Error(`Query Error: ${parsedMessage.message}`)
+            }
+          } catch {
+            // If parsing fails, use the message as-is
+            throw new Error(`Query Error: ${errorData.error}`)
+          }
+        }
+
+        // Handle direct ClickHouse error responses (for direct connections)
+        const errorText = typeof errorData === 'string' ? errorData : JSON.stringify(errorData)
 
         // Extract ClickHouse error message
         const match = errorText.match(/Code: (\d+)\. (.+?)(?:\n|$)/)

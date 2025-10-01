@@ -200,6 +200,27 @@ export async function setupClickHouseSchema(client: ClickHouseClient): Promise<v
   }
 
   console.log('✅ Schema created successfully from migration file')
+
+  // Create validation tables with Null engine for semantic validation
+  console.log('📊 Creating validation tables with Null engine...')
+  const schemaInfo = getSchemaInfo()
+
+  for (const tableName of schemaInfo.tables) {
+    try {
+      const validationTableQuery = `
+        CREATE TABLE IF NOT EXISTS otel.${tableName}_validation
+        AS otel.${tableName}
+        ENGINE = Null
+      `
+      await client.command({ query: validationTableQuery })
+      console.log(`  ✅ Created validation table: ${tableName}_validation`)
+    } catch (error) {
+      console.error(`  ❌ Failed to create validation table ${tableName}_validation:`, error)
+      throw error
+    }
+  }
+
+  console.log('✅ Validation tables created successfully')
 }
 
 /**

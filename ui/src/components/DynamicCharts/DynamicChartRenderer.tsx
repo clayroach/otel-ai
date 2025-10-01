@@ -6,6 +6,7 @@ import { DynamicDataTable } from './DynamicDataTable'
 import { DynamicHeatmap } from './DynamicHeatmap'
 import { DynamicPieChart } from './DynamicPieChart'
 import { DynamicScatterPlot } from './DynamicScatterPlot'
+import { ChartErrorBoundary } from '../ErrorBoundary'
 
 interface ChartProps {
   config?: unknown
@@ -101,5 +102,9 @@ export const DynamicChartRenderer: React.FC<DynamicChartRendererProps> = ({
     }
   }
 
-  return <div className="w-full">{renderComponent()}</div>
+  return (
+    <div className="w-full" data-testid="dynamic-chart-container">
+      <ChartErrorBoundary>{renderComponent()}</ChartErrorBoundary>
+    </div>
+  )
 }

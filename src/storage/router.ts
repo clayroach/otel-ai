@@ -6,7 +6,7 @@
 import { Context, Effect, Layer } from 'effect'
 import express from 'express'
 import { StorageAPIClientTag } from './index.js'
-import { RetentionServiceTag, type RetentionPolicy } from '../otlp-capture/index.js'
+import { RetentionServiceTag, type RetentionPolicy } from '../record-replay/otlp-capture/index.js'
 
 export interface StorageRouter {
   readonly router: express.Router
@@ -22,10 +22,51 @@ export const StorageRouterLive = Layer.effect(
 
     const router = express.Router()
 
+    // Health check endpoint - verifies ClickHouse connectivity
+    router.get('/api/storage/health', async (req, res) => {
+      try {
+        const health = await Effect.runPromise(storageClient.healthCheck())
+        res.json(health)
+        return
+      } catch (error) {
+        console.error('❌ Storage health check failed:', error)
+        res.status(500).json({
+          clickhouse: false,
+          s3: false,
+          error: error instanceof Error ? error.message : 'Health check failed'
+        })
+        return
+      }
+    })
+
     // Helper function for raw queries that returns data in legacy format
+    // Note: Only used for trusted, hand-crafted queries - not LLM-generated ones
     const queryWithResults = async (sql: string): Promise<{ data: Record<string, unknown>[] }> => {
       const result = await Effect.runPromise(storageClient.queryRaw(sql))
       return { data: result as Record<string, unknown>[] }
+    }
+
+    // Query to check high memory usage from system.query_log
+    const getHighMemoryQueries = async (minutesBack: number = 5, thresholdMB: number = 100) => {
+      const sql = `
+        SELECT
+          toDateTime(event_time) as time,
+          query_id,
+          query_duration_ms,
+          memory_usage / (1024*1024) as memory_mb,
+          read_rows,
+          read_bytes / (1024*1024*1024) as read_gb,
+          substring(query, 1, 200) as query_preview,
+          exception
+        FROM system.query_log
+        WHERE event_time >= now() - INTERVAL ${minutesBack} MINUTE
+          AND type IN ('QueryFinish', 'ExceptionWhileProcessing')
+          AND memory_usage > ${thresholdMB} * 1024 * 1024
+          AND query NOT LIKE '%system.query_log%'
+        ORDER BY memory_usage DESC
+        LIMIT 20
+      `
+      return queryWithResults(sql)
     }
 
     // ClickHouse query endpoint
@@ -133,6 +174,39 @@ export const StorageRouterLive = Layer.effect(
         console.error('❌ Error archiving sessions:', error)
         res.status(500).json({
           error: 'Failed to archive sessions',
+          message: error instanceof Error ? error.message : 'Unknown error'
+        })
+      }
+    })
+
+    // Memory monitoring endpoint - shows high memory queries
+    router.get('/api/monitoring/high-memory-queries', async (req, res) => {
+      try {
+        const minutesBack = parseInt(req.query.minutes as string) || 5
+        const thresholdMB = parseInt(req.query.threshold as string) || 100
+
+        console.log(
+          `📊 Checking for queries using >${thresholdMB}MB in last ${minutesBack} minutes`
+        )
+
+        const result = await getHighMemoryQueries(minutesBack, thresholdMB)
+
+        // Log if we found any high memory queries
+        if (result.data.length > 0) {
+          console.warn(`⚠️ Found ${result.data.length} high memory queries`)
+        }
+
+        res.json({
+          timestamp: new Date().toISOString(),
+          minutesBack,
+          thresholdMB,
+          count: result.data.length,
+          queries: result.data
+        })
+      } catch (error) {
+        console.error('❌ Error checking high memory queries:', error)
+        res.status(500).json({
+          error: 'Failed to check high memory queries',
           message: error instanceof Error ? error.message : 'Unknown error'
         })
       }

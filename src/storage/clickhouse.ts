@@ -32,8 +32,13 @@ export interface ClickHouseStorage {
   readonly queryLogs: (params: QueryParams) => Effect.Effect<LogData[], StorageError>
   readonly queryForAI: (params: AIQueryParams) => Effect.Effect<AIDataset, StorageError>
   readonly queryRaw: (sql: string) => Effect.Effect<unknown[], StorageError>
+  readonly queryWithPerformanceSettings: (
+    sql: string,
+    settings?: Record<string, string | number>
+  ) => Effect.Effect<unknown[], StorageError>
   readonly queryText: (sql: string) => Effect.Effect<string, StorageError>
   readonly insertRaw: (sql: string) => Effect.Effect<void, StorageError>
+  readonly createTopologyIndexes: () => Effect.Effect<void, StorageError>
   readonly healthCheck: () => Effect.Effect<boolean, StorageError>
   readonly close: () => Effect.Effect<void, never>
 }
@@ -42,17 +47,19 @@ export const makeClickHouseStorage = (
   config: ClickHouseConfig
 ): Effect.Effect<ClickHouseStorage, StorageError> =>
   Effect.gen(function* (_) {
-    // Create ClickHouse client
+    // Create ClickHouse client with performance optimizations and timeout settings
     const client = createClient({
       host: `http://${config.host}:${config.port}`,
       database: config.database,
       username: config.username,
       password: config.password,
-      // Remove timeout config for now - will use defaults
       compression: {
         response: config.compression ?? true,
         request: config.compression ?? true
-      }
+      },
+      // Add timeout and performance settings
+      request_timeout: 30000, // 30 second timeout for all queries
+      max_open_connections: config.maxOpenConnections ?? 10
     })
 
     // Test connection on initialization
@@ -462,6 +469,38 @@ export const makeClickHouseStorage = (
         return true
       })
 
+    // Helper for performance-critical queries with additional safeguards
+    const queryWithPerformanceSettings = (
+      sql: string,
+      settings?: Record<string, string | number>
+    ): Effect.Effect<unknown[], StorageError> =>
+      Effect.tryPromise({
+        try: async () => {
+          const performanceSettings = {
+            max_memory_usage: 2000000000, // 2GB
+            max_execution_time: 30, // 30 seconds
+            max_result_rows: 100000, // Limit rows
+            ...settings
+          }
+
+          const result = await client.query({
+            query: sql,
+            format: 'JSONEachRow',
+            query_params: performanceSettings
+          })
+          const data = (await result.json()) as unknown[]
+
+          // Clean up protobuf strings and convert BigInt values
+          return data.map((row) => convertBigIntToNumber(cleanProtobufStrings(row)))
+        },
+        catch: (error) =>
+          StorageErrorConstructors.QueryError(
+            `Performance query failed: ${String(error)}`,
+            sql,
+            error
+          )
+      })
+
     const queryRaw = (sql: string): Effect.Effect<unknown[], StorageError> =>
       Effect.tryPromise({
         try: async () => {
@@ -495,11 +534,15 @@ export const makeClickHouseStorage = (
           const chunks: string[] = []
 
           return new Promise<string>((resolve, reject) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            stream.on('data', (rows: any[]) => {
+            // ClickHouse streaming row type for TabSeparated format
+            interface ClickHouseStreamRow {
+              text?: string
+              [key: string]: unknown
+            }
+
+            stream.on('data', (rows: ClickHouseStreamRow[]) => {
               // Each row in TSV format has a 'text' property with the raw line
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              rows.forEach((row: any) => {
+              rows.forEach((row) => {
                 if (row.text !== undefined) {
                   chunks.push(row.text)
                 }
@@ -527,6 +570,70 @@ export const makeClickHouseStorage = (
         },
         catch: (error) =>
           StorageErrorConstructors.QueryError(`Raw insert failed: ${String(error)}`, sql, error)
+      })
+
+    // Create performance indexes for topology queries
+    const createTopologyIndexes = (): Effect.Effect<void, StorageError> =>
+      Effect.gen(function* (_) {
+        // Index for (trace_id, parent_span_id) lookups - critical for parent-child relationships
+        yield* _(
+          Effect.tryPromise({
+            try: () =>
+              client.command({
+                query: `
+                  ALTER TABLE traces
+                  ADD INDEX IF NOT EXISTS idx_trace_parent (trace_id, parent_span_id)
+                  TYPE bloom_filter GRANULARITY 4
+                `
+              }),
+            catch: (error) =>
+              StorageErrorConstructors.QueryError(
+                `Failed to create trace_parent index: ${String(error)}`,
+                'ALTER TABLE traces ADD INDEX idx_trace_parent',
+                error
+              )
+          })
+        )
+
+        // Index for (trace_id, span_id) lookups - critical for span resolution
+        yield* _(
+          Effect.tryPromise({
+            try: () =>
+              client.command({
+                query: `
+                  ALTER TABLE traces
+                  ADD INDEX IF NOT EXISTS idx_trace_span (trace_id, span_id)
+                  TYPE bloom_filter GRANULARITY 4
+                `
+              }),
+            catch: (error) =>
+              StorageErrorConstructors.QueryError(
+                `Failed to create trace_span index: ${String(error)}`,
+                'ALTER TABLE traces ADD INDEX idx_trace_span',
+                error
+              )
+          })
+        )
+
+        // Index for service_name lookups - improves service topology queries
+        yield* _(
+          Effect.tryPromise({
+            try: () =>
+              client.command({
+                query: `
+                  ALTER TABLE traces
+                  ADD INDEX IF NOT EXISTS idx_service_name (service_name)
+                  TYPE bloom_filter GRANULARITY 8
+                `
+              }),
+            catch: (error) =>
+              StorageErrorConstructors.QueryError(
+                `Failed to create service_name index: ${String(error)}`,
+                'ALTER TABLE traces ADD INDEX idx_service_name',
+                error
+              )
+          })
+        )
       })
 
     // Helper function to clean protobuf JSON strings
@@ -603,8 +710,10 @@ export const makeClickHouseStorage = (
       queryLogs,
       queryForAI,
       queryRaw,
+      queryWithPerformanceSettings,
       queryText,
       insertRaw,
+      createTopologyIndexes,
       healthCheck,
       close
     }
@@ -622,22 +731,22 @@ const buildTraceQuery = (params: QueryParams): string => {
   const { timeRange, filters, limit, offset, orderBy, orderDirection } = params
 
   let query = `
-    SELECT 
-      TraceId as traceId,
-      SpanId as spanId,
-      ParentSpanId as parentSpanId,
-      SpanName as operationName,
-      Timestamp as startTime,
-      Duration as duration,
-      ServiceName as serviceName,
-      StatusCode as statusCode,
-      StatusMessage as statusMessage,
-      SpanKind as spanKind,
-      SpanAttributes as attributes,
-      ResourceAttributes as resourceAttributes
-    FROM traces 
-    WHERE Timestamp >= ${new Date(timeRange.start).toISOString()}
-      AND Timestamp <= ${new Date(timeRange.end).toISOString()}
+    SELECT
+      trace_id as traceId,
+      span_id as spanId,
+      parent_span_id as parentSpanId,
+      operation_name as operationName,
+      start_time as startTime,
+      duration_ns as duration,
+      service_name as serviceName,
+      status_code as statusCode,
+      status_message as statusMessage,
+      span_kind as spanKind,
+      span_attributes as attributes,
+      resource_attributes as resourceAttributes
+    FROM traces
+    WHERE start_time >= toDateTime64('${new Date(timeRange.start).toISOString().replace('Z', '')}', 9)
+      AND start_time <= toDateTime64('${new Date(timeRange.end).toISOString().replace('Z', '')}', 9)
   `
 
   if (filters) {
@@ -646,8 +755,11 @@ const buildTraceQuery = (params: QueryParams): string => {
     })
   }
 
+  // Add default ordering by start_time if no orderBy specified
   if (orderBy) {
     query += ` ORDER BY ${orderBy} ${orderDirection || 'ASC'}`
+  } else {
+    query += ` ORDER BY start_time DESC` // Most recent traces first
   }
 
   if (limit) {
@@ -692,13 +804,13 @@ const buildAIQuery = (params: AIQueryParams): string => {
   switch (datasetType) {
     case 'anomaly-detection':
       return `
-        SELECT 
+        SELECT
           ${features.join(', ')},
-          toUnixTimestamp(Timestamp) as timestamp
+          toUnixTimestamp(start_time) as timestamp
         FROM traces
-        WHERE Timestamp >= '${new Date(timeRange.start).toISOString()}'
-          AND Timestamp <= '${new Date(timeRange.end).toISOString()}'
-        ORDER BY Timestamp
+        WHERE start_time >= toDateTime64('${new Date(timeRange.start).toISOString().replace('Z', '')}', 9)
+          AND start_time <= toDateTime64('${new Date(timeRange.end).toISOString().replace('Z', '')}', 9)
+        ORDER BY start_time
       `
     default:
       return buildTraceQuery(params)

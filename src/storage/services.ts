@@ -4,7 +4,13 @@
  */
 
 import { Effect, Context, Layer, Schedule, Duration } from 'effect'
-import { type StorageConfig, defaultStorageConfig, loadConfigFromEnv } from './config.js'
+import { DependencyAggregatorTag, DependencyAggregatorLive } from './dependency-aggregator.js'
+import {
+  type StorageConfig,
+  defaultStorageConfig,
+  loadConfigFromEnv,
+  REQUIRED_TABLES
+} from './config.js'
 import {
   type OTLPData,
   type QueryParams,
@@ -14,7 +20,7 @@ import {
   type LogData,
   type AIDataset
 } from './schemas.js'
-import { type StorageError } from './errors.js'
+import { type StorageError, StorageErrorConstructors } from './errors.js'
 import { type ClickHouseStorage, makeClickHouseStorage } from './clickhouse.js'
 // S3 imports removed - not used yet
 
@@ -43,6 +49,9 @@ export interface StorageService {
   // Health and maintenance
   readonly healthCheck: () => Effect.Effect<{ clickhouse: boolean; s3: boolean }, StorageError>
   readonly getStorageStats: () => Effect.Effect<StorageStats, StorageError>
+
+  // Validation table management
+  readonly createValidationTables: () => Effect.Effect<void, StorageError>
 }
 
 export interface StorageStats {
@@ -148,6 +157,42 @@ const makeStorageService = (
         clickhouse: clickhouseStats,
         s3: s3Stats
       }
+    }),
+
+  createValidationTables: () =>
+    Effect.gen(function* (_) {
+      console.log(
+        '📊 Creating validation tables with Null engine for ILLEGAL_AGGREGATION prevention...'
+      )
+
+      // Use centralized list of tables
+      const tables = REQUIRED_TABLES
+
+      for (const tableName of tables) {
+        const validationTableSQL = `
+          CREATE TABLE IF NOT EXISTS ${tableName}_validation
+          AS ${tableName}
+          ENGINE = Null
+        `
+
+        yield* _(
+          clickhouse
+            .insertRaw(validationTableSQL)
+            .pipe(
+              Effect.mapError((error) =>
+                StorageErrorConstructors.QueryError(
+                  `Failed to create validation table ${tableName}_validation: ${error}`,
+                  validationTableSQL,
+                  error
+                )
+              )
+            )
+        )
+
+        console.log(`  ✅ Created validation table: ${tableName}_validation`)
+      }
+
+      console.log('✅ All validation tables created successfully')
     })
 })
 
@@ -156,9 +201,26 @@ export const StorageServiceLive = Layer.effect(
   StorageServiceTag,
   Effect.gen(function* (_) {
     const config = yield* _(ConfigServiceTag)
+    const aggregator = yield* _(DependencyAggregatorTag)
 
     const clickhouse = yield* _(makeClickHouseStorage(config.clickhouse))
     // S3 not used yet - removed to simplify setup
+
+    // Start the dependency aggregator automatically in the background
+    // This runs every 30 seconds to aggregate span relationships into service dependencies
+    yield* _(
+      aggregator.start().pipe(
+        Effect.tap(() => Effect.log('[StorageService] Dependency aggregator started successfully')),
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            // Log but don't fail - aggregator is not critical for basic operations
+            yield* Effect.logError('[StorageService] Failed to start dependency aggregator')
+            yield* Effect.logError(error)
+          })
+        ),
+        Effect.fork // Run in background
+      )
+    )
 
     return makeStorageService(clickhouse, config)
   })
@@ -170,33 +232,32 @@ export const ConfigServiceLive = Layer.succeed(ConfigServiceTag, {
   ...loadConfigFromEnv()
 })
 
-// Storage layer that requires ConfigServiceTag to be provided externally
-export const StorageLayer = StorageServiceLive
+// Storage layer that includes the dependency aggregator
+// The aggregator will start automatically when the storage service is initialized
+export const StorageLayer = StorageServiceLive.pipe(Layer.provide(DependencyAggregatorLive()))
 
 // Convenience functions for common operations
-export namespace StorageOperations {
-  export const writeOTLP = (data: OTLPData, encodingType?: 'protobuf' | 'json') =>
-    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.writeOTLP(data, encodingType)))
+export const StorageOperations = {
+  writeOTLP: (data: OTLPData, encodingType?: 'protobuf' | 'json') =>
+    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.writeOTLP(data, encodingType))),
 
-  export const queryTraces = (params: QueryParams) =>
-    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.queryTraces(params)))
+  queryTraces: (params: QueryParams) =>
+    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.queryTraces(params))),
 
-  export const queryMetrics = (params: QueryParams) =>
-    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.queryMetrics(params)))
+  queryMetrics: (params: QueryParams) =>
+    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.queryMetrics(params))),
 
-  export const queryLogs = (params: QueryParams) =>
-    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.queryLogs(params)))
+  queryLogs: (params: QueryParams) =>
+    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.queryLogs(params))),
 
-  export const queryForAI = (params: AIQueryParams) =>
-    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.queryForAI(params)))
+  queryForAI: (params: AIQueryParams) =>
+    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.queryForAI(params))),
 
-  export const healthCheck = () =>
-    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.healthCheck()))
+  healthCheck: () => StorageServiceTag.pipe(Effect.flatMap((storage) => storage.healthCheck())),
 
-  export const getStats = () =>
-    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.getStorageStats()))
+  getStats: () => StorageServiceTag.pipe(Effect.flatMap((storage) => storage.getStorageStats())),
 
-  export const startRetentionSchedule = (intervalMinutes: number = 60) =>
+  startRetentionSchedule: (intervalMinutes: number = 60) =>
     StorageServiceTag.pipe(
       Effect.flatMap((storage) =>
         storage
@@ -204,7 +265,7 @@ export namespace StorageOperations {
           .pipe(Effect.repeat(Schedule.fixed(Duration.minutes(intervalMinutes))), Effect.forkDaemon)
       )
     )
-}
+} as const
 
 // Example usage and integration helpers
 export const exampleUsage = () =>
