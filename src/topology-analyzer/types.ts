@@ -174,8 +174,8 @@ export const AnalysisResponseSchema = Schema.Struct({
   requestId: Schema.String,
   type: Schema.Literal('architecture', 'dataflow', 'dependencies', 'insights'),
   summary: Schema.String,
-  architecture: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
-  insights: Schema.Array(Schema.Record(Schema.String, Schema.Unknown)),
+  architecture: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  insights: Schema.Array(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
   metadata: Schema.Struct({
     analyzedSpans: Schema.Union(Schema.Number, Schema.String),
     analysisTimeMs: Schema.Number,

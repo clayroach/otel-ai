@@ -19,20 +19,20 @@ export const TraceDataSchema = Schema.Struct({
   statusCode: Schema.Number, // 0=UNSET, 1=OK, 2=ERROR
   statusMessage: Schema.optional(Schema.String),
   spanKind: Schema.String,
-  attributes: Schema.Record(Schema.String, Schema.String),
-  resourceAttributes: Schema.Record(Schema.String, Schema.String),
+  attributes: Schema.Record({ key: Schema.String, value: Schema.String }),
+  resourceAttributes: Schema.Record({ key: Schema.String, value: Schema.String }),
   events: Schema.Array(
     Schema.Struct({
       timestamp: Schema.Number,
       name: Schema.String,
-      attributes: Schema.Record(Schema.String, Schema.String)
+      attributes: Schema.Record({ key: Schema.String, value: Schema.String })
     })
   ),
   links: Schema.Array(
     Schema.Struct({
       traceId: Schema.String,
       spanId: Schema.String,
-      attributes: Schema.Record(Schema.String, Schema.String)
+      attributes: Schema.Record({ key: Schema.String, value: Schema.String })
     })
   )
 })
@@ -44,8 +44,8 @@ export const MetricDataSchema = Schema.Struct({
   value: Schema.Number,
   metricType: Schema.Literal('gauge', 'counter', 'histogram', 'summary'),
   unit: Schema.optional(Schema.String),
-  attributes: Schema.Record(Schema.String, Schema.String),
-  resourceAttributes: Schema.Record(Schema.String, Schema.String),
+  attributes: Schema.Record({ key: Schema.String, value: Schema.String }),
+  resourceAttributes: Schema.Record({ key: Schema.String, value: Schema.String }),
   // For histogram and summary metrics
   buckets: Schema.optional(
     Schema.Array(
@@ -74,8 +74,8 @@ export const LogDataSchema = Schema.Struct({
   body: Schema.String,
   traceId: Schema.optional(Schema.String),
   spanId: Schema.optional(Schema.String),
-  attributes: Schema.Record(Schema.String, Schema.String),
-  resourceAttributes: Schema.Record(Schema.String, Schema.String)
+  attributes: Schema.Record({ key: Schema.String, value: Schema.String }),
+  resourceAttributes: Schema.Record({ key: Schema.String, value: Schema.String })
 })
 
 // OTLP data container
@@ -92,7 +92,7 @@ export const QueryParamsSchema = Schema.Struct({
     start: Schema.Number,
     end: Schema.Number
   }),
-  filters: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  filters: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
   limit: Schema.optional(Schema.Number),
   offset: Schema.optional(Schema.Number),
   aggregation: Schema.optional(Schema.String),
@@ -121,7 +121,7 @@ export type AIQueryParams = Schema.Schema.Type<typeof AIQueryParamsSchema>
 export const AIDatasetSchema = Schema.Struct({
   features: Schema.Array(Schema.Array(Schema.Number)), // Feature matrix
   labels: Schema.optional(Schema.Array(Schema.Number)), // Optional labels
-  metadata: Schema.Record(Schema.String, Schema.Unknown), // Additional metadata
+  metadata: Schema.Record({ key: Schema.String, value: Schema.Unknown }), // Additional metadata
   timeRange: Schema.Struct({
     start: Schema.Number,
     end: Schema.Number

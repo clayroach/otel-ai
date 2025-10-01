@@ -8,7 +8,7 @@ export const CriticalPathSchema = Schema.Struct({
   services: Schema.Array(Schema.String),
   startService: Schema.String,
   endService: Schema.String,
-  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
 })
 export type CriticalPath = Schema.Schema.Type<typeof CriticalPathSchema>
 
@@ -28,14 +28,14 @@ export const GeneratedQuerySchema = Schema.Struct({
   description: Schema.String,
   pattern: Schema.Enums(QueryPattern),
   sql: Schema.String,
-  expectedSchema: Schema.optional(Schema.Record(Schema.String, Schema.String))
+  expectedSchema: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String }))
 })
 export type GeneratedQuery = Schema.Schema.Type<typeof GeneratedQuerySchema>
 
 // Query result
 export const QueryResultSchema = Schema.Struct({
   queryId: Schema.String,
-  data: Schema.Array(Schema.Record(Schema.String, Schema.Unknown)),
+  data: Schema.Array(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
   executionTimeMs: Schema.Number,
   rowCount: Schema.Number,
   error: Schema.optional(Schema.String)
@@ -63,8 +63,8 @@ export interface CriticalPathQueryGenerator {
 
 // Query configuration
 export const QueryConfigSchema = Schema.Struct({
-  timeRangeMinutes: Schema.optional(Schema.Number, { default: () => 60 }),
-  limit: Schema.optional(Schema.Number, { default: () => 1000 }),
-  aggregationInterval: Schema.optional(Schema.String, { default: () => '1 minute' })
+  timeRangeMinutes: Schema.optionalWith(Schema.Number, { default: () => 60 }),
+  limit: Schema.optionalWith(Schema.Number, { default: () => 1000 }),
+  aggregationInterval: Schema.optionalWith(Schema.String, { default: () => '1 minute' })
 })
 export type QueryConfig = Schema.Schema.Type<typeof QueryConfigSchema>
