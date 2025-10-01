@@ -14,6 +14,7 @@
     "build:electron": "electron-builder",
     "preview": "vite preview",
     "electron": "electron .",
+    "test": "echo '✅ UI unit tests run from root workspace via vitest'",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "type-check": "tsc --noEmit"
   },
