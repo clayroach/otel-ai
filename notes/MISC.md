@@ -34,3 +34,5 @@ TODOs:
 * imporve static critical path analysis patterns to be more effective at spotting criticial issues with just some pre-built queries
 * clickhouse connection pool monitoring
 * all services show up as fire
+* add effect-ts docs mcp server and add to effect agent
+* 

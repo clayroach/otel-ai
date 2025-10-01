@@ -593,6 +593,8 @@ curl http://localhost:4318/v1/traces
 pnpm replay -- --log-interval 5
 ```
 
+**Note**: If replay hangs with 0 files processed, ensure the endpoint is accessible from your host machine. The default endpoint is `http://localhost:4318` (host accessible). Do not use `http://otel-collector:4318` (Docker internal hostname) when running the CLI from your host machine.
+
 #### 4. Seed Generation Hanging
 
 ```bash
