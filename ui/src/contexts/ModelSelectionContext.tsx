@@ -63,7 +63,7 @@ export const ModelSelectionProvider: React.FC<{ children: React.ReactNode }> = (
     }
   })
 
-  const healthCheckInterval = useRef<ReturnType<typeof setInterval>>()
+  const healthCheckInterval = useRef<NodeJS.Timeout | undefined>(undefined)
   const loadingRef = useRef(false) // Prevent duplicate loads
 
   // Load models from API (only once for all components)
