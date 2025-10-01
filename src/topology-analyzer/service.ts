@@ -208,7 +208,7 @@ const cleanServiceName = (serviceName: string): string => {
       if (parsed.stringValue) {
         return parsed.stringValue
       }
-    } catch (e) {
+    } catch {
       // Not valid JSON, continue with other cleanup strategies
     }
   }

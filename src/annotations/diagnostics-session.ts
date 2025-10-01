@@ -33,7 +33,7 @@ const _DiagnosticsSessionSchema = Schema.Struct({
   endTime: Schema.optional(Schema.Date),
   captureInterval: Schema.Number, // milliseconds
   annotations: Schema.Array(Schema.String), // annotation IDs
-  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
   error: Schema.optional(Schema.String)
 })
 
@@ -45,7 +45,7 @@ const _SessionConfigSchema = Schema.Struct({
   captureInterval: Schema.optional(Schema.Number), // milliseconds, default 30s
   warmupDelay: Schema.optional(Schema.Number), // milliseconds, default 5s
   testDuration: Schema.optional(Schema.Number), // milliseconds, default 60s
-  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
 })
 
 export type SessionConfig = Schema.Schema.Type<typeof _SessionConfigSchema>

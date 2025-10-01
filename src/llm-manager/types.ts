@@ -55,7 +55,7 @@ export const LLMConfigSchema = Schema.Struct({
 export const LLMRequestSchema = Schema.Struct({
   prompt: Schema.String,
   taskType: Schema.Literal('analysis', 'ui-generation', 'config-management', 'general', 'market-intelligence', 'architectural-insights', 'anomaly-detection'),
-  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
   preferences: Schema.optional(
     Schema.Struct({
       model: Schema.optional(Schema.String), // Accept any model name, not just generic types
@@ -98,7 +98,7 @@ export const ConversationContextSchema = Schema.Struct({
       timestamp: Schema.Number
     })
   ),
-  metadata: Schema.Record(Schema.String, Schema.Unknown),
+  metadata: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
   createdAt: Schema.Number,
   updatedAt: Schema.Number
 })

@@ -31,7 +31,7 @@ export const AnnotationSchema = Schema.Struct({
   traceId: Schema.optional(Schema.String),
   spanId: Schema.optional(Schema.String),
   metricName: Schema.optional(Schema.String),
-  metricLabels: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+  metricLabels: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
   logTimestamp: Schema.optional(Schema.Date),
   logBodyHash: Schema.optional(Schema.String),
 
@@ -41,7 +41,7 @@ export const AnnotationSchema = Schema.Struct({
 
   // Service/resource targeting
   serviceName: Schema.optional(Schema.String),
-  resourceAttributes: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+  resourceAttributes: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
 
   // Annotation content
   annotationType: AnnotationTypeSchema,
