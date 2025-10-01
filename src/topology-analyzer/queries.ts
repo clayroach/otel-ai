@@ -54,6 +54,46 @@ export interface TraceFlowRaw {
 }
 
 /**
+ * Time range helpers for building WHERE clauses
+ */
+const buildTimeRangeClause = (options: {
+  timeRangeHours?: number
+  startTime?: string
+  endTime?: string
+}): string => {
+  if (options.startTime && options.endTime) {
+    // Absolute time range - use parseDateTimeBestEffort for ISO 8601 support
+    return `start_time >= parseDateTimeBestEffort('${options.startTime}') AND start_time <= parseDateTimeBestEffort('${options.endTime}')`
+  } else if (options.timeRangeHours) {
+    // Relative time range
+    return `start_time >= now() - INTERVAL ${options.timeRangeHours} HOUR`
+  }
+  throw new Error('Must provide either timeRangeHours or both startTime and endTime')
+}
+
+/**
+ * Time range helper for window-based aggregated tables
+ */
+const buildWindowTimeRangeClause = (options: {
+  timeRangeHours?: number
+  timeRangeMinutes?: number
+  startTime?: string
+  endTime?: string
+}): string => {
+  if (options.startTime && options.endTime) {
+    // Absolute time range - use parseDateTimeBestEffort for ISO 8601 support
+    return `window_start >= parseDateTimeBestEffort('${options.startTime}') AND window_start <= parseDateTimeBestEffort('${options.endTime}')`
+  } else if (options.timeRangeMinutes) {
+    // Relative time range in minutes
+    return `window_start >= now() - INTERVAL ${options.timeRangeMinutes} MINUTE`
+  } else if (options.timeRangeHours) {
+    // Relative time range in hours
+    return `window_start >= now() - INTERVAL ${options.timeRangeHours} HOUR`
+  }
+  throw new Error('Must provide timeRange in hours/minutes or both startTime and endTime')
+}
+
+/**
  * Core queries for application architecture discovery
  */
 export const ArchitectureQueries = {
@@ -101,38 +141,49 @@ export const ArchitectureQueries = {
   /**
    * Get service topology information including span types and characteristics
    * Optimized: Add memory protection settings for large datasets
+   *
+   * @param options - Either { timeRangeHours: number } for relative time or { startTime: string, endTime: string } for absolute time
    */
-  getServiceTopology: (timeRangeHours: number = 24) => `
-    SELECT
-      service_name,
-      operation_name,
-      span_kind,
-      count(*) as total_spans,
-      countIf(parent_span_id = '') as root_spans,
-      countIf(status_code = 'ERROR') as error_spans,
-      avg(duration_ns / 1000000) as avg_duration_ms,
-      quantile(0.95)(duration_ns / 1000000) as p95_duration_ms,
-      uniq(trace_id) as unique_traces,
-      -- Topology visualization extensions
-      count(*) / (${timeRangeHours} * 60) as rate_per_second,
-      (countIf(status_code = 'ERROR') * 100.0) / count(*) as error_rate_percent,
-      CASE
-        WHEN (countIf(status_code = 'ERROR') * 100.0) / count(*) > 5 THEN 'critical'
-        WHEN (countIf(status_code = 'ERROR') * 100.0) / count(*) > 1 THEN 'warning'
-        WHEN quantile(0.95)(duration_ns / 1000000) > 500 THEN 'degraded'
-        WHEN quantile(0.95)(duration_ns / 1000000) > 100 THEN 'warning'
-        ELSE 'healthy'
-      END as health_status
-      -- Note: Removed resource_attributes and span_attributes access to prevent OOM (GitHub #57)
-    FROM traces
-    WHERE start_time >= now() - INTERVAL ${timeRangeHours} HOUR
-    GROUP BY service_name, operation_name, span_kind
-    HAVING total_spans >= 1  -- Show all operations, even single spans
-    ORDER BY total_spans DESC
-    LIMIT 500
-    SETTINGS max_memory_usage = 1000000000,  -- 1GB memory limit
-             max_execution_time = 30          -- 30 second timeout
-  `,
+  getServiceTopology: (
+    options: { timeRangeHours?: number; startTime?: string; endTime?: string } | number = 24
+  ) => {
+    // Support legacy number parameter or new object parameter
+    const opts = typeof options === 'number' ? { timeRangeHours: options } : options
+    const timeRangeHours = opts.timeRangeHours || 1 // Default for rate calculation
+    const whereClause = buildTimeRangeClause(opts)
+
+    return `
+      SELECT
+        service_name,
+        operation_name,
+        span_kind,
+        count(*) as total_spans,
+        countIf(parent_span_id = '') as root_spans,
+        countIf(status_code = 'ERROR') as error_spans,
+        avg(duration_ns / 1000000) as avg_duration_ms,
+        quantile(0.95)(duration_ns / 1000000) as p95_duration_ms,
+        uniq(trace_id) as unique_traces,
+        -- Topology visualization extensions
+        count(*) / (${timeRangeHours} * 60) as rate_per_second,
+        (countIf(status_code = 'ERROR') * 100.0) / count(*) as error_rate_percent,
+        CASE
+          WHEN (countIf(status_code = 'ERROR') * 100.0) / count(*) > 5 THEN 'critical'
+          WHEN (countIf(status_code = 'ERROR') * 100.0) / count(*) > 1 THEN 'warning'
+          WHEN quantile(0.95)(duration_ns / 1000000) > 500 THEN 'degraded'
+          WHEN quantile(0.95)(duration_ns / 1000000) > 100 THEN 'warning'
+          ELSE 'healthy'
+        END as health_status
+        -- Note: Removed resource_attributes and span_attributes access to prevent OOM (GitHub #57)
+      FROM traces
+      WHERE ${whereClause}
+      GROUP BY service_name, operation_name, span_kind
+      HAVING total_spans >= 1  -- Show all operations, even single spans
+      ORDER BY total_spans DESC
+      LIMIT 500
+      SETTINGS max_memory_usage = 1000000000,  -- 1GB memory limit
+               max_execution_time = 30          -- 30 second timeout
+    `
+  },
 
   /**
    * Analyze trace flows to understand request paths through the system
@@ -375,9 +426,16 @@ export const OptimizedQueries = {
 
   /**
    * Get service dependencies for specific minute windows (5, 15, 30 minutes)
+   *
+   * @param options - Either a number (minutes, relative time) or object with timeRangeMinutes/startTime/endTime
    */
-  getServiceDependenciesForMinutes: (minutes: number) => {
-    // Always use 5-minute aggregations for sub-hour windows
+  getServiceDependenciesForMinutes: (
+    options: { timeRangeMinutes?: number; startTime?: string; endTime?: string } | number
+  ) => {
+    // Support legacy number parameter or new object parameter
+    const opts = typeof options === 'number' ? { timeRangeMinutes: options } : options
+    const whereClause = buildWindowTimeRangeClause(opts)
+
     return `
       SELECT
         parent_service as service_name,
@@ -389,7 +447,7 @@ export const OptimizedQueries = {
         sum(error_count) as error_count,
         sum(total_count) as total_count
       FROM otel.service_dependencies_5min
-      WHERE window_start >= now() - INTERVAL ${minutes} MINUTE
+      WHERE ${whereClause}
       GROUP BY parent_service, parent_operation, child_service, child_operation
       HAVING call_count >= 1
       ORDER BY call_count DESC

@@ -49,24 +49,38 @@ export const OtlpHttpReplayClientLive = Layer.succeed(
             ? endpoint // Already has signal path
             : `${baseUrl}${path}` // Add signal path
 
-          // Send request using native fetch
-          const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Replay-Session': 'true', // Mark as replay for potential filtering
-              Accept: 'application/json'
-            },
-            body: JSON.stringify(data)
-          })
+          // Send request using native fetch with timeout
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
 
-          // Check response status
-          if (!response.ok) {
-            const errorText = await response.text().catch(() => 'Unable to read error response')
-            throw new Error(`HTTP ${response.status}: ${errorText}`)
+          try {
+            const response = await fetch(url, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Replay-Session': 'true', // Mark as replay for potential filtering
+                Accept: 'application/json'
+              },
+              body: JSON.stringify(data),
+              signal: controller.signal
+            })
+
+            clearTimeout(timeoutId)
+
+            // Check response status
+            if (!response.ok) {
+              const errorText = await response.text().catch(() => 'Unable to read error response')
+              throw new Error(`HTTP ${response.status}: ${errorText}`)
+            }
+
+            return undefined // void
+          } catch (error) {
+            clearTimeout(timeoutId)
+            if ((error as Error).name === 'AbortError') {
+              throw new Error(`Request timeout after 10 seconds to ${url}`)
+            }
+            throw error
           }
-
-          return undefined // void
         },
         catch: (error) =>
           ReplayErrorConstructors.IngestionFailure(

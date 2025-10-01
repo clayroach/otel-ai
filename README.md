@@ -48,6 +48,9 @@ open http://localhost:5173
 Experience the platform with realistic microservices telemetry:
 
 ```bash
+# Configure the OpenTelemetry demo environment
+pnpm demo:setup
+
 # Start the OpenTelemetry demo (15+ microservices)
 pnpm demo:up
 
@@ -325,6 +328,7 @@ The platform is designed to scale horizontally:
 
 ## Support & Community
 
+- **Troubleshooting**: [Common issues and solutions](TROUBLESHOOTING.md)
 - **Documentation**: [Full documentation](https://github.com/clayroach/otel-ai/wiki)
 - **Issues**: [GitHub Issues](https://github.com/clayroach/otel-ai/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/clayroach/otel-ai/discussions)

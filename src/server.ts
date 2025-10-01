@@ -999,8 +999,8 @@ app.listen(PORT, async () => {
     // Create validation tables for ILLEGAL_AGGREGATION prevention
     await createValidationTables()
 
-    console.log('✅ AI Analyzer service available through layer composition')
-    console.log(`🤖 AI Analyzer API: http://localhost:${PORT}/api/ai-analyzer/health`)
+    console.log('✅ Topology Analyzer service available through layer composition')
+    console.log(`🤖 Topology Analyzer API: http://localhost:${PORT}/api/topology/health`)
 
     // Start retention jobs with default policy
     try {

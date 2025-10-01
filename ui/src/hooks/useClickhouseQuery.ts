@@ -64,7 +64,7 @@ const executeClickhouseQuery = async <T = unknown>(
     const response = await axios.post(
       url,
       isProxyUrl
-        ? { query: `${cleanQuery} FORMAT JSON` } // Backend expects JSON body with query field
+        ? { query: cleanQuery } // Backend SDK handles format via JSONEachRow
         : `${cleanQuery} FORMAT JSON`, // Direct ClickHouse expects plain text
       {
         headers: {
