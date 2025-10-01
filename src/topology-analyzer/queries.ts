@@ -5,8 +5,8 @@
  * Focuses on service topology, dependency mapping, and data flow analysis.
  */
 
-import { Effect } from 'effect'
 import type { ClickHouseClient } from '@clickhouse/client'
+import { Effect } from 'effect'
 import type { AnalysisError } from './types.js'
 
 // Raw query result types
@@ -16,7 +16,7 @@ export interface ServiceDependencyRaw {
   dependent_service: string
   dependent_operation: string
   call_count: number
-  avg_duration_ms: number
+  avg_duration_ms: number | null // ClickHouse can return null
   error_count: number
   total_count: number
 }
@@ -28,8 +28,8 @@ export interface ServiceTopologyRaw {
   total_spans: number
   root_spans: number
   error_spans: number
-  avg_duration_ms: number
-  p95_duration_ms: number
+  avg_duration_ms: number | null // ClickHouse can return null
+  p95_duration_ms: number | null // ClickHouse can return null
   unique_traces: number
   // Topology visualization extensions
   rate_per_second: number
@@ -59,40 +59,51 @@ export interface TraceFlowRaw {
 export const ArchitectureQueries = {
   /**
    * Discover service dependencies by analyzing parent-child span relationships
-   * Optimized: Added trace_id join condition and better filtering
+   * Optimized: Array-based approach to avoid expensive self-joins
+   * Issue #161: This is the FALLBACK query when aggregated tables are not available
+   * NOTE: Prefer using aggregated tables via OptimizedQueries.getServiceDependenciesFromView()
    */
   getServiceDependencies: (timeRangeHours: number = 24) => `
+    WITH trace_data AS (
+      SELECT
+        trace_id,
+        groupArray((span_id, parent_span_id, service_name, operation_name, duration_ns, status_code)) as spans
+      FROM traces
+      WHERE start_time >= now() - INTERVAL ${timeRangeHours} HOUR
+      GROUP BY trace_id
+      HAVING length(spans) > 1  -- Skip single-span traces for dependencies
+    )
     SELECT
-      parent.service_name as service_name,
-      parent.operation_name as operation_name,
-      child.service_name as dependent_service,
-      child.operation_name as dependent_operation,
+      parent.3 as service_name,
+      parent.4 as operation_name,
+      child.3 as dependent_service,
+      child.4 as dependent_operation,
       count(*) as call_count,
-      avg(child.duration_ns / 1000000) as avg_duration_ms,
-      countIf(child.status_code = 'ERROR') as error_count,
+      avg(toFloat64(child.5) / 1000000) as avg_duration_ms,
+      countIf(child.6 = 'ERROR') as error_count,
       count(*) as total_count
-    FROM traces parent
-    INNER JOIN traces child ON
-      child.trace_id = parent.trace_id  -- Added trace_id join for better performance
-      AND child.parent_span_id = parent.span_id
-      AND child.service_name != parent.service_name
-    WHERE parent.start_time >= now() - INTERVAL ${timeRangeHours} HOUR
-      AND child.start_time >= now() - INTERVAL ${timeRangeHours} HOUR
-    GROUP BY
-      parent.service_name,
-      parent.operation_name,
-      child.service_name,
-      child.operation_name
-    HAVING call_count >= 1  -- Filter out noise (lowered for demo environments)
+    FROM (
+      SELECT
+        arrayJoin(spans) as parent,
+        arrayFilter(x -> x.2 = parent.1 AND x.3 != parent.3, spans) as matching_children
+      FROM trace_data
+      WHERE length(matching_children) > 0
+    ) ARRAY JOIN matching_children as child
+    GROUP BY service_name, operation_name, dependent_service, dependent_operation
+    HAVING call_count >= 1
     ORDER BY call_count DESC
-    LIMIT 500  -- Reduced limit
+    LIMIT 1000
+    SETTINGS max_memory_usage = 500000000,
+             max_execution_time = 30,
+             max_block_size = 8192
   `,
 
   /**
    * Get service topology information including span types and characteristics
+   * Optimized: Add memory protection settings for large datasets
    */
   getServiceTopology: (timeRangeHours: number = 24) => `
-    SELECT 
+    SELECT
       service_name,
       operation_name,
       span_kind,
@@ -105,22 +116,22 @@ export const ArchitectureQueries = {
       -- Topology visualization extensions
       count(*) / (${timeRangeHours} * 60) as rate_per_second,
       (countIf(status_code = 'ERROR') * 100.0) / count(*) as error_rate_percent,
-      CASE 
+      CASE
         WHEN (countIf(status_code = 'ERROR') * 100.0) / count(*) > 5 THEN 'critical'
         WHEN (countIf(status_code = 'ERROR') * 100.0) / count(*) > 1 THEN 'warning'
         WHEN quantile(0.95)(duration_ns / 1000000) > 500 THEN 'degraded'
         WHEN quantile(0.95)(duration_ns / 1000000) > 100 THEN 'warning'
         ELSE 'healthy'
-      END as health_status,
-      any(resource_attributes['telemetry.sdk.language']) as runtime_language,
-      any(resource_attributes['process.runtime.name']) as runtime_name,
-      any(span_attributes['component']) as component
+      END as health_status
+      -- Note: Removed resource_attributes and span_attributes access to prevent OOM (GitHub #57)
     FROM traces
     WHERE start_time >= now() - INTERVAL ${timeRangeHours} HOUR
     GROUP BY service_name, operation_name, span_kind
-    HAVING total_spans >= 1  -- Filter out noise (lowered for demo environments)
+    HAVING total_spans >= 1  -- Show all operations, even single spans
     ORDER BY total_spans DESC
     LIMIT 500
+    SETTINGS max_memory_usage = 1000000000,  -- 1GB memory limit
+             max_execution_time = 30          -- 30 second timeout
   `,
 
   /**
@@ -129,12 +140,12 @@ export const ArchitectureQueries = {
    */
   getTraceFlows: (limit: number = 100, timeRangeHours: number = 24) => `
     WITH sampled_traces AS (
-      -- First, select a sample of traces to analyze
+      -- Select traces to analyze, including single-span traces
       SELECT trace_id
       FROM traces
       WHERE start_time >= now() - INTERVAL ${timeRangeHours} HOUR
       GROUP BY trace_id
-      HAVING count(*) BETWEEN 3 AND 50  -- Focus on meaningful traces
+      HAVING count(*) >= 1  -- Include all traces, even single spans
       ORDER BY max(duration_ns) DESC
       LIMIT ${limit}
     ),
@@ -177,7 +188,7 @@ export const ArchitectureQueries = {
    * Identify root services (entry points to the application)
    */
   getRootServices: (timeRangeHours: number = 24) => `
-    SELECT 
+    SELECT
       service_name,
       operation_name,
       count(*) as root_span_count,
@@ -188,16 +199,16 @@ export const ArchitectureQueries = {
     WHERE parent_span_id = ''
       AND start_time >= now() - INTERVAL ${timeRangeHours} HOUR
     GROUP BY service_name, operation_name, span_kind
-    HAVING root_span_count >= 5
+    HAVING root_span_count >= 1  -- Show all root services, even rarely called ones
     ORDER BY root_span_count DESC
-    LIMIT 50
+    LIMIT 100  -- Increased limit to capture more services
   `,
 
   /**
    * Identify leaf services (services that don't call others)
    */
   getLeafServices: (timeRangeHours: number = 24) => `
-    SELECT 
+    SELECT
       service_name,
       operation_name,
       count(*) as span_count,
@@ -206,22 +217,22 @@ export const ArchitectureQueries = {
     FROM traces
     WHERE start_time >= now() - INTERVAL ${timeRangeHours} HOUR
       AND span_id NOT IN (
-        SELECT DISTINCT parent_span_id 
-        FROM traces 
+        SELECT DISTINCT parent_span_id
+        FROM traces
         WHERE parent_span_id != ''
           AND start_time >= now() - INTERVAL ${timeRangeHours} HOUR
       )
     GROUP BY service_name, operation_name, span_kind
-    HAVING span_count >= 5
+    HAVING span_count >= 1  -- Show all leaf services, even rarely called ones
     ORDER BY span_count DESC
-    LIMIT 50
+    LIMIT 100  -- Increased limit to capture more services
   `,
 
   /**
    * Get critical path analysis - longest running trace paths
    */
   getCriticalPaths: (timeRangeHours: number = 24) => `
-    SELECT 
+    SELECT
       trace_id,
       arrayStringConcat(groupArray(service_name), ' -> ') as service_path,
       arrayStringConcat(groupArray(operation_name), ' -> ') as operation_path,
@@ -231,24 +242,24 @@ export const ArchitectureQueries = {
     FROM traces
     WHERE start_time >= now() - INTERVAL ${timeRangeHours} HOUR
     GROUP BY trace_id
-    HAVING span_count >= 3
+    HAVING span_count >= 1  -- Include all traces, even single-span ones
     ORDER BY total_duration_ms DESC
-    LIMIT 20
+    LIMIT 50  -- Increased to show more critical paths
   `,
 
   /**
    * Get error patterns across services
    */
   getErrorPatterns: (timeRangeHours: number = 24) => `
-    SELECT 
+    SELECT
       service_name,
       operation_name,
       status_code,
       count(*) as error_count,
       count(*) * 100.0 / (
-        SELECT count(*) 
-        FROM traces t2 
-        WHERE t2.service_name = traces.service_name 
+        SELECT count(*)
+        FROM traces t2
+        WHERE t2.service_name = traces.service_name
           AND t2.operation_name = traces.operation_name
           AND t2.start_time >= now() - INTERVAL ${timeRangeHours} HOUR
       ) as error_rate_percent
@@ -256,9 +267,9 @@ export const ArchitectureQueries = {
     WHERE status_code = 'ERROR'
       AND start_time >= now() - INTERVAL ${timeRangeHours} HOUR
     GROUP BY service_name, operation_name, status_code
-    HAVING error_count >= 5
+    HAVING error_count >= 1  -- Show all errors, even single occurrences
     ORDER BY error_rate_percent DESC, error_count DESC
-    LIMIT 50
+    LIMIT 100  -- Increased to capture more error patterns
   `
 }
 
@@ -289,6 +300,133 @@ export const executeAnalysisQuery = <T>(
  */
 export const withTimeFilter = (baseQuery: string, timeRangeHours: number): string =>
   baseQuery.replace(/INTERVAL \d+ HOUR/g, `INTERVAL ${timeRangeHours} HOUR`)
+
+/**
+ * Optimized queries using aggregated tables (Issue #161)
+ */
+export const OptimizedQueries = {
+  /**
+   * Get service dependencies from aggregated tables
+   * Note: Uses SummingMergeTree, so we aggregate the pre-computed sums
+   */
+  getServiceDependenciesFromView: (timeRangeHours: number = 24) => {
+    // Convert hours to minutes for more granular time windows
+    const timeRangeMinutes = timeRangeHours * 60
+
+    // For time windows <= 1 hour, use 5-minute aggregations
+    if (timeRangeMinutes <= 60) {
+      return `
+        SELECT
+          parent_service as service_name,
+          parent_operation as operation_name,
+          child_service as dependent_service,
+          child_operation as dependent_operation,
+          sum(call_count) as call_count,
+          avg(avg_duration_ms) as avg_duration_ms,
+          sum(error_count) as error_count,
+          sum(total_count) as total_count
+        FROM otel.service_dependencies_5min
+        WHERE window_start >= now() - INTERVAL ${timeRangeMinutes} MINUTE
+        GROUP BY parent_service, parent_operation, child_service, child_operation
+        HAVING call_count >= 1
+        ORDER BY call_count DESC
+        LIMIT 500
+      `
+    } else if (timeRangeHours <= 24) {
+      // For recent data (1h < time <= 24h), still use 5-minute aggregations
+      return `
+        SELECT
+          parent_service as service_name,
+          parent_operation as operation_name,
+          child_service as dependent_service,
+          child_operation as dependent_operation,
+          sum(call_count) as call_count,
+          avg(avg_duration_ms) as avg_duration_ms,
+          sum(error_count) as error_count,
+          sum(total_count) as total_count
+        FROM otel.service_dependencies_5min
+        WHERE window_start >= now() - INTERVAL ${timeRangeHours} HOUR
+        GROUP BY parent_service, parent_operation, child_service, child_operation
+        HAVING call_count >= 1
+        ORDER BY call_count DESC
+        LIMIT 500
+      `
+    } else {
+      // For longer ranges (> 24h), use hourly aggregations
+      return `
+        SELECT
+          parent_service as service_name,
+          '' as operation_name,
+          child_service as dependent_service,
+          '' as dependent_operation,
+          sum(call_count) as call_count,
+          avg(avg_duration_ms) as avg_duration_ms,
+          sum(error_count) as error_count,
+          sum(total_count) as total_count
+        FROM otel.service_dependencies_hourly
+        WHERE window_start >= now() - INTERVAL ${timeRangeHours} HOUR
+        GROUP BY parent_service, child_service
+        HAVING call_count >= 1
+        ORDER BY call_count DESC
+        LIMIT 500
+      `
+    }
+  },
+
+  /**
+   * Get service dependencies for specific minute windows (5, 15, 30 minutes)
+   */
+  getServiceDependenciesForMinutes: (minutes: number) => {
+    // Always use 5-minute aggregations for sub-hour windows
+    return `
+      SELECT
+        parent_service as service_name,
+        parent_operation as operation_name,
+        child_service as dependent_service,
+        child_operation as dependent_operation,
+        sum(call_count) as call_count,
+        avg(avg_duration_ms) as avg_duration_ms,
+        sum(error_count) as error_count,
+        sum(total_count) as total_count
+      FROM otel.service_dependencies_5min
+      WHERE window_start >= now() - INTERVAL ${minutes} MINUTE
+      GROUP BY parent_service, parent_operation, child_service, child_operation
+      HAVING call_count >= 1
+      ORDER BY call_count DESC
+      LIMIT 500
+    `
+  },
+
+  /**
+   * Get service topology from aggregated tables
+   * Note: service_topology uses VIEWs with Merge functions, so we just query them
+   */
+  getServiceTopologyFromView: (timeRangeHours: number = 24) => `
+    SELECT
+      service_name,
+      operation_name,
+      span_kind,
+      total_spans,
+      root_spans,
+      error_spans,
+      avg_duration_ms,
+      p95_duration_ms,
+      unique_traces,
+      total_spans / (${timeRangeHours} * 60) as rate_per_second,
+      error_rate_percent,
+      CASE
+        WHEN error_rate_percent > 5 THEN 'critical'
+        WHEN error_rate_percent > 1 THEN 'warning'
+        WHEN p95_duration_ms > 500 THEN 'degraded'
+        WHEN p95_duration_ms > 100 THEN 'warning'
+        ELSE 'healthy'
+      END as health_status
+    FROM service_topology_5min
+    WHERE window_start >= now() - INTERVAL ${timeRangeHours} HOUR
+    ORDER BY total_spans DESC
+    LIMIT 500
+  `
+}
 
 /**
  * Query builders for dynamic filtering

@@ -731,22 +731,22 @@ const buildTraceQuery = (params: QueryParams): string => {
   const { timeRange, filters, limit, offset, orderBy, orderDirection } = params
 
   let query = `
-    SELECT 
-      TraceId as traceId,
-      SpanId as spanId,
-      ParentSpanId as parentSpanId,
-      SpanName as operationName,
-      Timestamp as startTime,
-      Duration as duration,
-      ServiceName as serviceName,
-      StatusCode as statusCode,
-      StatusMessage as statusMessage,
-      SpanKind as spanKind,
-      SpanAttributes as attributes,
-      ResourceAttributes as resourceAttributes
-    FROM traces 
-    WHERE Timestamp >= ${new Date(timeRange.start).toISOString()}
-      AND Timestamp <= ${new Date(timeRange.end).toISOString()}
+    SELECT
+      trace_id as traceId,
+      span_id as spanId,
+      parent_span_id as parentSpanId,
+      operation_name as operationName,
+      start_time as startTime,
+      duration_ns as duration,
+      service_name as serviceName,
+      status_code as statusCode,
+      status_message as statusMessage,
+      span_kind as spanKind,
+      span_attributes as attributes,
+      resource_attributes as resourceAttributes
+    FROM traces
+    WHERE start_time >= toDateTime64('${new Date(timeRange.start).toISOString().replace('Z', '')}', 9)
+      AND start_time <= toDateTime64('${new Date(timeRange.end).toISOString().replace('Z', '')}', 9)
   `
 
   if (filters) {
@@ -755,8 +755,11 @@ const buildTraceQuery = (params: QueryParams): string => {
     })
   }
 
+  // Add default ordering by start_time if no orderBy specified
   if (orderBy) {
     query += ` ORDER BY ${orderBy} ${orderDirection || 'ASC'}`
+  } else {
+    query += ` ORDER BY start_time DESC` // Most recent traces first
   }
 
   if (limit) {
@@ -801,13 +804,13 @@ const buildAIQuery = (params: AIQueryParams): string => {
   switch (datasetType) {
     case 'anomaly-detection':
       return `
-        SELECT 
+        SELECT
           ${features.join(', ')},
-          toUnixTimestamp(Timestamp) as timestamp
+          toUnixTimestamp(start_time) as timestamp
         FROM traces
-        WHERE Timestamp >= '${new Date(timeRange.start).toISOString()}'
-          AND Timestamp <= '${new Date(timeRange.end).toISOString()}'
-        ORDER BY Timestamp
+        WHERE start_time >= toDateTime64('${new Date(timeRange.start).toISOString().replace('Z', '')}', 9)
+          AND start_time <= toDateTime64('${new Date(timeRange.end).toISOString().replace('Z', '')}', 9)
+        ORDER BY start_time
       `
     default:
       return buildTraceQuery(params)

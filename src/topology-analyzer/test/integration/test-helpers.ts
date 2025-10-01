@@ -23,7 +23,7 @@ export const waitForTelemetryData = async (
       const endTime = new Date()
       const startTime = new Date(endTime.getTime() - 2 * 60 * 60 * 1000)
 
-      const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/topology`, {
+      const response = await fetch(`${API_BASE_URL}/api/topology/services`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -54,7 +54,7 @@ export const waitForTelemetryData = async (
   const endTime = new Date()
   const startTime = new Date(endTime.getTime() - 4 * 60 * 60 * 1000) // Expand to 4 hours
 
-  const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/topology`, {
+  const response = await fetch(`${API_BASE_URL}/api/topology/services`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -99,7 +99,7 @@ export const waitForArchitectureData = async (
       const endTime = new Date()
       const startTime = new Date(endTime.getTime() - 2 * 60 * 60 * 1000)
 
-      const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/analyze`, {
+      const response = await fetch(`${API_BASE_URL}/api/topology/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -137,7 +137,7 @@ export const waitForArchitectureData = async (
   const endTime = new Date()
   const startTime = new Date(endTime.getTime() - 4 * 60 * 60 * 1000)
 
-  const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/analyze`, {
+  const response = await fetch(`${API_BASE_URL}/api/topology/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -179,3 +179,10 @@ export const parseSpanCount = (spanCount: string | number): number => {
   const parsed = parseInt(spanCount, 10)
   return isNaN(parsed) ? 0 : parsed
 }
+
+// Re-export shared ClickHouse health check utilities
+export {
+  checkClickHouseHealth,
+  ensureClickHouseRunning,
+  waitForClickHouse
+} from '../../../test-helpers/clickhouse-health.js'

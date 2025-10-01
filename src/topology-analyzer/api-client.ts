@@ -1,7 +1,7 @@
 /**
- * AI Analyzer API Client with Effect-TS Error Channels
+ * Topology Analyzer API Client with Effect-TS Error Channels
  *
- * Production-ready API client for AI analyzer service with proper
+ * Production-ready API client for topology analyzer service with proper
  * type safety, error handling, and Schema validation.
  */
 
@@ -57,17 +57,6 @@ const AnalysisRequestSchema = Schema.Struct({
   filters: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
   config: Schema.optional(
     Schema.Struct({
-      llm: Schema.optional(
-        Schema.Struct({
-          model: Schema.Union(
-            Schema.Literal('claude'),
-            Schema.Literal('gpt'),
-            Schema.Literal('llama')
-          ),
-          temperature: Schema.Number,
-          maxTokens: Schema.Number
-        })
-      ),
       analysis: Schema.optional(
         Schema.Struct({
           timeWindowHours: Schema.Number,
@@ -115,17 +104,14 @@ const AnalysisResponseSchema = Schema.Struct({
   metadata: Schema.Struct({
     analyzedSpans: Schema.Union(Schema.String, Schema.Number),
     analysisTimeMs: Schema.Number,
-    llmTokensUsed: Schema.Number,
-    llmModel: Schema.String,
-    selectedModel: Schema.String,
     confidence: Schema.Number
   })
 })
 
 const TopologyResponseSchema = Schema.Array(ServiceTopologySchema)
 
-// AI Analyzer specific client interface
-export interface AIAnalyzerClient {
+// Topology Analyzer specific client interface
+export interface TopologyAnalyzerClient {
   readonly analyze: (
     request: typeof AnalysisRequestSchema.Type
   ) => Effect.Effect<typeof AnalysisResponseSchema.Type, APIClientError, never>
@@ -149,21 +135,21 @@ export const getServiceName = (service: { service?: string }): string => {
   return service.service || 'unknown-service'
 }
 
-// Tag for the AI Analyzer Client service
-export class AIAnalyzerClientTag extends Context.Tag('AIAnalyzerClient')<
-  AIAnalyzerClientTag,
-  AIAnalyzerClient
+// Tag for the Topology Analyzer Client service
+export class TopologyAnalyzerClientTag extends Context.Tag('TopologyAnalyzerClient')<
+  TopologyAnalyzerClientTag,
+  TopologyAnalyzerClient
 >() {}
 
 // Internal implementation - not exported
-const createAIAnalyzerClientImpl = (
+const createTopologyAnalyzerClientImpl = (
   baseUrl: string
-): Effect.Effect<AIAnalyzerClient, never, APIClientService> =>
+): Effect.Effect<TopologyAnalyzerClient, never, APIClientService> =>
   Effect.map(APIClientService, (apiClient) => ({
     analyze: (request) => apiClient.post(`${baseUrl}/analyze`, request, AnalysisResponseSchema),
 
     getTopology: (timeRange) =>
-      apiClient.post(`${baseUrl}/topology`, { timeRange }, TopologyResponseSchema),
+      apiClient.post(`${baseUrl}/services`, { timeRange }, TopologyResponseSchema),
 
     health: () =>
       apiClient.get(
@@ -178,14 +164,16 @@ const createAIAnalyzerClientImpl = (
 // Import the API client layer
 import { APIClientLayer } from '../shared/api-client.js'
 
-// Layer for production use - the ONLY way to get an AIAnalyzerClient
-export const AIAnalyzerClientLive = (baseUrl: string = 'http://localhost:4319/api/ai-analyzer') =>
-  Layer.effect(AIAnalyzerClientTag, createAIAnalyzerClientImpl(baseUrl)).pipe(
+// Layer for production use - the ONLY way to get a TopologyAnalyzerClient
+export const TopologyAnalyzerClientLive = (
+  baseUrl: string = 'http://localhost:4319/api/topology'
+) =>
+  Layer.effect(TopologyAnalyzerClientTag, createTopologyAnalyzerClientImpl(baseUrl)).pipe(
     Layer.provide(APIClientLayer)
   )
 
 // Mock Layer for testing
-export const AIAnalyzerClientMock = Layer.succeed(AIAnalyzerClientTag, {
+export const TopologyAnalyzerClientMock = Layer.succeed(TopologyAnalyzerClientTag, {
   analyze: () =>
     Effect.succeed({
       requestId: 'mock-request-id',
@@ -203,15 +191,12 @@ export const AIAnalyzerClientMock = Layer.succeed(AIAnalyzerClientTag, {
       metadata: {
         analyzedSpans: 0,
         analysisTimeMs: 0,
-        llmTokensUsed: 0,
-        llmModel: 'mock',
-        selectedModel: 'mock',
         confidence: 1
       }
     }),
   getTopology: () => Effect.succeed([]),
   health: () => Effect.succeed({ status: 'ok', message: 'Mock healthy' })
-} satisfies AIAnalyzerClient)
+} satisfies TopologyAnalyzerClient)
 
 // Export schemas for use in tests and other services
 export {

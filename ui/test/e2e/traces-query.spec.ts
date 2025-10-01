@@ -15,20 +15,29 @@ test.describe('Traces Query Functionality', () => {
   })
 
   test('should handle malformed query gracefully', async ({ page }) => {
-    // Enter a malformed query
-    await page.click('[data-testid="monaco-query-editor"]')
-    await page.keyboard.press('Meta+A') // Select all
+    // Wait for Monaco to load
+    await page.waitForSelector('[data-testid="monaco-query-editor"]')
+    await page.waitForTimeout(1000)
+
+    // Monaco editor uses a textarea - find it and interact with it directly
+    // Use force: true to bypass actionability checks since Monaco renders over the textarea
+    const textarea = page.locator('[data-testid="monaco-query-editor"] textarea').first()
+    await textarea.focus()
+    await textarea.press('Meta+A') // Select all
     await page.keyboard.type('SELECT invalid syntax FROM nowhere')
-    
+
+    // Give Monaco time to process the input
+    await page.waitForTimeout(500)
+
     // Run the query
     await page.click('[data-testid="traces-run-query-button"]')
-    
+
     // Should show error message, not crash
     await page.waitForSelector('[data-testid="query-error-message"]', { timeout: 10000 })
     const errorMessage = page.locator('[data-testid="query-error-message"]')
     await expect(errorMessage).toBeVisible()
     await expect(errorMessage).toContainText('Query Error:')
-    
+
     // Verify the app is still responsive
     const queryButton = page.locator('[data-testid="traces-run-query-button"]')
     await expect(queryButton).toBeEnabled()

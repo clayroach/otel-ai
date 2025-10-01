@@ -392,7 +392,7 @@ export const makePortkeyGatewayManager = (baseURL: string) => {
                         return JSON.parse(jsonLine)
                       }
                     }
-                  } catch (parseError) {
+                  } catch {
                     // Fall through to re-throw original error
                   }
                 }
@@ -428,27 +428,48 @@ export const makePortkeyGatewayManager = (baseURL: string) => {
             ).pipe(
               Effect.mapError((error): LLMError => {
                 // Convert RetryableError back to LLMError
-                if (error._tag === 'RetryableError' && error.status === 429) {
+                if (
+                  error &&
+                  typeof error === 'object' &&
+                  '_tag' in error &&
+                  error._tag === 'RetryableError' &&
+                  'status' in error &&
+                  error.status === 429
+                ) {
+                  const retryableError = error as { message?: string; retryAfter?: number }
                   return new RateLimitExceeded({
                     model: model,
-                    retryAfter: error.retryAfter || 60000,
-                    message: error.message || 'Rate limit exceeded'
+                    retryAfter: retryableError.retryAfter || 60000,
+                    message: retryableError.message || 'Rate limit exceeded'
                   })
                 }
+                const errorMessage =
+                  error &&
+                  typeof error === 'object' &&
+                  'message' in error &&
+                  typeof error.message === 'string'
+                    ? error.message
+                    : String(error)
                 return new ModelUnavailable({
                   model: model,
-                  message: error.message || String(error)
+                  message: errorMessage
                 })
               })
             )
           : makeRequest().pipe(
-              Effect.mapError(
-                (error): LLMError =>
-                  new ModelUnavailable({
-                    model: model,
-                    message: error.message || String(error)
-                  })
-              )
+              Effect.mapError((error): LLMError => {
+                const errorMessage =
+                  error &&
+                  typeof error === 'object' &&
+                  'message' in error &&
+                  typeof error.message === 'string'
+                    ? error.message
+                    : String(error)
+                return new ModelUnavailable({
+                  model: model,
+                  message: errorMessage
+                })
+              })
             )
 
         return yield* requestWithRetry.pipe(

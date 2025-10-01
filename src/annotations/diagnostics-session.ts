@@ -24,7 +24,7 @@ const SessionPhaseSchema = Schema.Literal(
 )
 export type SessionPhase = Schema.Schema.Type<typeof SessionPhaseSchema>
 
-const DiagnosticsSessionSchema = Schema.Struct({
+const _DiagnosticsSessionSchema = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
   flagName: Schema.String,
@@ -37,9 +37,9 @@ const DiagnosticsSessionSchema = Schema.Struct({
   error: Schema.optional(Schema.String)
 })
 
-export type DiagnosticsSession = Schema.Schema.Type<typeof DiagnosticsSessionSchema>
+export type DiagnosticsSession = Schema.Schema.Type<typeof _DiagnosticsSessionSchema>
 
-const SessionConfigSchema = Schema.Struct({
+const _SessionConfigSchema = Schema.Struct({
   flagName: Schema.String,
   name: Schema.optional(Schema.String),
   captureInterval: Schema.optional(Schema.Number), // milliseconds, default 30s
@@ -48,7 +48,7 @@ const SessionConfigSchema = Schema.Struct({
   metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
 })
 
-export type SessionConfig = Schema.Schema.Type<typeof SessionConfigSchema>
+export type SessionConfig = Schema.Schema.Type<typeof _SessionConfigSchema>
 
 // Service interface
 export interface DiagnosticsSessionManagerImpl {

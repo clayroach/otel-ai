@@ -9,6 +9,7 @@ import { describe, it, expect, beforeAll } from 'vitest'
 import { Schema } from '@effect/schema'
 import { Effect } from 'effect'
 import { ServiceTopologySchema } from '../../types.js'
+import { ensureClickHouseRunning } from '../../../test-helpers/clickhouse-health.js'
 
 const API_BASE_URL = process.env.API_URL || 'http://localhost:4319'
 const TEST_TIMEOUT = 30000 // 30 seconds for Docker operations
@@ -22,7 +23,7 @@ async function waitForTelemetryData(minServices = 5, maxWaitMs = 20000): Promise
       const endTime = new Date()
       const startTime = new Date(endTime.getTime() - 2 * 60 * 60 * 1000)
       
-      const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/topology`, {
+      const response = await fetch(`${API_BASE_URL}/api/topology/discover`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -53,7 +54,7 @@ async function waitForTelemetryData(minServices = 5, maxWaitMs = 20000): Promise
   const endTime = new Date()
   const startTime = new Date(endTime.getTime() - 4 * 60 * 60 * 1000) // Expand to 4 hours
   
-  const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/topology`, {
+  const response = await fetch(`${API_BASE_URL}/api/topology/services`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -99,7 +100,7 @@ async function waitForArchitectureData(minSpans = 50, maxWaitMs = 15000): Promis
       const endTime = new Date()
       const startTime = new Date(endTime.getTime() - 2 * 60 * 60 * 1000)
       
-      const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/analyze`, {
+      const response = await fetch(`${API_BASE_URL}/api/topology/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -131,7 +132,7 @@ async function waitForArchitectureData(minSpans = 50, maxWaitMs = 15000): Promis
   const endTime = new Date()
   const startTime = new Date(endTime.getTime() - 4 * 60 * 60 * 1000)
   
-  const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/analyze`, {
+  const response = await fetch(`${API_BASE_URL}/api/topology/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -155,15 +156,18 @@ async function waitForArchitectureData(minSpans = 50, maxWaitMs = 15000): Promis
 describe('AI Analyzer Topology Integration', () => {
   
   beforeAll(async () => {
+    // Check ClickHouse health first
+    await ensureClickHouseRunning(API_BASE_URL)
+
     // Wait for services to be ready
     console.log('🔄 Waiting for services to be ready...')
     console.log(`📍 Using API URL: ${API_BASE_URL}`)
     const maxRetries = 20
     let retries = 0
-    
+
     while (retries < maxRetries) {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/health`)
+        const response = await fetch(`${API_BASE_URL}/api/topology/health`)
         if (response.ok) {
           const health = await response.json() as { status: string; message: string }
           console.log('✅ AI Analyzer service is ready:', health.message)
@@ -174,12 +178,12 @@ describe('AI Analyzer Topology Integration', () => {
       } catch (error) {
         console.log(`⚠️ Service not ready yet (attempt ${retries + 1}/${maxRetries}):`, (error as Error).message)
       }
-      
+
       retries++
       if (retries === maxRetries) {
         throw new Error('AI Analyzer service did not become ready in time')
       }
-      
+
       await Effect.runPromise(Effect.sleep(2000))
     }
   }, TEST_TIMEOUT)
@@ -215,7 +219,7 @@ describe('AI Analyzer Topology Integration', () => {
       const endTime = new Date()
       const startTime = new Date(endTime.getTime() - 60 * 60 * 1000)
       
-      const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/topology`, {
+      const response = await fetch(`${API_BASE_URL}/api/topology/services`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -269,7 +273,7 @@ describe('AI Analyzer Topology Integration', () => {
       const endTime = new Date()
       const startTime = new Date(endTime.getTime() - 60 * 60 * 1000)
       
-      const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/topology`, {
+      const response = await fetch(`${API_BASE_URL}/api/topology/services`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -318,7 +322,7 @@ describe('AI Analyzer Topology Integration', () => {
       const endTime = new Date()
       const startTime = new Date(endTime.getTime() - 5 * 60 * 1000)
       
-      const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/topology`, {
+      const response = await fetch(`${API_BASE_URL}/api/topology/services`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -416,7 +420,7 @@ describe('AI Analyzer Topology Integration', () => {
       const endTime = new Date()
       const startTime = new Date(endTime.getTime() - 60 * 60 * 1000)
       
-      const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/analyze`, {
+      const response = await fetch(`${API_BASE_URL}/api/topology/analyze`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -478,7 +482,7 @@ describe('AI Analyzer Topology Integration', () => {
 
   describe('Health Check', () => {
     it('should report healthy status', async () => {
-      const response = await fetch(`${API_BASE_URL}/api/ai-analyzer/health`)
+      const response = await fetch(`${API_BASE_URL}/api/topology/health`)
       
       expect(response.ok).toBe(true)
       const health = await response.json() as Record<string, unknown>

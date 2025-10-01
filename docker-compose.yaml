@@ -234,7 +234,7 @@ services:
       schema-migrator:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4319/api/ai-analyzer/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4319/api/topology/health"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -300,7 +300,7 @@ services:
       - test
       - ci
     restart: "no"
-    command: ["pnpm", "test:integration:ai-analyzer"]
+    command: ["pnpm", "test:integration:topology-analyzer"]
 
 volumes:
   clickhouse_data:

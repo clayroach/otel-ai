@@ -7,7 +7,7 @@
 import { Context, Effect, Layer } from 'effect'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { LLMManagerLive } from '../../../llm-manager/index.js'
-import { ConfigServiceLive, StorageServiceLive } from '../../../storage/index.js'
+import { ConfigServiceLive, StorageServiceLive, DependencyAggregatorMock } from '../../../storage/index.js'
 import {
   UIGeneratorAPIClientLayer,
   UIGeneratorAPIClientTag,
@@ -19,12 +19,17 @@ import type { QueryGenerationAPIRequest } from '../../api-client.js'
 import type { UIGeneratorError } from '../../errors.js'
 import type { ValidationResult } from '../../service.js'
 import { shouldSkipExternalLLMTests } from '../../../llm-manager/test/utils/llm-availability.js'
+import { ensureClickHouseRunning } from '../../../test-helpers/clickhouse-health.js'
 
 // Build the dependencies that UIGeneratorServiceLive needs
 // UIGeneratorServiceLive requires: LLMManagerServiceTag, StorageServiceTag, ConfigServiceTag
+// StorageServiceLive now requires DependencyAggregatorTag
 const dependencies = Layer.mergeAll(
   ConfigServiceLive,
-  StorageServiceLive.pipe(Layer.provide(ConfigServiceLive)),
+  StorageServiceLive.pipe(
+    Layer.provide(ConfigServiceLive),
+    Layer.provide(DependencyAggregatorMock)
+  ),
   LLMManagerLive
 )
 
@@ -41,6 +46,9 @@ describe('UI Generator API Client Layer Integration', () => {
   let skipReason = ''
 
   beforeAll(async () => {
+    // Check ClickHouse health first
+    await ensureClickHouseRunning()
+
     // Skip only if no external LLM API keys are available
     if (shouldSkipExternalLLMTests()) {
       isLLMAvailable = false

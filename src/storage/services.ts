@@ -4,6 +4,7 @@
  */
 
 import { Effect, Context, Layer, Schedule, Duration } from 'effect'
+import { DependencyAggregatorTag, DependencyAggregatorLive } from './dependency-aggregator.js'
 import {
   type StorageConfig,
   defaultStorageConfig,
@@ -200,9 +201,26 @@ export const StorageServiceLive = Layer.effect(
   StorageServiceTag,
   Effect.gen(function* (_) {
     const config = yield* _(ConfigServiceTag)
+    const aggregator = yield* _(DependencyAggregatorTag)
 
     const clickhouse = yield* _(makeClickHouseStorage(config.clickhouse))
     // S3 not used yet - removed to simplify setup
+
+    // Start the dependency aggregator automatically in the background
+    // This runs every 30 seconds to aggregate span relationships into service dependencies
+    yield* _(
+      aggregator.start().pipe(
+        Effect.tap(() => Effect.log('[StorageService] Dependency aggregator started successfully')),
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            // Log but don't fail - aggregator is not critical for basic operations
+            yield* Effect.logError('[StorageService] Failed to start dependency aggregator')
+            yield* Effect.logError(error)
+          })
+        ),
+        Effect.fork // Run in background
+      )
+    )
 
     return makeStorageService(clickhouse, config)
   })
@@ -214,33 +232,32 @@ export const ConfigServiceLive = Layer.succeed(ConfigServiceTag, {
   ...loadConfigFromEnv()
 })
 
-// Storage layer that requires ConfigServiceTag to be provided externally
-export const StorageLayer = StorageServiceLive
+// Storage layer that includes the dependency aggregator
+// The aggregator will start automatically when the storage service is initialized
+export const StorageLayer = StorageServiceLive.pipe(Layer.provide(DependencyAggregatorLive()))
 
 // Convenience functions for common operations
-export namespace StorageOperations {
-  export const writeOTLP = (data: OTLPData, encodingType?: 'protobuf' | 'json') =>
-    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.writeOTLP(data, encodingType)))
+export const StorageOperations = {
+  writeOTLP: (data: OTLPData, encodingType?: 'protobuf' | 'json') =>
+    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.writeOTLP(data, encodingType))),
 
-  export const queryTraces = (params: QueryParams) =>
-    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.queryTraces(params)))
+  queryTraces: (params: QueryParams) =>
+    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.queryTraces(params))),
 
-  export const queryMetrics = (params: QueryParams) =>
-    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.queryMetrics(params)))
+  queryMetrics: (params: QueryParams) =>
+    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.queryMetrics(params))),
 
-  export const queryLogs = (params: QueryParams) =>
-    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.queryLogs(params)))
+  queryLogs: (params: QueryParams) =>
+    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.queryLogs(params))),
 
-  export const queryForAI = (params: AIQueryParams) =>
-    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.queryForAI(params)))
+  queryForAI: (params: AIQueryParams) =>
+    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.queryForAI(params))),
 
-  export const healthCheck = () =>
-    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.healthCheck()))
+  healthCheck: () => StorageServiceTag.pipe(Effect.flatMap((storage) => storage.healthCheck())),
 
-  export const getStats = () =>
-    StorageServiceTag.pipe(Effect.flatMap((storage) => storage.getStorageStats()))
+  getStats: () => StorageServiceTag.pipe(Effect.flatMap((storage) => storage.getStorageStats())),
 
-  export const startRetentionSchedule = (intervalMinutes: number = 60) =>
+  startRetentionSchedule: (intervalMinutes: number = 60) =>
     StorageServiceTag.pipe(
       Effect.flatMap((storage) =>
         storage
@@ -248,7 +265,7 @@ export namespace StorageOperations {
           .pipe(Effect.repeat(Schedule.fixed(Duration.minutes(intervalMinutes))), Effect.forkDaemon)
       )
     )
-}
+} as const
 
 // Example usage and integration helpers
 export const exampleUsage = () =>

@@ -8,6 +8,7 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import { TypedAPIClient, waitForArchitectureData, parseSpanCount } from '../helpers/api-client.js'
 import { Effect } from 'effect'
+import { ensureClickHouseRunning } from '../../../test-helpers/clickhouse-health.js'
 
 const API_BASE_URL = process.env.API_URL || 'http://localhost:4319'
 const apiClient = new TypedAPIClient(API_BASE_URL)
@@ -18,11 +19,14 @@ const TEST_TIMEOUT = 30000
 describe('UI Data Validation Integration', () => {
   
   beforeAll(async () => {
+    // Check ClickHouse health first
+    await ensureClickHouseRunning(API_BASE_URL)
+
     // Wait for services to be ready
     console.log('🔄 Waiting for AI Analyzer to be ready...')
     const maxRetries = 20
     let retries = 0
-    
+
     while (retries < maxRetries) {
       try {
         await apiClient.getHealthCheck()
@@ -31,12 +35,12 @@ describe('UI Data Validation Integration', () => {
       } catch (error) {
         console.log(`⚠️ Service not ready yet (attempt ${retries + 1}/${maxRetries})`)
       }
-      
+
       retries++
       if (retries === maxRetries) {
         throw new Error('AI Analyzer service did not become ready in time')
       }
-      
+
       await Effect.runPromise(Effect.sleep(2000))
     }
   }, TEST_TIMEOUT)

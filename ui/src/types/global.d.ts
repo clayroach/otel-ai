@@ -3,7 +3,7 @@ declare global {
   interface Window {
     electronAPI?: {
       onMenuAction: (callback: (action: string, data?: unknown) => void) => void
-      off: (channel: string, callback?: Function) => void
+      off: (channel: string, callback?: (...args: unknown[]) => void) => void
       removeAllListeners?: (channel: string) => void
       showSaveDialog: (
         options: Record<string, unknown>
