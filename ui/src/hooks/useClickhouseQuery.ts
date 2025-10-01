@@ -1,5 +1,5 @@
-import { useQuery, UseQueryOptions } from 'react-query'
 import axios from 'axios'
+import { useQuery, UseQueryOptions } from 'react-query'
 import { useAppStore } from '../store/appStore'
 
 export interface ClickhouseQueryResult<T = unknown> {
