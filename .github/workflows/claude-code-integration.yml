@@ -6,14 +6,15 @@ on:
     types: [created]
 
   # Trigger on pull requests for automated architectural review
-  pull_request:
-    types: [opened, synchronize, reopened]
-    branches: [main]
-    paths-ignore:
-      - 'notes/**'
-      - 'blog/**'
-      - '*.md'
-      - 'docs/**'
+  # TEMPORARILY DISABLED - Uncomment to re-enable
+  # pull_request:
+  #   types: [opened, synchronize, reopened]
+  #   branches: [main]
+  #   paths-ignore:
+  #     - 'notes/**'
+  #     - 'blog/**'
+  #     - '*.md'
+  #     - 'docs/**'
 
   # Manual workflow dispatch for Claude commands
   workflow_dispatch:
@@ -38,7 +39,6 @@ jobs:
       id-token: write  # Required for OIDC authentication
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize' || github.event.action == 'reopened')) ||
       github.event_name == 'workflow_dispatch'
     
     steps:
