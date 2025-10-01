@@ -191,7 +191,7 @@ export class QueryGeneratorService {
     try {
       const response = await apiClient.get('/ui-generator/models')
       return response.data.models
-    } catch (error) {
+    } catch {
       // Return default models if API fails
       return [
         {
