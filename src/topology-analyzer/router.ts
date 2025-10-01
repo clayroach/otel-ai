@@ -142,9 +142,14 @@ export const TopologyAnalyzerRouterLive = Layer.effect(
 
         // Accept either hours or startTime/endTime
         let timeRangeHours: number
+        let startTime: string | undefined
+        let endTime: string | undefined
+
         if (timeRange.hours) {
           timeRangeHours = timeRange.hours
         } else if (timeRange.startTime && timeRange.endTime) {
+          startTime = timeRange.startTime
+          endTime = timeRange.endTime
           timeRangeHours =
             Math.abs(
               new Date(timeRange.endTime).getTime() - new Date(timeRange.startTime).getTime()
@@ -164,8 +169,12 @@ export const TopologyAnalyzerRouterLive = Layer.effect(
         // Execute queries to get raw topology data using Effect
         const result = await Effect.runPromise(
           Effect.gen(function* () {
+            // Build query options - prefer absolute time when available
+            const queryOpts =
+              startTime && endTime ? { startTime, endTime, timeRangeHours } : { timeRangeHours }
+
             // Default to using raw topology query (no aggregated table for this yet)
-            const topologyQuery = ArchitectureQueries.getServiceTopology(timeRangeHours)
+            const topologyQuery = ArchitectureQueries.getServiceTopology(queryOpts)
             let dependencyQuery: string
 
             // For dependencies, use our aggregated tables populated by dependency-aggregator
@@ -177,7 +186,9 @@ export const TopologyAnalyzerRouterLive = Layer.effect(
               console.log(
                 `📊 Using aggregated service_dependencies_5min table for ${timeRangeMinutes} minute window`
               )
-              dependencyQuery = OptimizedQueries.getServiceDependenciesForMinutes(timeRangeMinutes)
+              const depQueryOpts =
+                startTime && endTime ? { startTime, endTime } : { timeRangeMinutes }
+              dependencyQuery = OptimizedQueries.getServiceDependenciesForMinutes(depQueryOpts)
             } else {
               // For longer windows, use the standard view query
               console.log(`📊 Using aggregated dependency tables for ${timeRangeHours} hour window`)
