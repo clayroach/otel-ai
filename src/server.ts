@@ -101,6 +101,7 @@ import {
   OtlpCaptureRouterTag,
   OtlpCaptureRouterLive
 } from './record-replay/router/capture-router.js'
+import { AIInsightsRouterTag, AIInsightsRouterLive } from './ai-insights/index.js'
 
 const app = express()
 const PORT = process.env.PORT || 4319
@@ -222,7 +223,8 @@ const RouterLayers = Layer.mergeAll(
   TopologyAnalyzerRouterLive,
   LLMManagerRouterLive,
   AnnotationsRouterLive,
-  OtlpCaptureRouterLive
+  OtlpCaptureRouterLive,
+  AIInsightsRouterLive
 )
 
 // Create the composed application layer with all services and routers
@@ -881,6 +883,9 @@ const mountRouters = async () => {
     console.log('📦 Mounting UI generator router...')
     const uiGeneratorRouter = await runWithServices(UIGeneratorRouterTag)
 
+    console.log('📦 Mounting AI Insights router...')
+    const aiInsightsRouter = await runWithServices(AIInsightsRouterTag)
+
     // Mount all the routers
     app.use(storageRouter.router)
     app.use(uiGeneratorRouter.router)
@@ -888,6 +893,7 @@ const mountRouters = async () => {
     app.use(llmManagerRouter.router)
     app.use(annotationsRouter.router)
     app.use(otlpCaptureRouter.router)
+    app.use(aiInsightsRouter.router)
 
     console.log('✅ All package routers mounted successfully')
   } catch (error) {

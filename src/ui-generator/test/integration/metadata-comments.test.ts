@@ -12,7 +12,20 @@ describe.skipIf(shouldSkipExternalLLMTests())('Metadata Comments in Generated SQ
       name: 'Metadata Test Path',
       services: ['frontend', 'backend', 'database'],
       startService: 'frontend',
-      endService: 'database'
+      endService: 'database',
+      edges: [
+        { source: 'frontend', target: 'backend' },
+        { source: 'backend', target: 'database' }
+      ],
+      metrics: {
+        requestCount: 10000,
+        avgLatency: 150,
+        errorRate: 0.01,
+        p99Latency: 500
+      },
+      priority: 'high',
+      severity: 0.75,
+      lastUpdated: new Date()
     }
 
     const analysisGoal = 'Analyze service latency patterns and identify performance bottlenecks'

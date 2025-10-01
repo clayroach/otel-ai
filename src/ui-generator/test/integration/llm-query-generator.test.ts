@@ -16,6 +16,21 @@ const testPath: CriticalPath = {
   services: ["frontend", "cart-service", "payment-service", "inventory-service", "notification-service"],
   startService: "frontend",
   endService: "notification-service",
+  edges: [
+    { source: "frontend", target: "cart-service" },
+    { source: "cart-service", target: "payment-service" },
+    { source: "payment-service", target: "inventory-service" },
+    { source: "inventory-service", target: "notification-service" }
+  ],
+  metrics: {
+    requestCount: 10000,
+    avgLatency: 150,
+    errorRate: 0.01,
+    p99Latency: 500
+  },
+  priority: 'high',
+  severity: 0.75,
+  lastUpdated: new Date(),
   metadata: {
     criticality: "high",
     sla: "99.9%"

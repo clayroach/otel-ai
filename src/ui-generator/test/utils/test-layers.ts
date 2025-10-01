@@ -33,6 +33,19 @@ export const createMockCriticalPath = (overrides: Partial<CriticalPath> = {}): C
   services: ['frontend', 'api', 'database'],
   startService: 'frontend',
   endService: 'database',
+  edges: [
+    { source: 'frontend', target: 'api' },
+    { source: 'api', target: 'database' }
+  ],
+  metrics: {
+    requestCount: 10000,
+    avgLatency: 150,
+    errorRate: 0.01,
+    p99Latency: 500
+  },
+  priority: 'high',
+  severity: 0.75,
+  lastUpdated: new Date(),
   metadata: {
     criticality: 'high',
     sla: '99.9%'
@@ -46,6 +59,21 @@ export const createCheckoutFlowPath = (): CriticalPath => ({
   services: ['frontend', 'cart', 'checkout', 'payment', 'email'],
   startService: 'frontend',
   endService: 'email',
+  edges: [
+    { source: 'frontend', target: 'cart' },
+    { source: 'cart', target: 'checkout' },
+    { source: 'checkout', target: 'payment' },
+    { source: 'payment', target: 'email' }
+  ],
+  metrics: {
+    requestCount: 50000,
+    avgLatency: 200,
+    errorRate: 0.005,
+    p99Latency: 800
+  },
+  priority: 'critical',
+  severity: 0.9,
+  lastUpdated: new Date(),
   metadata: {
     criticality: 'high',
     sla: '99.9%'
