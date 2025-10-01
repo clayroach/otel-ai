@@ -8,7 +8,7 @@ import { fromBinary } from '@bufbuild/protobuf'
 import cors from 'cors'
 import { Effect, Layer } from 'effect'
 import express from 'express'
-import { AIAnalyzerService, AIAnalyzerMockLayer } from './ai-analyzer/index.js'
+import { TopologyAnalyzerService, TopologyAnalyzerLayer } from './topology-analyzer/index.js'
 import { ExportTraceServiceRequestSchema } from './opentelemetry/index.js'
 import {
   StorageAPIClientTag,
@@ -82,10 +82,10 @@ import {
   UIGeneratorRouterLive
 } from './ui-generator/index.js'
 import {
-  type AIAnalyzerRouter,
-  AIAnalyzerRouterTag,
-  AIAnalyzerRouterLive
-} from './ai-analyzer/index.js'
+  type TopologyAnalyzerRouter,
+  TopologyAnalyzerRouterTag,
+  TopologyAnalyzerRouterLive
+} from './topology-analyzer/index.js'
 import {
   type LLMManagerRouter,
   LLMManagerRouterTag,
@@ -182,6 +182,9 @@ const TrainingDataReaderLayer = TrainingDataReaderLive.pipe(
   Layer.provide(Layer.mergeAll(S3StorageLayer, StorageAPIClientLayerWithConfig))
 )
 
+// Create Topology Analyzer layer with its dependencies
+const TopologyAnalyzerWithDeps = TopologyAnalyzerLayer().pipe(Layer.provide(StorageWithConfig))
+
 // Create the base dependencies
 const BaseDependencies = Layer.mergeAll(
   ConfigLayer, // Shared config service
@@ -189,7 +192,7 @@ const BaseDependencies = Layer.mergeAll(
   StorageAPIClientLayerWithConfig, // Storage API client with ClickHouse config
   LLMManagerLive, // LLM Manager service
   LLMManagerAPIClientLayer, // LLM Manager API client
-  AIAnalyzerMockLayer(), // AI Analyzer (mock - real impl needs LLM service dependency fix)
+  TopologyAnalyzerWithDeps, // Topology Analyzer (real implementation with dependencies)
   AnnotationServiceLive.pipe(Layer.provide(StorageWithConfig)), // Annotation Service
   DiagnosticsSessionManagerLive.pipe(
     Layer.provide(
@@ -216,7 +219,7 @@ const ExtendedDependencies = Layer.mergeAll(
 const RouterLayers = Layer.mergeAll(
   StorageRouterLive,
   UIGeneratorRouterLive,
-  AIAnalyzerRouterLive,
+  TopologyAnalyzerRouterLive,
   LLMManagerRouterLive,
   AnnotationsRouterLive,
   OtlpCaptureRouterLive
@@ -235,7 +238,7 @@ type AppServices =
   | LLMManagerAPIClientTag
   | UIGeneratorAPIClientTag
   | StorageAPIClientTag
-  | AIAnalyzerService
+  | TopologyAnalyzerService
   | LLMManagerServiceTag
   | StorageServiceTag
   | AnnotationService
@@ -247,7 +250,7 @@ type AppServices =
   | TrainingDataReaderTag
   | StorageRouter
   | UIGeneratorRouter
-  | AIAnalyzerRouter
+  | TopologyAnalyzerRouter
   | LLMManagerRouter
   | AnnotationsRouter
   | OtlpCaptureRouter
@@ -944,8 +947,8 @@ const mountRouters = async () => {
     console.log('📦 Mounting storage router...')
     const storageRouter = await runWithServices(StorageRouterTag)
 
-    console.log('📦 Mounting AI analyzer router...')
-    const aiAnalyzerRouter = await runWithServices(AIAnalyzerRouterTag)
+    console.log('📦 Mounting topology analyzer router...')
+    const topologyAnalyzerRouter = await runWithServices(TopologyAnalyzerRouterTag)
 
     console.log('📦 Mounting LLM manager router...')
     const llmManagerRouter = await runWithServices(LLMManagerRouterTag)
@@ -962,7 +965,7 @@ const mountRouters = async () => {
     // Mount all the routers
     app.use(storageRouter.router)
     app.use(uiGeneratorRouter.router)
-    app.use(aiAnalyzerRouter.router)
+    app.use(topologyAnalyzerRouter.router)
     app.use(llmManagerRouter.router)
     app.use(annotationsRouter.router)
     app.use(otlpCaptureRouter.router)

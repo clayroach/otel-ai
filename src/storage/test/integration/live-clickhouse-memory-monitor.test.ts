@@ -8,6 +8,7 @@
 
 import { describe, it, beforeAll } from 'vitest'
 import { createClient, type ClickHouseClient } from '@clickhouse/client'
+import { ensureClickHouseRunning } from '../../../test-helpers/clickhouse-health.js'
 
 // Enable this test by setting environment variable: ENABLE_MEMORY_MONITOR=true
 // This test should run during integration tests to capture real memory patterns
@@ -15,6 +16,9 @@ describe.skipIf(!process.env.ENABLE_MEMORY_MONITOR)('Live ClickHouse Memory Moni
   let liveClient: ClickHouseClient
 
   beforeAll(async () => {
+    // Check ClickHouse health first
+    await ensureClickHouseRunning()
+
     // Connect to the live Docker ClickHouse instance
     liveClient = createClient({
       url: 'http://localhost:8123',

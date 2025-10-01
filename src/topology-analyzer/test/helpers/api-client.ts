@@ -29,7 +29,7 @@ export class TypedAPIClient {
   // Type-safe health check
   async getHealthCheck(): Promise<HealthCheckResponse> {
     return this.makeRequest(
-      `${this.baseUrl}/api/ai-analyzer/health`,
+      `${this.baseUrl}/api/topology/health`,
       { method: 'GET' },
       HealthCheckResponseSchema
     )
@@ -38,7 +38,7 @@ export class TypedAPIClient {
   // Type-safe topology fetch
   async getTopology(timeRange: { startTime: string; endTime: string }): Promise<TopologyResponse> {
     return this.makeRequest(
-      `${this.baseUrl}/api/ai-analyzer/topology`,
+      `${this.baseUrl}/api/topology/services`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -59,7 +59,7 @@ export class TypedAPIClient {
     config?: unknown
   }): Promise<AnalysisResponse> {
     return this.makeRequest(
-      `${this.baseUrl}/api/ai-analyzer/analyze`,
+      `${this.baseUrl}/api/topology/analyze`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
