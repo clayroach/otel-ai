@@ -234,6 +234,13 @@ pnpm test:integration -- src/topology-analyzer/test/integration
 
 ### Common Issues
 
+#### UI Time Range Picker Returns No Data
+
+- **Cause**: Historical data not appearing when using absolute time ranges (startTime/endTime)
+- **Root Cause**: ClickHouse queries were using `now() - INTERVAL X HOUR` instead of absolute timestamps
+- **Solution**: This has been fixed (2025-10-01). Queries now use `parseDateTimeBestEffort()` for ISO 8601 timestamps
+- **Verification**: Test with `curl -X POST http://localhost:4319/api/topology/visualization -H "Content-Type: application/json" -d '{"timeRange":{"startTime":"2025-10-01T01:00:00.000Z","endTime":"2025-10-01T02:00:00.000Z"}}'`
+
 #### Insufficient Data
 - **Cause**: Not enough spans in the requested time range
 - **Solution**: Increase time window or reduce minSpanCount
