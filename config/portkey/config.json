@@ -8,7 +8,7 @@
   },
   "defaults": {
     "general": "claude-3-haiku-20240307",
-    "sql": "codellama-7b-instruct",
+    "sql": "qwen/qwen3-coder-30b",
     "code": "deepseek-coder-v2-lite-instruct"
   },
   "override_params": {

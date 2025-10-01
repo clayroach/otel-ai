@@ -1,5 +1,5 @@
-import { useQuery, UseQueryOptions } from 'react-query'
 import axios from 'axios'
+import { useQuery, UseQueryOptions } from 'react-query'
 import { useAppStore } from '../store/appStore'
 
 export interface ClickhouseQueryResult<T = unknown> {
@@ -64,7 +64,7 @@ const executeClickhouseQuery = async <T = unknown>(
     const response = await axios.post(
       url,
       isProxyUrl
-        ? { query: `${cleanQuery} FORMAT JSON` } // Backend expects JSON body with query field
+        ? { query: cleanQuery } // Backend SDK handles format via JSONEachRow
         : `${cleanQuery} FORMAT JSON`, // Direct ClickHouse expects plain text
       {
         headers: {

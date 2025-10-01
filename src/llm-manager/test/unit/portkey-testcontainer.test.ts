@@ -299,6 +299,7 @@ describe('Portkey Gateway Integration with Testcontainer', () => {
 
       // Check for expected models from config
       const expectedModels = [
+        'qwen/qwen3-coder-30b',
         'codellama-7b-instruct',
         'sqlcoder-7b-2',
         'gpt-3.5-turbo',
@@ -318,7 +319,7 @@ describe('Portkey Gateway Integration with Testcontainer', () => {
       expect(typeof sqlModel).toBe('string')
 
       // Should be a SQL-optimized model
-      const sqlModels = ['codellama-7b-instruct', 'sqlcoder-7b-2', 'deepseek-coder-v2-lite-instruct']
+      const sqlModels = ['qwen/qwen3-coder-30b', 'sqlcoder-7b-2', 'deepseek-coder-v2-lite-instruct']
       expect(sqlModels.some(m => sqlModel.includes(m) || sqlModel === m)).toBe(true)
 
       // Test general task type
