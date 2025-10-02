@@ -68,14 +68,18 @@ export const CriticalPathAnalyzerLive = Layer.effect(
         const prompt = CRITICAL_PATH_IDENTIFICATION_PROMPT(topology)
 
         // Use LLM to analyze and identify critical paths
-        // Use SQL model (Qwen) for automatic discovery - it's local and free
+        // Use local Qwen for dev, general model for CI to avoid overload
+        const model = process.env.CI
+          ? 'anthropic/claude-3-5-sonnet-20241022' // Use general model in CI
+          : 'qwen/qwen3-coder-30b' // Use local Qwen for dev (free)
+
         let modelUsed = 'unknown'
         const llmResult = yield* llmManager
           .generate({
             prompt,
             taskType: 'general',
             preferences: {
-              model: 'qwen/qwen3-coder-30b', // Use local SQL model for cost-free discovery
+              model,
               maxTokens: 2000,
               temperature: 0.1 // Low temperature for consistent path identification
             }
