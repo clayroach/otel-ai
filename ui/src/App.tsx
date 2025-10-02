@@ -1,6 +1,8 @@
 import { App as AntdApp, ConfigProvider, theme } from 'antd'
 import React from 'react'
-import { QueryClient, QueryClientProvider } from 'react-query'
+import { QueryClient } from '@tanstack/react-query'
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
+import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout/Layout'
 import { ModelSelectionProvider } from './contexts/ModelSelectionContext'
@@ -15,11 +17,19 @@ import { TraceView } from './views/TraceView/TraceView'
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
+      staleTime: Infinity, // Never auto-refetch by default
+      gcTime: 30 * 60 * 1000, // Keep in memory for 30 min
       refetchOnWindowFocus: false,
-      retry: 1,
-      staleTime: 5 * 60 * 1000 // 5 minutes
+      refetchOnMount: false,
+      refetchOnReconnect: false,
+      retry: 1
     }
   }
+})
+
+// Create persister for localStorage
+const persister = createSyncStoragePersister({
+  storage: window.localStorage
 })
 
 // Component that needs to be inside Router context
@@ -47,7 +57,7 @@ const App: React.FC = () => {
   const { darkMode } = useAppStore()
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider client={queryClient} persistOptions={{ persister }}>
       <ConfigProvider
         theme={{
           algorithm: darkMode ? theme.darkAlgorithm : theme.defaultAlgorithm,
@@ -65,7 +75,7 @@ const App: React.FC = () => {
           </ModelSelectionProvider>
         </AntdApp>
       </ConfigProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   )
 }
 

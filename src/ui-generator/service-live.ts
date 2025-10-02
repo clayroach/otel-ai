@@ -72,7 +72,23 @@ const generateSingleQuery = (
         name: request.path.name,
         services: request.path.services,
         startService: request.path.startService,
-        endService: request.path.endService
+        endService: request.path.endService,
+        edges: request.path.services.slice(0, -1).map((service, i) => {
+          const target = request.path.services[i + 1]
+          if (!target) {
+            throw new Error(`Missing target service at index ${i + 1}`)
+          }
+          return { source: service, target }
+        }),
+        metrics: {
+          requestCount: 10000,
+          avgLatency: 150,
+          errorRate: 0.01,
+          p99Latency: 500
+        },
+        priority: 'high',
+        severity: 0.75,
+        lastUpdated: new Date()
       }
 
       // Use default analysis goal if not provided
@@ -165,8 +181,22 @@ const generateSingleQuery = (
       }
 
       // For other errors, generate fallback response
+      const fallbackPath: CriticalPath = {
+        ...request.path,
+        edges: request.path.services.slice(0, -1).map((service, i) => {
+          const target = request.path.services[i + 1]
+          if (!target) {
+            throw new Error(`Missing target service at index ${i + 1}`)
+          }
+          return { source: service, target }
+        }),
+        metrics: { requestCount: 0, avgLatency: 0, errorRate: 0, p99Latency: 0 },
+        priority: 'low',
+        severity: 0,
+        lastUpdated: new Date()
+      }
       return Effect.succeed({
-        sql: generateFallbackQuery(request.path),
+        sql: generateFallbackQuery(fallbackPath),
         model: 'fallback',
         actualModel: 'fallback',
         description: `Fallback query generated due to error: ${error instanceof Error ? error.message : String(error)}`,
@@ -278,7 +308,7 @@ const sanitizeSQL = (sql: string): string => {
  * Generate fallback query when LLM generation fails
  */
 const generateFallbackQuery = (path: CriticalPath): string => {
-  const services = path.services.map((s) => `'${s.replace(/'/g, "''")}'`).join(', ')
+  const services = path.services.map((s: string) => `'${s.replace(/'/g, "''")}'`).join(', ')
 
   return `-- Fallback query for path: ${path.name}
 -- Services: ${path.services.join(' → ')}

@@ -1,112 +1,15 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { Row, Col, App } from 'antd'
+import { useQueryClient } from '@tanstack/react-query'
 import { CriticalPathsPanel } from './CriticalPathsPanel'
 import { AIAnalysisPanel } from './AIAnalysisPanel'
 import { ServiceTopologyPanel } from './ServiceTopologyPanel'
 import { PathFlowChartPanel } from './PathFlowChartPanel'
 import { useAppStore } from '../../store/appStore'
+import { useCriticalPaths } from '../../hooks/useAIInsights'
+import { analysisEventBus } from '../../utils/eventBus'
 import type { CriticalPath, AnalysisTab, TopologyState, ServiceTopologyProps } from './types'
 import './styles.css'
-
-// Mock data generator for demonstration
-const generateMockPaths = (): CriticalPath[] => {
-  return [
-    {
-      id: 'path-1',
-      name: 'Checkout Flow',
-      description: 'User checkout process from cart to payment confirmation',
-      services: ['frontend', 'cart', 'checkout', 'payment', 'email'],
-      edges: [
-        { source: 'frontend', target: 'cart' },
-        { source: 'frontend', target: 'checkout' },
-        { source: 'checkout', target: 'payment' },
-        { source: 'checkout', target: 'email' }
-      ],
-      metrics: {
-        requestCount: 1250,
-        avgLatency: 450,
-        errorRate: 0.002,
-        p99Latency: 1200
-      },
-      priority: 'critical',
-      lastUpdated: new Date()
-    },
-    {
-      id: 'path-2',
-      name: 'Product Search',
-      description: 'Product search and recommendation flow',
-      services: ['frontend', 'product-catalog', 'recommendation', 'ad'],
-      edges: [
-        { source: 'frontend', target: 'product-catalog' },
-        { source: 'frontend', target: 'recommendation' },
-        { source: 'recommendation', target: 'product-catalog' },
-        { source: 'frontend', target: 'ad' }
-      ],
-      metrics: {
-        requestCount: 5420,
-        avgLatency: 120,
-        errorRate: 0.001,
-        p99Latency: 350
-      },
-      priority: 'high',
-      lastUpdated: new Date()
-    },
-    {
-      id: 'path-3',
-      name: 'Currency Conversion',
-      description: 'Currency conversion for pricing',
-      services: ['frontend', 'currency', 'product-catalog'],
-      edges: [
-        { source: 'frontend', target: 'currency' },
-        { source: 'product-catalog', target: 'currency' }
-      ],
-      metrics: {
-        requestCount: 3200,
-        avgLatency: 85,
-        errorRate: 0.015,
-        p99Latency: 250
-      },
-      priority: 'high',
-      lastUpdated: new Date()
-    },
-    {
-      id: 'path-4',
-      name: 'Shipping Calculator',
-      description: 'Calculate shipping costs and delivery times - HIGH ERROR RATE',
-      services: ['frontend', 'shipping', 'currency'],
-      edges: [
-        { source: 'frontend', target: 'shipping' },
-        { source: 'shipping', target: 'currency' }
-      ],
-      metrics: {
-        requestCount: 890,
-        avgLatency: 2100,
-        errorRate: 0.08, // 8% error rate - critical
-        p99Latency: 5500
-      },
-      priority: 'critical', // Changed to critical due to high error rate
-      lastUpdated: new Date()
-    },
-    {
-      id: 'path-5',
-      name: 'Fraud Detection',
-      description: 'Payment fraud detection flow',
-      services: ['payment', 'fraud-detection', 'accounting'],
-      edges: [
-        { source: 'payment', target: 'fraud-detection' },
-        { source: 'fraud-detection', target: 'accounting' }
-      ],
-      metrics: {
-        requestCount: 150,
-        avgLatency: 3500,
-        errorRate: 0.001,
-        p99Latency: 8000
-      },
-      priority: 'low',
-      lastUpdated: new Date()
-    }
-  ]
-}
 
 const generateMockServices = () => {
   return [
@@ -236,6 +139,7 @@ export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
   className = ''
 }) => {
   const { message } = App.useApp()
+  const queryClient = useQueryClient()
   const { analysisTimeRange } = useAppStore()
 
   // Convert analysisTimeRange string to Date tuple
@@ -257,9 +161,35 @@ export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
     return [start, end]
   }
 
+  // Memoize time range to prevent unnecessary refetches
+  const timeRange = useMemo(() => {
+    const [start, end] = getTimeRange()
+    return { startTime: start, endTime: end }
+  }, [analysisTimeRange]) // Only recompute when analysisTimeRange changes
+
+  // Memoize time range tuple for ServiceTopologyPanel
+  const timeRangeTuple = useMemo<[Date, Date]>(() => {
+    return [timeRange.startTime, timeRange.endTime]
+  }, [timeRange.startTime, timeRange.endTime])
+
+  // Fetch critical paths from AI Insights API
+  const {
+    data: criticalPathsData,
+    isLoading: isLoadingPaths,
+    isFetching: isFetchingPaths
+  } = useCriticalPaths(
+    timeRange,
+    analysisTimeRange, // Use stable string key to prevent refetches on mount
+    !propsPaths // Only fetch if not provided via props
+  )
+
+  // Use API data if available, otherwise use props or empty array while loading
+  const availablePaths = propsPaths || criticalPathsData?.paths || []
+  const discoveryModel = criticalPathsData?.metadata?.model
+
   // State management
   const [state, setState] = useState<TopologyState>({
-    availablePaths: propsPaths || generateMockPaths(),
+    availablePaths,
     selectedPaths: [],
     pathFilter: 'all',
     highlightedServices: new Set(),
@@ -286,6 +216,29 @@ export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
 
   // Track services with open tabs (these should stay highlighted)
   const [servicesWithTabs, setServicesWithTabs] = useState<Set<string>>(new Set())
+
+  // Update available paths when API data arrives
+  useEffect(() => {
+    if (criticalPathsData?.paths && !propsPaths) {
+      setState((prev) => ({
+        ...prev,
+        availablePaths: criticalPathsData.paths
+      }))
+    }
+  }, [criticalPathsData, propsPaths])
+
+  // Listen for Analyze button clicks and invalidate/refetch critical paths
+  useEffect(() => {
+    if (!propsPaths) {
+      const unsubscribe = analysisEventBus.onAnalyze(() => {
+        // Invalidate the query to mark it as stale and trigger a refetch
+        queryClient.invalidateQueries({
+          queryKey: ['ai-insights', 'critical-paths', analysisTimeRange]
+        })
+      })
+      return () => unsubscribe()
+    }
+  }, [propsPaths, queryClient, analysisTimeRange])
 
   // Handle path selection
   const handlePathSelect = useCallback(
@@ -571,11 +524,11 @@ export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
       return { paths: 4, topology: 20, analysis: 0 }
     }
 
-    // Default proportions: 15% | 55% | 30%
+    // Default proportions: 20% | 50% | 30%
     return {
-      paths: 4, // ~16.7% (4/24)
-      topology: 13, // ~54.2% (13/24)
-      analysis: 7 // ~29.1% (7/24)
+      paths: 5, // ~20.8% (5/24)
+      topology: 12, // ~50% (12/24)
+      analysis: 7 // ~29.2% (7/24)
     }
   }
 
@@ -595,6 +548,9 @@ export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
               selectedPaths={state.selectedPaths}
               onPathSelect={handlePathSelect}
               onShowAll={handleShowAll}
+              isLoading={isLoadingPaths && !propsPaths}
+              isFetching={isFetchingPaths && !propsPaths}
+              discoveryModel={discoveryModel}
             />
           </Col>
         )}
@@ -613,7 +569,7 @@ export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
             />
           ) : (
             <ServiceTopologyPanel
-              timeRange={getTimeRange()}
+              timeRange={timeRangeTuple}
               highlightedServices={Array.from(state.highlightedServices)}
               servicesWithTabs={Array.from(servicesWithTabs)} // Pass services that have tabs open
               onServiceClick={handleServiceClick}

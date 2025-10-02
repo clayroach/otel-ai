@@ -5,9 +5,25 @@ import { Effect } from 'effect'
 export const CriticalPathSchema = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
+  description: Schema.optional(Schema.String),
   services: Schema.Array(Schema.String),
   startService: Schema.String,
   endService: Schema.String,
+  edges: Schema.Array(
+    Schema.Struct({
+      source: Schema.String,
+      target: Schema.String
+    })
+  ),
+  metrics: Schema.Struct({
+    requestCount: Schema.Number,
+    avgLatency: Schema.Number,
+    errorRate: Schema.Number,
+    p99Latency: Schema.Number
+  }),
+  priority: Schema.Literal('critical', 'high', 'medium', 'low'),
+  severity: Schema.Number.pipe(Schema.between(0, 1)), // 0-1 score
+  lastUpdated: Schema.DateFromString,
   metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
 })
 export type CriticalPath = Schema.Schema.Type<typeof CriticalPathSchema>
