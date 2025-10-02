@@ -73,10 +73,13 @@ const generateSingleQuery = (
         services: request.path.services,
         startService: request.path.startService,
         endService: request.path.endService,
-        edges: request.path.services.slice(0, -1).map((service, i) => ({
-          source: service,
-          target: request.path.services[i + 1]!
-        })),
+        edges: request.path.services.slice(0, -1).map((service, i) => {
+          const target = request.path.services[i + 1]
+          if (!target) {
+            throw new Error(`Missing target service at index ${i + 1}`)
+          }
+          return { source: service, target }
+        }),
         metrics: {
           requestCount: 10000,
           avgLatency: 150,
@@ -180,10 +183,13 @@ const generateSingleQuery = (
       // For other errors, generate fallback response
       const fallbackPath: CriticalPath = {
         ...request.path,
-        edges: request.path.services.slice(0, -1).map((service, i) => ({
-          source: service,
-          target: request.path.services[i + 1]!
-        })),
+        edges: request.path.services.slice(0, -1).map((service, i) => {
+          const target = request.path.services[i + 1]
+          if (!target) {
+            throw new Error(`Missing target service at index ${i + 1}`)
+          }
+          return { source: service, target }
+        }),
         metrics: { requestCount: 0, avgLatency: 0, errorRate: 0, p99Latency: 0 },
         priority: 'low',
         severity: 0,

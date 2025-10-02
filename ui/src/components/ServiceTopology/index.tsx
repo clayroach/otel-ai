@@ -1,10 +1,11 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { Row, Col, App } from 'antd'
 import { CriticalPathsPanel } from './CriticalPathsPanel'
 import { AIAnalysisPanel } from './AIAnalysisPanel'
 import { ServiceTopologyPanel } from './ServiceTopologyPanel'
 import { PathFlowChartPanel } from './PathFlowChartPanel'
 import { useAppStore } from '../../store/appStore'
+import { useCriticalPaths } from '../../hooks/useAIInsights'
 import type { CriticalPath, AnalysisTab, TopologyState, ServiceTopologyProps } from './types'
 import './styles.css'
 
@@ -257,9 +258,29 @@ export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
     return [start, end]
   }
 
+  // Memoize time range to prevent unnecessary refetches
+  const timeRange = useMemo(() => {
+    const [start, end] = getTimeRange()
+    return { startTime: start, endTime: end }
+  }, [analysisTimeRange]) // Only recompute when analysisTimeRange changes
+
+  // Memoize time range tuple for ServiceTopologyPanel
+  const timeRangeTuple = useMemo<[Date, Date]>(() => {
+    return [timeRange.startTime, timeRange.endTime]
+  }, [timeRange.startTime, timeRange.endTime])
+
+  // Fetch critical paths from AI Insights API
+  const { data: criticalPathsData } = useCriticalPaths(
+    timeRange,
+    !propsPaths // Only fetch if not provided via props
+  )
+
+  // Use API data if available, otherwise fall back to props or mock data
+  const availablePaths = propsPaths || criticalPathsData?.paths || generateMockPaths()
+
   // State management
   const [state, setState] = useState<TopologyState>({
-    availablePaths: propsPaths || generateMockPaths(),
+    availablePaths,
     selectedPaths: [],
     pathFilter: 'all',
     highlightedServices: new Set(),
@@ -286,6 +307,16 @@ export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
 
   // Track services with open tabs (these should stay highlighted)
   const [servicesWithTabs, setServicesWithTabs] = useState<Set<string>>(new Set())
+
+  // Update available paths when API data arrives
+  useEffect(() => {
+    if (criticalPathsData?.paths && !propsPaths) {
+      setState((prev) => ({
+        ...prev,
+        availablePaths: criticalPathsData.paths
+      }))
+    }
+  }, [criticalPathsData, propsPaths])
 
   // Handle path selection
   const handlePathSelect = useCallback(
@@ -613,7 +644,7 @@ export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
             />
           ) : (
             <ServiceTopologyPanel
-              timeRange={getTimeRange()}
+              timeRange={timeRangeTuple}
               highlightedServices={Array.from(state.highlightedServices)}
               servicesWithTabs={Array.from(servicesWithTabs)} // Pass services that have tabs open
               onServiceClick={handleServiceClick}

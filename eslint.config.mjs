@@ -56,7 +56,7 @@ export default [
           objectLiteralTypeAssertions: 'allow-as-parameter'
         }
       ],
-      '@typescript-eslint/no-non-null-assertion': 'warn',
+      '@typescript-eslint/no-non-null-assertion': 'error',
       'no-undef': 'off' // TypeScript handles this
     }
   },

@@ -101,7 +101,11 @@ import {
   OtlpCaptureRouterTag,
   OtlpCaptureRouterLive
 } from './record-replay/router/capture-router.js'
-import { AIInsightsRouterTag, AIInsightsRouterLive } from './ai-insights/index.js'
+import {
+  AIInsightsRouterTag,
+  AIInsightsRouterLive,
+  CriticalPathAnalyzerLive
+} from './ai-insights/index.js'
 
 const app = express()
 const PORT = process.env.PORT || 4319
@@ -210,10 +214,11 @@ const BaseDependencies = Layer.mergeAll(
   TrainingDataReaderLayer // Training data reader for AI model training
 )
 
-// Create the extended dependencies that include UI Generator API Client
+// Create the extended dependencies that include UI Generator API Client and AI Insights
 const ExtendedDependencies = Layer.mergeAll(
   BaseDependencies,
-  UIGeneratorAPIClientLayer.pipe(Layer.provide(BaseDependencies))
+  UIGeneratorAPIClientLayer.pipe(Layer.provide(BaseDependencies)),
+  CriticalPathAnalyzerLive.pipe(Layer.provide(BaseDependencies)) // Critical Path Analyzer needs LLMManagerLive
 )
 
 // Create router layers - they need access to all services including UIGeneratorAPIClient
