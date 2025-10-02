@@ -324,7 +324,7 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
                 <Space direction="vertical" style={{ width: '100%' }}>
                   <Space>
                     {getMetricIcon(path)}
-                    <Text strong style={{ flex: 1 }}>
+                    <Text strong style={{ flex: 1 }} data-testid="path-name">
                       {path.name}
                     </Text>
                   </Space>

@@ -9,9 +9,17 @@ import { test, expect } from '@playwright/test'
 test.describe('AI Insights Critical Path Discovery', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to service topology page
-    await page.goto('/servicetopology')
-    await page.waitForLoadState('networkidle')
-    await page.waitForTimeout(2000)
+    // Note: Using 'load' instead of 'networkidle' because the page has ongoing
+    // network activity (React Query refetching, auto-refresh) that prevents networkidle
+    await page.goto('/servicetopology', { waitUntil: 'load' })
+
+    // Wait for panel to be visible
+    await expect(page.getByTestId('critical-paths-panel')).toBeVisible({ timeout: 10000 })
+
+    // Wait for at least one path to load (from API or mock)
+    await expect(page.locator('[data-testid^="critical-path-"]').first()).toBeVisible({
+      timeout: 15000
+    })
   })
 
   test('should display critical paths panel with paths', async ({ page }) => {
@@ -36,8 +44,8 @@ test.describe('AI Insights Critical Path Discovery', () => {
     const firstPath = page.locator('[data-testid^="critical-path-"]').first()
     await expect(firstPath).toBeVisible()
 
-    // Check for path name
-    const pathName = await firstPath.locator('.path-name, [class*="name"]').first()
+    // Check for path name using test-id
+    const pathName = firstPath.getByTestId('path-name')
     await expect(pathName).toBeVisible()
     const nameText = await pathName.textContent()
     expect(nameText).toBeTruthy()
@@ -116,8 +124,7 @@ test.describe('AI Insights Critical Path Discovery', () => {
     })
 
     // Reload to trigger API call
-    await page.reload()
-    await page.waitForLoadState('networkidle')
+    await page.reload({ waitUntil: 'load' })
     await page.waitForTimeout(3000)
 
     // Either API was called (real backend) or mock data is used

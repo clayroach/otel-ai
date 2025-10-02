@@ -503,11 +503,11 @@ export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
       return { paths: 4, topology: 20, analysis: 0 }
     }
 
-    // Default proportions: 15% | 55% | 30%
+    // Default proportions: 20% | 50% | 30%
     return {
-      paths: 4, // ~16.7% (4/24)
-      topology: 13, // ~54.2% (13/24)
-      analysis: 7 // ~29.1% (7/24)
+      paths: 5, // ~20.8% (5/24)
+      topology: 12, // ~50% (12/24)
+      analysis: 7 // ~29.2% (7/24)
     }
   }
 
