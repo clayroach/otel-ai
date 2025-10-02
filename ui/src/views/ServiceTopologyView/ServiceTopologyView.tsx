@@ -140,7 +140,7 @@ const ServiceTopologyView: React.FC = () => {
         config
       })
 
-      message.success(`🎯 Topology analysis completed using local statistical analyzer!`)
+      // Success is shown via loading indicator disappearing in topology panel
     } catch (err) {
       console.error('Analysis failed:', err)
       setError(
@@ -296,8 +296,8 @@ const ServiceTopologyView: React.FC = () => {
       <div data-testid="insights-results" style={{ height: 'calc(100vh - 250px)' }}>
         <ServiceTopology
           defaultPanelSizes={{
-            paths: 15,
-            topology: 55,
+            paths: 20,
+            topology: 50,
             analysis: 30
           }}
           resizable={true}

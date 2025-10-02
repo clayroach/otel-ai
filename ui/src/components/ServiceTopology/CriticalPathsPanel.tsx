@@ -35,6 +35,9 @@ interface CriticalPathsPanelProps extends PanelProps {
   selectedPaths: string[]
   onPathSelect: (pathIds: string[]) => void
   onShowAll: () => void
+  isLoading?: boolean
+  isFetching?: boolean
+  discoveryModel?: string
 }
 
 export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
@@ -42,7 +45,10 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
   selectedPaths,
   onPathSelect,
   onShowAll,
-  width = '100%'
+  width = '100%',
+  isLoading = false,
+  isFetching = false,
+  discoveryModel
 }) => {
   const navigate = useNavigate()
   const queryGenerator = useQueryGenerator()
@@ -219,6 +225,20 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
           <Text strong style={{ fontSize: '14px', whiteSpace: 'nowrap' }}>
             Critical Paths
           </Text>
+          {(isFetching || isLoading) && (
+            <Tooltip title="Analyzing critical paths">
+              <LoadingOutlined
+                style={{ fontSize: '12px', color: '#1890ff' }}
+                spin
+                data-testid="critical-paths-refetching"
+              />
+            </Tooltip>
+          )}
+          {discoveryModel && (
+            <Text type="secondary" style={{ fontSize: '11px' }}>
+              ({discoveryModel})
+            </Text>
+          )}
           {selectedPaths.length > 0 && (
             <Badge
               count={selectedPaths.length}
@@ -274,8 +294,25 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
       </Space>
 
       <div className="critical-paths-scroll-container">
-        {filteredPaths.length === 0 ? (
-          <Empty description="No paths found" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        {isLoading ? (
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              height: '200px'
+            }}
+          >
+            <Space direction="vertical" align="center">
+              <LoadingOutlined style={{ fontSize: 32 }} />
+              <Text type="secondary">
+                Discovering critical paths
+                {discoveryModel && <> with {discoveryModel}</>}...
+              </Text>
+            </Space>
+          </div>
+        ) : filteredPaths.length === 0 ? (
+          <Empty description="No paths match filters" image={Empty.PRESENTED_IMAGE_SIMPLE} />
         ) : (
           <List
             size="small"
@@ -298,7 +335,7 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
                 <Space direction="vertical" style={{ width: '100%' }}>
                   <Space>
                     {getMetricIcon(path)}
-                    <Text strong style={{ flex: 1 }}>
+                    <Text strong style={{ flex: 1 }} data-testid="path-name">
                       {path.name}
                     </Text>
                   </Space>
@@ -316,7 +353,7 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
                   <Space size="small" style={{ fontSize: '12px' }}>
                     <Tooltip title="Average Latency">
                       <Text type="secondary">
-                        <ClockCircleOutlined /> {path.metrics.avgLatency}ms
+                        <ClockCircleOutlined /> {Math.round(path.metrics.avgLatency)}ms
                       </Text>
                     </Tooltip>
                     {path.metrics.errorRate > 0 && (

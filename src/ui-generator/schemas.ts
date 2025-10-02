@@ -7,8 +7,12 @@ import { Schema } from '@effect/schema'
 
 /**
  * Critical Path Schema - represents a user journey through services
+ *
+ * Note: This is the schema used for API requests. The full CriticalPath type
+ * (with edges, metrics, priority, severity, lastUpdated) is defined in
+ * query-generator/types.ts and is re-exported from this file.
  */
-export const CriticalPathSchema = Schema.Struct({
+export const CriticalPathRequestSchema = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
   services: Schema.Array(Schema.String),
@@ -16,11 +20,14 @@ export const CriticalPathSchema = Schema.Struct({
   endService: Schema.String
 })
 
+// Re-export the full CriticalPath schema from query-generator
+export { CriticalPathSchema } from './query-generator/types.js'
+
 /**
  * Query Generation API Request Schema
  */
 export const QueryGenerationAPIRequestSchema = Schema.Struct({
-  path: CriticalPathSchema,
+  path: CriticalPathRequestSchema,
   analysisGoal: Schema.optional(Schema.String),
   model: Schema.optional(Schema.String),
   isClickHouseAI: Schema.optional(Schema.Boolean),
@@ -101,7 +108,7 @@ export const ServiceConfigSchema = Schema.Struct({
 })
 
 // Export derived types for TypeScript usage
-export type CriticalPath = Schema.Schema.Type<typeof CriticalPathSchema>
+export type { CriticalPath } from './query-generator/types.js'
 export type QueryGenerationAPIRequest = Schema.Schema.Type<typeof QueryGenerationAPIRequestSchema>
 export type QueryGenerationAPIResponse = Schema.Schema.Type<typeof QueryGenerationAPIResponseSchema>
 export type MultipleQueryGenerationRequest = Schema.Schema.Type<

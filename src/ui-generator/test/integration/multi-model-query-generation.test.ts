@@ -33,6 +33,21 @@ const testPath: CriticalPath = {
   services: ["api-gateway", "auth-service", "user-service", "database", "cache"],
   startService: "api-gateway",
   endService: "database",
+  edges: [
+    { source: "api-gateway", target: "auth-service" },
+    { source: "auth-service", target: "user-service" },
+    { source: "user-service", target: "database" },
+    { source: "database", target: "cache" }
+  ],
+  metrics: {
+    requestCount: 10000,
+    avgLatency: 150,
+    errorRate: 0.01,
+    p99Latency: 500
+  },
+  priority: 'high',
+  severity: 0.75,
+  lastUpdated: new Date(),
   metadata: {
     criticality: "high",
     sla: "99.99%"

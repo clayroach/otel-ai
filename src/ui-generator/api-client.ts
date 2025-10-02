@@ -56,7 +56,23 @@ export class UIGeneratorAPIClient {
       name: request.path.name,
       services: request.path.services,
       startService: request.path.startService,
-      endService: request.path.endService
+      endService: request.path.endService,
+      edges: request.path.services.slice(0, -1).map((service, i) => {
+        const target = request.path.services[i + 1]
+        if (!target) {
+          throw new Error(`Missing target service at index ${i + 1}`)
+        }
+        return { source: service, target }
+      }),
+      metrics: {
+        requestCount: 10000,
+        avgLatency: 150,
+        errorRate: 0.01,
+        p99Latency: 500
+      },
+      priority: 'high',
+      severity: 0.75,
+      lastUpdated: new Date()
     }
 
     // Use default analysis goal if not provided

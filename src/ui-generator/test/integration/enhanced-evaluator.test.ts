@@ -33,7 +33,19 @@ describe('Enhanced SQL Evaluator Integration', () => {
         name: 'Test Enhanced Comments',
         services: ['frontend', 'backend'],
         startService: 'frontend',
-        endService: 'backend'
+        endService: 'backend',
+        edges: [
+          { source: 'frontend', target: 'backend' }
+        ],
+        metrics: {
+          requestCount: 10000,
+          avgLatency: 150,
+          errorRate: 0.01,
+          p99Latency: 500
+        },
+        priority: 'high' as const,
+        severity: 0.75,
+        lastUpdated: new Date()
       }
 
       const analysisGoal = 'Analyze service latency and error patterns'
@@ -112,7 +124,19 @@ describe('Enhanced SQL Evaluator Integration', () => {
         name: 'Test Error Messages',
         services: ['non-existent-service-xyz', 'another-fake-service'],
         startService: 'non-existent-service-xyz',
-        endService: 'another-fake-service'
+        endService: 'another-fake-service',
+        edges: [
+          { source: 'non-existent-service-xyz', target: 'another-fake-service' }
+        ],
+        metrics: {
+          requestCount: 10000,
+          avgLatency: 150,
+          errorRate: 0.01,
+          p99Latency: 500
+        },
+        priority: 'high' as const,
+        severity: 0.75,
+        lastUpdated: new Date()
       }
 
       const analysisGoal = 'Complex analysis with CTEs and aggregations that might fail'
