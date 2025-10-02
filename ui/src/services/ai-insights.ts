@@ -17,6 +17,7 @@ export interface CriticalPathsResponse {
   paths: CriticalPath[]
   metadata: {
     discoveredBy: 'llm' | 'statistical'
+    model: string
     executionTimeMs: number
     topologyServicesCount: number
     pathsDiscovered: number

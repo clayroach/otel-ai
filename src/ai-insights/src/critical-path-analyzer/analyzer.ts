@@ -68,28 +68,37 @@ export const CriticalPathAnalyzerLive = Layer.effect(
         const prompt = CRITICAL_PATH_IDENTIFICATION_PROMPT(topology)
 
         // Use LLM to analyze and identify critical paths
+        // Use SQL model (Qwen) for automatic discovery - it's local and free
+        let modelUsed = 'unknown'
         const llmResult = yield* llmManager
           .generate({
             prompt,
             taskType: 'general',
             preferences: {
+              model: 'qwen/qwen3-coder-30b', // Use local SQL model for cost-free discovery
               maxTokens: 2000,
               temperature: 0.1 // Low temperature for consistent path identification
             }
           })
           .pipe(
             Effect.flatMap((response) => {
+              // Capture model name
+              modelUsed = response.model
+
               // Extract JSON from response content
               const jsonMatch = response.content.match(/```json\s*([\s\S]*?)\s*```/)
               const jsonStr = jsonMatch?.[1] ?? response.content
 
               try {
                 const json = JSON.parse(jsonStr)
-                return Schema.decodeUnknown(LLMCriticalPathResponseSchema)(json)
+                return Schema.decodeUnknown(LLMCriticalPathResponseSchema)(json).pipe(
+                  Effect.map((result) => ({ ...result, model: modelUsed }))
+                )
               } catch {
                 // Return statistical fallback on parse error
                 return Effect.succeed({
-                  paths: statisticalPathDiscovery(topology)
+                  paths: statisticalPathDiscovery(topology),
+                  model: 'statistical-fallback'
                 })
               }
             }),
@@ -98,10 +107,13 @@ export const CriticalPathAnalyzerLive = Layer.effect(
               console.error('Error details:', error)
               // Return statistical fallback result
               return Effect.succeed({
-                paths: statisticalPathDiscovery(topology)
+                paths: statisticalPathDiscovery(topology),
+                model: 'statistical-fallback'
               })
             })
           )
+
+        console.log(`🤖 Model used for discovery: ${llmResult.model || modelUsed}`)
 
         // Enrich paths with real metrics and proper structure
         const enrichedPaths: ReadonlyArray<CriticalPath> = EffectArray.map(
@@ -146,6 +158,7 @@ export const CriticalPathAnalyzerLive = Layer.effect(
               lastUpdated: new Date(),
               metadata: {
                 discoveredBy: 'llm',
+                model: llmResult.model || modelUsed,
                 timeRange: {
                   startTime: timeRange.startTime.toISOString(),
                   endTime: timeRange.endTime.toISOString()
@@ -155,7 +168,9 @@ export const CriticalPathAnalyzerLive = Layer.effect(
           }
         )
 
-        console.log(`✅ Discovered ${enrichedPaths.length} critical paths`)
+        console.log(
+          `✅ Discovered ${enrichedPaths.length} critical paths using ${llmResult.model || modelUsed}`
+        )
 
         return enrichedPaths
       })

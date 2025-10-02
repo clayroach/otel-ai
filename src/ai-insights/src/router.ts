@@ -120,6 +120,7 @@ export const AIInsightsRouterLive = Layer.effect(
           paths,
           metadata: {
             discoveredBy: paths[0]?.metadata?.discoveredBy || 'llm',
+            model: paths[0]?.metadata?.model || 'unknown',
             executionTimeMs,
             topologyServicesCount: serviceMetrics.length,
             pathsDiscovered: paths.length

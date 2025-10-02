@@ -9,106 +9,6 @@ import { useCriticalPaths } from '../../hooks/useAIInsights'
 import type { CriticalPath, AnalysisTab, TopologyState, ServiceTopologyProps } from './types'
 import './styles.css'
 
-// Mock data generator for demonstration
-const generateMockPaths = (): CriticalPath[] => {
-  return [
-    {
-      id: 'path-1',
-      name: 'Checkout Flow',
-      description: 'User checkout process from cart to payment confirmation',
-      services: ['frontend', 'cart', 'checkout', 'payment', 'email'],
-      edges: [
-        { source: 'frontend', target: 'cart' },
-        { source: 'frontend', target: 'checkout' },
-        { source: 'checkout', target: 'payment' },
-        { source: 'checkout', target: 'email' }
-      ],
-      metrics: {
-        requestCount: 1250,
-        avgLatency: 450,
-        errorRate: 0.002,
-        p99Latency: 1200
-      },
-      priority: 'critical',
-      lastUpdated: new Date()
-    },
-    {
-      id: 'path-2',
-      name: 'Product Search',
-      description: 'Product search and recommendation flow',
-      services: ['frontend', 'product-catalog', 'recommendation', 'ad'],
-      edges: [
-        { source: 'frontend', target: 'product-catalog' },
-        { source: 'frontend', target: 'recommendation' },
-        { source: 'recommendation', target: 'product-catalog' },
-        { source: 'frontend', target: 'ad' }
-      ],
-      metrics: {
-        requestCount: 5420,
-        avgLatency: 120,
-        errorRate: 0.001,
-        p99Latency: 350
-      },
-      priority: 'high',
-      lastUpdated: new Date()
-    },
-    {
-      id: 'path-3',
-      name: 'Currency Conversion',
-      description: 'Currency conversion for pricing',
-      services: ['frontend', 'currency', 'product-catalog'],
-      edges: [
-        { source: 'frontend', target: 'currency' },
-        { source: 'product-catalog', target: 'currency' }
-      ],
-      metrics: {
-        requestCount: 3200,
-        avgLatency: 85,
-        errorRate: 0.015,
-        p99Latency: 250
-      },
-      priority: 'high',
-      lastUpdated: new Date()
-    },
-    {
-      id: 'path-4',
-      name: 'Shipping Calculator',
-      description: 'Calculate shipping costs and delivery times - HIGH ERROR RATE',
-      services: ['frontend', 'shipping', 'currency'],
-      edges: [
-        { source: 'frontend', target: 'shipping' },
-        { source: 'shipping', target: 'currency' }
-      ],
-      metrics: {
-        requestCount: 890,
-        avgLatency: 2100,
-        errorRate: 0.08, // 8% error rate - critical
-        p99Latency: 5500
-      },
-      priority: 'critical', // Changed to critical due to high error rate
-      lastUpdated: new Date()
-    },
-    {
-      id: 'path-5',
-      name: 'Fraud Detection',
-      description: 'Payment fraud detection flow',
-      services: ['payment', 'fraud-detection', 'accounting'],
-      edges: [
-        { source: 'payment', target: 'fraud-detection' },
-        { source: 'fraud-detection', target: 'accounting' }
-      ],
-      metrics: {
-        requestCount: 150,
-        avgLatency: 3500,
-        errorRate: 0.001,
-        p99Latency: 8000
-      },
-      priority: 'low',
-      lastUpdated: new Date()
-    }
-  ]
-}
-
 const generateMockServices = () => {
   return [
     { id: 'frontend', name: 'Frontend', metrics: { rate: 250, errorRate: 0.001, duration: 45 } },
@@ -270,13 +170,14 @@ export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
   }, [timeRange.startTime, timeRange.endTime])
 
   // Fetch critical paths from AI Insights API
-  const { data: criticalPathsData } = useCriticalPaths(
+  const { data: criticalPathsData, isLoading: isLoadingPaths } = useCriticalPaths(
     timeRange,
     !propsPaths // Only fetch if not provided via props
   )
 
-  // Use API data if available, otherwise fall back to props or mock data
-  const availablePaths = propsPaths || criticalPathsData?.paths || generateMockPaths()
+  // Use API data if available, otherwise use props or empty array while loading
+  const availablePaths = propsPaths || criticalPathsData?.paths || []
+  const discoveryModel = criticalPathsData?.metadata?.model
 
   // State management
   const [state, setState] = useState<TopologyState>({
@@ -626,6 +527,8 @@ export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
               selectedPaths={state.selectedPaths}
               onPathSelect={handlePathSelect}
               onShowAll={handleShowAll}
+              isLoading={isLoadingPaths && !propsPaths}
+              discoveryModel={discoveryModel}
             />
           </Col>
         )}
