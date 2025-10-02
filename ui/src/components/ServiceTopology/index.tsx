@@ -1,11 +1,13 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { Row, Col, App } from 'antd'
+import { useQueryClient } from '@tanstack/react-query'
 import { CriticalPathsPanel } from './CriticalPathsPanel'
 import { AIAnalysisPanel } from './AIAnalysisPanel'
 import { ServiceTopologyPanel } from './ServiceTopologyPanel'
 import { PathFlowChartPanel } from './PathFlowChartPanel'
 import { useAppStore } from '../../store/appStore'
 import { useCriticalPaths } from '../../hooks/useAIInsights'
+import { analysisEventBus } from '../../utils/eventBus'
 import type { CriticalPath, AnalysisTab, TopologyState, ServiceTopologyProps } from './types'
 import './styles.css'
 
@@ -137,6 +139,7 @@ export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
   className = ''
 }) => {
   const { message } = App.useApp()
+  const queryClient = useQueryClient()
   const { analysisTimeRange } = useAppStore()
 
   // Convert analysisTimeRange string to Date tuple
@@ -170,8 +173,13 @@ export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
   }, [timeRange.startTime, timeRange.endTime])
 
   // Fetch critical paths from AI Insights API
-  const { data: criticalPathsData, isLoading: isLoadingPaths } = useCriticalPaths(
+  const {
+    data: criticalPathsData,
+    isLoading: isLoadingPaths,
+    isFetching: isFetchingPaths
+  } = useCriticalPaths(
     timeRange,
+    analysisTimeRange, // Use stable string key to prevent refetches on mount
     !propsPaths // Only fetch if not provided via props
   )
 
@@ -218,6 +226,19 @@ export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
       }))
     }
   }, [criticalPathsData, propsPaths])
+
+  // Listen for Analyze button clicks and invalidate/refetch critical paths
+  useEffect(() => {
+    if (!propsPaths) {
+      const unsubscribe = analysisEventBus.onAnalyze(() => {
+        // Invalidate the query to mark it as stale and trigger a refetch
+        queryClient.invalidateQueries({
+          queryKey: ['ai-insights', 'critical-paths', analysisTimeRange]
+        })
+      })
+      return () => unsubscribe()
+    }
+  }, [propsPaths, queryClient, analysisTimeRange])
 
   // Handle path selection
   const handlePathSelect = useCallback(
@@ -528,6 +549,7 @@ export const ServiceTopology: React.FC<ServiceTopologyProps> = ({
               onPathSelect={handlePathSelect}
               onShowAll={handleShowAll}
               isLoading={isLoadingPaths && !propsPaths}
+              isFetching={isFetchingPaths && !propsPaths}
               discoveryModel={discoveryModel}
             />
           </Col>

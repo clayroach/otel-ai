@@ -21,6 +21,9 @@
   "dependencies": {
     "@ant-design/icons": "^6.0.2",
     "@monaco-editor/react": "^4.5.1",
+    "@tanstack/query-sync-storage-persister": "^5.90.2",
+    "@tanstack/react-query": "^5.90.2",
+    "@tanstack/react-query-persist-client": "^5.90.2",
     "antd": "^5.27.4",
     "axios": "^1.12.2",
     "cors": "^2.8.5",
@@ -32,7 +35,6 @@
     "monaco-editor": "^0.53.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "react-query": "^3.39.3",
     "react-resizable-panels": "^3.0.6",
     "react-router-dom": "^7.9.3",
     "sql-formatter": "^15.6.9",

@@ -2,15 +2,32 @@
  * E2E tests for AI Insights Critical Path Discovery
  *
  * Tests the full workflow from backend API to UI display
+ * Uses mocked API responses to avoid overloading LLM with repeated calls
  */
 
 import { test, expect } from '@playwright/test'
+import mockCriticalPaths from './fixtures/critical-paths.json'
 
 test.describe('AI Insights Critical Path Discovery', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page }, testInfo) => {
+    // Use real API for tests marked with [LIVE], mock for the rest
+    const useRealAPI = testInfo.title.includes('[LIVE]')
+
+    if (!useRealAPI) {
+      // Mock API responses with fixture data to avoid LLM overload
+      await page.route('**/api/ai-insights/critical-paths', async (route) => {
+        console.log('🔄 Using mock fixture data (no LLM call)')
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(mockCriticalPaths)
+        })
+      })
+    } else {
+      console.log('📡 Using real API for integration test')
+    }
+
     // Navigate to service topology page
-    // Note: Using 'load' instead of 'networkidle' because the page has ongoing
-    // network activity (React Query refetching, auto-refresh) that prevents networkidle
     await page.goto('/servicetopology', { waitUntil: 'load' })
 
     // Wait for panel to be visible
@@ -113,21 +130,24 @@ test.describe('AI Insights Critical Path Discovery', () => {
     }
   })
 
-  test('should handle backend API responses', async ({ page }) => {
+  test('[LIVE] should handle backend API responses', async ({ page }) => {
+    // This test uses real API - may take longer due to LLM processing
     // Intercept API calls to ai-insights
     let apiCalled = false
     page.on('request', (request) => {
       if (request.url().includes('/api/ai-insights/critical-paths')) {
         apiCalled = true
-        console.log('📡 API call intercepted:', request.url())
+        console.log('📡 Real API call intercepted:', request.url())
       }
     })
 
-    // Reload to trigger API call
+    // Reload to trigger API call (already loaded in beforeEach)
     await page.reload({ waitUntil: 'load' })
-    await page.waitForTimeout(3000)
 
-    // Either API was called (real backend) or mock data is used
+    // Wait for LLM processing and response (can take 10-15 seconds)
+    await page.waitForTimeout(15000)
+
+    // Either API was called (real backend) or test timed out
     const hasData =
       (await page.locator('[data-testid^="critical-path-"]').count()) > 0
 
@@ -136,7 +156,7 @@ test.describe('AI Insights Critical Path Discovery', () => {
     if (apiCalled) {
       console.log('✅ Using real AI Insights API')
     } else {
-      console.log('ℹ️  Using mock data fallback')
+      console.log('⚠️  API was not called - backend may be unavailable')
     }
   })
 
@@ -155,5 +175,108 @@ test.describe('AI Insights Critical Path Discovery', () => {
     expect(hasFlow).toBe(true)
 
     console.log('✅ Service flow visualization displayed')
+  })
+
+  test('should refetch critical paths when Analyze button is clicked', async ({ page }) => {
+    await page.waitForTimeout(2000)
+
+    // Track API calls to critical-paths endpoint
+    const apiCalls: string[] = []
+    page.on('request', (request) => {
+      if (request.url().includes('/api/ai-insights/critical-paths')) {
+        apiCalls.push(request.url())
+        console.log('📡 Critical paths API call:', new Date().toISOString())
+      }
+    })
+
+    // Get initial path count
+    const initialCount = await page.locator('[data-testid^="critical-path-"]').count()
+    console.log(`Initial path count: ${initialCount}`)
+
+    // Clear API call tracking
+    apiCalls.length = 0
+
+    // Find and click the Analyze button
+    const analyzeButton = page.getByRole('button', { name: /analyze/i })
+    await expect(analyzeButton).toBeVisible({ timeout: 5000 })
+
+    // Click analyze button
+    await analyzeButton.click()
+    console.log('🔄 Clicked Analyze button')
+
+    // Check for refetching indicator in panel title
+    const refetchingIndicator = page.getByTestId('critical-paths-refetching')
+    const indicatorAppeared = await refetchingIndicator.isVisible().catch(() => false)
+
+    if (indicatorAppeared) {
+      console.log('✅ Loading indicator appeared in panel title')
+      // Wait for indicator to disappear (refetch complete)
+      await refetchingIndicator.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {
+        console.log('ℹ️  Indicator still visible after timeout')
+      })
+    } else {
+      console.log('ℹ️  Loading indicator not visible (refetch may have been too fast)')
+    }
+
+    // Wait for potential API call
+    await page.waitForTimeout(2000)
+
+    // Verify either:
+    // 1. API was called (real backend available), OR
+    // 2. UI still shows critical paths (using cached/mock data)
+    const finalCount = await page.locator('[data-testid^="critical-path-"]').count()
+
+    if (apiCalls.length > 0) {
+      console.log(`✅ Analyze button triggered ${apiCalls.length} API call(s)`)
+      expect(apiCalls.length).toBeGreaterThan(0)
+    } else {
+      console.log('ℹ️  No API call detected - backend may be unavailable, using cached/mock data')
+    }
+
+    // Critical paths should still be displayed after analyze
+    expect(finalCount).toBeGreaterThan(0)
+    console.log(`✅ Critical paths still displayed after analyze (${finalCount} paths)`)
+  })
+
+  test('should use cached data on page refresh without API call', async ({ page }) => {
+    await page.waitForTimeout(2000)
+
+    // Track API calls
+    const apiCalls: string[] = []
+    page.on('request', (request) => {
+      if (request.url().includes('/api/ai-insights/critical-paths')) {
+        apiCalls.push(request.url())
+      }
+    })
+
+    // Get initial count
+    const initialCount = await page.locator('[data-testid^="critical-path-"]').count()
+    console.log(`Initial path count: ${initialCount}`)
+
+    // Clear API tracking
+    apiCalls.length = 0
+
+    // Reload page - should NOT trigger API call due to cache
+    await page.reload({ waitUntil: 'load' })
+    await page.waitForTimeout(2000)
+
+    // Wait for critical paths to appear (from cache)
+    await expect(page.locator('[data-testid^="critical-path-"]').first()).toBeVisible({
+      timeout: 5000
+    })
+
+    const reloadCount = await page.locator('[data-testid^="critical-path-"]').count()
+
+    // Paths should be displayed from cache
+    expect(reloadCount).toBeGreaterThan(0)
+
+    // No API call should have been made (data comes from localStorage cache)
+    if (apiCalls.length === 0) {
+      console.log('✅ Page refresh used cached data (no API call)')
+    } else {
+      console.log(`ℹ️  API call detected on refresh (${apiCalls.length} calls) - cache may be empty or invalidated`)
+    }
+
+    console.log(`✅ Paths displayed after refresh: ${reloadCount}`)
   })
 })

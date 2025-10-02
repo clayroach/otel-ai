@@ -36,6 +36,7 @@ interface CriticalPathsPanelProps extends PanelProps {
   onPathSelect: (pathIds: string[]) => void
   onShowAll: () => void
   isLoading?: boolean
+  isFetching?: boolean
   discoveryModel?: string
 }
 
@@ -46,6 +47,7 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
   onShowAll,
   width = '100%',
   isLoading = false,
+  isFetching = false,
   discoveryModel
 }) => {
   const navigate = useNavigate()
@@ -223,6 +225,15 @@ export const CriticalPathsPanel: React.FC<CriticalPathsPanelProps> = ({
           <Text strong style={{ fontSize: '14px', whiteSpace: 'nowrap' }}>
             Critical Paths
           </Text>
+          {(isFetching || isLoading) && (
+            <Tooltip title="Analyzing critical paths">
+              <LoadingOutlined
+                style={{ fontSize: '12px', color: '#1890ff' }}
+                spin
+                data-testid="critical-paths-refetching"
+              />
+            </Tooltip>
+          )}
           {discoveryModel && (
             <Text type="secondary" style={{ fontSize: '11px' }}>
               ({discoveryModel})

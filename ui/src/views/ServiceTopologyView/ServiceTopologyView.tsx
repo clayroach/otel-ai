@@ -140,7 +140,7 @@ const ServiceTopologyView: React.FC = () => {
         config
       })
 
-      message.success(`🎯 Topology analysis completed using local statistical analyzer!`)
+      // Success is shown via loading indicator disappearing in topology panel
     } catch (err) {
       console.error('Analysis failed:', err)
       setError(

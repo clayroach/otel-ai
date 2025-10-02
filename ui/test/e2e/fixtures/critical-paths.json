@@ -1,0 +1,144 @@
+{
+  "paths": [
+    {
+      "id": "checkout-flow",
+      "name": "User Checkout Flow",
+      "description": "Complete user checkout path from cart to payment confirmation",
+      "services": ["frontend", "cartservice", "checkoutservice", "paymentservice", "emailservice"],
+      "edges": [
+        { "source": "frontend", "target": "cartservice" },
+        { "source": "cartservice", "target": "checkoutservice" },
+        { "source": "checkoutservice", "target": "paymentservice" },
+        { "source": "paymentservice", "target": "emailservice" }
+      ],
+      "priority": "critical",
+      "metrics": {
+        "requestCount": 5420,
+        "avgLatency": 342,
+        "p99Latency": 1250,
+        "errorRate": 0.023
+      }
+    },
+    {
+      "id": "product-browse",
+      "name": "Product Browsing Path",
+      "description": "User browsing products with recommendations",
+      "services": ["frontend", "productcatalogservice", "recommendationservice"],
+      "edges": [
+        { "source": "frontend", "target": "productcatalogservice" },
+        { "source": "productcatalogservice", "target": "recommendationservice" }
+      ],
+      "priority": "high",
+      "metrics": {
+        "requestCount": 12500,
+        "avgLatency": 125,
+        "p99Latency": 450,
+        "errorRate": 0.008
+      }
+    },
+    {
+      "id": "ad-serving",
+      "name": "Advertisement Serving",
+      "description": "Ad delivery and tracking path",
+      "services": ["frontend", "adservice"],
+      "edges": [
+        { "source": "frontend", "target": "adservice" }
+      ],
+      "priority": "medium",
+      "metrics": {
+        "requestCount": 8900,
+        "avgLatency": 85,
+        "p99Latency": 220,
+        "errorRate": 0.012
+      }
+    },
+    {
+      "id": "shipping-calc",
+      "name": "Shipping Calculator",
+      "description": "Calculate shipping costs and delivery times",
+      "services": ["checkoutservice", "shippingservice", "currencyservice"],
+      "edges": [
+        { "source": "checkoutservice", "target": "shippingservice" },
+        { "source": "shippingservice", "target": "currencyservice" }
+      ],
+      "priority": "high",
+      "metrics": {
+        "requestCount": 3200,
+        "avgLatency": 580,
+        "p99Latency": 2100,
+        "errorRate": 0.085
+      }
+    },
+    {
+      "id": "cart-update",
+      "name": "Cart Update Flow",
+      "description": "Adding and updating items in shopping cart",
+      "services": ["frontend", "cartservice", "productcatalogservice"],
+      "edges": [
+        { "source": "frontend", "target": "cartservice" },
+        { "source": "cartservice", "target": "productcatalogservice" }
+      ],
+      "priority": "high",
+      "metrics": {
+        "requestCount": 7800,
+        "avgLatency": 95,
+        "p99Latency": 380,
+        "errorRate": 0.005
+      }
+    },
+    {
+      "id": "currency-convert",
+      "name": "Currency Conversion",
+      "description": "Multi-currency support for international users",
+      "services": ["frontend", "currencyservice"],
+      "edges": [
+        { "source": "frontend", "target": "currencyservice" }
+      ],
+      "priority": "medium",
+      "metrics": {
+        "requestCount": 4200,
+        "avgLatency": 45,
+        "p99Latency": 120,
+        "errorRate": 0.018
+      }
+    },
+    {
+      "id": "recommendation-gen",
+      "name": "Product Recommendations",
+      "description": "Generate personalized product recommendations",
+      "services": ["recommendationservice", "productcatalogservice"],
+      "edges": [
+        { "source": "recommendationservice", "target": "productcatalogservice" }
+      ],
+      "priority": "low",
+      "metrics": {
+        "requestCount": 6500,
+        "avgLatency": 180,
+        "p99Latency": 520,
+        "errorRate": 0.003
+      }
+    },
+    {
+      "id": "email-confirm",
+      "name": "Order Confirmation Email",
+      "description": "Send order confirmation and tracking emails",
+      "services": ["emailservice"],
+      "edges": [],
+      "priority": "medium",
+      "metrics": {
+        "requestCount": 2100,
+        "avgLatency": 220,
+        "p99Latency": 680,
+        "errorRate": 0.001
+      }
+    }
+  ],
+  "metadata": {
+    "model": "qwen-local",
+    "discoveredAt": "2025-10-02T00:00:00.000Z",
+    "timeRange": {
+      "startTime": "2025-10-01T00:00:00.000Z",
+      "endTime": "2025-10-02T00:00:00.000Z"
+    }
+  }
+}

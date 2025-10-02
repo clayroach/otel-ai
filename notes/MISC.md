@@ -37,3 +37,4 @@ TODOs:
 * unit tests not relying on external services
 * add effect-ts docs mcp server and add to effect agent
 * each panel has an ability to override the default model based on user preference - i.e. Critical Paths
+* analyze use of Tanstack across all of the UI
