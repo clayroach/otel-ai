@@ -20,7 +20,7 @@ export const TraceMinimap: React.FC<TraceMinimapProps> = ({
     <Card
       size="small"
       style={{ height, marginBottom: 8 }}
-      bodyStyle={{ height: '100%', padding: 8 }}
+      styles={{ body: { height: '100%', padding: 8 } }}
     >
       <div
         style={{

@@ -1,12 +1,12 @@
 import React from 'react'
 import { Drawer, Descriptions, Tag, Typography, Space, Divider } from 'antd'
 import { CloseOutlined } from '@ant-design/icons'
-import { SpanData } from '../types'
+import { SpanTreeNode } from '../types'
 
 const { Text, Title } = Typography
 
 interface SpanDetailsPanelProps {
-  span: SpanData
+  span: SpanTreeNode
   onClose: () => void
 }
 

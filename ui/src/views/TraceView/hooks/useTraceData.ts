@@ -1,4 +1,4 @@
-import { useQuery } from 'react-query'
+import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { TraceData, SpanData } from '../types'
 
@@ -58,11 +58,13 @@ const fetchTraceData = async (traceId: string): Promise<TraceData> => {
 }
 
 export const useTraceData = (traceId: string) => {
-  return useQuery<TraceData, Error>(['trace', traceId], () => fetchTraceData(traceId), {
+  return useQuery<TraceData, Error>({
+    queryKey: ['trace', traceId],
+    queryFn: () => fetchTraceData(traceId),
     enabled: !!traceId,
     retry: 2,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+    retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 10000),
     staleTime: 30000, // Consider data stale after 30 seconds
-    cacheTime: 5 * 60 * 1000 // Keep in cache for 5 minutes
+    gcTime: 5 * 60 * 1000 // Keep in cache for 5 minutes (was cacheTime in v4)
   })
 }

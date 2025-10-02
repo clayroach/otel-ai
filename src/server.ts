@@ -409,34 +409,51 @@ app.get('/api/traces/:traceId/spans', async (req, res) => {
         status_code,
         status_message,
         span_kind,
-        attributes,
+        span_attributes,
         resource_attributes
       FROM otel.traces
       WHERE trace_id = '${traceId}'
       ORDER BY start_time ASC
     `
 
+    // Define ClickHouse span row type
+    interface ClickHouseSpanRow {
+      trace_id: string
+      span_id: string
+      parent_span_id: string
+      service_name: string
+      operation_name: string
+      start_time_unix_nano: string
+      end_time_unix_nano: string
+      duration_ns: number
+      status_code: string
+      status_message: string
+      span_kind: string
+      span_attributes: Record<string, unknown>
+      resource_attributes: Record<string, unknown>
+    }
+
     const queryResponse = await queryWithResults(query)
-    const spans = queryResponse.data
+    const spans = queryResponse.data as unknown as ClickHouseSpanRow[]
 
     if (!spans || spans.length === 0) {
       return res.status(404).json({ error: 'Trace not found' })
     }
 
     // Calculate metadata
-    const startTimes = spans.map((s: any) => BigInt(s.start_time_unix_nano))
-    const endTimes = spans.map((s: any) => BigInt(s.end_time_unix_nano))
+    const startTimes = spans.map((s) => BigInt(s.start_time_unix_nano))
+    const endTimes = spans.map((s) => BigInt(s.end_time_unix_nano))
     const minStartTime = startTimes.reduce((a: bigint, b: bigint) => (a < b ? a : b))
     const maxEndTime = endTimes.reduce((a: bigint, b: bigint) => (a > b ? a : b))
     const durationNs = maxEndTime - minStartTime
     const durationMs = Number(durationNs) / 1_000_000
 
     // Find root span
-    const rootSpan = spans.find((s: any) => !s.parent_span_id || s.parent_span_id === '')
-    const services = [...new Set(spans.map((s: any) => s.service_name))]
+    const rootSpan = spans.find((s) => !s.parent_span_id || s.parent_span_id === '')
+    const services = [...new Set(spans.map((s) => s.service_name))]
 
     return res.json({
-      spans: spans.map((span: any) => ({
+      spans: spans.map((span) => ({
         traceId: span.trace_id,
         spanId: span.span_id,
         parentSpanId: span.parent_span_id,
@@ -448,7 +465,7 @@ app.get('/api/traces/:traceId/spans', async (req, res) => {
         statusCode: span.status_code,
         statusMessage: span.status_message,
         spanKind: span.span_kind,
-        attributes: span.attributes,
+        attributes: span.span_attributes,
         resourceAttributes: span.resource_attributes
       })),
       metadata: {

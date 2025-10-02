@@ -239,6 +239,43 @@ src/package/
 └── src/            # Implementation
 ```
 
+### ⚠️ CRITICAL: UI Test Instrumentation
+
+**ALWAYS instrument UI tests to capture diagnostics for Claude Code assistance:**
+
+**Required Instrumentation**:
+1. **Browser Console Capture** - Capture all console logs (info, warn, error) during test execution
+2. **Screenshot Capture** - Take screenshots at key points and on failures
+3. **Error Context** - Include full stack traces and network errors
+
+**Benefits**:
+- **Reduces user burden** - User doesn't need to manually exercise browser for basic debugging
+- **Faster debugging** - Claude can review console logs and screenshots directly
+- **Better context** - Full diagnostic information available during development sessions
+
+**Implementation Pattern (Playwright)**:
+```typescript
+test('feature test', async ({ page }) => {
+  // Capture console logs
+  page.on('console', msg => console.log(`[BROWSER ${msg.type()}]: ${msg.text()}`));
+
+  // Capture errors
+  page.on('pageerror', err => console.error(`[BROWSER ERROR]: ${err.message}`));
+
+  // Screenshot on failure
+  await test.step('action', async () => {
+    await page.goto('/feature');
+    await page.screenshot({ path: 'screenshots/feature-state.png' });
+  });
+});
+```
+
+**When to Capture**:
+- ✅ Before/after major UI interactions
+- ✅ On test failures
+- ✅ When validating visual states
+- ✅ During integration test scenarios
+
 ### 2. GitHub Issues Review (2-3 seconds)
 ```bash
 # Check public repo issues
@@ -515,9 +552,9 @@ pnpm demo:up        # Start OTel demo
 pnpm dev:rebuild    # Rebuild after changes
 
 # Testing
-pnpm test           # Unit tests
-pnpm test:integration # Integration tests
-pnpm test:e2e       # E2E tests
+pnpm test [testname] # Unit tests
+pnpm test:integration [testname] # Integration tests
+pnpm test:e2e [testname]  # E2E tests
 
 # Always use pnpm commands - see all with:
 pnpm run
