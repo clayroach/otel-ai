@@ -1,8 +1,9 @@
-import { BugOutlined, ClockCircleOutlined, EyeOutlined } from '@ant-design/icons'
+import { BugOutlined, ClockCircleOutlined, EyeOutlined, PartitionOutlined } from '@ant-design/icons'
 import { Button, Descriptions, Modal, Space, Table, Tag, Timeline, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { cleanServiceName } from '../../utils/protobuf-cleaner'
 
 const { Text, Title } = Typography
@@ -42,6 +43,7 @@ interface TraceResultsProps {
 export const TraceResults: React.FC<TraceResultsProps> = ({ data }) => {
   const [selectedTrace, setSelectedTrace] = useState<UnifiedTrace | null>(null)
   const [detailsVisible, setDetailsVisible] = useState(false)
+  const navigate = useNavigate()
 
   // Debug: Log the data to see what columns we're receiving
   React.useEffect(() => {
@@ -199,15 +201,24 @@ export const TraceResults: React.FC<TraceResultsProps> = ({ data }) => {
     {
       title: 'Actions',
       key: 'action',
-      width: 80,
+      width: 120,
       render: (_, record: UnifiedTrace) => (
-        <Button
-          type="text"
-          icon={<EyeOutlined />}
-          onClick={() => handleViewTrace(record)}
-          size="small"
-          title="View trace details"
-        />
+        <Space size="small">
+          <Button
+            type="text"
+            icon={<PartitionOutlined />}
+            onClick={() => navigate(`/traces/${record.trace_id}`)}
+            size="small"
+            title="View trace timeline"
+          />
+          <Button
+            type="text"
+            icon={<EyeOutlined />}
+            onClick={() => handleViewTrace(record)}
+            size="small"
+            title="View trace details"
+          />
+        </Space>
       )
     }
   ]
