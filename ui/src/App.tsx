@@ -11,6 +11,7 @@ import { useAppStore } from './store/appStore'
 import { LLMDebugView } from './views/LLMDebugView'
 import ServiceTopologyView from './views/ServiceTopologyView/ServiceTopologyView'
 import { TracesView } from './views/TracesView/TracesView'
+import { TraceView } from './views/TraceView/TraceView'
 
 // Create a client for React Query
 const queryClient = new QueryClient({
@@ -42,6 +43,7 @@ const AppContent: React.FC = () => {
         <Route path="/" element={<Navigate to="/servicetopology" replace />} />
         <Route path="/servicetopology" element={<ServiceTopologyView />} />
         <Route path="/traces" element={<TracesView />} />
+        <Route path="/traces/:traceId" element={<TraceView />} />
         <Route path="/llm-debug" element={<LLMDebugView />} />
         {/* <Route path="/metrics" element={<MetricsView />} />
         <Route path="/logs" element={<LogsView />} />

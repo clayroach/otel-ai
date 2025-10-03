@@ -11,7 +11,8 @@ CRITICAL: These conventions MUST be followed in this package:
 - External packages must use StorageLive Layer or create their own mock
 - All async operations use Effect-TS with proper error handling
 - Schema validation required for all OTLP data inputs
-- Tests go in test/unit/ and test/integration/ subdirectories
+- **Unit tests** (test/unit/): Self-contained with testcontainers, no running dev environment needed
+- **Integration tests** (test/integration/): Require `pnpm dev:up` and live platform services
 - Always use parameterized queries to prevent SQL injection
 - Handle DateTime64(9) with nanosecond precision conversion
 - Router endpoints delegate to services, avoid business logic in routes

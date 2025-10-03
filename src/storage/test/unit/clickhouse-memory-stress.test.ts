@@ -127,7 +127,7 @@ describe('ClickHouse Memory Stress Tests', () => {
     })
 
     await setupLowMemorySchema(client)
-  })
+  }, 120000) // 120 second timeout for container startup
 
   afterAll(async () => {
     if (client) await client.close()

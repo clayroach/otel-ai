@@ -230,14 +230,75 @@ gh pr create                            # Create PR
 5. **Use pnpm Commands** - Never use direct docker/npm/curl commands
 
 ### Test Organization
+
+**ALL tests MUST be in `test/` subdirectory (never scattered `*.test.ts` files)**
+
 ```
 src/package/
 ├── test/           # ALL tests here (never scattered *.test.ts)
-│   ├── unit/
-│   ├── integration/
-│   └── fixtures/
+│   ├── unit/       # Self-contained tests with isolated dependencies
+│   ├── integration/ # Tests requiring running dev environment
+│   └── fixtures/   # Test data and mock fixtures
 └── src/            # Implementation
 ```
+
+#### Unit Tests (`test/unit/`)
+
+Self-contained tests that **DO NOT** require a running dev environment:
+
+- ✅ **Testcontainers** - Spin up isolated Docker containers (ClickHouse, etc.)
+- ✅ **LLM APIs** - Direct calls to Claude, GPT, etc. (isolated, no shared state)
+- ✅ **Internal services** - Package-internal Effect layers and services
+- ✅ **Mock layers** - Tests using mock Effect layers
+- ❌ **NO external dependencies** - No reliance on running platform services
+
+#### Integration Tests (`test/integration/`)
+
+Tests that **REQUIRE** a running dev environment (`pnpm dev:up`):
+
+- ✅ **Live Effect layers** - Tests using `StorageLive`, `AIAnalyzerLive`, etc.
+- ✅ **Cross-service** - Tests spanning multiple platform services
+- ✅ **External dependencies** - Relies on platform infrastructure (ClickHouse, S3/MinIO)
+- ✅ **End-to-end flows** - Full request/response cycles through platform
+
+**Note**: This distinction may change with [Issue #96](https://github.com/clayroach/otel-ai/issues/96) implementation.
+
+### ⚠️ CRITICAL: UI Test Instrumentation
+
+**ALWAYS instrument UI tests to capture diagnostics for Claude Code assistance:**
+
+**Required Instrumentation**:
+1. **Browser Console Capture** - Capture all console logs (info, warn, error) during test execution
+2. **Screenshot Capture** - Take screenshots at key points and on failures
+3. **Error Context** - Include full stack traces and network errors
+
+**Benefits**:
+- **Reduces user burden** - User doesn't need to manually exercise browser for basic debugging
+- **Faster debugging** - Claude can review console logs and screenshots directly
+- **Better context** - Full diagnostic information available during development sessions
+
+**Implementation Pattern (Playwright)**:
+```typescript
+test('feature test', async ({ page }) => {
+  // Capture console logs
+  page.on('console', msg => console.log(`[BROWSER ${msg.type()}]: ${msg.text()}`));
+
+  // Capture errors
+  page.on('pageerror', err => console.error(`[BROWSER ERROR]: ${err.message}`));
+
+  // Screenshot on failure
+  await test.step('action', async () => {
+    await page.goto('/feature');
+    await page.screenshot({ path: 'screenshots/feature-state.png' });
+  });
+});
+```
+
+**When to Capture**:
+- ✅ Before/after major UI interactions
+- ✅ On test failures
+- ✅ When validating visual states
+- ✅ During integration test scenarios
 
 ### 2. GitHub Issues Review (2-3 seconds)
 ```bash
@@ -515,9 +576,9 @@ pnpm demo:up        # Start OTel demo
 pnpm dev:rebuild    # Rebuild after changes
 
 # Testing
-pnpm test           # Unit tests
-pnpm test:integration # Integration tests
-pnpm test:e2e       # E2E tests
+pnpm test [testname] # Unit tests
+pnpm test:integration [testname] # Integration tests
+pnpm test:e2e [testname]  # E2E tests
 
 # Always use pnpm commands - see all with:
 pnpm run

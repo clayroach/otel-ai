@@ -53,5 +53,16 @@
   
   "terminal.integrated.env.osx": {},
   "terminal.integrated.env.linux": {},
-  "terminal.integrated.env.windows": {}
+  "terminal.integrated.env.windows": {},
+
+  "workbench.localHistory.enabled": true,
+  "workbench.localHistory.maxFileSize": 256,
+  "workbench.localHistory.maxFileEntries": 50,
+  "workbench.localHistory.exclude": {
+    "**/node_modules/**": true,
+    "**/dist/**": true,
+    "**/.git/**": true,
+    "**/.dendron.cache.*": true
+  },
+  "workbench.localHistory.mergeWindow": 10
 }

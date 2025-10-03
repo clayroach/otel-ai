@@ -130,6 +130,7 @@ function inferNaturalLanguageFromSQL(sql: string): string {
   return 'Analyze trace data'
 }
 
+// TODO: Rename TracesView to TracesQueryView to better reflect its purpose
 export const TracesView: React.FC = () => {
   const { message } = App.useApp()
   const location = useLocation()
