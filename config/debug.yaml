@@ -9,12 +9,12 @@ debug:
   # - warn: Warnings and errors only
   # - error: Errors only
   # - off: No logging
-  level: trace
+  level: info
 
   # Trace visualization settings
   traces:
     # Enable ASCII trace visualization (requires level: trace)
-    enabled: true
+    enabled: false
 
     # Console output target: server | browser | both
     # - server: Log to server console only (default)
