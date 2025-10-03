@@ -16,6 +16,12 @@ debug:
     # Enable ASCII trace visualization (requires level: trace)
     enabled: true
 
+    # Console output target: server | browser | both
+    # - server: Log to server console only (default)
+    # - browser: Format for browser console (available via API, not logged to server)
+    # - both: Log to both server and browser consoles
+    console: both
+
     # Maximum depth to display in the tree
     # Set lower for deeply nested traces to prevent huge output
     maxDepth: 10
@@ -27,8 +33,9 @@ debug:
     showAttributes: false
 
     # Use ANSI color codes for terminal output
-    # Disable if output is piped to files or non-terminal destinations
-    colorOutput: true
+    # Disable for browser compatibility (ANSI codes don't work in browser console)
+    # Recommended: false when console includes 'browser'
+    colorOutput: false
 
   # Hot-reload settings
   hotReload:

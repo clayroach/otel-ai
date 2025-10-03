@@ -12,6 +12,7 @@ import {
   type OTLPData
 } from '../../storage/index.js'
 import { ensureClickHouseRunning } from '../../test-helpers/clickhouse-health.js'
+import { DebugLoggerLayerLive } from '../../debug-logger/index.js'
 
 // Test configuration
 const testConfig = {
@@ -24,7 +25,12 @@ const testConfig = {
 
 // Create test layer
 const TestStorageLayer = StorageAPIClientLayer.pipe(
-  Layer.provide(Layer.succeed(ClickHouseConfigTag, testConfig))
+  Layer.provide(
+    Layer.mergeAll(
+      Layer.succeed(ClickHouseConfigTag, testConfig),
+      DebugLoggerLayerLive
+    )
+  )
 )
 
 // Helper to run storage operations

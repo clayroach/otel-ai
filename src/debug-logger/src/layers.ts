@@ -42,9 +42,10 @@ export const DebugLoggerLive = Layer.effect(
 
 /**
  * Combined layer providing all debug-logger services
+ * Exposes DebugLogger, ConfigWatcher, and TraceFormatter for external use
  */
 export const DebugLoggerLayerLive = Layer.mergeAll(
   TraceFormatterLive,
   ConfigWatcherLive,
-  DebugLoggerLive
+  DebugLoggerLive.pipe(Layer.provide(Layer.mergeAll(TraceFormatterLive, ConfigWatcherLive)))
 )

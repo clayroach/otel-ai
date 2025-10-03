@@ -27,12 +27,20 @@ interface ApiResponse {
     startTime: number
     endTime: number
   }
+  debugTrace?: string
 }
 
 const fetchTraceData = async (traceId: string): Promise<TraceData> => {
-  const response = await axios.get<ApiResponse>(`/api/traces/${traceId}/spans`)
+  const response = await axios.get<ApiResponse>('/api/traces', {
+    params: { traceId }
+  })
 
-  const { spans, metadata } = response.data
+  const { spans, metadata, debugTrace } = response.data
+
+  // Log debug trace to browser console if available
+  if (debugTrace) {
+    console.log(debugTrace)
+  }
 
   // Convert API response to our internal format
   const formattedSpans: SpanData[] = spans.map((span) => ({
@@ -64,7 +72,9 @@ export const useTraceData = (traceId: string) => {
     enabled: !!traceId,
     retry: 2,
     retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 10000),
-    staleTime: 30000, // Consider data stale after 30 seconds
-    gcTime: 5 * 60 * 1000 // Keep in cache for 5 minutes (was cacheTime in v4)
+    staleTime: 0, // Always consider data stale - fetch every time
+    gcTime: 0, // Don't cache at all - for debugging
+    refetchOnMount: 'always', // Always refetch when component mounts
+    refetchOnWindowFocus: false
   })
 }

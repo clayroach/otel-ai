@@ -32,6 +32,7 @@ const buildSpanTree = (spans: SpanData[]): SpanTreeNode[] => {
   const spanMap = new Map<string, SpanData>()
   const childrenMap = new Map<string, SpanData[]>()
   const rootSpans: SpanData[] = []
+  const orphanedSpans: SpanData[] = []
 
   // First pass: build maps
   for (const span of spans) {
@@ -45,6 +46,20 @@ const buildSpanTree = (spans: SpanData[]): SpanTreeNode[] => {
       childrenMap.set(span.parentSpanId, siblings)
     }
   }
+
+  // Second pass: identify orphaned spans (parent doesn't exist)
+  for (const span of spans) {
+    if (span.parentSpanId && !spanMap.has(span.parentSpanId)) {
+      console.log(
+        `[TraceFormatter] Orphaned span detected: ${span.spanId.substring(0, 8)} parent:${span.parentSpanId.substring(0, 8)} ${span.serviceName}:${span.operationName}`
+      )
+      orphanedSpans.push(span)
+    }
+  }
+
+  console.log(
+    `[TraceFormatter] Total: ${spans.length} spans, Roots: ${rootSpans.length}, Orphaned: ${orphanedSpans.length}`
+  )
 
   // Sort children by start time
   for (const children of childrenMap.values()) {
@@ -66,7 +81,14 @@ const buildSpanTree = (spans: SpanData[]): SpanTreeNode[] => {
   }
 
   // Build tree from roots
-  return rootSpans.map((span) => buildNode(span, 0))
+  const tree = rootSpans.map((span) => buildNode(span, 0))
+
+  // Add orphaned spans as separate root trees
+  for (const orphan of orphanedSpans) {
+    tree.push(buildNode(orphan, 0))
+  }
+
+  return tree
 }
 
 /**
@@ -225,6 +247,19 @@ export const formatTrace = (traceId: string, spans: SpanData[], options: FormatO
 
   // Build hierarchical tree
   const tree = buildSpanTree(spans)
+
+  // Debug: Count total nodes in tree
+  const countNodes = (nodes: SpanTreeNode[]): number => {
+    let total = nodes.length
+    for (const node of nodes) {
+      total += countNodes(node.children)
+    }
+    return total
+  }
+  const totalNodes = countNodes(tree)
+  console.log(
+    `[TraceFormatter] Tree has ${tree.length} roots, ${totalNodes} total nodes from ${spans.length} spans`
+  )
 
   // Find trace start time (earliest span)
   const firstSpan = spans[0]

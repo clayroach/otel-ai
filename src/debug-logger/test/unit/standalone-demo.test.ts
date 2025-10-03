@@ -20,6 +20,7 @@ describe('Debug Logger Standalone Demo', () => {
   level: trace
   traces:
     enabled: true
+    console: server
     maxDepth: 10
     showTimings: true
     showAttributes: true

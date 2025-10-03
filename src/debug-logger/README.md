@@ -62,11 +62,12 @@ debug:
   level: trace  # trace | debug | info | warn | error | off
 
   traces:
-    enabled: true  # Enable ASCII trace visualization
+    enabled: true     # Enable ASCII trace visualization
+    console: both     # server | browser | both
     maxDepth: 10
     showTimings: true
     showAttributes: false
-    colorOutput: true
+    colorOutput: false  # Set false for browser compatibility
 
   hotReload:
     enabled: true
@@ -147,6 +148,143 @@ Output includes up to 5 attributes per span:
    http.status_code: 200
    ... (4 more)
 ```
+
+## Console Output Targets
+
+Control where traces are logged using the `console` configuration option. This feature allows flexible debugging across server and browser environments.
+
+### Configuration Options
+
+```yaml
+debug:
+  traces:
+    enabled: true
+    console: both  # 'server' | 'browser' | 'both'
+```
+
+**Console Target Modes:**
+
+- **`server`** (default): Traces logged to server console only
+- **`browser`**: Traces formatted for browser console (available via API, not logged to server)
+- **`both`**: Traces logged to both server and browser consoles
+
+### Server Console Mode
+
+Use `console: server` or `console: both` to see traces in server logs.
+
+```yaml
+debug:
+  traces:
+    enabled: true
+    console: server
+```
+
+Traces will appear in your server console during development:
+
+```
+[TRACE] Trace 1489ccae... (4ms total, 7 spans)
+0. load-generator:user_browse_product
+   0.00ms ████████████████████ 4.11ms [depth=0]
+1.   ├─ load-generator:product
+   0.04ms ████████████ 3.06ms [depth=1]
+...
+Services: load-generator, frontend, productcatalogservice
+```
+
+### Browser Console Integration
+
+Use `console: browser` or `console: both` to make formatted traces available for browser console logging.
+
+**API Integration Example:**
+
+```typescript
+import { DebugLoggerTag } from '@/debug-logger'
+
+// In your API endpoint
+const handleGetTrace = Effect.gen(function* () {
+  const debugLogger = yield* DebugLoggerTag
+  const config = yield* ConfigWatcherTag
+
+  // Fetch trace data
+  const spans = yield* fetchSpans(traceId)
+
+  // Check if browser logging is enabled
+  const shouldIncludeBrowserTrace =
+    config.getCurrentConfig().debug.traces.enabled &&
+    (config.getCurrentConfig().debug.traces.console === 'browser' ||
+     config.getCurrentConfig().debug.traces.console === 'both')
+
+  // Format for browser if needed
+  const debugTrace = shouldIncludeBrowserTrace
+    ? debugLogger.formatTrace(traceId, spans)
+    : undefined
+
+  return {
+    spans,
+    metadata: {...},
+    debugTrace // Include if browser logging enabled
+  }
+})
+```
+
+**Frontend Usage:**
+
+```typescript
+// Frontend code that logs formatted trace
+const response = await fetch(`/api/traces/${traceId}/spans`)
+const data = await response.json()
+
+// Log to browser console if trace is provided
+if (data.debugTrace) {
+  console.log(data.debugTrace)
+}
+```
+
+**Browser Console Output:**
+
+Same formatted output appears in browser DevTools console:
+
+```
+[TRACE] Trace 1489ccae... (4ms total, 7 spans)
+0. load-generator:user_browse_product
+   0.00ms ████████████████████ 4.11ms [depth=0]
+...
+```
+
+### formatTrace() Method
+
+The `formatTrace()` method allows you to get a formatted trace string without logging to server console:
+
+```typescript
+const logger = yield* DebugLoggerTag
+
+// Format trace without logging
+const formattedTrace = logger.formatTrace(traceId, spans)
+
+// Use in API responses, tests, or custom logging
+return {
+  trace: formattedTrace
+}
+```
+
+**Key Benefits:**
+- Works regardless of `console` setting
+- Always uses `colorOutput: false` for browser compatibility
+- Respects other config options (maxDepth, showTimings, showAttributes)
+- Does not log to server console
+
+### Browser Compatibility Note
+
+When using browser console output, set `colorOutput: false` in configuration:
+
+```yaml
+debug:
+  traces:
+    console: browser  # or 'both'
+    colorOutput: false  # ANSI codes don't work in browser
+```
+
+ANSI color codes work in terminal environments but appear as raw text in browser consoles. The debug logger automatically uses `colorOutput: false` when formatting traces with `formatTrace()` for browser compatibility.
 
 ## Key Features
 
@@ -252,6 +390,7 @@ interface DebugLogger {
   readonly warn: (message: string, data?: unknown) => void
   readonly error: (message: string, data?: unknown) => void
   readonly logTrace: (traceId: string, spans: SpanData[]) => void
+  readonly formatTrace: (traceId: string, spans: SpanData[]) => string
   readonly setLevel: (level: LogLevelString) => void
   readonly getLevel: () => LogLevelString
 }
@@ -290,10 +429,11 @@ debug:
 
   traces:
     enabled: false         # Enable ASCII visualization
+    console: server        # Console target: server | browser | both
     maxDepth: 10           # Maximum nesting depth
     showTimings: true      # Display (start → end) [duration]
     showAttributes: false  # Show span attributes
-    colorOutput: true      # ANSI color codes
+    colorOutput: false     # ANSI color codes (false for browser compatibility)
 
   hotReload:
     enabled: true          # Watch config file

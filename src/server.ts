@@ -8,25 +8,6 @@ import { fromBinary } from '@bufbuild/protobuf'
 import cors from 'cors'
 import { Effect, Layer } from 'effect'
 import express from 'express'
-import { TopologyAnalyzerService, TopologyAnalyzerLayer } from './topology-analyzer/index.js'
-import { ExportTraceServiceRequestSchema } from './opentelemetry/index.js'
-import {
-  StorageAPIClientTag,
-  ClickHouseConfigTag,
-  StorageAPIClientLayer,
-  StorageLayer as StorageServiceLayer,
-  StorageServiceTag,
-  ConfigServiceLive,
-  REQUIRED_TABLES,
-  type StorageError
-} from './storage/index.js'
-import {
-  LLMManagerAPIClientTag,
-  LLMManagerAPIClientLayer,
-  LLMManagerLive,
-  LLMManagerServiceTag
-} from './llm-manager/index.js'
-import { UIGeneratorAPIClientTag, UIGeneratorAPIClientLayer } from './ui-generator/index.js'
 import {
   AnnotationService,
   AnnotationServiceLive,
@@ -34,19 +15,38 @@ import {
   DiagnosticsSessionManagerLive
 } from './annotations/index.js'
 import {
-  OtlpCaptureServiceTag,
+  LLMManagerAPIClientLayer,
+  LLMManagerAPIClientTag,
+  LLMManagerLive,
+  LLMManagerServiceTag
+} from './llm-manager/index.js'
+import { ExportTraceServiceRequestSchema } from './opentelemetry/index.js'
+import {
   OtlpCaptureServiceLive,
-  OtlpReplayServiceTag,
-  OtlpReplayServiceLive,
+  OtlpCaptureServiceTag,
   OtlpHttpReplayClientLive,
-  RetentionServiceTag,
+  OtlpReplayServiceLive,
+  OtlpReplayServiceTag,
+  type RetentionPolicy,
   RetentionServiceLive,
-  TrainingDataReaderTag,
+  RetentionServiceTag,
   TrainingDataReaderLive,
-  type RetentionPolicy
+  TrainingDataReaderTag
 } from './record-replay/otlp-capture/index.js'
-import { S3StorageTag, S3StorageLive } from './storage/s3.js'
-import { cleanAttributes, isProtobufContent, type AttributeValue } from './utils/protobuf.js'
+import {
+  ClickHouseConfigTag,
+  ConfigServiceLive,
+  REQUIRED_TABLES,
+  StorageAPIClientLayer,
+  StorageAPIClientTag,
+  type StorageError,
+  StorageLayer as StorageServiceLayer,
+  StorageServiceTag
+} from './storage/index.js'
+import { S3StorageLive, S3StorageTag } from './storage/s3.js'
+import { TopologyAnalyzerLayer, TopologyAnalyzerService } from './topology-analyzer/index.js'
+import { UIGeneratorAPIClientLayer, UIGeneratorAPIClientTag } from './ui-generator/index.js'
+import { type AttributeValue, cleanAttributes, isProtobufContent } from './utils/protobuf.js'
 
 // Helper function to convert protobuf attributes array to Record format
 function convertAttributesToRecord(attributes: unknown): Record<string, unknown> {
@@ -75,38 +75,45 @@ function convertAttributesToRecord(attributes: unknown): Record<string, unknown>
 }
 
 // Import routers from package index files
-import { type StorageRouter, StorageRouterTag, StorageRouterLive } from './storage/index.js'
 import {
-  type UIGeneratorRouter,
-  UIGeneratorRouterTag,
-  UIGeneratorRouterLive
-} from './ui-generator/index.js'
-import {
-  type TopologyAnalyzerRouter,
-  TopologyAnalyzerRouterTag,
-  TopologyAnalyzerRouterLive
-} from './topology-analyzer/index.js'
-import {
-  type LLMManagerRouter,
-  LLMManagerRouterTag,
-  LLMManagerRouterLive
-} from './llm-manager/router.js'
-import {
-  type AnnotationsRouter,
-  AnnotationsRouterTag,
-  AnnotationsRouterLive
-} from './annotations/router.js'
-import {
-  type OtlpCaptureRouter,
-  OtlpCaptureRouterTag,
-  OtlpCaptureRouterLive
-} from './record-replay/router/capture-router.js'
-import {
-  AIInsightsRouterTag,
   AIInsightsRouterLive,
+  AIInsightsRouterTag,
   CriticalPathAnalyzerLive
 } from './ai-insights/index.js'
-import { DebugLoggerLayerLive, type DebugLogger } from './debug-logger/index.js'
+import {
+  type AnnotationsRouter,
+  AnnotationsRouterLive,
+  AnnotationsRouterTag
+} from './annotations/router.js'
+import {
+  ConfigWatcherTag,
+  DebugLoggerLayerLive,
+  DebugLoggerTag,
+  type SpanData,
+  type DebugLogger as DebugLoggerService,
+  type ConfigWatcher as ConfigWatcherService
+} from './debug-logger/index.js'
+import {
+  type LLMManagerRouter,
+  LLMManagerRouterLive,
+  LLMManagerRouterTag
+} from './llm-manager/router.js'
+import {
+  type OtlpCaptureRouter,
+  OtlpCaptureRouterLive,
+  OtlpCaptureRouterTag
+} from './record-replay/router/capture-router.js'
+import { type StorageRouter, StorageRouterLive, StorageRouterTag } from './storage/index.js'
+import {
+  type TopologyAnalyzerRouter,
+  TopologyAnalyzerRouterLive,
+  TopologyAnalyzerRouterTag
+} from './topology-analyzer/index.js'
+import {
+  type UIGeneratorRouter,
+  UIGeneratorRouterLive,
+  UIGeneratorRouterTag
+} from './ui-generator/index.js'
 
 const app = express()
 const PORT = process.env.PORT || 4319
@@ -163,16 +170,21 @@ const clickhouseConfig = {
   password: process.env.CLICKHOUSE_PASSWORD || 'otel123'
 }
 
-// Create the storage API client layer with ClickHouse configuration
+// Create the storage API client layer with ClickHouse configuration and debug logger
 const StorageAPIClientLayerWithConfig = StorageAPIClientLayer.pipe(
-  Layer.provide(Layer.succeed(ClickHouseConfigTag, clickhouseConfig))
+  Layer.provide(
+    Layer.mergeAll(Layer.succeed(ClickHouseConfigTag, clickhouseConfig), DebugLoggerLayerLive)
+  )
 )
 
 // Create config layer first - shared by all services
 const ConfigLayer = ConfigServiceLive
 
-// Create storage layers with config
-const StorageWithConfig = StorageServiceLayer.pipe(Layer.provide(ConfigLayer))
+// Create storage layers with config and debug logger
+// StorageServiceLayer needs ConfigLayer and DebugLogger (via makeClickHouseStorage)
+const StorageWithConfig = StorageServiceLayer.pipe(
+  Layer.provide(Layer.mergeAll(ConfigLayer, DebugLoggerLayerLive))
+)
 
 // Create S3Storage layer for OTLP capture
 const S3StorageLayer = S3StorageLive
@@ -194,8 +206,9 @@ const TopologyAnalyzerWithDeps = TopologyAnalyzerLayer().pipe(Layer.provide(Stor
 // Create the base dependencies
 const BaseDependencies = Layer.mergeAll(
   ConfigLayer, // Shared config service
-  StorageWithConfig, // Storage Service with Config
-  StorageAPIClientLayerWithConfig, // Storage API client with ClickHouse config
+  DebugLoggerLayerLive, // Debug logger (needed by storage layers)
+  StorageWithConfig, // Storage Service with Config and DebugLogger
+  StorageAPIClientLayerWithConfig, // Storage API client with ClickHouse config and DebugLogger
   LLMManagerLive, // LLM Manager service
   LLMManagerAPIClientLayer, // LLM Manager API client
   TopologyAnalyzerWithDeps, // Topology Analyzer (real implementation with dependencies)
@@ -212,8 +225,7 @@ const BaseDependencies = Layer.mergeAll(
   OtlpCaptureLayer, // OTLP capture service
   OtlpReplayLayer, // OTLP replay service
   RetentionServiceLayer, // Retention service for cleanup policies
-  TrainingDataReaderLayer, // Training data reader for AI model training
-  DebugLoggerLayerLive // Debug logger for trace visualization
+  TrainingDataReaderLayer // Training data reader for AI model training
 )
 
 // Create the extended dependencies that include UI Generator API Client and AI Insights
@@ -263,7 +275,8 @@ type AppServices =
   | LLMManagerRouter
   | AnnotationsRouter
   | OtlpCaptureRouter
-  | DebugLogger
+  | DebugLoggerService
+  | ConfigWatcherService
 
 const runWithServices = <A, E>(effect: Effect.Effect<A, E, AppServices>): Promise<A> => {
   // TEMPORARY: Add type assertion back to enable compilation while debugging
@@ -389,101 +402,26 @@ app.get('/health', async (_req, res) => {
   }
 })
 
-// Get all spans for a specific trace
-app.get('/api/traces/:traceId/spans', async (req, res) => {
+// Debug config endpoint - shows current debug logger configuration
+app.get('/api/debug/config', async (_req, res) => {
   try {
-    const { traceId } = req.params
+    const config = await runWithServices(
+      Effect.gen(function* () {
+        const configWatcher = yield* ConfigWatcherTag
+        return configWatcher.getCurrentConfig()
+      })
+    )
 
-    if (!traceId) {
-      return res.status(400).json({ error: 'Trace ID is required' })
-    }
-
-    // Query all spans for this trace
-    const query = `
-      SELECT
-        trace_id,
-        span_id,
-        parent_span_id,
-        service_name,
-        operation_name,
-        toUnixTimestamp64Nano(start_time) AS start_time_unix_nano,
-        toUnixTimestamp64Nano(end_time) AS end_time_unix_nano,
-        duration_ns,
-        status_code,
-        status_message,
-        span_kind,
-        span_attributes,
-        resource_attributes
-      FROM otel.traces
-      WHERE trace_id = '${traceId}'
-      ORDER BY start_time ASC
-    `
-
-    // Define ClickHouse span row type
-    interface ClickHouseSpanRow {
-      trace_id: string
-      span_id: string
-      parent_span_id: string
-      service_name: string
-      operation_name: string
-      start_time_unix_nano: string
-      end_time_unix_nano: string
-      duration_ns: number
-      status_code: string
-      status_message: string
-      span_kind: string
-      span_attributes: Record<string, unknown>
-      resource_attributes: Record<string, unknown>
-    }
-
-    const queryResponse = await queryWithResults(query)
-    const spans = queryResponse.data as unknown as ClickHouseSpanRow[]
-
-    if (!spans || spans.length === 0) {
-      return res.status(404).json({ error: 'Trace not found' })
-    }
-
-    // Calculate metadata
-    const startTimes = spans.map((s) => BigInt(s.start_time_unix_nano))
-    const endTimes = spans.map((s) => BigInt(s.end_time_unix_nano))
-    const minStartTime = startTimes.reduce((a: bigint, b: bigint) => (a < b ? a : b))
-    const maxEndTime = endTimes.reduce((a: bigint, b: bigint) => (a > b ? a : b))
-    const durationNs = maxEndTime - minStartTime
-    const durationMs = Number(durationNs) / 1_000_000
-
-    // Find root span
-    const rootSpan = spans.find((s) => !s.parent_span_id || s.parent_span_id === '')
-    const services = [...new Set(spans.map((s) => s.service_name))]
-
-    return res.json({
-      spans: spans.map((span) => ({
-        traceId: span.trace_id,
-        spanId: span.span_id,
-        parentSpanId: span.parent_span_id,
-        serviceName: span.service_name,
-        operationName: span.operation_name,
-        startTimeUnixNano: span.start_time_unix_nano,
-        endTimeUnixNano: span.end_time_unix_nano,
-        durationNs: span.duration_ns,
-        statusCode: span.status_code,
-        statusMessage: span.status_message,
-        spanKind: span.span_kind,
-        attributes: span.span_attributes,
-        resourceAttributes: span.resource_attributes
-      })),
-      metadata: {
-        traceId,
-        totalSpans: spans.length,
-        rootSpanId: rootSpan?.span_id || spans[0]?.span_id,
-        services,
-        durationMs,
-        startTime: Number(minStartTime) / 1_000_000,
-        endTime: Number(maxEndTime) / 1_000_000
-      }
+    res.json({
+      config,
+      timestamp: new Date().toISOString()
     })
   } catch (error) {
-    console.error('Error fetching trace spans:', error)
-    return res.status(500).json({ error: 'Internal server error' })
+    console.error('❌ Failed to get debug config:', error)
+    res.status(500).json({
+      error: 'Failed to get debug config',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
   }
 })
 
@@ -492,6 +430,142 @@ app.get('/api/traces', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit as string) || 100
     const since = (req.query.since as string) || '5 MINUTE'
+    const traceId = req.query.traceId as string | undefined
+
+    // If traceId is provided, return full trace with spans
+    if (traceId) {
+      // Get debug logger and config
+      const { debugLogger, configWatcher } = await runWithServices(
+        Effect.gen(function* () {
+          const logger = yield* DebugLoggerTag
+          const config = yield* ConfigWatcherTag
+          return { debugLogger: logger, configWatcher: config }
+        })
+      )
+
+      // Query all spans for this specific trace
+      const query = `
+        SELECT
+          trace_id,
+          span_id,
+          parent_span_id,
+          service_name,
+          operation_name,
+          toUnixTimestamp64Nano(start_time) AS start_time_unix_nano,
+          toUnixTimestamp64Nano(end_time) AS end_time_unix_nano,
+          duration_ns,
+          status_code,
+          status_message,
+          span_kind,
+          span_attributes,
+          resource_attributes
+        FROM otel.traces
+        WHERE trace_id = '${traceId}'
+        ORDER BY start_time ASC
+      `
+
+      const result = await queryWithResults(query)
+      const spans = result.data as unknown as Array<{
+        trace_id: string
+        span_id: string
+        parent_span_id: string
+        service_name: string
+        operation_name: string
+        start_time_unix_nano: string
+        end_time_unix_nano: string
+        duration_ns: number
+        status_code: string
+        status_message: string
+        span_kind: string
+        span_attributes: Record<string, unknown>
+        resource_attributes: Record<string, unknown>
+      }>
+
+      if (!spans || spans.length === 0) {
+        res.status(404).json({ error: 'Trace not found' })
+        return
+      }
+
+      // Calculate metadata
+      const startTimes = spans.map((s) => BigInt(s.start_time_unix_nano))
+      const endTimes = spans.map((s) => BigInt(s.end_time_unix_nano))
+      const minStartTime = startTimes.reduce((a: bigint, b: bigint) => (a < b ? a : b))
+      const maxEndTime = endTimes.reduce((a: bigint, b: bigint) => (a > b ? a : b))
+      const durationNs = maxEndTime - minStartTime
+      const durationMs = Number(durationNs) / 1_000_000
+
+      const rootSpan = spans.find((s) => !s.parent_span_id || s.parent_span_id === '')
+      const services = [...new Set(spans.map((s) => s.service_name))]
+
+      // Convert to SpanData format for debug logger
+      const spanDataList: SpanData[] = spans.map((span) => ({
+        traceId: span.trace_id,
+        spanId: span.span_id,
+        parentSpanId: span.parent_span_id || null,
+        serviceName: span.service_name,
+        operationName: span.operation_name,
+        startTimeUnixNano: span.start_time_unix_nano,
+        endTimeUnixNano: span.end_time_unix_nano,
+        durationNs: span.duration_ns,
+        statusCode: span.status_code,
+        attributes: span.span_attributes
+      }))
+
+      // Check if browser logging is enabled and format trace for browser
+      let debugTrace: string | undefined
+      try {
+        const config = configWatcher.getCurrentConfig()
+        console.log(`🔍 Debug config:`, {
+          enabled: config.debug.traces.enabled,
+          console: config.debug.traces.console,
+          level: config.debug.level
+        })
+
+        const shouldIncludeBrowserTrace =
+          config.debug.traces.enabled &&
+          (config.debug.traces.console === 'browser' || config.debug.traces.console === 'both')
+
+        console.log(`🔍 Should include browser trace: ${shouldIncludeBrowserTrace}`)
+
+        // Format trace for browser if enabled
+        if (shouldIncludeBrowserTrace) {
+          debugTrace = debugLogger.formatTrace(traceId, spanDataList)
+          console.log(`🔍 Debug trace formatted, length: ${debugTrace.length}`)
+        }
+      } catch (error) {
+        console.error('❌ Error formatting debug trace:', error)
+        debugTrace = undefined
+      }
+
+      res.json({
+        spans: spans.map((span) => ({
+          traceId: span.trace_id,
+          spanId: span.span_id,
+          parentSpanId: span.parent_span_id,
+          serviceName: span.service_name,
+          operationName: span.operation_name,
+          startTimeUnixNano: span.start_time_unix_nano,
+          endTimeUnixNano: span.end_time_unix_nano,
+          durationNs: span.duration_ns,
+          statusCode: span.status_code,
+          statusMessage: span.status_message,
+          spanKind: span.span_kind,
+          attributes: span.span_attributes,
+          resourceAttributes: span.resource_attributes
+        })),
+        metadata: {
+          traceId,
+          totalSpans: spans.length,
+          rootSpanId: rootSpan?.span_id || spans[0]?.span_id,
+          services,
+          durationMs,
+          startTime: Number(minStartTime) / 1_000_000,
+          endTime: Number(maxEndTime) / 1_000_000
+        },
+        debugTrace
+      })
+      return
+    }
 
     // TODO: Migrate to Storage API Client once type issues are resolved
     // For now, maintain backward compatibility with direct storage query

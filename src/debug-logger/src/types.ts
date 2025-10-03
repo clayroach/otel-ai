@@ -18,12 +18,16 @@ export enum LogLevel {
 // String representation of log levels
 export type LogLevelString = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'off'
 
+// Console target for trace output
+export type ConsoleTarget = 'server' | 'browser' | 'both'
+
 // Configuration schema for debug logger
 export const DebugConfigSchema = Schema.Struct({
   debug: Schema.Struct({
     level: Schema.Literal('trace', 'debug', 'info', 'warn', 'error', 'off'),
     traces: Schema.Struct({
       enabled: Schema.Boolean,
+      console: Schema.Literal('server', 'browser', 'both'),
       maxDepth: Schema.Number,
       showTimings: Schema.Boolean,
       showAttributes: Schema.Boolean,
@@ -44,10 +48,11 @@ export const defaultDebugConfig: DebugConfig = {
     level: 'info',
     traces: {
       enabled: false,
+      console: 'server',
       maxDepth: 10,
       showTimings: true,
       showAttributes: false,
-      colorOutput: true
+      colorOutput: false
     },
     hotReload: {
       enabled: true,
@@ -93,6 +98,7 @@ export interface DebugLogger {
   readonly warn: (message: string, data?: unknown) => void
   readonly error: (message: string, data?: unknown) => void
   readonly logTrace: (traceId: string, spans: SpanData[]) => void
+  readonly formatTrace: (traceId: string, spans: SpanData[]) => string
   readonly setLevel: (level: LogLevelString) => void
   readonly getLevel: () => LogLevelString
 }

@@ -98,7 +98,21 @@ export const createDebugLogger = (
   }
 
   /**
-   * Log an entire trace with ASCII visualization
+   * Format trace internally (shared logic for logTrace and formatTrace)
+   */
+  const formatTraceInternal = (traceId: string, spans: SpanData[]): string => {
+    const config = configWatcher.getCurrentConfig()
+
+    return traceFormatter.formatTrace(traceId, spans, {
+      maxDepth: config.debug.traces.maxDepth,
+      showTimings: config.debug.traces.showTimings,
+      showAttributes: config.debug.traces.showAttributes,
+      colorOutput: false // Always false for browser compatibility
+    })
+  }
+
+  /**
+   * Log an entire trace with ASCII visualization (server console only)
    */
   const logTrace = (traceId: string, spans: SpanData[]): void => {
     // Only log traces at TRACE level
@@ -111,16 +125,22 @@ export const createDebugLogger = (
       return
     }
 
-    // Format the trace
-    const formattedTrace = traceFormatter.formatTrace(traceId, spans, {
-      maxDepth: config.debug.traces.maxDepth,
-      showTimings: config.debug.traces.showTimings,
-      showAttributes: config.debug.traces.showAttributes,
-      colorOutput: config.debug.traces.colorOutput
-    })
+    // Only log to SERVER console if 'server' or 'both'
+    const shouldLogToServer =
+      config.debug.traces.console === 'server' || config.debug.traces.console === 'both'
 
-    // Log the formatted trace
+    if (!shouldLogToServer) return
+
+    // Format and log the trace
+    const formattedTrace = formatTraceInternal(traceId, spans)
     console.log(formattedTrace)
+  }
+
+  /**
+   * Format trace for browser console (does not log to server)
+   */
+  const formatTrace = (traceId: string, spans: SpanData[]): string => {
+    return formatTraceInternal(traceId, spans)
   }
 
   /**
@@ -145,6 +165,7 @@ export const createDebugLogger = (
     warn,
     error,
     logTrace,
+    formatTrace,
     setLevel,
     getLevel
   }

@@ -32,6 +32,7 @@ export interface DebugLogger {
   readonly warn: (message: string, data?: unknown) => void
   readonly error: (message: string, data?: unknown) => void
   readonly logTrace: (traceId: string, spans: SpanData[]) => void
+  readonly formatTrace: (traceId: string, spans: SpanData[]) => string
   readonly setLevel: (level: LogLevelString) => void
   readonly getLevel: () => LogLevelString
 }
@@ -115,6 +116,38 @@ watcher.on('change', () => {
 })
 ```
 
+### Console Target Pattern
+
+```typescript
+// Check console target before logging
+const config = configWatcher.getCurrentConfig()
+const shouldLogToServer =
+  config.debug.traces.console === 'server' ||
+  config.debug.traces.console === 'both'
+
+if (shouldLogToServer) {
+  console.log(formattedTrace)
+}
+```
+
+### Format Trace for Browser Pattern
+
+```typescript
+// Format trace without logging (for API responses)
+const formatTrace = (traceId: string, spans: SpanData[]): string => {
+  return formatTraceInternal(traceId, spans)
+}
+
+// In API endpoint
+const debugLogger = yield* DebugLoggerTag
+const formattedTrace = debugLogger.formatTrace(traceId, spans)
+
+return {
+  spans,
+  debugTrace: formattedTrace // Include for browser console
+}
+```
+
 ### Trace Tree Building Pattern
 
 ```typescript
@@ -185,6 +218,15 @@ const buildSpanTree = (spans: SpanData[]): SpanTreeNode[] => {
 
 ❌ **DON'T**: Forget to close file watchers on shutdown
 ✅ **DO**: Implement cleanup in service shutdown hooks
+
+❌ **DON'T**: Use `colorOutput: true` when console target includes 'browser'
+✅ **DO**: Use `colorOutput: false` for browser compatibility (ANSI codes don't work)
+
+❌ **DON'T**: Forget to expose `formatTrace()` method for API usage
+✅ **DO**: Use `debugLogger.formatTrace()` to get formatted string for responses
+
+❌ **DON'T**: Assume console='browser' prevents all server logging
+✅ **DO**: Remember formatTrace() always works, only logTrace() respects console setting
 
 ## Quick Command Reference
 
