@@ -1,0 +1,40 @@
+# Debug Logger Configuration
+# Changes to this file are automatically applied without restarting the service
+
+debug:
+  # Logging level: trace, debug, info, warn, error, off
+  # - trace: All messages including detailed trace visualization
+  # - debug: Debug messages and above
+  # - info: Informational messages and above (default)
+  # - warn: Warnings and errors only
+  # - error: Errors only
+  # - off: No logging
+  level: trace
+
+  # Trace visualization settings
+  traces:
+    # Enable ASCII trace visualization (requires level: trace)
+    enabled: true
+
+    # Maximum depth to display in the tree
+    # Set lower for deeply nested traces to prevent huge output
+    maxDepth: 10
+
+    # Show timing information (start → end) [duration]
+    showTimings: true
+
+    # Show span attributes (limited to 5 per span)
+    showAttributes: false
+
+    # Use ANSI color codes for terminal output
+    # Disable if output is piped to files or non-terminal destinations
+    colorOutput: true
+
+  # Hot-reload settings
+  hotReload:
+    # Enable automatic configuration reload on file changes
+    enabled: true
+
+    # Debounce delay in milliseconds
+    # Waits this long after file change before applying config
+    debounceMs: 500

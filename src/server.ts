@@ -106,6 +106,7 @@ import {
   AIInsightsRouterLive,
   CriticalPathAnalyzerLive
 } from './ai-insights/index.js'
+import { DebugLoggerLayerLive, type DebugLogger } from './debug-logger/index.js'
 
 const app = express()
 const PORT = process.env.PORT || 4319
@@ -211,7 +212,8 @@ const BaseDependencies = Layer.mergeAll(
   OtlpCaptureLayer, // OTLP capture service
   OtlpReplayLayer, // OTLP replay service
   RetentionServiceLayer, // Retention service for cleanup policies
-  TrainingDataReaderLayer // Training data reader for AI model training
+  TrainingDataReaderLayer, // Training data reader for AI model training
+  DebugLoggerLayerLive // Debug logger for trace visualization
 )
 
 // Create the extended dependencies that include UI Generator API Client and AI Insights
@@ -261,6 +263,7 @@ type AppServices =
   | LLMManagerRouter
   | AnnotationsRouter
   | OtlpCaptureRouter
+  | DebugLogger
 
 const runWithServices = <A, E>(effect: Effect.Effect<A, E, AppServices>): Promise<A> => {
   // TEMPORARY: Add type assertion back to enable compilation while debugging
