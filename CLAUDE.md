@@ -230,14 +230,38 @@ gh pr create                            # Create PR
 5. **Use pnpm Commands** - Never use direct docker/npm/curl commands
 
 ### Test Organization
+
+**ALL tests MUST be in `test/` subdirectory (never scattered `*.test.ts` files)**
+
 ```
 src/package/
 ├── test/           # ALL tests here (never scattered *.test.ts)
-│   ├── unit/
-│   ├── integration/
-│   └── fixtures/
+│   ├── unit/       # Self-contained tests with isolated dependencies
+│   ├── integration/ # Tests requiring running dev environment
+│   └── fixtures/   # Test data and mock fixtures
 └── src/            # Implementation
 ```
+
+#### Unit Tests (`test/unit/`)
+
+Self-contained tests that **DO NOT** require a running dev environment:
+
+- ✅ **Testcontainers** - Spin up isolated Docker containers (ClickHouse, etc.)
+- ✅ **LLM APIs** - Direct calls to Claude, GPT, etc. (isolated, no shared state)
+- ✅ **Internal services** - Package-internal Effect layers and services
+- ✅ **Mock layers** - Tests using mock Effect layers
+- ❌ **NO external dependencies** - No reliance on running platform services
+
+#### Integration Tests (`test/integration/`)
+
+Tests that **REQUIRE** a running dev environment (`pnpm dev:up`):
+
+- ✅ **Live Effect layers** - Tests using `StorageLive`, `AIAnalyzerLive`, etc.
+- ✅ **Cross-service** - Tests spanning multiple platform services
+- ✅ **External dependencies** - Relies on platform infrastructure (ClickHouse, S3/MinIO)
+- ✅ **End-to-end flows** - Full request/response cycles through platform
+
+**Note**: This distinction may change with [Issue #96](https://github.com/clayroach/otel-ai/issues/96) implementation.
 
 ### ⚠️ CRITICAL: UI Test Instrumentation
 
