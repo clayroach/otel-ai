@@ -20,15 +20,22 @@ import type { UIGeneratorError } from '../../errors.js'
 import type { ValidationResult } from '../../service.js'
 import { shouldSkipExternalLLMTests } from '../../../llm-manager/test/utils/llm-availability.js'
 import { ensureClickHouseRunning } from '../../../test-helpers/clickhouse-health.js'
+import { DebugLoggerLayerLive } from '../../../debug-logger/index.js'
 
 // Build the dependencies that UIGeneratorServiceLive needs
 // UIGeneratorServiceLive requires: LLMManagerServiceTag, StorageServiceTag, ConfigServiceTag
-// StorageServiceLive now requires DependencyAggregatorTag
+// StorageServiceLive now requires DependencyAggregatorTag and DebugLogger (via makeClickHouseStorage)
+// StorageAPIClient now requires DebugLogger
 const dependencies = Layer.mergeAll(
   ConfigServiceLive,
   StorageServiceLive.pipe(
-    Layer.provide(ConfigServiceLive),
-    Layer.provide(DependencyAggregatorMock)
+    Layer.provide(
+      Layer.mergeAll(
+        ConfigServiceLive,
+        DependencyAggregatorMock,
+        DebugLoggerLayerLive
+      )
+    )
   ),
   LLMManagerLive
 )

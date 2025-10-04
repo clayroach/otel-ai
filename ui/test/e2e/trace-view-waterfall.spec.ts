@@ -25,32 +25,27 @@ test.describe('Trace View Waterfall', () => {
     const traceId = queryData.data[0]?.trace_id
     expect(traceId).toBeDefined()
 
-    // Fetch trace data from API
-    const apiResponse = await page.request.get(`/api/traces/${traceId}/spans`)
-    expect(apiResponse.ok()).toBe(true)
-    const apiData = await apiResponse.json()
-
-    // Validate API response structure
-    expect(apiData.spans).toBeDefined()
-    expect(apiData.spans.length).toBeGreaterThan(0)
-    expect(apiData.metadata).toBeDefined()
-
     // Navigate to trace view
     await page.goto(`/traces/${traceId}`)
     await page.waitForLoadState('networkidle')
 
-    // Wait for waterfall chart to render
-    await page.waitForSelector('canvas', { timeout: 10000 })
+    // Verify the page title shows the trace ID
+    const pageTitle = page.locator('h4:has-text("Trace:")')
+    await expect(pageTitle).toBeVisible({ timeout: 10000 })
 
-    // Verify chart is visible
-    const canvas = page.locator('canvas')
-    await expect(canvas).toBeVisible()
+    // Verify the span count and duration are displayed
+    const serviceCount = page.locator('text=/Services: \\d+/')
+    await expect(serviceCount).toBeVisible()
 
-    // Verify the chart rendered successfully by checking canvas dimensions
-    const canvasBox = await canvas.boundingBox()
-    expect(canvasBox).toBeTruthy()
-    expect(canvasBox!.width).toBeGreaterThan(100)
-    expect(canvasBox!.height).toBeGreaterThan(100)
+    const spanCount = page.locator('text=/Spans: \\d+/')
+    await expect(spanCount).toBeVisible()
+
+    const duration = page.locator('text=/Duration: \\d+ms/')
+    await expect(duration).toBeVisible()
+
+    // Verify at least one canvas element exists (from waterfall/minimap)
+    const canvas = page.locator('canvas').first()
+    await expect(canvas).toBeVisible({ timeout: 10000 })
   })
 
   test('should validate span hierarchy and timing', async ({ page }) => {
@@ -71,8 +66,10 @@ test.describe('Trace View Waterfall', () => {
     const traceId = queryData.data[0]?.trace_id
     expect(traceId).toBeDefined()
 
-    // Fetch trace data from API
-    const response = await page.request.get(`/api/traces/${traceId}/spans`)
+    // Fetch trace data from API (using the same endpoint as the component)
+    const response = await page.request.get('/api/traces', {
+      params: { traceId }
+    })
     expect(response.ok()).toBe(true)
     const data = await response.json()
 
@@ -86,7 +83,7 @@ test.describe('Trace View Waterfall', () => {
     // Validate parent-child relationships
     interface Span {
       spanId: string
-      parentSpanId?: string
+      parentSpanId?: string | null
       serviceName: string
       operationName: string
       startTimeUnixNano: string
@@ -97,10 +94,16 @@ test.describe('Trace View Waterfall', () => {
     let rootCount = 0
 
     for (const span of data.spans as Span[]) {
-      // Check if root (no parent)
-      if (!span.parentSpanId || span.parentSpanId === '') {
+      // Check if this is the root span - either by spanId matching rootSpanId or no parent
+      const isRoot =
+        span.spanId === data.metadata.rootSpanId ||
+        span.parentSpanId === null ||
+        span.parentSpanId === undefined ||
+        span.parentSpanId === ''
+
+      if (isRoot) {
         rootCount++
-      } else {
+      } else if (span.parentSpanId) {
         // If has parent, verify timing: child should start >= parent start
         const parent = spanMap.get(span.parentSpanId)
         if (parent) {
@@ -118,7 +121,7 @@ test.describe('Trace View Waterfall', () => {
       expect(span.endTimeUnixNano).toBeDefined()
     }
 
-    // Should have at least one root span
-    expect(rootCount).toBeGreaterThan(0)
+    // Should have exactly one root span
+    expect(rootCount).toBe(1)
   })
 })

@@ -61,21 +61,7 @@ export const TraceView: React.FC = () => {
   // Build span tree when data changes
   useEffect(() => {
     if (traceData?.spans) {
-      // Debug: Log parent-child relationships
-      console.log(
-        'Building span tree. Spans:',
-        traceData.spans.map((s) => ({
-          spanId: s.spanId.substring(0, 8),
-          parentSpanId: s.parentSpanId?.substring(0, 8) || 'ROOT',
-          service: s.serviceName,
-          operation: s.operationName
-        }))
-      )
-
       const tree = buildSpanTree(traceData.spans)
-
-      console.log('Built tree. Root count:', tree.length)
-
       setSpanTree(tree)
 
       // Set initial viewport to show full trace
@@ -111,7 +97,7 @@ export const TraceView: React.FC = () => {
       <div
         style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}
       >
-        <Spin size="large" tip="Loading trace data..." />
+        <Spin size="large" />
       </div>
     )
   }

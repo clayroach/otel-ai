@@ -226,8 +226,8 @@ services:
       - PORTKEY_API_KEY=${PORTKEY_API_KEY:-portkey-virtual-key}
       - PORTKEY_GATEWAY_URL=http://portkey-gateway:8787
     volumes:
-      - ./config/portkey:/app/config/portkey:ro
-      - ./config/llm-manager.yaml:/app/config/llm-manager.yaml:ro
+      - ./config:/app/config:ro
+
     depends_on:
       clickhouse:
         condition: service_healthy

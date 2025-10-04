@@ -16,6 +16,7 @@ import {
   createMockOTLPData,
   mockClickHouseConfig
 } from '../../test-utils.js'
+import { DebugLoggerLayerLive } from '../../../debug-logger/index.js'
 
 
 
@@ -89,7 +90,12 @@ describe('StorageAPIClient Encoding Type', () => {
 
     // Use the real StorageAPIClientLayer for validation testing
     const testLayer = StorageAPIClientLayer.pipe(
-      Layer.provide(Layer.succeed(ClickHouseConfigTag, mockClickHouseConfig))
+      Layer.provide(
+        Layer.mergeAll(
+          Layer.succeed(ClickHouseConfigTag, mockClickHouseConfig),
+          DebugLoggerLayerLive
+        )
+      )
     )
 
     const effect = Effect.gen(function* () {

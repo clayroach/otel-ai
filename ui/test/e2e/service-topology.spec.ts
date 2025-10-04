@@ -7,8 +7,8 @@ test.describe('Service Topology View', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to Service Topology page
     await page.goto('/servicetopology')
-    await page.waitForLoadState('networkidle')
-    await page.waitForTimeout(2000)
+    // Wait for main container instead of networkidle (critical paths API is slow ~7-8s)
+    await expect(page.getByTestId('service-topology-container')).toBeVisible({ timeout: 20000 })
   })
 
   test('should display Service Topology components', async ({ page }) => {

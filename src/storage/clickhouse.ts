@@ -18,6 +18,7 @@ import {
 } from './schemas.js'
 import { type ClickHouseConfig } from './config.js'
 import { type StorageError, StorageErrorConstructors } from './errors.js'
+import { DebugLoggerTag, type SpanData, type DebugLogger } from '../debug-logger/index.js'
 
 // Temporarily remove timeout operations to fix compilation issues
 
@@ -45,8 +46,11 @@ export interface ClickHouseStorage {
 
 export const makeClickHouseStorage = (
   config: ClickHouseConfig
-): Effect.Effect<ClickHouseStorage, StorageError> =>
+): Effect.Effect<ClickHouseStorage, StorageError, DebugLogger> =>
   Effect.gen(function* (_) {
+    // Get debug logger for trace visualization
+    const debugLogger = yield* _(DebugLoggerTag)
+
     // Create ClickHouse client with performance optimizations and timeout settings
     const client = createClient({
       host: `http://${config.host}:${config.port}`,
@@ -119,9 +123,36 @@ export const makeClickHouseStorage = (
       encodingType: 'protobuf' | 'json' = 'protobuf'
     ): Effect.Effect<void, StorageError> =>
       Effect.gen(function* (_) {
+        // Convert traces to SpanData format and group by traceId for debug logging
+        const traceGroups = new Map<string, SpanData[]>()
+
+        for (const trace of traces) {
+          const spanData: SpanData = {
+            traceId: trace.traceId,
+            spanId: trace.spanId,
+            parentSpanId: trace.parentSpanId || null,
+            serviceName: trace.serviceName,
+            operationName: trace.operationName,
+            startTimeUnixNano: trace.startTime.toString(),
+            endTimeUnixNano: (trace.endTime || trace.startTime + trace.duration).toString(),
+            durationNs: trace.duration,
+            statusCode: trace.statusCode.toString(),
+            attributes: trace.attributes
+          }
+
+          const existing = traceGroups.get(trace.traceId) || []
+          existing.push(spanData)
+          traceGroups.set(trace.traceId, existing)
+        }
+
+        // Log each trace group with debug logger
+        for (const [traceId, spans] of traceGroups.entries()) {
+          debugLogger.logTrace(traceId, spans)
+        }
+
         const insertQuery = `
           INSERT INTO traces (
-            trace_id, span_id, parent_span_id, 
+            trace_id, span_id, parent_span_id,
             start_time, end_time, duration_ns,
             service_name, operation_name, span_kind,
             status_code, status_message,
