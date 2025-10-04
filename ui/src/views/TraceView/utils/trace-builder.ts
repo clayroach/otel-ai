@@ -1,4 +1,4 @@
-import { SpanData, SpanTreeNode } from '../types'
+import { SpanData, SpanTreeNode, SpanSearchResult } from '../types'
 
 /**
  * Build a hierarchical tree structure from flat span data
@@ -204,4 +204,139 @@ export function getTraceStats(spans: SpanData[]) {
     errorCount,
     totalDuration
   }
+}
+
+/**
+ * Search spans by query string
+ * Searches in service name, operation name, span ID, and attributes
+ */
+export function searchSpans(spans: SpanTreeNode[], query: string): SpanSearchResult[] {
+  if (!query || query.trim() === '') {
+    return []
+  }
+
+  const lowerQuery = query.toLowerCase().trim()
+  const results: SpanSearchResult[] = []
+
+  const searchNode = (node: SpanTreeNode) => {
+    // Search service name
+    if (node.serviceName.toLowerCase().includes(lowerQuery)) {
+      results.push({
+        spanId: node.spanId,
+        matchType: 'service',
+        matchedText: node.serviceName
+      })
+    }
+
+    // Search operation name
+    if (node.operationName.toLowerCase().includes(lowerQuery)) {
+      results.push({
+        spanId: node.spanId,
+        matchType: 'operation',
+        matchedText: node.operationName
+      })
+    }
+
+    // Search span ID
+    if (node.spanId.toLowerCase().includes(lowerQuery)) {
+      results.push({
+        spanId: node.spanId,
+        matchType: 'spanId',
+        matchedText: node.spanId
+      })
+    }
+
+    // Search attributes
+    if (node.attributes) {
+      for (const [key, value] of Object.entries(node.attributes)) {
+        const attrStr = `${key}:${value}`.toLowerCase()
+        if (attrStr.includes(lowerQuery)) {
+          results.push({
+            spanId: node.spanId,
+            matchType: 'attribute',
+            matchedText: `${key}:${value}`
+          })
+          break // Only one attribute match per span
+        }
+      }
+    }
+
+    // Recursively search children
+    node.children.forEach(searchNode)
+  }
+
+  spans.forEach(searchNode)
+
+  return results
+}
+
+/**
+ * Get set of span IDs that need to be expanded to show a specific span
+ * Returns all ancestor span IDs
+ */
+export function expandToSpan(spanId: string, tree: SpanTreeNode[]): Set<string> {
+  const toExpand = new Set<string>()
+
+  const findPath = (nodes: SpanTreeNode[], targetId: string, path: string[]): boolean => {
+    for (const node of nodes) {
+      const currentPath = [...path, node.spanId]
+
+      if (node.spanId === targetId) {
+        // Found it - add all ancestors to expand set
+        path.forEach((id) => toExpand.add(id))
+        return true
+      }
+
+      if (node.children.length > 0) {
+        if (findPath(node.children, targetId, currentPath)) {
+          toExpand.add(node.spanId)
+          return true
+        }
+      }
+    }
+
+    return false
+  }
+
+  findPath(tree, spanId, [])
+
+  return toExpand
+}
+
+/**
+ * Get list of span IDs for a specific service
+ * Used for batch collapse by service
+ */
+export function collapseByService(tree: SpanTreeNode[], serviceName: string): string[] {
+  const spanIds: string[] = []
+
+  const collectSpans = (node: SpanTreeNode) => {
+    if (node.serviceName === serviceName) {
+      spanIds.push(node.spanId)
+    }
+    node.children.forEach(collectSpans)
+  }
+
+  tree.forEach(collectSpans)
+
+  return spanIds
+}
+
+/**
+ * Get list of span IDs below a certain depth
+ * Used for batch collapse by depth level
+ */
+export function collapseByDepth(tree: SpanTreeNode[], maxDepth: number): string[] {
+  const spanIds: string[] = []
+
+  const collectSpans = (node: SpanTreeNode) => {
+    if (node.depth >= maxDepth) {
+      spanIds.push(node.spanId)
+    }
+    node.children.forEach(collectSpans)
+  }
+
+  tree.forEach(collectSpans)
+
+  return spanIds
 }

@@ -89,3 +89,16 @@ export interface CriticalPath {
     duration: number
   }>
 }
+
+export interface SpanTreeState {
+  collapsedSpans: Set<string>
+  searchQuery: string
+  matchingSpans: string[]
+  currentMatchIndex: number
+}
+
+export interface SpanSearchResult {
+  spanId: string
+  matchType: 'service' | 'operation' | 'attribute' | 'spanId'
+  matchedText: string
+}

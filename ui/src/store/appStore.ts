@@ -119,6 +119,10 @@ interface AppState {
   setAnalysisTimeRange: (range: string) => void
   autoRefresh: 'manual' | '1m' | '5m'
   setAutoRefresh: (refresh: 'manual' | '1m' | '5m') => void
+
+  // Traces View Preferences
+  tracesViewMode: 'dynamic' | 'table'
+  setTracesViewMode: (mode: 'dynamic' | 'table') => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -183,17 +187,22 @@ export const useAppStore = create<AppState>()(
       analysisTimeRange: '24h', // Default to 24h to show seed services
       setAnalysisTimeRange: (range: string) => set({ analysisTimeRange: range }),
       autoRefresh: 'manual',
-      setAutoRefresh: (refresh: 'manual' | '1m' | '5m') => set({ autoRefresh: refresh })
+      setAutoRefresh: (refresh: 'manual' | '1m' | '5m') => set({ autoRefresh: refresh }),
+
+      // Traces View Preferences
+      tracesViewMode: 'table', // Default to table view (dynamic is opt-in)
+      setTracesViewMode: (mode: 'dynamic' | 'table') => set({ tracesViewMode: mode })
     }),
     {
       name: 'otel-ai-app-storage',
-      version: 6, // Increment for clickhouse URL migration to backend proxy
+      version: 7, // Increment for tracesViewMode addition
       partialize: (state) => ({
         darkMode: state.darkMode,
         sidebarCollapsed: state.sidebarCollapsed,
         clickhouseUrl: state.clickhouseUrl,
         clickhouseAuth: state.clickhouseAuth,
-        queryHistory: state.queryHistory
+        queryHistory: state.queryHistory,
+        tracesViewMode: state.tracesViewMode
         // Note: activeQuery is deliberately NOT persisted
       }),
       migrate: (persistedState: unknown, version: number) => {

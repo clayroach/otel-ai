@@ -1,16 +1,27 @@
 echo "🔍 Running pre-commit checks..."
 
+# Get list of staged files before formatting
+STAGED_FILES=$(git diff --cached --name-only)
+
 # Format all code
 echo "📝 Formatting code..."
 pnpm format
 
-# Auto-stage any files that were formatted
+# Auto-stage any STAGED files that were formatted
 echo "📦 Auto-staging formatted files..."
-if [ -n "$(git diff --name-only)" ]; then
-    git diff --name-only | xargs git add
-    echo "   ✅ Formatted files have been auto-staged"
+RESTAGED_COUNT=0
+for file in $STAGED_FILES; do
+    # Check if the file was modified by the formatter
+    if git diff --name-only | grep -q "^$file$"; then
+        git add "$file"
+        RESTAGED_COUNT=$((RESTAGED_COUNT + 1))
+    fi
+done
+
+if [ $RESTAGED_COUNT -gt 0 ]; then
+    echo "   ✅ Re-staged $RESTAGED_COUNT formatted file(s)"
 else
-    echo "   ✅ No files needed formatting"
+    echo "   ✅ No staged files needed formatting"
 fi
 
 # Run type checking for all packages with agent integration

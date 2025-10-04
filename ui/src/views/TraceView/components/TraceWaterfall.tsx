@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react'
+import React, { useRef, useEffect } from 'react'
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
 import { SpanTreeNode, TraceViewConfig, ViewportConfig } from '../types'
@@ -10,6 +10,7 @@ interface TraceWaterfallProps {
   viewport: ViewportConfig
   config: TraceViewConfig
   selectedSpan: SpanTreeNode | null
+  collapsedSpans: Set<string>
   criticalPaths?: CriticalPath[]
   onSpanClick: (span: SpanTreeNode) => void
   onViewportChange: (viewport: ViewportConfig) => void
@@ -19,13 +20,13 @@ export const TraceWaterfall: React.FC<TraceWaterfallProps> = ({
   spans,
   viewport,
   config,
-  // selectedSpan,  // TODO: Use for highlighting selected span
+  selectedSpan,
+  collapsedSpans,
   criticalPaths,
   onSpanClick
   // onViewportChange  // TODO: Use for zoom/pan updates
 }) => {
   const chartRef = useRef<ReactECharts>(null)
-  const [collapsedSpans] = useState<Set<string>>(new Set()) // TODO: Add collapse functionality
 
   // Flatten the tree for visualization
   const flatSpans = flattenSpanTree(spans, collapsedSpans)
@@ -76,6 +77,9 @@ export const TraceWaterfall: React.FC<TraceWaterfallProps> = ({
     const severity = criticalServices.get(span.serviceName)
     const isCritical = severity !== undefined
 
+    // Check if this span is selected
+    const isSelected = selectedSpan?.spanId === span.spanId
+
     return {
       id: span.spanId, // Unique key for React
       name: `${span.serviceName}:${span.operationName}`,
@@ -87,15 +91,24 @@ export const TraceWaterfall: React.FC<TraceWaterfallProps> = ({
       ],
       itemStyle: {
         color: getSpanColor(span, config, isCritical, severity),
-        borderColor: isCritical ? getCriticalBorderColor(severity) : undefined,
-        borderWidth: isCritical ? 2 : 0,
-        shadowColor: isCritical ? getCriticalBorderColor(severity) : undefined,
-        shadowBlur: isCritical ? 8 : 0
+        borderColor: isSelected
+          ? '#1890ff'
+          : isCritical
+            ? getCriticalBorderColor(severity)
+            : undefined,
+        borderWidth: isSelected ? 3 : isCritical ? 2 : 0,
+        shadowColor: isSelected
+          ? '#1890ff'
+          : isCritical
+            ? getCriticalBorderColor(severity)
+            : undefined,
+        shadowBlur: isSelected ? 10 : isCritical ? 8 : 0
       },
       spanData: span,
       isCritical,
       severity,
-      depth: span.depth
+      depth: span.depth,
+      isSelected
     }
   })
 
@@ -142,7 +155,7 @@ export const TraceWaterfall: React.FC<TraceWaterfallProps> = ({
       }
     },
     grid: {
-      left: 320, // Fixed space for service:operation labels
+      left: 20, // Minimal left margin (tree is now in separate panel)
       right: 20,
       top: 60, // Space for X-axis at top
       bottom: 20
@@ -170,23 +183,9 @@ export const TraceWaterfall: React.FC<TraceWaterfallProps> = ({
     },
     yAxis: {
       type: 'category',
-      data: flatSpans.map((span) => {
-        // Use visible characters for indentation (└── style)
-        const indent = span.depth > 0 ? '│  '.repeat(span.depth - 1) + '├─ ' : ''
-        const label = `${span.serviceName}:${span.operationName}`
-        return `${indent}${label}` // No truncation
-      }),
+      data: flatSpans.map((_, index) => index.toString()),
       inverse: true, // Invert so index 0 (parent) is at top, children cascade down
-      position: 'left', // Labels on left side
-      axisLabel: {
-        interval: 0,
-        fontSize: 11,
-        color: '#333',
-        fontFamily: 'monospace', // Monospace for consistent indentation
-        align: 'right',
-        width: 300, // Match grid.left minus some padding
-        overflow: 'truncate'
-      }
+      show: false // Hide Y-axis completely (tree is now in separate panel)
     },
     series: [
       {

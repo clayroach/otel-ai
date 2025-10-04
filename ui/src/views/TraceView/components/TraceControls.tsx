@@ -14,12 +14,16 @@ interface TraceControlsProps {
   config: TraceViewConfig
   onConfigChange: (config: Partial<TraceViewConfig>) => void
   onRefresh: () => void
+  onExpandAll?: () => void
+  onCollapseAll?: () => void
 }
 
 export const TraceControls: React.FC<TraceControlsProps> = ({
   config,
   onConfigChange,
-  onRefresh
+  onRefresh,
+  onExpandAll,
+  onCollapseAll
 }) => {
   return (
     <Space>
@@ -57,11 +61,12 @@ export const TraceControls: React.FC<TraceControlsProps> = ({
         />
       </Tooltip>
 
-      <Tooltip title={config.expandAll ? 'Collapse All' : 'Expand All'}>
-        <Button
-          icon={config.expandAll ? <CompressOutlined /> : <ExpandOutlined />}
-          onClick={() => onConfigChange({ expandAll: !config.expandAll })}
-        />
+      <Tooltip title="Expand All">
+        <Button icon={<ExpandOutlined />} onClick={onExpandAll} disabled={!onExpandAll} />
+      </Tooltip>
+
+      <Tooltip title="Collapse All">
+        <Button icon={<CompressOutlined />} onClick={onCollapseAll} disabled={!onCollapseAll} />
       </Tooltip>
 
       <Tooltip title="Color Scheme">

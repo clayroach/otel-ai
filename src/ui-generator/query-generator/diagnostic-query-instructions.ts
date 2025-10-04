@@ -123,18 +123,25 @@ export const DIAGNOSTIC_SQL_PATTERNS = {
 export const CLICKHOUSE_SCHEMA_DEFINITION = `
 Table: traces
 Columns:
-- trace_id (String): Unique trace identifier
-- span_id (String): Unique span identifier  
+- trace_id (String): Unique trace identifier - REQUIRED for drilldown to trace view
+- span_id (String): Unique span identifier - REQUIRED for span identification
 - parent_span_id (String): Parent span ID for trace hierarchy
 - service_name (String): Name of the service
 - operation_name (String): Name of the operation/endpoint
 - start_time (DateTime64): Start timestamp with nanosecond precision
 - end_time (DateTime64): End timestamp with nanosecond precision
 - duration_ns (UInt64): Duration in nanoseconds
+- duration_ms (Float64): Duration in milliseconds (pre-calculated)
 - status_code (String): Status code (OK, ERROR, etc.)
 - status_message (String): Status message details
+- span_kind (String): Span kind (SERVER, CLIENT, INTERNAL, etc.)
+- is_root (UInt8): 1 if root span, 0 otherwise
+- is_error (UInt8): 1 if error, 0 otherwise
+- encoding_type (String): Data encoding format (json, protobuf)
 - span_attributes (Map(String, String)): Span-level attributes
-- resource_attributes (Map(String, String)): Resource attributes`
+- resource_attributes (Map(String, String)): Resource attributes
+
+CRITICAL FOR DRILLDOWN: Non-aggregated queries MUST include trace_id, span_id for UI drilldown capability`
 
 /**
  * Create comprehensive diagnostic query instructions (original version for fallback)
@@ -320,12 +327,22 @@ DIAGNOSTIC PATTERNS:
 
     diagnosticPatterns: `Focus on ${analysisGoal}. Recent data (15 min). Group by service/operation.`,
 
-    schemaDefinition: `traces: trace_id, service_name, operation_name, start_time, duration_ns, status_code`,
+    schemaDefinition: `traces: trace_id, span_id, service_name, operation_name, start_time, duration_ns, status_code
+
+CRITICAL: For non-aggregated queries (trace lists, detailed views), ALWAYS include:
+- trace_id (for drilldown to trace view)
+- span_id (for span identification)
+- parent_span_id (for hierarchy)
+- is_root (to identify root spans)
+- encoding_type (for data format)
+
+For aggregated queries (GROUP BY), this doesn't apply.`,
 
     validationRules: [
       'Filter services',
       '15-minute window',
-      'Group by service/operation',
+      'Include trace_id and span_id for non-aggregated queries',
+      'Group by service/operation for aggregated analysis',
       `Focus: ${analysisGoal}`
     ]
   }

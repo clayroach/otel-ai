@@ -1,15 +1,18 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Card, Spin, Alert, Space, Button, Typography } from 'antd'
 import { ArrowLeftOutlined, ReloadOutlined } from '@ant-design/icons'
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { TraceWaterfall } from './components/TraceWaterfall'
 import { TraceMinimap } from './components/TraceMinimap'
 import { SpanDetailsPanel } from './components/SpanDetailsPanel'
 import { TraceControls } from './components/TraceControls'
+import { SpanTree } from './components/SpanTree'
+import { SpanSearch } from './components/SpanSearch'
 import { useTraceData } from './hooks/useTraceData'
 import { useCriticalPaths } from '../../hooks/useCriticalPaths'
 import { TraceViewConfig, ViewportConfig, SpanTreeNode } from './types'
-import { buildSpanTree } from './utils/trace-builder'
+import { buildSpanTree, searchSpans, expandToSpan } from './utils/trace-builder'
 
 const { Title } = Typography
 
@@ -37,6 +40,11 @@ export const TraceView: React.FC = () => {
   const [viewport, setViewport] = useState<ViewportConfig>(DEFAULT_VIEWPORT)
   const [selectedSpan, setSelectedSpan] = useState<SpanTreeNode | null>(null)
   const [spanTree, setSpanTree] = useState<SpanTreeNode[] | null>(null)
+
+  // Search and collapse state
+  const [collapsedSpans, setCollapsedSpans] = useState<Set<string>>(new Set())
+  const [searchQuery, setSearchQuery] = useState('')
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0)
 
   // Fetch trace data
   const { data: traceData, isLoading, error, refetch } = useTraceData(traceId || '')
@@ -75,6 +83,89 @@ export const TraceView: React.FC = () => {
       }
     }
   }, [traceData])
+
+  // Search logic - find matching spans
+  const searchResults = useMemo(() => {
+    if (!spanTree || !searchQuery) return []
+    return searchSpans(spanTree, searchQuery)
+  }, [spanTree, searchQuery])
+
+  const matchingSpans = useMemo(() => {
+    return searchResults.map((r) => r.spanId)
+  }, [searchResults])
+
+  // Auto-expand to show search results
+  useEffect(() => {
+    if (matchingSpans.length > 0 && spanTree) {
+      const currentMatchSpanId = matchingSpans[currentMatchIndex]
+      if (currentMatchSpanId) {
+        const toExpand = expandToSpan(currentMatchSpanId, spanTree)
+        setCollapsedSpans((prev) => {
+          const newSet = new Set(prev)
+          toExpand.forEach((id) => newSet.delete(id)) // Remove from collapsed set = expand
+          return newSet
+        })
+      }
+    }
+  }, [matchingSpans, currentMatchIndex, spanTree])
+
+  // Event handlers
+  const handleToggleCollapse = useCallback((spanId: string) => {
+    setCollapsedSpans((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(spanId)) {
+        newSet.delete(spanId)
+      } else {
+        newSet.add(spanId)
+      }
+      return newSet
+    })
+  }, [])
+
+  const handleSearchQueryChange = useCallback((query: string) => {
+    setSearchQuery(query)
+    setCurrentMatchIndex(0) // Reset to first match
+  }, [])
+
+  const handleNavigatePrev = useCallback(() => {
+    setCurrentMatchIndex((prev) => {
+      if (prev === 0) return matchingSpans.length - 1
+      return prev - 1
+    })
+  }, [matchingSpans.length])
+
+  const handleNavigateNext = useCallback(() => {
+    setCurrentMatchIndex((prev) => {
+      if (prev === matchingSpans.length - 1) return 0
+      return prev + 1
+    })
+  }, [matchingSpans.length])
+
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('')
+    setCurrentMatchIndex(0)
+  }, [])
+
+  const handleExpandAll = useCallback(() => {
+    setCollapsedSpans(new Set())
+  }, [])
+
+  const handleCollapseAll = useCallback(() => {
+    if (!spanTree) return
+
+    const allSpanIds = new Set<string>()
+    const collectIds = (nodes: SpanTreeNode[]) => {
+      nodes.forEach((node) => {
+        if (node.children.length > 0) {
+          allSpanIds.add(node.spanId)
+        }
+        collectIds(node.children)
+      })
+    }
+    collectIds(spanTree)
+
+    setCollapsedSpans(allSpanIds)
+  }, [spanTree])
 
   const handleSpanClick = (span: SpanTreeNode) => {
     setSelectedSpan(span)
@@ -176,6 +267,8 @@ export const TraceView: React.FC = () => {
             config={config}
             onConfigChange={handleConfigChange}
             onRefresh={() => refetch()}
+            onExpandAll={handleExpandAll}
+            onCollapseAll={handleCollapseAll}
           />
         </Space>
       </Card>
@@ -192,17 +285,80 @@ export const TraceView: React.FC = () => {
           />
         )}
 
-        {/* Waterfall */}
+        {/* Two-Panel Layout: Tree + Waterfall */}
         <div style={{ flex: 1, overflow: 'hidden' }}>
-          <TraceWaterfall
-            spans={spanTree}
-            viewport={viewport}
-            config={config}
-            selectedSpan={selectedSpan}
-            criticalPaths={criticalPathsData?.paths}
-            onSpanClick={handleSpanClick}
-            onViewportChange={handleViewportChange}
-          />
+          <PanelGroup direction="horizontal">
+            {/* Left Panel: Span Tree */}
+            <Panel defaultSize={25} minSize={15} maxSize={40}>
+              <div
+                style={{
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden'
+                }}
+              >
+                {/* Search Component */}
+                <SpanSearch
+                  query={searchQuery}
+                  matchCount={matchingSpans.length}
+                  currentIndex={currentMatchIndex}
+                  onQueryChange={handleSearchQueryChange}
+                  onNavigatePrev={handleNavigatePrev}
+                  onNavigateNext={handleNavigateNext}
+                  onClear={handleClearSearch}
+                />
+
+                {/* Tree Component */}
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <SpanTree
+                    spans={spanTree}
+                    selectedSpan={selectedSpan}
+                    collapsedSpans={collapsedSpans}
+                    searchQuery={searchQuery}
+                    matchingSpans={matchingSpans}
+                    currentMatchIndex={currentMatchIndex}
+                    onSpanClick={handleSpanClick}
+                    onToggleCollapse={handleToggleCollapse}
+                  />
+                </div>
+              </div>
+            </Panel>
+
+            {/* Resize Handle */}
+            <PanelResizeHandle
+              style={{
+                width: '4px',
+                backgroundColor: '#e8e8e8',
+                cursor: 'col-resize',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                const target = e.currentTarget as unknown as HTMLElement
+                target.style.backgroundColor = '#1890ff'
+              }}
+              onMouseLeave={(e) => {
+                const target = e.currentTarget as unknown as HTMLElement
+                target.style.backgroundColor = '#e8e8e8'
+              }}
+            />
+
+            {/* Right Panel: Waterfall */}
+            <Panel minSize={60}>
+              <div style={{ height: '100%', overflow: 'hidden' }}>
+                <TraceWaterfall
+                  spans={spanTree}
+                  viewport={viewport}
+                  config={config}
+                  selectedSpan={selectedSpan}
+                  collapsedSpans={collapsedSpans}
+                  criticalPaths={criticalPathsData?.paths}
+                  onSpanClick={handleSpanClick}
+                  onViewportChange={handleViewportChange}
+                />
+              </div>
+            </Panel>
+          </PanelGroup>
         </div>
       </div>
 

@@ -292,22 +292,25 @@ export class QueryGeneratorService {
             : 'general'
 
     const sql = `-- Fallback diagnostic query for ${path.name}
-SELECT 
+SELECT
+  trace_id,
+  span_id,
   service_name,
-  toStartOfMinute(start_time) as minute,
-  count() as request_count,
-  quantile(0.5)(duration_ns/1000000) as p50_ms,
-  quantile(0.95)(duration_ns/1000000) as p95_ms,
-  quantile(0.99)(duration_ns/1000000) as p99_ms,
-  sum(CASE WHEN status_code != 'OK' THEN 1 ELSE 0 END) as error_count,
-  round(sum(CASE WHEN status_code != 'OK' THEN 1 ELSE 0 END) * 100.0 / count(), 2) as error_rate
+  operation_name,
+  duration_ms,
+  start_time as timestamp,
+  status_code,
+  is_error,
+  span_kind,
+  is_root,
+  encoding_type,
+  parent_span_id
 FROM otel.traces
-WHERE 
+WHERE
   service_name IN (${services})
   AND start_time >= now() - INTERVAL 1 HOUR
-GROUP BY service_name, minute
-ORDER BY minute DESC, service_name
-LIMIT 1000`
+ORDER BY start_time DESC
+LIMIT 100`
 
     return {
       sql,

@@ -7,6 +7,7 @@ import {
   HistoryOutlined,
   InfoCircleOutlined,
   PlayCircleOutlined,
+  ReloadOutlined,
   SaveOutlined,
   TableOutlined
 } from '@ant-design/icons'
@@ -135,11 +136,17 @@ export const TracesView: React.FC = () => {
   const { message } = App.useApp()
   const location = useLocation()
   const locationState = location.state as LocationState | null
-  const { activeQuery, setActiveQuery, queryHistory, addToQueryHistory } = useAppStore()
+  const {
+    activeQuery,
+    setActiveQuery,
+    queryHistory,
+    addToQueryHistory,
+    tracesViewMode,
+    setTracesViewMode
+  } = useAppStore()
   const [query, setQuery] = useState(activeQuery || DEFAULT_QUERY)
   const [isRunning, setIsRunning] = useState(false)
   const [queryMetadata, setQueryMetadata] = useState<LocationState['metadata'] | null>(null)
-  const [viewMode, setViewMode] = useState<'dynamic' | 'table'>('dynamic')
   const [dynamicViewError, setDynamicViewError] = useState<string | null>(null)
   const [dynamicComponent, setDynamicComponent] = useState<{
     component: string
@@ -174,7 +181,7 @@ export const TracesView: React.FC = () => {
 
       // If in dynamic mode and query succeeded, try to generate dynamic UI
       // We pass the SQL query directly to the backend, which will execute it and generate UI
-      if (viewMode === 'dynamic' && result && result.data) {
+      if (tracesViewMode === 'dynamic' && result && result.data) {
         try {
           // The backend expects the actual SQL query to analyze the results
           // Use the proxy to reach the backend
@@ -212,7 +219,7 @@ export const TracesView: React.FC = () => {
     } finally {
       setIsRunning(false)
     }
-  }, [query, setActiveQuery, addToQueryHistory, refetch, viewMode, queryMetadata])
+  }, [query, setActiveQuery, addToQueryHistory, refetch, tracesViewMode, queryMetadata])
 
   const handleFormatQuery = useCallback(() => {
     try {
@@ -238,6 +245,11 @@ export const TracesView: React.FC = () => {
 
   const handleClearQuery = useCallback(() => {
     setQuery('')
+  }, [])
+
+  const handleResetQuery = useCallback(() => {
+    setQuery(DEFAULT_QUERY)
+    setQueryMetadata(null)
   }, [])
 
   const handleCopyQuery = useCallback(() => {
@@ -302,7 +314,7 @@ export const TracesView: React.FC = () => {
 
   // Generate dynamic UI when switching to dynamic mode with existing results
   useEffect(() => {
-    if (viewMode === 'dynamic' && queryResults && !dynamicComponent) {
+    if (tracesViewMode === 'dynamic' && queryResults && !dynamicComponent) {
       // Generate the dynamic UI
       fetch('/api/ui-generator/from-sql', {
         method: 'POST',
@@ -333,7 +345,7 @@ export const TracesView: React.FC = () => {
           setDynamicViewError('Unable to generate visualization. Use table view to see results.')
         })
     }
-  }, [viewMode, queryResults, dynamicComponent, query, queryMetadata])
+  }, [tracesViewMode, queryResults, dynamicComponent, query, queryMetadata])
 
   return (
     <div
@@ -443,6 +455,9 @@ export const TracesView: React.FC = () => {
                   <Tooltip title="Copy Query">
                     <Button size="small" icon={<CopyOutlined />} onClick={handleCopyQuery} />
                   </Tooltip>
+                  <Tooltip title="Reset to Default Query">
+                    <Button size="small" icon={<ReloadOutlined />} onClick={handleResetQuery} />
+                  </Tooltip>
                   <Tooltip title="Clear Query">
                     <Button size="small" icon={<ClearOutlined />} onClick={handleClearQuery} />
                   </Tooltip>
@@ -538,9 +553,9 @@ export const TracesView: React.FC = () => {
                         <TableOutlined /> Table
                       </>
                     }
-                    checked={viewMode === 'dynamic'}
+                    checked={tracesViewMode === 'dynamic'}
                     onChange={(checked) => {
-                      setViewMode(checked ? 'dynamic' : 'table')
+                      setTracesViewMode(checked ? 'dynamic' : 'table')
                       if (!checked) {
                         // Reset error when switching to table view
                         setDynamicViewError(null)
@@ -589,7 +604,7 @@ export const TracesView: React.FC = () => {
               </div>
             ) : queryResults ? (
               // Render based on view mode
-              viewMode === 'dynamic' && dynamicComponent && !dynamicViewError ? (
+              tracesViewMode === 'dynamic' && dynamicComponent && !dynamicViewError ? (
                 // Dynamic view with generated charts
                 <div
                   style={{ padding: '16px', height: '100%', overflow: 'auto' }}
