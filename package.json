@@ -25,7 +25,7 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed --reporter=line",
     "test:e2e:debug": "playwright test --debug",
-    "test:e2e:quick": "playwright test quick-validation.spec.ts --reporter=line --timeout=10000",
+    "test:e2e:quick": "playwright test quick-validation.spec.ts --reporter=line --timeout=30000",
     "lint": "eslint src ui/src",
     "lint:backend": "eslint src",
     "lint:fix": "eslint src ui/src --fix",

@@ -14,7 +14,7 @@ debug:
   # Trace visualization settings
   traces:
     # Enable ASCII trace visualization (requires level: trace)
-    enabled: false
+    enabled: true
 
     # Console output target: server | browser | both
     # - server: Log to server console only (default)

@@ -5,17 +5,15 @@ test.describe('E2E Framework Validation', () => {
   test('should load Service Topology page and basic elements', async ({ page }) => {
     // Navigate to the service topology page
     await page.goto('/servicetopology')
-    await page.waitForLoadState('networkidle')
-    
-    // Wait a moment for the page to fully render
-    await page.waitForTimeout(2000)
-    
+
+    // Wait for main container instead of networkidle (API calls can be slow)
+    await expect(page.getByTestId('service-topology-container')).toBeVisible({ timeout: 15000 })
+
     // Check that essential elements are present using test IDs
-    await expect(page.getByTestId('service-topology-container')).toBeVisible()
     await expect(page.getByTestId('critical-paths-panel')).toBeVisible()
     await expect(page.getByTestId('ai-analysis-panel')).toBeVisible()
     await expect(page.getByTestId('topology-graph-column')).toBeVisible()
-    
+
     console.log('✅ Service Topology UI validated successfully')
   })
 
@@ -39,25 +37,20 @@ test.describe('E2E Framework Validation', () => {
   test('should navigate between pages using proper test IDs', async ({ page }) => {
     // Start at traces
     await page.goto('/traces')
-    await page.waitForLoadState('networkidle')
-    await page.waitForTimeout(1000)
-    
-    // Navigate to service topology using test ID  
+    await expect(page.getByTestId('traces-page-title')).toBeVisible({ timeout: 10000 })
+
+    // Navigate to service topology using test ID
     await page.getByTestId('nav-servicetopology').click()
-    await page.waitForLoadState('networkidle')
-    await page.waitForTimeout(1000)
-    
+
     // Verify we're on service topology page by checking for service topology container
-    await expect(page.getByTestId('service-topology-container')).toBeVisible()
-    
+    await expect(page.getByTestId('service-topology-container')).toBeVisible({ timeout: 15000 })
+
     // Navigate back to traces
     await page.getByTestId('nav-traces').click()
-    await page.waitForLoadState('networkidle')
-    await page.waitForTimeout(1000)
-    
+
     // Verify we're back on traces
-    await expect(page.getByTestId('traces-page-title')).toContainText('Trace Analysis - Unified Processing')
-    
+    await expect(page.getByTestId('traces-page-title')).toContainText('Trace Analysis - Unified Processing', { timeout: 10000 })
+
     console.log('✅ Navigation between pages validated successfully')
   })
 })

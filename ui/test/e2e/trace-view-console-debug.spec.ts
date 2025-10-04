@@ -5,7 +5,7 @@
  * when viewing a trace with debug.traces.console = 'browser' or 'both'
  */
 
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 test.describe('Trace View Console Debug', () => {
   test('should log formatted trace to browser console when viewing trace', async ({ page }) => {
@@ -77,7 +77,7 @@ test.describe('Trace View Console Debug', () => {
     await page.waitForTimeout(2000)
 
     // Take screenshot for debugging
-    await page.screenshot({ path: 'screenshots/trace-view-console-debug.png', fullPage: true })
+    await page.screenshot({ path: 'target/screenshots/trace-view-console-debug.png', fullPage: true })
 
     // Check if debugTrace was logged to console
     console.log(`📝 Total console messages captured: ${consoleLogs.length}`)
